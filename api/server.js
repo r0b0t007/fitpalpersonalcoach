@@ -578,7 +578,9 @@ const routes = {
     const note = String(body.note || '').trim().slice(0, 200);
     if (!name) return json(res, 400, { error: 'name required' });
     if (!normPhone(phone)) return json(res, 400, { error: 'phone required' });
-    db.requests = pruneRequests(db.requests);
+    const kept = pruneRequests(db.requests);
+    let dirty = kept.length !== db.requests.length;
+    db.requests = kept;
     // Same phone asking again reads as ok without a new row — the first request is already in
     // the queue, and telling a caller "this phone already asked" would leak who has.
     if (!hasPendingPhone(db.requests, phone)) {
@@ -588,8 +590,11 @@ const routes = {
         id: crypto.randomBytes(12).toString('base64url'),
         name, phone, note, created: new Date().toISOString(), status: 'pending'
       });
+      dirty = true;
     }
-    saveDb();
+    // Skip the whole-db rewrite when nothing changed — this is the one endpoint anonymous
+    // callers can hit in a loop, and the dedupe path would otherwise hand them free disk I/O.
+    if (dirty) saveDb();
     json(res, 200, { ok: true });
   },
 
