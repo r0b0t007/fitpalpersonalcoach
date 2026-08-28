@@ -1,8 +1,8 @@
 {
   "appId": "ch.duartesantos.opengym",
-  "appName": "openGym",
+  "appName": "FIT'ONE",
   "webDir": "dist",
-  "backgroundColor": "#0c0e12",
+  "backgroundColor": "#000000",
   "android": {
     "allowMixedContent": false
   }

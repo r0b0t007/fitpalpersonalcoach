@@ -1,13 +1,44 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { webauthnOK, passkeyLogin, passkeyRegister, BIO } from '../lib/api.js'
+import { api, webauthnOK, passkeyLogin, passkeyRegister, BIO } from '../lib/api.js'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
 import { useState, useRef, useEffect } from 'react'
-import Icon from '../components/Icon.jsx'
+import { BRAND } from '../lib/brand.js'
+import Logo from '../components/Logo.jsx'
 import { Button } from '../components/ui.jsx'
+
+// No invite code yet? Leave a name and number; the request lands in the admin dashboard, and
+// approval mints the code the gym then sends back by hand — the app never contacts anyone.
+function RequestAccessSheet({ close }) {
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [note, setNote] = useState('')
+  const ref = useRef(null)
+  useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
+  const go = async () => {
+    if (!name.trim()) { useUI.getState().toast(t('Enter a name')); return }
+    if (!phone.trim()) { useUI.getState().toast(t('Enter a phone number')); return }
+    try {
+      await api('/api/access/request', { method: 'POST', body: JSON.stringify({ name: name.trim(), phone: phone.trim(), note: note.trim() }) })
+      close()
+      useUI.getState().toast(t('Request sent — the gym will send you your code.'))
+    } catch (e) { useUI.getState().toast(e.message || t('Could not send the request')) }
+  }
+  return <>
+    <h3>{t('Request access')}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>{t('Leave your name and number — the gym reviews requests and sends you an invite code.')}</div>
+    <input ref={ref} className="input" placeholder={t('Your name')} maxLength={40} value={name} onChange={e => setName(e.target.value)} />
+    <div style={{ height: 10 }} />
+    <input className="input" type="tel" placeholder={t('Phone number')} maxLength={30} value={phone} onChange={e => setPhone(e.target.value)} />
+    <div style={{ height: 10 }} />
+    <input className="input" placeholder={t('Note (optional)')} maxLength={200} value={note} onChange={e => setNote(e.target.value)} />
+    <div style={{ height: 12 }} />
+    <Button variant="primary" onClick={go}>{t('Send request')}</Button>
+  </>
+}
 
 function RegisterSheet({ close }) {
   const { setUser, pushState, pullState, loadConfig } = useStore()
@@ -43,6 +74,11 @@ function RegisterSheet({ close }) {
     </>}
     <div style={{ height: 12 }} />
     <Button variant="primary" onClick={go}>{t('Create passkey')}</Button>
+    {config?.request_access && <>
+      <div style={{ height: 8 }} />
+      <Button variant="ghost" className="dim" onClick={() => { close(); useUI.getState().openSheet(c2 => <RequestAccessSheet close={c2} />) }}>
+        {t('No code yet? Request access')}</Button>
+    </>}
   </>
 }
 
@@ -54,10 +90,7 @@ export default function Login() {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
   }
-  const head = <>
-    <div style={{ fontSize: 54, display: 'flex', justifyContent: 'center', color: 'var(--acc)' }}><Icon name="dumbbell" /></div>
-    <h1 style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-.028em', margin: '10px 0 4px' }}>openGym</h1>
-  </>
+  const head = <h1 style={{ margin: '10px 0 6px' }}><Logo size={40} /></h1>
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
 
   // Demo build: no backend to sign in against — the only way in is the local guest profile.
@@ -85,7 +118,7 @@ export default function Login() {
         <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
         {canGuest && <div style={{ height: 10 }} />}
       </> : <div className="card small muted" style={{ textAlign: 'left' }}>{canGuest
-        ? t("This browser doesn't support passkeys — you can still use openGym locally on this device.")
+        ? t("This browser doesn't support passkeys — you can still use {0} locally on this device.", BRAND)
         // Without passkeys and without the guest entrance there is no way in from this browser,
         // so say that plainly instead of offering a local profile that cannot be created.
         : t("This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.")}</div>}

@@ -3,6 +3,8 @@ import { useStore } from '../store/useStore.js'
 import { effectiveRoutine } from '../lib/history.js'
 import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
+import { MOBILE } from '../lib/mobile.js'
+import { DEMO } from '../lib/demo.js'
 import Icon from './Icon.jsx'
 
 export default function TabBar({ onStart }) {
@@ -37,6 +39,9 @@ export default function TabBar({ onStart }) {
         <span>{S.active ? t('Resume') : t('Start')}</span>
       </button>
       <Tab k="stats" icon="chart" to="/stats" label={t('Stats')} />
+      {/* the timetable lives on the server — the standalone mobile and demo builds have none,
+          so the tab would only ever show an empty state there */}
+      {!MOBILE && !DEMO && <Tab k="sessions" icon="people" to="/sessions" label={t('Sessions')} />}
       <Tab k="library" icon="list" to="/library" label={t('Exercises')} />
     </nav>
   )
