@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
-import { fmtDate, fmtNum, fmtVol, fmtDur } from '../lib/format.js'
+import { fmtDate, fmtNum, fmtVol, fmtDur, todayISO } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
 import { confirmSheet } from '../sheets.jsx'
+import { BRAND } from '../lib/brand.js'
 import Icon from '../components/Icon.jsx'
-import { Button } from '../components/ui.jsx'
+import { Button, Stepper } from '../components/ui.jsx'
 
 // Admin-only operator dashboard (owner passkey + admin flag; guarded again server-side).
 // Deliberately English-only — it isn't part of the translated end-user surface, so it stays
@@ -88,6 +89,127 @@ function InvitesCard({ invites, reload }) {
   </div>
 }
 
+// Membership requests from the sign-in screen (REQUEST_ACCESS). Approval mints an invite code —
+// but the app never contacts the requester, so the card frames the code as a handoff: copy it or
+// text it to the number they left. "joined" = the code was redeemed at registration.
+function RequestsCard({ requests, reload }) {
+  const toast = useUI(s => s.toast)
+  const pending = requests.filter(r => r.status === 'pending')
+  const decided = requests.filter(r => r.status !== 'pending')
+  const decide = (id, approve) => api('/api/admin/requests/decide', { method: 'POST', body: JSON.stringify({ id, approve }) })
+    .then(({ request }) => {
+      if (request.code) navigator.clipboard?.writeText(request.code).catch(() => {})
+      toast(approve ? 'Approved — code ' + request.code + ' copied. Send it to ' + request.name + '.' : 'Request rejected')
+      reload()
+    }).catch(e => toast(e.message))
+  const clearAll = () => confirmSheet({
+    title: 'Clear all pending requests?', message: 'Removes every undecided request in one go — useful after a spam wave. Decided history stays.',
+    confirmText: 'Clear all', danger: true,
+    onConfirm: () => api('/api/admin/requests/clear', { method: 'POST', body: '{}' }).then(reload).catch(e => toast(e.message))
+  })
+  return <div className="card">
+    <div className="row between"><h2 style={{ margin: 0 }}>Access requests</h2>
+      {pending.length > 1 && <Button size="sm" icon="trash" onClick={clearAll}>Clear pending</Button>}</div>
+    <div className="small muted" style={{ margin: '6px 0 10px' }}>{pending.length} pending</div>
+    {pending.map(r => <div key={r.id} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)', gap: 8 }}>
+      <div style={{ minWidth: 0 }}><div className="small" style={{ fontWeight: 600 }}>{r.name}</div>
+        <div className="dim" style={{ fontSize: '.72rem' }}>{r.phone}{r.note ? ' · ' + r.note : ''} · {fmtDate(r.created.slice(0, 10))}</div></div>
+      <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+        <Button variant="primary" size="sm" onClick={() => decide(r.id, true)}>Approve</Button>
+        <Button size="sm" onClick={() => decide(r.id, false)}>Reject</Button>
+      </div>
+    </div>)}
+    {!pending.length && <div className="dim small">No open requests.</div>}
+    {decided.length > 0 && <>
+      <h4 className="sec" style={{ margin: '14px 0 4px' }}>Decided</h4>
+      {decided.map(r => <div key={r.id} className="row between" style={{ padding: '7px 2px', fontSize: '.8rem', gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <span>{r.name}</span> <span className="dim">· {r.phone}</span>
+          {r.status === 'approved' && r.code && !r.redeemed && <div className="row" style={{ gap: 10, marginTop: 2 }}>
+            <span style={{ fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: '.06em' }}
+              onClick={() => { navigator.clipboard?.writeText(r.code).catch(() => {}); toast('Copied ' + r.code) }}>{r.code}</span>
+            <a href={'sms:' + r.phone + '?body=' + encodeURIComponent('Your ' + BRAND + ' invite code: ' + r.code)}>text it to {r.name}</a>
+          </div>}
+        </div>
+        <span className={'tag' + (r.redeemed || r.status === 'approved' ? ' acc' : '')}
+          style={r.status === 'rejected' ? { color: 'var(--red)' } : null}>{r.redeemed ? 'joined' : r.status}</span>
+      </div>)}
+    </>}
+  </div>
+}
+
+/* ---------- group sessions ---------- */
+function SessionSheet({ session, close, reload }) {
+  const toast = useUI(s => s.toast)
+  const [f, setF] = useState(session
+    ? { title: session.title, coach: session.coach || '', date: session.date, time: session.time, minutes: session.minutes, capacity: session.capacity || '', note: session.note || '', id: session.id }
+    : { title: '', coach: '', date: todayISO(), time: '18:00', minutes: 60, capacity: '', note: '' })
+  const [repeat, setRepeat] = useState(1)
+  const set = patch => setF(x => ({ ...x, ...patch }))
+  const save = series => {
+    if (!f.title.trim()) { toast('Enter a title'); return }
+    api('/api/admin/sessions/save', { method: 'POST', body: JSON.stringify({ session: f, repeatWeeks: repeat, series }) })
+      .then(() => { close(); toast('Session saved'); reload() }).catch(e => toast(e.message))
+  }
+  const del = series => confirmSheet({
+    title: series ? 'Delete this and all upcoming in the series?' : 'Delete this session?',
+    message: 'It disappears from the calendar for everyone.', confirmText: 'Delete', danger: true,
+    onConfirm: () => api('/api/admin/sessions/delete', { method: 'POST', body: JSON.stringify({ id: session.id, series }) })
+      .then(() => { close(); toast('Session deleted'); reload() }).catch(e => toast(e.message))
+  })
+  return <>
+    <h3>{session ? 'Edit session' : 'Add session'}</h3>
+    <input className="input" placeholder="Title (e.g. Spinning)" maxLength={60} value={f.title} onChange={e => set({ title: e.target.value })} />
+    <div style={{ height: 10 }} />
+    <input className="input" placeholder="Coach" maxLength={40} value={f.coach} onChange={e => set({ coach: e.target.value })} />
+    <div style={{ height: 10 }} />
+    <div className="row" style={{ gap: 10 }}>
+      <input type="date" className="input" style={{ flex: 1 }} value={f.date} onChange={e => set({ date: e.target.value })} />
+      <input type="time" className="input timef" style={{ flex: 1 }} value={f.time} onChange={e => set({ time: e.target.value })} />
+    </div>
+    <div style={{ height: 10 }} />
+    <div className="row between" style={{ padding: '4px 2px' }}>
+      <span className="small">Duration</span>
+      <Stepper value={f.minutes} step={5} decimal={false} unit="min" onChange={v => set({ minutes: Math.max(5, Math.min(240, v)) })} />
+    </div>
+    <div className="row between" style={{ padding: '4px 2px' }}>
+      <span className="small">Spots (0 = unlimited)</span>
+      <Stepper value={+f.capacity || 0} step={1} decimal={false} onChange={v => set({ capacity: Math.max(0, Math.min(500, v)) })} />
+    </div>
+    {!session && <div className="row between" style={{ padding: '4px 2px' }}>
+      <span className="small">Repeat weekly ×</span>
+      <Stepper value={repeat} step={1} decimal={false} onChange={v => setRepeat(Math.max(1, Math.min(26, v)))} />
+    </div>}
+    <div style={{ height: 10 }} />
+    <input className="input" placeholder="Note (optional)" maxLength={200} value={f.note} onChange={e => set({ note: e.target.value })} />
+    <div style={{ height: 12 }} />
+    <Button variant="primary" onClick={() => save(false)}>{session ? 'Save' : repeat > 1 ? 'Add ' + repeat + ' sessions' : 'Add session'}</Button>
+    {session?.seriesId && <><div style={{ height: 8 }} />
+      <Button onClick={() => save(true)}>Save for this + upcoming in series</Button></>}
+    {session && <><div style={{ height: 8 }} />
+      <Button variant="danger" onClick={() => del(false)}>Delete</Button>
+      {session.seriesId && <><div style={{ height: 8 }} />
+        <Button variant="danger" onClick={() => del(true)}>Delete this + upcoming in series</Button></>}</>}
+  </>
+}
+
+function SessionsCard({ sessions, reload }) {
+  const openSheet = useUI(s => s.openSheet)
+  const edit = s => openSheet(close => <SessionSheet session={s} close={close} reload={reload} />)
+  const upcoming = (sessions || []).filter(s => s.date >= todayISO())
+  return <div className="card">
+    <div className="row between"><h2 style={{ margin: 0 }}>Group sessions</h2>
+      <Button variant="primary" size="sm" icon="plus" onClick={() => edit(null)}>Add session</Button></div>
+    <div className="small muted" style={{ margin: '6px 0 10px' }}>{upcoming.length} upcoming · visible to everyone, guests included</div>
+    {upcoming.slice(0, 30).map(s => <div key={s.id} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }} onClick={() => edit(s)}>
+      <div><div className="small" style={{ fontWeight: 600 }}>{s.title}{s.seriesId && <span className="tag" style={{ marginLeft: 6 }}>weekly</span>}</div>
+        <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.coach ? ' · ' + s.coach : ''}{s.capacity ? ' · ' + s.capacity + ' spots' : ''}</div></div>
+      <Icon name="chevronRight" className="chev" />
+    </div>)}
+    {!upcoming.length && <div className="dim small">Nothing scheduled — add the week's classes.</div>}
+  </div>
+}
+
 export default function Admin() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
@@ -96,11 +218,16 @@ export default function Admin() {
   const [users, setUsers] = useState(null)
   const [invites, setInvites] = useState(null)
   const [inviteOnly, setInviteOnly] = useState(false)
+  const [requests, setRequests] = useState(null)
+  const [reqEnabled, setReqEnabled] = useState(false)
+  const [sessions, setSessions] = useState(null)
 
   const loadUsers = () => api('/api/admin/users').then(d => { setUsers(d.users); setInviteOnly(d.invite_only) }).catch(e => toast(e.message || 'Failed to load'))
   const loadInvites = () => api('/api/admin/invites').then(d => setInvites(d.invites)).catch(() => {})
+  const loadRequests = () => api('/api/admin/requests').then(d => { setRequests(d.requests); setReqEnabled(d.request_access) }).catch(() => {})
+  const loadSessions = () => api('/api/sessions').then(d => setSessions(d.sessions)).catch(() => {})
   // poll every 15s so the "training now" section stays live without a manual refresh
-  useEffect(() => { if (!user?.admin) return; loadUsers(); loadInvites(); const iv = setInterval(loadUsers, 15000); return () => clearInterval(iv) }, [])
+  useEffect(() => { if (!user?.admin) return; loadUsers(); loadInvites(); loadRequests(); loadSessions(); const iv = setInterval(loadUsers, 15000); return () => clearInterval(iv) }, [])
   if (!user?.admin) return null
 
   const openUser = id => openSheet(close => <UserDetail id={id} onChanged={loadUsers} close={close} />)
@@ -113,7 +240,7 @@ export default function Admin() {
       <button className="iconbtn" onClick={() => nav('/settings')} aria-label="Back"><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 8 }}><h1 style={{ margin: 0 }}>Admin</h1>
         <div className="sub">{users ? users.length + ' users · ' + activeCount + ' active this week' : 'Loading…'}</div></div>
-      <button className="iconbtn" onClick={() => { loadUsers(); loadInvites() }} aria-label="refresh">↻</button>
+      <button className="iconbtn" onClick={() => { loadUsers(); loadInvites(); loadRequests(); loadSessions() }} aria-label="refresh">↻</button>
     </div>
 
     <div className="tiles" style={{ marginBottom: 12 }}>
@@ -131,6 +258,12 @@ export default function Admin() {
         <span className="tag acc">{dur(Date.now() - u.live.startedAt)}</span>
       </div>)}
     </div>}
+
+    {/* hidden entirely when REQUEST_ACCESS is off and no old requests linger */}
+    {requests && (reqEnabled || requests.length > 0) &&
+      <RequestsCard requests={requests} reload={() => { loadRequests(); loadInvites() }} />}
+
+    <SessionsCard sessions={sessions} reload={loadSessions} />
 
     <InvitesCard invites={invites} reload={loadInvites} />
 

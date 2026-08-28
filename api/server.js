@@ -9,6 +9,10 @@ import {
   generateAuthenticationOptions, verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import webpush from 'web-push';
+import {
+  normPhone, hasPendingPhone, pruneRequests, decideRequest, REQ_MAX_PENDING,
+  validateSession, expandRepeats, pruneSessions, sessionSort, addDaysISO, SESSION_WINDOW_DAYS
+} from './domain.mjs';
 
 const PORT = +(process.env.PORT || 3000);
 const DATA = process.env.DATA_DIR || '/data';
@@ -24,6 +28,9 @@ const INVITE_ONLY = /^(1|true|yes|on)$/i.test(process.env.INVITE_ONLY || '');
 // out of is still the wrong front door (#42). Default ON, so existing instances are unchanged;
 // the polarity is inverted from INVITE_ONLY because the safe default here is the permissive one.
 const ALLOW_GUEST = !/^(0|false|no|off)$/i.test(process.env.ALLOW_GUEST || '');
+// "Request access": visitors without an invite code can ask for one from the sign-in screen;
+// the admin approves a request into an invite code. Off by default, like the other gates.
+const REQUEST_ACCESS = /^(1|true|yes|on)$/i.test(process.env.REQUEST_ACCESS || '');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
 // internet don't want the same number. Only affects cookies minted from now on — the expiry is
@@ -45,6 +52,8 @@ let db = { users: [], creds: [], subs: [], invites: [] };
 try { db = JSON.parse(fs.readFileSync(dbFile, 'utf8')); } catch {}
 db.subs = db.subs || [];
 db.invites = db.invites || [];
+db.requests = db.requests || [];   // access requests: pending → approved (mints an invite) | rejected
+db.sessions = db.sessions || [];   // group sessions (coached classes) — public read, admin write
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
 function atomicWrite(file, content) {
@@ -256,12 +265,29 @@ function livePresence(uid) {
 }
 setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt > PRESENCE_TTL) presence.delete(k); }, 30000).unref();
 
+/* ---------- invites ---------- */
+// 16 hex chars = 64 bits, up from 8 chars / 32 bits. The app has no rate limiting by design
+// (that's the reverse proxy's job) and /api/register/options tells a caller whether a code is
+// good, so the code itself has to be the thing that isn't worth guessing. Codes already in
+// db.json keep working — validation is an exact string compare, never a length or format check.
+// Caller saves; approval of an access request passes requestId so redemption stays traceable.
+function mintInvite(adminId, note, requestId) {
+  let code;
+  do { code = crypto.randomBytes(8).toString('hex').toUpperCase(); } while (db.invites.some(i => i.code === code));
+  const invite = { code, note: String(note || '').slice(0, 60), createdBy: adminId, created: new Date().toISOString() };
+  if (requestId) invite.requestId = requestId;
+  db.invites.push(invite);
+  return invite;
+}
+
+const isoTodayUTC = () => new Date().toISOString().slice(0, 10);
+
 /* ---------- routes ---------- */
 const routes = {
   'GET /api/health': async (req, res) => json(res, 200, { ok: true, users: db.users.length }),
 
   // Public config the login screen needs before anyone is signed in.
-  'GET /api/config': async (req, res) => json(res, 200, { invite_only: INVITE_ONLY, allow_guest: ALLOW_GUEST }),
+  'GET /api/config': async (req, res) => json(res, 200, { invite_only: INVITE_ONLY, allow_guest: ALLOW_GUEST, request_access: REQUEST_ACCESS }),
 
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
@@ -522,14 +548,7 @@ const routes = {
   'POST /api/admin/invites/new': async (req, res) => {
     const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
-    let code;
-    // 16 hex chars = 64 bits, up from 8 chars / 32 bits. The app has no rate limiting by design
-    // (that's the reverse proxy's job) and /api/register/options tells a caller whether a code is
-    // good, so the code itself has to be the thing that isn't worth guessing. Codes already in
-    // db.json keep working — validation is an exact string compare, never a length or format check.
-    do { code = crypto.randomBytes(8).toString('hex').toUpperCase(); } while (db.invites.some(i => i.code === code));
-    const invite = { code, note: String(body.note || '').slice(0, 60), createdBy: admin.id, created: new Date().toISOString() };
-    db.invites.push(invite);
+    const invite = mintInvite(admin.id, body.note);
     saveDb();
     json(res, 200, { invite });
   },
@@ -541,6 +560,114 @@ const routes = {
     if (!inv) return json(res, 404, { error: 'no such code' });
     if (inv.usedBy) return json(res, 400, { error: 'already used — cannot revoke' });
     db.invites = db.invites.filter(i => i.code !== inv.code);
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
+  /* ---------- access requests (REQUEST_ACCESS) ---------- */
+  // The app's only unauthenticated write. The real guard is per-identity — one pending request
+  // per phone number, so an attacker's spam is capped by the numbers they invent, not by a
+  // global counter that would lock real members out. The global cap is a backstop; pending
+  // requests also expire on their own (pruneRequests). Rate limiting stays at the reverse
+  // proxy, like everywhere else in this file.
+  'POST /api/access/request': async (req, res) => {
+    if (!REQUEST_ACCESS) return json(res, 404, { error: 'not found' });
+    const body = await readBody(req);
+    const name = String(body.name || '').trim().slice(0, 40);
+    const phone = String(body.phone || '').trim().slice(0, 30);
+    const note = String(body.note || '').trim().slice(0, 200);
+    if (!name) return json(res, 400, { error: 'name required' });
+    if (!normPhone(phone)) return json(res, 400, { error: 'phone required' });
+    db.requests = pruneRequests(db.requests);
+    // Same phone asking again reads as ok without a new row — the first request is already in
+    // the queue, and telling a caller "this phone already asked" would leak who has.
+    if (!hasPendingPhone(db.requests, phone)) {
+      if (db.requests.filter(r => r.status === 'pending').length >= REQ_MAX_PENDING)
+        return json(res, 429, { error: 'too many open requests — try again later' });
+      db.requests.push({
+        id: crypto.randomBytes(12).toString('base64url'),
+        name, phone, note, created: new Date().toISOString(), status: 'pending'
+      });
+    }
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
+  'GET /api/admin/requests': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    db.requests = pruneRequests(db.requests);
+    // redeemed = the minted code was actually used to register, via the invite's usedBy.
+    const requests = db.requests.map(r => ({
+      ...r, redeemed: !!(r.code && db.invites.find(i => i.code === r.code)?.usedBy)
+    })).reverse();   // newest first for display
+    json(res, 200, { requests, request_access: REQUEST_ACCESS });
+  },
+
+  'POST /api/admin/requests/decide': async (req, res) => {
+    const admin = requireAdmin(req, res); if (!admin) return;
+    const body = await readBody(req);
+    const r = db.requests.find(x => x.id === body.id);
+    const out = decideRequest(r, !!body.approve, () => mintInvite(admin.id, 'access: ' + r.name, r.id).code);
+    if (out.error) return json(res, r ? 400 : 404, { error: out.error });
+    saveDb();
+    json(res, 200, { request: out.request });
+  },
+
+  // One-tap recovery from a spam wave: drops every pending request, keeps decided history.
+  'POST /api/admin/requests/clear': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    db.requests = db.requests.filter(r => r.status !== 'pending');
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
+  /* ---------- group sessions (coached classes) ---------- */
+  // Public BY DECISION, not omission: the class calendar is the gym's timetable and guests see
+  // it too (this router has no default auth, so every other new route here must guard itself).
+  // Windowed to the recent past — old sessions also age out of db.json on save (pruneSessions).
+  'GET /api/sessions': async (req, res) => {
+    const from = addDaysISO(isoTodayUTC(), -SESSION_WINDOW_DAYS);
+    const sessions = db.sessions.filter(s => s.date >= from).sort(sessionSort);
+    json(res, 200, { sessions });
+  },
+
+  // Create (repeatWeeks spawns dated copies sharing a seriesId) or edit. Editing with
+  // body.series applies everything but the date to this and all later sessions in the series —
+  // without it, fixing a weekly class would mean editing up to 26 copies by hand.
+  'POST /api/admin/sessions/save': async (req, res) => {
+    const admin = requireAdmin(req, res); if (!admin) return;
+    const body = await readBody(req);
+    const v = validateSession(body.session || {});
+    if (v.error) return json(res, 400, { error: v.error });
+    const s = v.session;
+    const existing = s.id && db.sessions.find(x => x.id === s.id);
+    if (existing) {
+      const patch = { title: s.title, coach: s.coach, time: s.time, minutes: s.minutes, note: s.note, updated: Date.now() };
+      if (body.series && existing.seriesId) {
+        for (const x of db.sessions)
+          if (x.seriesId === existing.seriesId && x.date >= existing.date)
+            Object.assign(x, patch, 'capacity' in s ? { capacity: s.capacity } : { capacity: undefined });
+      } else {
+        Object.assign(existing, patch, { date: s.date });
+        if ('capacity' in s) existing.capacity = s.capacity; else delete existing.capacity;
+      }
+    } else {
+      const created = expandRepeats(s, body.repeatWeeks, () => crypto.randomBytes(12).toString('base64url'));
+      for (const x of created) db.sessions.push({ ...x, updated: Date.now(), createdBy: admin.id });
+    }
+    db.sessions = pruneSessions(db.sessions, isoTodayUTC());
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
+  'POST /api/admin/sessions/delete': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const s = db.sessions.find(x => x.id === body.id);
+    if (!s) return json(res, 404, { error: 'no such session' });
+    db.sessions = body.series && s.seriesId
+      ? db.sessions.filter(x => !(x.seriesId === s.seriesId && x.date >= s.date))
+      : db.sessions.filter(x => x.id !== s.id);
     saveDb();
     json(res, 200, { ok: true });
   }
