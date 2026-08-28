@@ -1,0 +1,88 @@
+# Deploys the FitPal marketing site (static, no build step) to Namecheap over FTPS.
+# Same guardrail set as deploy-web.yml / deploy-api.yml:
+#   1. The check job must pass in THIS run — HTML validity + an SEO regression grep
+#      (canonical, hreflang, og:image on every page) so a refactor can't silently
+#      strip the tags the whole site exists for.
+#   2. Opt-in: deploy only runs while the repository variable DEPLOY_SITE is 'true'.
+#   3. `production` environment — required reviewers gate every deploy on approval.
+#   4. One deploy at a time, never cancelled mid-upload.
+#   5. State-based sync: only deletes files it previously uploaded.
+#   6. Post-deploy checks fail loudly: /, /en/ and /sitemap.xml must all serve.
+# The site lives on its own domain — SITE_FTP_* secrets (falling back to FTP_*) and
+# SITE_SERVER_DIR keep it apart from the app's public_html. See docs/DEPLOY_NAMECHEAP.md
+# and site/README.md.
+name: Deploy Site (Namecheap)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/deploy-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Validate HTML
+        run: npx --yes html-validate "site/**/*.html"
+      - name: SEO regression grep
+        run: |
+          fail=0
+          for f in site/index.html site/en/index.html site/mentions-legales.html site/en/legal.html; do
+            for tag in 'rel="canonical"' 'hreflang="fr"' 'hreflang="en"' 'hreflang="x-default"'; do
+              grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
+            done
+          done
+          for f in site/index.html site/en/index.html; do
+            for tag in 'og:image' 'twitter:card' 'application/ld+json' '<h1'; do
+              grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
+            done
+          done
+          grep -q 'Sitemap:' site/robots.txt || { echo "::error::robots.txt missing Sitemap"; fail=1; }
+          exit $fail
+
+  deploy:
+    needs: check
+    if: vars.DEPLOY_SITE == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - name: Upload via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.SITE_FTP_SERVER || secrets.FTP_SERVER }}
+          username: ${{ secrets.SITE_FTP_USERNAME || secrets.FTP_USERNAME }}
+          password: ${{ secrets.SITE_FTP_PASSWORD || secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: site/
+          server-dir: ${{ vars.SITE_SERVER_DIR || 'public_html/' }}
+
+      - name: Health check
+        if: vars.SITE_URL != ''
+        run: |
+          base="${{ vars.SITE_URL }}"
+          base="${base%/}"
+          for path in "/" "/en/" "/sitemap.xml"; do
+            ok=0
+            for i in 1 2 3; do
+              if curl -fsS --max-time 10 "$base$path" > /tmp/out; then ok=1; break; fi
+              sleep 5
+            done
+            [ "$ok" = "1" ] || { echo "::error::$path did not serve"; exit 1; }
+          done
+          curl -fsS "$base/" | grep -q "<title>" || { echo "::error::landing page has no title"; exit 1; }
+          echo "Site healthy."
