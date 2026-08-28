@@ -7,12 +7,14 @@ on:
     paths:
       - 'frontend/**'
       - 'mcp/**'
+      - 'api/**'
       - '.github/workflows/test.yml'
   push:
     branches: [main]
     paths:
       - 'frontend/**'
       - 'mcp/**'
+      - 'api/**'
       - '.github/workflows/test.yml'
   workflow_dispatch:
 
@@ -52,6 +54,27 @@ jobs:
       # Property probe over ~108k comparisons; too slow for the unit suite, cheap here.
       - run: npm run test:fatigue-probe
         working-directory: frontend
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Node 22, matching api/Dockerfile and the Namecheap cPanel app — also the version the
+      # test suite is known-green on (Node 26's experimental localStorage global shadows
+      # happy-dom's in the frontend suite; keep every job on the production version).
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+        working-directory: api
+      # Parse gate for the server itself — the unit suite imports only the pure helpers,
+      # so a syntax error in server.js would otherwise ride a green run to a dead deploy.
+      - run: node --check server.js
+        working-directory: api
+      - run: npm test
+        working-directory: api
 
   mcp:
     runs-on: ubuntu-latest
