@@ -1,27 +1,21 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="openGym" width="720">
+# ⚡ FIT'ONE
+### CLUB FITNESS
+
+**The FIT'ONE member app — plan your training, follow the club's classes, track every set.**
+
+A white-label deployment of **[openGym](https://gitea.com/DuarteSantos/openGym)**, rebranded in
+the club's black & metallic gold, with membership by invite or access request, a public
+group-session timetable, and a test-gated CI/CD pipeline deploying to Namecheap hosting.
 
 <br>
 
-**A self-hosted gym & body-weight tracker you actually own.**
-
-Plan your week, run guided workouts, track every set and your body weight over time —
-on your phone, synced across devices, behind your own passkey login.
-No account on someone else's server, no subscription, no ads. Just `docker compose up`.
-
-<br>
-
-[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-a3e635?style=flat-square)](LICENSE)
-![Self-hosted](https://img.shields.io/badge/self--hosted-%F0%9F%8F%A0-60a5fa?style=flat-square)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-D4AF37?style=flat-square)](LICENSE)
+![Built on openGym](https://img.shields.io/badge/built%20on-openGym-000000?style=flat-square)
 ![PWA](https://img.shields.io/badge/PWA-installable-a78bfa?style=flat-square)
 ![React](https://img.shields.io/badge/React-19-38bdf8?style=flat-square&logo=react&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-compose-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![No tracking](https://img.shields.io/badge/telemetry-none-f472b6?style=flat-square)
-<br>
-![Last commit](https://img.shields.io/gitea/last-commit/DuarteSantos/openGym?gitea_url=https%3A%2F%2Fgitea.com&style=flat-square)
-[![Stars](https://img.shields.io/gitea/stars/DuarteSantos/openGym?gitea_url=https%3A%2F%2Fgitea.com&style=flat-square)](https://gitea.com/DuarteSantos/openGym/stars)
-[![Issues](https://img.shields.io/gitea/issues/open/DuarteSantos/openGym?gitea_url=https%3A%2F%2Fgitea.com&style=flat-square)](https://gitea.com/DuarteSantos/openGym/issues)
 
 </div>
 
@@ -37,15 +31,72 @@ No account on someone else's server, no subscription, no ads. Just `docker compo
 </table>
 </div>
 
-<div align="center">
+## What FIT'ONE adds on top of openGym
 
-### [🌐 opengym.duarte-santos.ch](https://opengym.duarte-santos.ch) · [📦 Source on gitea.com](https://gitea.com/DuarteSantos/openGym)
+- **⚡ Brand** — black `#000000` / metallic gold `#D4AF37` identity: logo, app icons, default
+  accent, PWA manifest and native app names. Brand strings live in one module
+  (`frontend/src/lib/brand.js`), so upstream merges stay a one-file diff.
+- **📋 Access requests** (`REQUEST_ACCESS=1`) — visitors without an invite code can ask to
+  join from the sign-in screen; the admin approves a request into a single-use invite code
+  and texts it back. Per-phone dedupe, auto-expiry, and no unauthenticated surface beyond
+  this one endpoint.
+- **👥 Group sessions** — coached classes on a month calendar, visible to everyone including
+  guests. Admins manage the timetable (weekly repeats, series-wide edit/delete) from the
+  dashboard; members view it under the new **Sessions** tab. View-only by design — booking
+  happens at the desk.
+- **🚀 CI/CD** — every PR runs the frontend, api and mcp test suites; pushes to `main`
+  deploy the api and the static frontend to Namecheap shared hosting behind opt-in switches,
+  a manual-approval environment and post-deploy health checks. See
+  **[docs/DEPLOY_NAMECHEAP.md](docs/DEPLOY_NAMECHEAP.md)**.
 
-Screenshots, docs and the APK download live on the site.<br>
-<sub>The browser demo was hosted on GitHub Pages and is offline while that account is
-suspended — self-host it (below) or sideload the Android app to try it for real.</sub>
+## How a member gets access
 
-</div>
+With the club configuration below (`INVITE_ONLY=1`, `REQUEST_ACCESS=1`):
+
+1. **Open the club's URL** on your phone and add it to the home screen — it installs as a
+   full-screen app. The **Sessions** timetable is visible right away, account or not.
+2. **Tap "Create new profile."** No invite code yet? Tap **"No code yet? Request access"**
+   and leave your name, phone number and an optional note.
+3. **The gym approves the request** in the admin dashboard. Approval mints a single-use
+   invite code, and the admin texts it to the number you left (the app itself never
+   contacts anyone — one tap opens a prefilled SMS).
+4. **Enter your name + the code and confirm with a passkey** — Face ID, fingerprint or
+   device PIN. No password exists anywhere; the code is burned on use and the dashboard
+   shows you as *joined*.
+5. **From then on it's one tap** — "Sign in with passkey." Sessions last 90 days by
+   default, and your plan, workouts and body weight sync to your profile on any device.
+
+**The front-desk shortcut:** admins can also generate an invite code directly from the
+dashboard's *Invite codes* card and hand it over on the spot — same machinery, no request.
+
+> Passkeys are bound to the exact domain (`RP_ID`) over HTTPS. Pick the final domain
+> **before** members register — changing it later invalidates every passkey.
+
+## Club setup
+
+The recommended `.env` for a members-only club (see `.env.example` for the full comments):
+
+```bash
+RP_ID=gym.example.com        # the final domain — decide before anyone registers
+ORIGIN=https://gym.example.com
+RP_NAME=FIT'ONE
+INVITE_ONLY=1                # profiles need an invite code
+REQUEST_ACCESS=1             # …but visitors can request one from the sign-in screen
+ALLOW_GUEST=0                # a profile is the only way in (timetable stays public)
+ADMIN_UIDS=<your-uid>        # register your own passkey first, find the id in data/db.json
+```
+
+Bootstrap order: deploy → register your own profile → copy your user id from
+`data/db.json` into `ADMIN_UIDS` → restart. Settings then shows the **Admin dashboard**,
+where access requests, the class timetable, invite codes and member accounts live.
+Hosting and pipeline specifics: **[docs/DEPLOY_NAMECHEAP.md](docs/DEPLOY_NAMECHEAP.md)**;
+generic self-hosting (Docker, HTTPS, passkeys): **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
+
+---
+
+Everything below is the upstream **openGym** documentation — it all still applies to this
+deployment. FIT'ONE is built on openGym (AGPL v3) and keeps its
+[source attribution](#license).
 
 ## Why
 
@@ -171,6 +222,7 @@ All via `.env` (see `.env.example`):
 | `SESSION_DAYS`| How long a sign-in lasts, in days                    | `90`                    |
 | `ADMIN_UIDS`  | User ids that get the admin dashboard (comma-separated) | *(none)*             |
 | `INVITE_ONLY` | Require an invite code to create a profile           | *(off)*                 |
+| `REQUEST_ACCESS` | Let visitors without a code request one from the sign-in screen (FIT'ONE) | *(off)* |
 | `ALLOW_GUEST` | Offer "Continue without account" — set `0` to require a profile | *(on)*       |
 | `VAPID_SUBJECT` | Contact URL sent with push notifications           | your `ORIGIN`           |
 
