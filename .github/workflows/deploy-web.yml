@@ -1,0 +1,92 @@
+# Deploys the frontend to Namecheap shared hosting (static files into public_html) over
+# FTPS. Companion to deploy-api.yml — same guardrail set; see docs/DEPLOY_NAMECHEAP.md.
+#
+#   1. The frontend test job (locale checks + vitest) must pass in THIS run.
+#   2. Opt-in: the deploy job only runs while the repository variable DEPLOY_WEB is 'true'.
+#   3. `production` environment — required reviewers there gate every deploy on approval.
+#   4. One deploy at a time, never cancelled mid-upload.
+#   5. The sync is state-based: it only ever deletes files it previously uploaded, so
+#      anything else already living in public_html is left alone.
+#   6. Post-deploy check fetches the site and fails loudly if it doesn't serve the app.
+#
+# Media: shared hosting has no local exercise dataset (the Docker web container downloads
+# ~140 MB at first start), so the build points images/GIFs at the pinned jsDelivr mirror —
+# the same mechanism as the mobile and demo builds. Override via WEB_IMG_BASE/WEB_GIF_BASE
+# repository variables if you ever host the dataset yourself.
+name: Deploy Web (Namecheap)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+
+  deploy:
+    needs: test
+    if: vars.DEPLOY_WEB == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build (media from CDN)
+        working-directory: frontend
+        env:
+          VITE_IMG_BASE: ${{ vars.WEB_IMG_BASE || 'https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd/images/' }}
+          VITE_GIF_BASE: ${{ vars.WEB_GIF_BASE || 'https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd/videos/' }}
+        run: |
+          npm ci
+          npm run build
+
+      # WEB_FTP_* lets the site use its own FTP account scoped to public_html (mirroring the
+      # api account scoped to the app dir); absent that, the shared FTP_* credentials apply.
+      - name: Upload via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.WEB_FTP_SERVER || secrets.FTP_SERVER }}
+          username: ${{ secrets.WEB_FTP_USERNAME || secrets.FTP_USERNAME }}
+          password: ${{ secrets.WEB_FTP_PASSWORD || secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: frontend/dist/
+          server-dir: ${{ vars.WEB_SERVER_DIR || 'public_html/' }}
+
+      - name: Health check
+        if: vars.WEB_URL != ''
+        run: |
+          for i in $(seq 1 6); do
+            if curl -fsS --max-time 10 "${{ vars.WEB_URL }}" | grep -q "<title>FIT"; then
+              echo "Site is serving the app."; exit 0
+            fi
+            echo "not up yet ($i/6)"; sleep 5
+          done
+          echo "::error::Site did not serve the app after deploy"
+          exit 1

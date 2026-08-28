@@ -7,6 +7,9 @@ frontend is a static build served from `public_html`. CI/CD lives in two workflo
   (frontend suite + build + locale checks, api unit tests + parse gate, mcp).
 - `.github/workflows/deploy-api.yml` — deploys the API over FTPS after the tests
   pass in the same run. **Off by default** until you finish the setup below.
+- `.github/workflows/deploy-web.yml` — builds the frontend (media pointed at the
+  pinned jsDelivr dataset mirror) and uploads `dist/` into `public_html` over FTPS,
+  with the same guardrails. **Off by default** (`DEPLOY_WEB` variable).
 
 ## One-time cPanel setup
 
@@ -39,6 +42,11 @@ Repository → Settings:
 | Variables → Actions | `DEPLOY_API` | `true` — the master switch; deploys are skipped until this exists |
 | Variables → Actions | `API_SERVER_DIR` | optional; path inside the FTP account, default `opengym-api/` |
 | Variables → Actions | `API_HEALTH_URL` | e.g. `https://yourdomain.com/api/health` — enables the post-deploy check |
+| Secrets → Actions | `WEB_FTP_SERVER` / `WEB_FTP_USERNAME` / `WEB_FTP_PASSWORD` | optional; a second FTP account scoped to `public_html` — without these the web deploy falls back to the `FTP_*` credentials |
+| Variables → Actions | `DEPLOY_WEB` | `true` — master switch for the frontend deploy |
+| Variables → Actions | `WEB_SERVER_DIR` | optional; default `public_html/`. **Set `./` if the FTP account is already rooted at `public_html`** |
+| Variables → Actions | `WEB_URL` | e.g. `https://yourdomain.com/` — enables the post-deploy check |
+| Variables → Actions | `WEB_IMG_BASE` / `WEB_GIF_BASE` | optional; override the jsDelivr media mirror if you host the exercise dataset yourself |
 
 **Approval gate (recommended):** Settings → Environments → `production` → add yourself
 under *Required reviewers*. Every deploy then pauses until a human clicks approve.
@@ -58,10 +66,15 @@ polls `API_HEALTH_URL` for up to 2 minutes and fails loudly if the API doesn't c
 
 ## Frontend
 
-`cd frontend && npm run build`, then upload `dist/` to `public_html` (cPanel File Manager
-or the same FTP mechanism). The app calls `/api` on its own origin, which is exactly where
-the Node app is mounted. Frontend CI (tests + build) already gates every PR; wiring its
-upload into a workflow is the same recipe as `deploy-api.yml` with `local-dir: frontend/dist/`.
+Automated by `deploy-web.yml`: push to `main` touching `frontend/**` → the frontend suite
+re-runs → (approval, if configured) → the app is built with `VITE_IMG_BASE`/`VITE_GIF_BASE`
+pointing at the pinned jsDelivr dataset mirror (shared hosting has no local media download,
+unlike the Docker web container) → `dist/` is synced into `public_html` → the workflow
+fetches `WEB_URL` and fails if the page doesn't serve the app. The sync is state-based —
+it only deletes files it previously uploaded, so anything else already in `public_html`
+(other sites, `.well-known`, the Node app passthrough) is left alone. The app calls `/api`
+on its own origin, which is exactly where the Node app is mounted; it uses hash routing,
+so no `.htaccess` rewrites are needed.
 
 ## Inherited upstream workflows
 
