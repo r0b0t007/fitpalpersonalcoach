@@ -683,7 +683,12 @@ const routes = {
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  const key = req.method + ' ' + url.pathname;
+  // Behind cPanel/Passenger (Namecheap shared hosting) the app is mounted under the site's
+  // /api path and requests can arrive with the mount prefix already stripped ('/health'
+  // instead of '/api/health'). Accept both shapes; a bare-path request that matches nothing
+  // still falls through to the same 404 it always got.
+  const pathname = url.pathname.startsWith('/api/') ? url.pathname : '/api' + url.pathname;
+  const key = req.method + ' ' + pathname;
   const handler = routes[key];
   if (!handler) return json(res, 404, { error: 'not found' });
   try { await handler(req, res); }
