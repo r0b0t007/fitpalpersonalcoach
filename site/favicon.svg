@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 512 512">
+  <!-- App-icon source == the PWA icon (public/icon-512.png), geometry traced 1:1 so the
+       native app, the home-screen PWA and the website favicon all show the same icon.
+       FIT'ONE: black field, gold lightning bolt (the mark from the club logo).
+       Generate platform icons + splash via `npx @capacitor/assets generate` — docs/MOBILE.md. -->
+  <rect width="512" height="512" fill="#000000"/>
+  <path fill="#D4AF37" d="M291 64 L136 288 L236 288 L221 448 L376 224 L276 224 Z"/>
+</svg>
