@@ -128,7 +128,9 @@ function RequestsCard({ requests, reload }) {
           {r.status === 'approved' && r.code && !r.redeemed && <div className="row" style={{ gap: 10, marginTop: 2 }}>
             <span style={{ fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: '.06em' }}
               onClick={() => { navigator.clipboard?.writeText(r.code).catch(() => {}); toast('Copied ' + r.code) }}>{r.code}</span>
-            <a href={'sms:' + r.phone + '?body=' + encodeURIComponent('Your ' + BRAND + ' invite code: ' + r.code)}>text it to {r.name}</a>
+            {/* phone is requester-supplied text — reduce it to dialable characters so it can't
+                smuggle ?body=… into the URI and rewrite the message the admin taps to send */}
+            <a href={'sms:' + r.phone.replace(/[^\d+]/g, '') + '?body=' + encodeURIComponent('Your ' + BRAND + ' invite code: ' + r.code)}>text it to {r.name}</a>
           </div>}
         </div>
         <span className={'tag' + (r.redeemed || r.status === 'approved' ? ' acc' : '')}

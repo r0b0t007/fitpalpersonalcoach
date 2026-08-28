@@ -647,6 +647,9 @@ const routes = {
         for (const x of db.sessions)
           if (x.seriesId === existing.seriesId && x.date >= existing.date)
             Object.assign(x, patch, 'capacity' in s ? { capacity: s.capacity } : { capacity: undefined });
+        // A date edit applies to this occurrence only — siblings keep their own weeks. Assigned
+        // after the loop so the sibling selection above still keys off the original date.
+        existing.date = s.date;
       } else {
         Object.assign(existing, patch, { date: s.date });
         if ('capacity' in s) existing.capacity = s.capacity; else delete existing.capacity;
