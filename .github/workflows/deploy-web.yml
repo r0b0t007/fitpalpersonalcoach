@@ -1,12 +1,12 @@
-# Deploys the frontend to Namecheap shared hosting (static files into public_html) over
-# FTPS. Companion to deploy-api.yml — same guardrail set; see docs/DEPLOY_NAMECHEAP.md.
+# Deploys the frontend to Namecheap shared hosting (static files into public_html)
+# via rsync over SSH (port 21098). Companion to deploy-api.yml — same guardrail set; see docs/DEPLOY_NAMECHEAP.md.
 #
 #   1. The frontend test job (locale checks + vitest) must pass in THIS run.
 #   2. Opt-in: the deploy job only runs while the repository variable DEPLOY_WEB is 'true'.
 #   3. `production` environment — required reviewers there gate every deploy on approval.
 #   4. One deploy at a time, never cancelled mid-upload.
-#   5. The sync is state-based: it only ever deletes files it previously uploaded, so
-#      anything else already living in public_html is left alone.
+#   5. rsync --delete mirrors the build exactly but excludes server-owned paths
+#      (.htaccess, .well-known/, cgi-bin/) so cPanel and AutoSSL keep working.
 #   6. Post-deploy check fetches the site and fails loudly if it doesn't serve the app.
 #
 # Media: shared hosting has no local exercise dataset (the Docker web container downloads
@@ -67,17 +67,28 @@ jobs:
           npm ci
           npm run build
 
-      # WEB_FTP_* lets the site use its own FTP account scoped to public_html (mirroring the
-      # api account scoped to the app dir); absent that, the shared FTP_* credentials apply.
-      - name: Upload via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.WEB_FTP_SERVER || secrets.FTP_SERVER }}
-          username: ${{ secrets.WEB_FTP_USERNAME || secrets.FTP_USERNAME }}
-          password: ${{ secrets.WEB_FTP_PASSWORD || secrets.FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: frontend/dist/
-          server-dir: ${{ vars.WEB_SERVER_DIR || 'public_html/' }}
+      # rsync over SSH (Namecheap shared: port 21098). --delete syncs public_html to the
+      # build exactly, EXCEPT what the server owns there: cPanel's cgi-bin, AutoSSL's
+      # .well-known challenges, and any .htaccess the hosting manages.
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "${{ vars.SSH_KNOWN_HOSTS }}" ]; then
+            printf '%s\n' "${{ vars.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "${{ vars.SSH_PORT || '21098' }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          fi
+
+      - name: Deploy via rsync over SSH
+        run: |
+          rsync -rlptz --delete \
+            --exclude='.htaccess' --exclude='.well-known/' --exclude='cgi-bin/' \
+            -e "ssh -i ~/.ssh/id_deploy -p ${{ vars.SSH_PORT || '21098' }}" \
+            frontend/dist/ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ vars.WEB_SERVER_DIR || 'public_html/' }}"
 
       - name: Health check
         if: vars.WEB_URL != ''
