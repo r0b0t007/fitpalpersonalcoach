@@ -1,7 +1,7 @@
 // FitPal marketing site — progressive enhancement only: the burger toggle for the
 // mobile nav. Everything else on the site works with JavaScript disabled.
 const SITE_NAME = 'FitPal';                    // keep in sync with the rename procedure (README)
-const SITE_URL = 'https://fitpal.example';
+const SITE_URL = 'https://fitpal.ma';
 
 const burger = document.querySelector('.burger');
 const menu = document.getElementById('menu');

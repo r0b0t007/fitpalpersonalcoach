@@ -1,26 +1,19 @@
-# FitPal marketing site
+# FitPal marketing site — fitpal.ma
 
 Static, no build step: hand-written HTML/CSS + one tiny JS file (mobile nav toggle).
 FR is the primary locale at the root; EN lives under `/en/` with full reciprocal
 hreflang (x-default → FR). Implements the validated Claude Design (black `#000`,
-gold `#D4AF37`, no card icons, two trust cards).
+gold `#D4AF37`, no card icons, two trust cards). Canonical domain: **https://fitpal.ma**
+(baked into canonicals, hreflang, OG/Twitter tags, JSON-LD, sitemap, robots).
 
-## Placeholders — replace before going live
+## Remaining placeholders — complete before going live
 
-Two literals are used consistently everywhere (meta tags, JSON-LD, sitemap, robots,
-site.js). Replace them repo-wide when the real name/domain are decided:
-
-```bash
-# from the repo root (adjust the replacements):
-grep -rl 'fitpal.example' site/ | xargs sed -i 's/fitpal\.example/yourdomain.tld/g'
-grep -rl 'FitPal' site/ | xargs sed -i 's/FitPal/YourName/g'
-```
-
-Also replace the contact placeholders: `contact@fitpal.example` (mailto links,
-JSON-LD, legal pages) and the WhatsApp number `21600000000` (`wa.me` links), and
-complete the *(to be completed)* blocks in both legal pages. The OG images
-(`img/og-*.png`) carry the name in pixels — regenerate them from the SVG sources
-in the session scratchpad (or ask Claude) if the name changes.
+- **WhatsApp number**: `wa.me/212600000000` in both landing pages is a placeholder —
+  replace with the real number (international format, no `+` in `wa.me` links).
+- **Contact mailbox**: create `contact@fitpal.ma` in cPanel (Email Accounts) — the
+  mailto links and JSON-LD already point at it.
+- **Legal pages**: complete the *(to be completed)* blocks (company name, address,
+  registration number) in `mentions-legales.html` and `en/legal.html`.
 
 ## Files
 
@@ -40,11 +33,29 @@ cd site && python -m http.server 8090
 # http://localhost:8090 (FR) · http://localhost:8090/en/ (EN)
 ```
 
-## Deploy
+## Deploy — fitpal.ma on the same Namecheap host as the app backend
 
-`.github/workflows/deploy-site.yml`: on push to main touching `site/**`, an HTML/SEO
-check job runs; the FTPS deploy job is opt-in behind the `DEPLOY_SITE` repository
-variable + `production` environment approval, with `SITE_FTP_*` secrets (falling back
-to `FTP_*`), `SITE_SERVER_DIR`, and a health check against `SITE_URL`. The site is
-expected on its own domain — the app deploy already owns the app domain's
-`public_html/`.
+The site shares the cPanel account with the app. One-time cPanel setup:
+
+1. **Add the domain**: cPanel → *Domains* → create `fitpal.ma` as an addon domain.
+   Set its document root to a dedicated folder (e.g. `fitpal.ma/` under home —
+   NOT the account's `public_html/`, which belongs to the app). Note the exact path.
+2. **SSL**: AutoSSL usually covers the new domain automatically; verify
+   `https://fitpal.ma` serves before flipping the deploy switch.
+3. **FTP**: either create a dedicated FTP account rooted at the site's document
+   root (fill the `SITE_FTP_*` secrets), or reuse the shared `FTP_*` account and
+   point `SITE_SERVER_DIR` at the document-root path as seen from that account.
+
+GitHub repo settings:
+
+| Where | Name | Value |
+|---|---|---|
+| Variables | `SITE_URL` | `https://fitpal.ma` |
+| Variables | `SITE_SERVER_DIR` | the addon domain's document root, e.g. `fitpal.ma/` |
+| Secrets (optional) | `SITE_FTP_SERVER` / `SITE_FTP_USERNAME` / `SITE_FTP_PASSWORD` | dedicated FTP account; falls back to `FTP_*` |
+| Variables | `DEPLOY_SITE` | `true` — the master switch, set last |
+
+`.github/workflows/deploy-site.yml` then deploys on every push to main touching
+`site/**`: HTML/SEO check job → `production`-environment approval → FTPS sync →
+health check on `/`, `/en/` and `/sitemap.xml`. After first deploy, submit
+`https://fitpal.ma/sitemap.xml` in Google Search Console + Bing Webmaster Tools.
