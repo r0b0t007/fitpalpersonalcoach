@@ -2,27 +2,27 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://fitpal.example/</loc>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.example/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.example/en/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.example/"/>
+    <loc>https://fitpal.ma/</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.ma/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/"/>
   </url>
   <url>
-    <loc>https://fitpal.example/en/</loc>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.example/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.example/en/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.example/"/>
+    <loc>https://fitpal.ma/en/</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.ma/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/"/>
   </url>
   <url>
-    <loc>https://fitpal.example/mentions-legales.html</loc>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.example/mentions-legales.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.example/en/legal.html"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.example/mentions-legales.html"/>
+    <loc>https://fitpal.ma/mentions-legales.html</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/mentions-legales.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.ma/en/legal.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/mentions-legales.html"/>
   </url>
   <url>
-    <loc>https://fitpal.example/en/legal.html</loc>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.example/mentions-legales.html"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.example/en/legal.html"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.example/mentions-legales.html"/>
+    <loc>https://fitpal.ma/en/legal.html</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/mentions-legales.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.ma/en/legal.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/mentions-legales.html"/>
   </url>
 </urlset>

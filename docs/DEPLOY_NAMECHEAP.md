@@ -10,6 +10,10 @@ frontend is a static build served from `public_html`. CI/CD lives in two workflo
 - `.github/workflows/deploy-web.yml` — builds the frontend (media pointed at the
   pinned jsDelivr dataset mirror) and uploads `dist/` into `public_html` over FTPS,
   with the same guardrails. **Off by default** (`DEPLOY_WEB` variable).
+- `.github/workflows/deploy-site.yml` — the **fitpal.ma marketing site** (`site/`),
+  hosted on the same cPanel account as an addon domain. HTML/SEO check job on every
+  PR and push; FTPS deploy **off by default** (`DEPLOY_SITE` variable). Site-specific
+  setup lives in [site/README.md](../site/README.md).
 
 ## One-time cPanel setup
 
@@ -47,6 +51,10 @@ Repository → Settings:
 | Variables → Actions | `WEB_SERVER_DIR` | optional; default `public_html/`. **Set `./` if the FTP account is already rooted at `public_html`** |
 | Variables → Actions | `WEB_URL` | e.g. `https://yourdomain.com/` — enables the post-deploy check |
 | Variables → Actions | `WEB_IMG_BASE` / `WEB_GIF_BASE` | optional; override the jsDelivr media mirror if you host the exercise dataset yourself |
+| Secrets → Actions | `SITE_FTP_SERVER` / `SITE_FTP_USERNAME` / `SITE_FTP_PASSWORD` | optional; FTP account scoped to the fitpal.ma document root — falls back to `FTP_*` |
+| Variables → Actions | `DEPLOY_SITE` | `true` — master switch for the marketing-site deploy |
+| Variables → Actions | `SITE_SERVER_DIR` | the fitpal.ma addon domain's document root as seen from the FTP account, e.g. `fitpal.ma/` |
+| Variables → Actions | `SITE_URL` | `https://fitpal.ma` — enables the post-deploy check |
 
 **Approval gate (recommended):** Settings → Environments → `production` → add yourself
 under *Required reviewers*. Every deploy then pauses until a human clicks approve.
