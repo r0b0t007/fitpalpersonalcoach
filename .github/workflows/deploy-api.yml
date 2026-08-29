@@ -1,5 +1,5 @@
 # Deploys the API to Namecheap shared hosting (cPanel "Setup Node.js App" / Passenger)
-# over FTPS. See docs/DEPLOY_NAMECHEAP.md for the one-time cPanel and repository setup.
+# via rsync over SSH (port 21098; enable Shell Access on the hosting first). See docs/DEPLOY_NAMECHEAP.md for the one-time cPanel and repository setup.
 #
 # Guardrails, in order:
 #   1. The full api test job must pass in THIS run — a deploy never rides an old green.
@@ -9,9 +9,9 @@
 #      every deploy wait for a manual approval.
 #   4. One deploy at a time, never cancelled mid-upload (a killed sync = a half-deployed
 #      app); a newer push queues behind the running one.
-#   5. The sync never uploads or deletes what the server owns: .env, the data dir,
-#      the session secret and VAPID keys are excluded, and DATA_DIR should live outside
-#      the app root anyway (see docs).
+#   5. rsync --delete mirrors the bundle exactly but excludes what the server owns:
+#      Passenger's .htaccess, .env, data/, secret, vapid.json — and DATA_DIR should
+#      live outside the app root anyway (see docs).
 #   6. Post-deploy health check fails the run loudly if /api/health doesn't come back.
 name: Deploy API (Namecheap)
 
@@ -71,20 +71,30 @@ jobs:
           cp -r node_modules server.js domain.mjs package.json package-lock.json ../deploy/
           date -u +'%Y-%m-%dT%H:%M:%SZ' > ../deploy/tmp/restart.txt
 
-      - name: Upload via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: deploy/
-          server-dir: ${{ vars.API_SERVER_DIR || 'opengym-api/' }}
-          exclude: |
-            **/.env
-            **/data/**
-            **/secret
-            **/vapid.json
+      # rsync over SSH (Namecheap shared: port 21098, enable Shell Access first).
+      # --delete keeps the app root exactly in sync with the bundle, EXCEPT what the
+      # server owns: Passenger's .htaccess (deleting it kills the app), any stray .env,
+      # and data/ if someone ever pointed DATA_DIR inside the app root against advice.
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "${{ vars.SSH_KNOWN_HOSTS }}" ]; then
+            printf '%s\n' "${{ vars.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "${{ vars.SSH_PORT || '21098' }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          fi
+
+      - name: Deploy via rsync over SSH
+        run: |
+          rsync -rlptz --delete \
+            --exclude='.htaccess' --exclude='.env' --exclude='data/' \
+            --exclude='secret' --exclude='vapid.json' \
+            -e "ssh -i ~/.ssh/id_deploy -p ${{ vars.SSH_PORT || '21098' }}" \
+            deploy/ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ vars.API_SERVER_DIR || 'opengym-api/' }}"
 
       - name: Health check
         if: vars.API_HEALTH_URL != ''

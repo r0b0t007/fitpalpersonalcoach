@@ -42,9 +42,9 @@ The site shares the cPanel account with the app. One-time cPanel setup:
    NOT the account's `public_html/`, which belongs to the app). Note the exact path.
 2. **SSL**: AutoSSL usually covers the new domain automatically; verify
    `https://fitpal.ma` serves before flipping the deploy switch.
-3. **FTP**: either create a dedicated FTP account rooted at the site's document
-   root (fill the `SITE_FTP_*` secrets), or reuse the shared `FTP_*` account and
-   point `SITE_SERVER_DIR` at the document-root path as seen from that account.
+3. **SSH**: the deploy uses the shared `SSH_HOST`/`SSH_USER`/`SSH_KEY` secrets
+   (rsync over port 21098 — setup in docs/DEPLOY_NAMECHEAP.md) and syncs into
+   `SITE_SERVER_DIR`, the document-root path relative to home.
 
 GitHub repo settings:
 
@@ -52,10 +52,9 @@ GitHub repo settings:
 |---|---|---|
 | Variables | `SITE_URL` | `https://fitpal.ma` |
 | Variables | `SITE_SERVER_DIR` | the addon domain's document root, e.g. `fitpal.ma/` |
-| Secrets (optional) | `SITE_FTP_SERVER` / `SITE_FTP_USERNAME` / `SITE_FTP_PASSWORD` | dedicated FTP account; falls back to `FTP_*` |
 | Variables | `DEPLOY_SITE` | `true` — the master switch, set last |
 
 `.github/workflows/deploy-site.yml` then deploys on every push to main touching
-`site/**`: HTML/SEO check job → `production`-environment approval → FTPS sync →
+`site/**`: HTML/SEO check job → `production`-environment approval → rsync over SSH →
 health check on `/`, `/en/` and `/sitemap.xml`. After first deploy, submit
 `https://fitpal.ma/sitemap.xml` in Google Search Console + Bing Webmaster Tools.

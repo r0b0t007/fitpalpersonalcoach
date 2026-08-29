@@ -1,4 +1,5 @@
-# Deploys the FitPal marketing site (static, no build step) to Namecheap over FTPS.
+# Deploys the FitPal marketing site (static, no build step) to Namecheap via rsync
+# over SSH (port 21098).
 # Same guardrail set as deploy-web.yml / deploy-api.yml:
 #   1. The check job must pass in THIS run — HTML validity + an SEO regression grep
 #      (canonical, hreflang, og:image on every page) so a refactor can't silently
@@ -6,11 +7,12 @@
 #   2. Opt-in: deploy only runs while the repository variable DEPLOY_SITE is 'true'.
 #   3. `production` environment — required reviewers gate every deploy on approval.
 #   4. One deploy at a time, never cancelled mid-upload.
-#   5. State-based sync: only deletes files it previously uploaded.
+#   5. rsync --delete mirrors site/ exactly, excluding server-owned paths
+#      (.htaccess, .well-known/).
 #   6. Post-deploy checks fail loudly: /, /en/ and /sitemap.xml must all serve.
-# The site lives on its own domain — SITE_FTP_* secrets (falling back to FTP_*) and
-# SITE_SERVER_DIR keep it apart from the app's public_html. See docs/DEPLOY_NAMECHEAP.md
-# and site/README.md.
+# The site lives on the fitpal.ma addon domain — SITE_SERVER_DIR keeps it apart from
+# the app's public_html. Shared SSH_* secrets across all three deploy workflows.
+# See docs/DEPLOY_NAMECHEAP.md and site/README.md.
 name: Deploy Site (Namecheap)
 
 on:
@@ -66,15 +68,28 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v7
-      - name: Upload via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.SITE_FTP_SERVER || secrets.FTP_SERVER }}
-          username: ${{ secrets.SITE_FTP_USERNAME || secrets.FTP_USERNAME }}
-          password: ${{ secrets.SITE_FTP_PASSWORD || secrets.FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: site/
-          server-dir: ${{ vars.SITE_SERVER_DIR || 'public_html/' }}
+      # rsync over SSH (Namecheap shared: port 21098). --delete keeps the fitpal.ma
+      # document root an exact mirror of site/, EXCEPT server-owned files (.htaccess,
+      # AutoSSL's .well-known challenges).
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "${{ vars.SSH_KNOWN_HOSTS }}" ]; then
+            printf '%s\n' "${{ vars.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "${{ vars.SSH_PORT || '21098' }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          fi
+
+      - name: Deploy via rsync over SSH
+        run: |
+          rsync -rlptz --delete \
+            --exclude='.htaccess' --exclude='.well-known/' \
+            -e "ssh -i ~/.ssh/id_deploy -p ${{ vars.SSH_PORT || '21098' }}" \
+            site/ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ vars.SITE_SERVER_DIR || 'fitpal.ma/' }}"
 
       - name: Health check
         if: vars.SITE_URL != ''
