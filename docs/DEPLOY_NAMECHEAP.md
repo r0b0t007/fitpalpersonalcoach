@@ -10,10 +10,9 @@ frontend is a static build served from `public_html`. CI/CD lives in these workf
 - `.github/workflows/deploy-web.yml` — builds the frontend (media pointed at the
   pinned jsDelivr dataset mirror) and syncs `dist/` into `public_html` via rsync over SSH,
   with the same guardrails. **Off by default** (`DEPLOY_WEB` variable).
-- `.github/workflows/deploy-site.yml` — the **fitpal.ma marketing site** (`site/`),
-  hosted on the same cPanel account as an addon domain. HTML/SEO check job on every
-  PR and push; SSH deploy **off by default** (`DEPLOY_SITE` variable). Site-specific
-  setup lives in [site/README.md](../site/README.md).
+- `.github/workflows/deploy-site.yml` — the **fitpal.ma marketing site** (`site/`).
+  No longer on this host: it deploys to **Cloudflare Pages** (project `fitpal`), so
+  nothing in this document applies to it. See [site/README.md](../site/README.md).
 
 ## One-time cPanel setup
 
@@ -61,9 +60,9 @@ Repository → Settings:
 | Variables → Actions | `WEB_SERVER_DIR` | optional; default `public_html/` |
 | Variables → Actions | `WEB_URL` | e.g. `https://yourdomain.com/` — enables the post-deploy check |
 | Variables → Actions | `WEB_IMG_BASE` / `WEB_GIF_BASE` | optional; override the jsDelivr media mirror if you host the exercise dataset yourself |
-| Variables → Actions | `DEPLOY_SITE` | `true` — master switch for the marketing-site deploy |
-| Variables → Actions | `SITE_SERVER_DIR` | the fitpal.ma addon domain's document root relative to home, default `fitpal.ma/` |
-| Variables → Actions | `SITE_URL` | `https://fitpal.ma` — enables the post-deploy check |
+| Variables → Actions | `DEPLOY_SITE` | `true` — master switch for the marketing site (deploys to Cloudflare Pages, not here) |
+| Secrets → Actions | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | marketing-site deploy only — see [site/README.md](../site/README.md) |
+| Variables → Actions | `SITE_URL` | `https://fitpal.ma` — enables the marketing site's post-deploy check |
 
 **Approval gate (recommended):** Settings → Environments → `production` → add yourself
 under *Required reviewers*. Every deploy then pauses until a human clicks approve.

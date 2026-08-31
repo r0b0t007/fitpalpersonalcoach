@@ -33,28 +33,33 @@ cd site && python -m http.server 8090
 # http://localhost:8090 (FR) · http://localhost:8090/en/ (EN)
 ```
 
-## Deploy — fitpal.ma on the same Namecheap host as the app backend
+## Deploy — Cloudflare Pages
 
-The site shares the cPanel account with the app. One-time cPanel setup:
+The site is hosted on **Cloudflare Pages** (project `fitpal`), not on the Namecheap
+box that runs the app. Pages gives a global CDN, free TLS, atomic deploys with
+one-click rollback, and a preview URL per pull request.
 
-1. **Add the domain**: cPanel → *Domains* → create `fitpal.ma` as an addon domain.
-   Set its document root to a dedicated folder (e.g. `fitpal.ma/` under home —
-   NOT the account's `public_html/`, which belongs to the app). Note the exact path.
-2. **SSL**: AutoSSL usually covers the new domain automatically; verify
-   `https://fitpal.ma` serves before flipping the deploy switch.
-3. **SSH**: the deploy uses the shared `SSH_HOST`/`SSH_USER`/`SSH_KEY` secrets
-   (rsync over port 21098 — setup in docs/DEPLOY_NAMECHEAP.md) and syncs into
-   `SITE_SERVER_DIR`, the document-root path relative to home.
+**Note on URLs:** Pages serves `/foo.html` at `/foo` and 308-redirects the `.html`
+form. Canonicals, hreflang and the sitemap therefore use the **extensionless**
+paths (`/mentions-legales`, `/en/legal`); the check job greps for `.html` URLs to
+stop that regressing. `_headers` carries the security and cache-control policy.
 
-GitHub repo settings:
+One-time setup:
 
-| Where | Name | Value |
-|---|---|---|
-| Variables | `SITE_URL` | `https://fitpal.ma` |
-| Variables | `SITE_SERVER_DIR` | the addon domain's document root, e.g. `fitpal.ma/` |
-| Variables | `DEPLOY_SITE` | `true` — the master switch, set last |
+1. **Cloudflare API token** — dashboard → My Profile → API Tokens → Create Token →
+   *Edit Cloudflare Workers* template (or a custom token with **Account →
+   Cloudflare Pages → Edit**). Save it as the `CLOUDFLARE_API_TOKEN` GitHub secret.
+   `CLOUDFLARE_ACCOUNT_ID` is already set.
+2. **Custom domain** — Pages project → Custom domains → add `fitpal.ma`. Cloudflare
+   will ask you to move the domain's nameservers to Cloudflare (full setup, also
+   gives you DNS/CDN for free) or, if the zone stays elsewhere, to add a CNAME to
+   `fitpal.pages.dev`. Since `.ma` registration lives at NindoHost, the CNAME route
+   works without a registrar transfer.
+3. Flip the `DEPLOY_SITE` repository variable to `true`.
 
-`.github/workflows/deploy-site.yml` then deploys on every push to main touching
-`site/**`: HTML/SEO check job → `production`-environment approval → rsync over SSH →
-health check on `/`, `/en/` and `/sitemap.xml`. After first deploy, submit
-`https://fitpal.ma/sitemap.xml` in Google Search Console + Bing Webmaster Tools.
+`.github/workflows/deploy-site.yml` then runs on every push to main touching
+`site/**`: HTML/SEO check job → `production`-environment approval → `wrangler pages
+deploy` → health check on `/`, `/en/` and `/sitemap.xml`. Pull requests get their own
+preview deployment (commented on the PR) without touching production. After the first
+production deploy, submit `https://fitpal.ma/sitemap.xml` in Google Search Console and
+Bing Webmaster Tools.

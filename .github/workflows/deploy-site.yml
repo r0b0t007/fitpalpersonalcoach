@@ -1,19 +1,22 @@
-# Deploys the FitPal marketing site (static, no build step) to Namecheap via rsync
-# over SSH (port 21098).
-# Same guardrail set as deploy-web.yml / deploy-api.yml:
+# Deploys the FitPal marketing site (static, no build step) to Cloudflare Pages.
+# Replaces the previous rsync-over-SSH-to-Namecheap deploy: Pages gives us a global
+# CDN, free TLS, atomic deploys with instant rollback, and per-PR preview URLs.
+#
+# Guardrails, unchanged in spirit from the other pipelines:
 #   1. The check job must pass in THIS run — HTML validity + an SEO regression grep
 #      (canonical, hreflang, og:image on every page) so a refactor can't silently
 #      strip the tags the whole site exists for.
 #   2. Opt-in: deploy only runs while the repository variable DEPLOY_SITE is 'true'.
-#   3. `production` environment — required reviewers gate every deploy on approval.
+#   3. `production` environment — required reviewers gate every production deploy.
 #   4. One deploy at a time, never cancelled mid-upload.
-#   5. rsync --delete mirrors site/ exactly, excluding server-owned paths
-#      (.htaccess, .well-known/).
+#   5. Pages deploys are atomic and versioned — a bad deploy is rolled back in the
+#      dashboard rather than re-uploaded, so there is no partial-state window.
 #   6. Post-deploy checks fail loudly: /, /en/ and /sitemap.xml must all serve.
-# The site lives on the fitpal.ma addon domain — SITE_SERVER_DIR keeps it apart from
-# the app's public_html. Shared SSH_* secrets across all three deploy workflows.
-# See docs/DEPLOY_NAMECHEAP.md and site/README.md.
-name: Deploy Site (Namecheap)
+#
+# PRs get a preview deployment (own URL, not the custom domain) so a change can be
+# eyeballed before merge; only main publishes to production.
+# Secrets: CLOUDFLARE_API_TOKEN (Pages:Edit), CLOUDFLARE_ACCOUNT_ID.
+name: Deploy Site (Cloudflare Pages)
 
 on:
   pull_request:
@@ -29,9 +32,11 @@ on:
 
 permissions:
   contents: read
+  deployments: write
+  pull-requests: write
 
 concurrency:
-  group: deploy-site
+  group: deploy-site-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -58,48 +63,57 @@ jobs:
             done
           done
           grep -q 'Sitemap:' site/robots.txt || { echo "::error::robots.txt missing Sitemap"; fail=1; }
+          # Cloudflare Pages serves /foo.html at /foo — canonicals/sitemap must use the
+          # extensionless form or every legal-page URL resolves through a 308.
+          grep -rq 'fitpal\.ma/[a-z-]*\.html' site/*.html site/en/*.html site/sitemap.xml \
+            && { echo "::error::.html URLs found — Pages redirects those, use extensionless"; fail=1; }
           exit $fail
 
   deploy:
     needs: check
-    # never from a PR — only main pushes and manual dispatch reach the deploy gate
-    if: github.event_name != 'pull_request' && vars.DEPLOY_SITE == 'true'
+    if: vars.DEPLOY_SITE == 'true'
     runs-on: ubuntu-latest
-    environment: production
+    # PR previews deploy without the production gate; only main needs approval.
+    environment: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+    outputs:
+      url: ${{ steps.pages.outputs.deployment-url }}
     steps:
       - uses: actions/checkout@v7
-      # rsync over SSH (Namecheap shared: port 21098). --delete keeps the fitpal.ma
-      # document root an exact mirror of site/, EXCEPT server-owned files (.htaccess,
-      # AutoSSL's .well-known challenges).
-      - name: Set up SSH
-        env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          if [ -n "${{ vars.SSH_KNOWN_HOSTS }}" ]; then
-            printf '%s\n' "${{ vars.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
-          else
-            ssh-keyscan -p "${{ vars.SSH_PORT || '21098' }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
-          fi
 
-      - name: Deploy via rsync over SSH
-        run: |
-          rsync -rlptz --delete \
-            --exclude='.htaccess' --exclude='.well-known/' \
-            -e "ssh -i ~/.ssh/id_deploy -p ${{ vars.SSH_PORT || '21098' }}" \
-            site/ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ vars.SITE_SERVER_DIR || 'fitpal.ma/' }}"
+      - name: Deploy to Cloudflare Pages
+        id: pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy site
+            --project-name=fitpal
+            --branch=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'main' }}
+
+      - name: Comment preview URL on the PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = '${{ steps.pages.outputs.deployment-url }}';
+            if (!url) return;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `📄 Site preview: ${url}`
+            });
 
       - name: Health check
-        if: vars.SITE_URL != ''
+        if: github.event_name != 'pull_request' && vars.SITE_URL != ''
         run: |
           base="${{ vars.SITE_URL }}"
           base="${base%/}"
           for path in "/" "/en/" "/sitemap.xml"; do
             ok=0
             for i in 1 2 3; do
-              if curl -fsS --max-time 10 "$base$path" > /tmp/out; then ok=1; break; fi
+              if curl -fsS --max-time 15 "$base$path" > /tmp/out; then ok=1; break; fi
               sleep 5
             done
             [ "$ok" = "1" ] || { echo "::error::$path did not serve"; exit 1; }
