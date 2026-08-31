@@ -16,16 +16,28 @@ frontend is a static build served from `public_html`. CI/CD lives in these workf
 
 ## One-time cPanel setup
 
+0. **Create the app subdomain** — cPanel → *Domains* → create `app.fitpal.ma` with its
+   own document root (e.g. `app.fitpal.ma/`). The React frontend is deployed there by
+   `deploy-web.yml`. DNS for it already exists in Cloudflare as an A record to the
+   server, **DNS-only (grey cloud)** so cPanel's AutoSSL can validate and passkeys /
+   push reach the origin directly.
+
+   > **Single origin, deliberately.** The frontend calls `/api/...` relative to its own
+   > host, the API has no CORS headers, and the session cookie is `SameSite=Lax`
+   > host-only. Serving the API from a separate `api.` subdomain would break sign-in on
+   > all three counts. Keep both on `app.fitpal.ma`.
+
 1. **Create the Node.js app** — cPanel → *Setup Node.js App* → Create application:
    - Node.js version: **22**
    - Application root: `opengym-api` (this is what the pipeline uploads into)
-   - Application URL: your domain + `/api` (or an `api.` subdomain — the server accepts
-     both the full `/api/...` paths and Passenger-stripped bare paths)
+   - Application URL: **`app.fitpal.ma/api`** — so the API shares the frontend's origin.
+     The server accepts both full `/api/...` paths and Passenger-stripped bare paths.
    - Application startup file: `server.js`
 2. **Environment variables** (same screen — do NOT commit these anywhere):
    - `DATA_DIR=/home/<cpanel-user>/opengym-data` — **required**; must live *outside* the
      application root so deploys can never touch member data. Create the folder once.
-   - `RP_ID=yourdomain.com`, `ORIGIN=https://yourdomain.com`, `RP_NAME=FIT'ONE`
+   - `RP_ID=app.fitpal.ma`, `ORIGIN=https://app.fitpal.ma`, `RP_NAME=FIT'ONE`
+     **Pick these before anyone registers** — passkeys bind permanently to `RP_ID`.
    - `ADMIN_UIDS=<your uid>`, `INVITE_ONLY=1`, `REQUEST_ACCESS=1`, `ALLOW_GUEST=0`
      (or whatever policy the club wants — see `.env.example` for what each does)
    - `PORT` is injected by Passenger; leave it unset.
@@ -55,10 +67,10 @@ Repository → Settings:
 | Variables → Actions | `SSH_KNOWN_HOSTS` | optional but recommended: output of `ssh-keyscan -p 21098 <server>` — pins the host key; without it each run trusts on first use |
 | Variables → Actions | `DEPLOY_API` | `true` — the master switch; deploys are skipped until this exists |
 | Variables → Actions | `API_SERVER_DIR` | optional; path relative to home, default `opengym-api/` |
-| Variables → Actions | `API_HEALTH_URL` | e.g. `https://yourdomain.com/api/health` — enables the post-deploy check |
+| Variables → Actions | `API_HEALTH_URL` | `https://app.fitpal.ma/api/health` — enables the post-deploy check |
 | Variables → Actions | `DEPLOY_WEB` | `true` — master switch for the frontend deploy |
-| Variables → Actions | `WEB_SERVER_DIR` | optional; default `public_html/` |
-| Variables → Actions | `WEB_URL` | e.g. `https://yourdomain.com/` — enables the post-deploy check |
+| Variables → Actions | `WEB_SERVER_DIR` | the `app.fitpal.ma` document root relative to home, e.g. `app.fitpal.ma/` (default `public_html/` is the account's main domain — set this) |
+| Variables → Actions | `WEB_URL` | `https://app.fitpal.ma/` — enables the post-deploy check |
 | Variables → Actions | `WEB_IMG_BASE` / `WEB_GIF_BASE` | optional; override the jsDelivr media mirror if you host the exercise dataset yourself |
 | Variables → Actions | `DEPLOY_SITE` | `true` — master switch for the marketing site (deploys to Cloudflare Pages, not here) |
 | Secrets → Actions | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | marketing-site deploy only — see [site/README.md](../site/README.md) |
