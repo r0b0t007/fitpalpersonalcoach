@@ -5,7 +5,9 @@ import {
   normPhone, hasPendingPhone, pruneRequests, decideRequest,
   addDaysISO, isRealDate, validateSession, expandRepeats, pruneSessions, sessionSort,
   REQ_PENDING_DAYS, REQ_DECIDED_DAYS, MAX_REPEAT_WEEKS,
-  bootstrapMatches, BOOTSTRAP_MIN
+  bootstrapMatches, BOOTSTRAP_MIN,
+  canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
+  pendingAssignmentsFor, ASSIGN_MAX_ROUTINES, ASSIGN_MAX_EX, ASSIGN_PENDING_DAYS
 } from './domain.mjs'
 
 const DAY = 86400000
@@ -163,4 +165,96 @@ test('bootstrap: case and surrounding space are forgiven, since the form upper-c
   assert.equal(bootstrapMatches(SECRET.toLowerCase(), SECRET, 0), true)
   assert.equal(bootstrapMatches('  ' + SECRET + '  ', SECRET, 0), true)
   assert.equal(bootstrapMatches(SECRET, SECRET.toLowerCase(), 0), true)
+})
+
+/* ---------- coaching ---------- */
+
+const COACH = { id: 'coach1' }
+const MINE = { id: 'm1', coachId: 'coach1' }
+const THEIRS = { id: 'm2', coachId: 'coach2' }
+const bundle = (over = {}) => ({
+  opengym_plan: 1, name: 'Block A', week: { 1: 'r1' },
+  routines: [{ id: 'r1', name: 'Push', ex: [{ id: '0025', sets: 4, reps: 8 }] }],
+  customEx: [], ...over
+})
+
+test('canCoachMember: only the coach’s own, active members', () => {
+  assert.equal(canCoachMember(COACH, MINE), true)
+  // The one that matters: another coach's member must never be reachable.
+  assert.equal(canCoachMember(COACH, THEIRS), false)
+  assert.equal(canCoachMember(COACH, { id: 'm3' }), false)          // unassigned
+  assert.equal(canCoachMember(COACH, { ...MINE, disabled: true }), false)
+  assert.equal(canCoachMember(COACH, COACH), false)                 // not yourself
+  assert.equal(canCoachMember(null, MINE), false)
+  assert.equal(canCoachMember(COACH, null), false)
+})
+
+test('canCoachMember: an admin reaches anyone, but still not a disabled member or themselves', () => {
+  assert.equal(canCoachMember(COACH, THEIRS, { isAdmin: true }), true)
+  assert.equal(canCoachMember(COACH, { ...THEIRS, disabled: true }, { isAdmin: true }), false)
+  assert.equal(canCoachMember(COACH, COACH, { isAdmin: true }), false)
+})
+
+test('validateAssignmentBundle accepts a real bundle and strips unknown top-level keys', () => {
+  const { bundle: out, error } = validateAssignmentBundle(bundle({ evil: 'x', workouts: [1, 2, 3] }))
+  assert.equal(error, undefined)
+  assert.deepEqual(Object.keys(out).sort(), ['customEx', 'name', 'opengym_plan', 'routines', 'week'])
+  assert.equal(out.name, 'Block A')
+})
+
+test('validateAssignmentBundle rejects junk, empty and malformed plans', () => {
+  for (const bad of [null, undefined, 'nope', [], {}, { opengym_plan: 1 }]) {
+    assert.ok(validateAssignmentBundle(bad).error, `should reject ${JSON.stringify(bad)}`)
+  }
+  assert.ok(validateAssignmentBundle(bundle({ routines: [] })).error)
+  assert.ok(validateAssignmentBundle(bundle({ routines: [{ id: 'r1' }] })).error)          // no ex array
+  assert.ok(validateAssignmentBundle(bundle({ routines: [{ ex: [] }] })).error)            // no id
+  assert.ok(validateAssignmentBundle(bundle({ routines: [{ id: 'r', ex: [{}] }] })).error) // ex without id
+})
+
+test('validateAssignmentBundle enforces the size caps', () => {
+  const many = Array.from({ length: ASSIGN_MAX_ROUTINES + 1 }, (_, i) => ({ id: 'r' + i, ex: [] }))
+  assert.ok(validateAssignmentBundle(bundle({ routines: many })).error)
+  const fat = [{ id: 'r1', ex: Array.from({ length: ASSIGN_MAX_EX + 1 }, () => ({ id: '0025' })) }]
+  assert.ok(validateAssignmentBundle(bundle({ routines: fat })).error)
+  // A plan that is small in shape but huge in bytes still has to bounce.
+  assert.ok(validateAssignmentBundle(bundle({ name: 'x'.repeat(200_000) })).error)
+})
+
+test('validateAssignmentBundle survives a circular object instead of throwing', () => {
+  const circular = bundle()
+  circular.self = circular
+  assert.ok(validateAssignmentBundle(circular).error)
+})
+
+test('decideAssignment answers once and records when', () => {
+  const a = { status: 'pending' }
+  assert.equal(decideAssignment(a, true, 1000).assignment.status, 'accepted')
+  assert.equal(a.decidedAt, new Date(1000).toISOString())
+  assert.ok(decideAssignment(a, false).error)            // already decided
+  assert.equal(decideAssignment({ status: 'pending' }, false).assignment.status, 'declined')
+  assert.ok(decideAssignment(null, true).error)
+})
+
+test('pendingAssignmentsFor isolates one member’s pending offers', () => {
+  const all = [
+    { memberId: 'm1', status: 'pending' }, { memberId: 'm1', status: 'accepted' },
+    { memberId: 'm2', status: 'pending' }
+  ]
+  assert.equal(pendingAssignmentsFor(all, 'm1').length, 1)
+  assert.equal(pendingAssignmentsFor(all, 'nobody').length, 0)
+  assert.equal(pendingAssignmentsFor(null, 'm1').length, 0)
+})
+
+test('pruneAssignments drops the long-expired and keeps the fresh', () => {
+  const now = Date.parse('2026-09-01T00:00:00Z')
+  const iso = d => new Date(now - d * 86400000).toISOString()
+  const kept = pruneAssignments([
+    { status: 'pending', created: iso(1) },
+    { status: 'pending', created: iso(ASSIGN_PENDING_DAYS + 1) },
+    { status: 'accepted', created: iso(400), decidedAt: iso(2) },
+    { status: 'declined', created: iso(400), decidedAt: iso(999) }
+  ], now)
+  assert.equal(kept.length, 2)
+  assert.equal(pruneAssignments(null, now).length, 0)
 })

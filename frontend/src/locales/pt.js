@@ -599,5 +599,13 @@ export default {
   'No sessions this month': 'Sem aulas este mês',
   'Upcoming': 'Próximas',
   'Loading…': 'A carregar…',
-  'No sessions scheduled yet.': 'Ainda não há aulas agendadas.'
+  'No sessions scheduled yet.': 'Ainda não há aulas agendadas.',
+  'Coach dashboard': 'Painel do treinador',
+  'Your coach': 'O seu treinador',
+  '{0} can see your training and send you programs.': '{0} pode ver os seus treinos e enviar-lhe programas.',
+  '{0} sent you a program': '{0} enviou-lhe um programa',
+  'Tap to review it.': 'Toque para ver.',
+  'Decline': 'Recusar',
+  'That program couldn’t be read.': 'Não foi possível ler esse programa.',
+  'Ask {0} to send it again.': 'Peça a {0} para o enviar novamente.'
 }

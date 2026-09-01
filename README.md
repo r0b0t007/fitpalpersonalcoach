@@ -102,6 +102,27 @@ sign-in form ask for a code. `ADMIN_UIDS` still works and is how you add further
 **Clear it once you're in.** Disarming is re-checked per request against the current user
 count rather than recorded once, so an instance whose data directory is lost or restored
 from an empty backup re-arms while the variable is still set.
+
+### Coaches
+
+A **coach** writes training programs and sends them to the members assigned to them, and can
+see those members' training. They cannot touch invites, access requests or accounts — that is
+the whole point of the role, so a gym can hand a trainer programming duties without handing
+over the instance.
+
+There is no env var: an admin grants the role in the admin dashboard (member → *Coaching* →
+**Make a coach**), then assigns members to that coach on each member's page. Admins are coaches
+implicitly and can reach any member. Revoking the role unassigns their members and cuts their
+access immediately.
+
+A coach builds the program in the ordinary **Plan** screen — there is no separate builder — then
+*Coach dashboard → Send my plan*, picks members, and optionally sets their weekly schedule too.
+Members are **asked before anything changes**: the program shows up as a card on Home with the
+coach's name and note, and accepting adds the routines as **new** ones. Nothing they already had
+is modified, renamed or removed, and declining leaves their plan untouched.
+
+Members are told who their coach is in Settings. Someone reading your training history should
+never be invisible to you.
 Hosting and pipeline specifics: **[docs/DEPLOY_NAMECHEAP.md](docs/DEPLOY_NAMECHEAP.md)**;
 generic self-hosting (Docker, HTTPS, passkeys): **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
 
@@ -144,6 +165,7 @@ as a home-screen app, passkey sign-in, offline support, sync across your phone a
 - 🔔 **Push notifications** — rest-timer alerts even with the app closed, plus an optional reminder on days you have a workout planned but haven't logged one. Opt in per profile; keys are generated on first run, nothing to configure
 - 🔑 **Passkeys, not passwords** — Face ID / Touch ID / fingerprint login; each profile keeps its own data, synced across devices. Sign-ins last 90 days by default (configurable), and “sign out everywhere” in Settings ends every session on every device at once
 - 🛠️ **Admin dashboard** (optional) — for whoever runs the instance: who's training right now, per-user history, disable accounts, and invite-only signup. Off by default, so a fresh instance stays open with no admin
+- 🏋️ **Coaches** (optional) — a trainer who programs for assigned members and sees their training, without any of the admin powers. Programs are offered, not imposed: the member accepts, and their own routines are never changed
 - 🎨 **Designed, not assembled** — light/dark themes and 8 accent colors saved to your profile, over a hand-drawn icon set instead of emoji, so it looks the same on every phone
 - 🌍 **12 languages** — full UI translation (EN, DE, ES, FR, IT, PT, PL, TR, RU, ZH, KO, HI); exercise instructions localized in 10 of them, loaded on demand so the app stays fast
 - 📥 **Bring your history with you** — import from **FitNotes** (Android and iOS), **Strong** and **Hevy**, or body weight straight out of an **Apple Health** export. Exercise names are matched against the library and anything unrecognised becomes one of your own exercises, so nothing in the file is dropped

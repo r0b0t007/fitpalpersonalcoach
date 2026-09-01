@@ -599,5 +599,13 @@ export default {
   'No sessions this month': '本月没有课程',
   'Upcoming': '即将开始',
   'Loading…': '加载中…',
-  'No sessions scheduled yet.': '暂无排课。'
+  'No sessions scheduled yet.': '暂无排课。',
+  'Coach dashboard': '教练面板',
+  'Your coach': '你的教练',
+  '{0} can see your training and send you programs.': '{0} 可以查看你的训练并向你发送计划。',
+  '{0} sent you a program': '{0} 给你发来一份训练计划',
+  'Tap to review it.': '点按查看。',
+  'Decline': '拒绝',
+  'That program couldn’t be read.': '无法读取该训练计划。',
+  'Ask {0} to send it again.': '请让 {0} 重新发送。'
 }

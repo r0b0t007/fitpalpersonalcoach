@@ -677,16 +677,35 @@ function PlanTools({ close }) {
 
 export const planImportSheet = bundle => ui().openSheet(close => <PlanImport bundle={bundle} close={close} />)
 
-function PlanImport({ bundle, close }) {
-  const [schedule, setSchedule] = useState(false)
+// Same sheet serves a plan file from a friend and a program pushed by a coach — the decision is
+// identical ("do you want these routines?"), so the only difference is who it came from and that
+// a coach's offer can be declined rather than merely cancelled.
+export const coachPlanSheet = ({ bundle, from, note, schedule, onAccept, onDecline }) =>
+  ui().openSheet(close => <PlanImport bundle={bundle} from={from} note={note}
+    defaultSchedule={schedule} onAccept={onAccept} onDecline={onDecline} close={close} />)
+
+function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAccept, onDecline }) {
+  // Clamped to what the bundle can actually deliver: the toggle below only renders when there
+  // are scheduled days, so a coach's `schedule: true` on a bundle with none would otherwise sit
+  // on with no way for the member to see it, let alone turn it off.
+  const [schedule, setSchedule] = useState(!!defaultSchedule && bundle.scheduledDays > 0)
   const apply = () => {
+    // Merge first, then tell the server. The member's own data is the source of truth: if the
+    // decide call fails afterwards the offer simply stands again, and because mergePlan adds
+    // routines with fresh ids the worst case is a visible duplicate they can delete. Marking it
+    // accepted first would risk a program that was never actually added.
     update(s => mergePlan(s, bundle, { schedule }))
     close()
     toast(t('Added {0} routines to your plan', bundle.routineCount))
+    onAccept?.()
     nav('/plan')
   }
+  const decline = () => { close(); onDecline?.() }
   return <>
-    <h3>{bundle.name ? t('Import “{0}”', bundle.name) : t('Import this plan')}</h3>
+    <h3>{from
+      ? t('{0} sent you a program', from)
+      : bundle.name ? t('Import “{0}”', bundle.name) : t('Import this plan')}</h3>
+    {note && <div className="small" style={{ marginBottom: 10, lineHeight: 1.4 }}>“{note}”</div>}
     <div className="muted small" style={{ marginBottom: 14 }}>
       {t(bundle.routineCount === 1 ? '{0} routine' : '{0} routines', bundle.routineCount)}
       {' · ' + exCount(bundle.exerciseCount)}
@@ -706,7 +725,9 @@ function PlanImport({ bundle, close }) {
     </div>}
     <Button variant="primary" onClick={apply}>{t('Add to my plan')}</Button>
     <div style={{ height: 8 }} />
-    <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
+    {onDecline
+      ? <Button variant="ghost" className="dim" onClick={decline}>{t('Decline')}</Button>
+      : <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>}
   </>
 }
 

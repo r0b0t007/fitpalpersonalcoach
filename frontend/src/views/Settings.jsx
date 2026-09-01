@@ -88,6 +88,10 @@ export default function Settings() {
       </> : user ? <>
         <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
         {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
+        {user.coach && <Row icon="share" iconTint="var(--indigo)" title={t('Coach dashboard')} accessory="chevron" onClick={() => nav('/coach')} />}
+        {/* Told, not hidden: a coach can read this member's training history, and the person being
+            read should never have to discover that from somewhere else. */}
+        {user.coachName && <Row icon="personCircle" iconTint="var(--grey)" title={t('Your coach')} subtitle={t('{0} can see your training and send you programs.', user.coachName)} />}
         <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
         <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')} subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
       </> : webauthnOK() ? <>
