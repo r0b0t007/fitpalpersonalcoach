@@ -75,9 +75,17 @@ one origin — see step 0. CI/CD lives in these workflows:
    >
    > The code **disarms itself as soon as any user exists** — re-using it afterwards gets
    > the same 403 as any wrong code, so unlike temporarily running `INVITE_ONLY=0` there is
-   > never a window where the public URL accepts anyone who finds it. Clearing it from
-   > cPanel afterwards is tidiness, not security. Values under 16 characters are ignored
-   > with a warning rather than accepted weak.
+   > never a window where the public URL accepts anyone who finds it. Values under 16
+   > characters are ignored with a warning rather than accepted weak.
+   >
+   > **Then clear it.** Disarming is a live condition, re-checked per request against the
+   > current user count — not a one-time event. If `DATA_DIR` is ever lost or restored from
+   > an empty backup, a variable still sitting in cPanel re-arms, and whoever has the code
+   > becomes admin. Deleting it once you're in is what makes that impossible.
+   >
+   > `BOOTSTRAP_CODE` only does anything with `INVITE_ONLY=1` — without it the sign-in form
+   > never asks for a code, so there is nowhere to type it and the account is created as an
+   > ordinary member. The app warns about this combination at startup.
    >
    > From then on the flow in the README applies: members submit an access request, you
    > approve it in the admin dashboard, and that mints their invite. `ADMIN_UIDS` is how

@@ -38,6 +38,11 @@ const REQUEST_ACCESS = /^(1|true|yes|on)$/i.test(process.env.REQUEST_ACCESS || '
 const BOOTSTRAP_CODE = (process.env.BOOTSTRAP_CODE || '').trim();
 if (BOOTSTRAP_CODE && BOOTSTRAP_CODE.length < BOOTSTRAP_MIN)
   console.warn(`[bootstrap] BOOTSTRAP_CODE is under ${BOOTSTRAP_MIN} characters and will be ignored — use a long random string.`);
+// Without INVITE_ONLY the sign-in form never renders the code field, so the operator has nowhere
+// to type this and registers as an ordinary user instead. That failure looks exactly like the
+// feature being broken, so say it out loud rather than letting them find out from the dashboard.
+if (BOOTSTRAP_CODE && !INVITE_ONLY)
+  console.warn('[bootstrap] BOOTSTRAP_CODE is set but INVITE_ONLY is off — the sign-in form will not ask for a code, and the first account will NOT be made an admin. Set INVITE_ONLY=1.');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
 // internet don't want the same number. Only affects cookies minted from now on — the expiry is
@@ -357,7 +362,9 @@ const routes = {
     // uid and set ADMIN_UIDS by hand, and the code is inert from here on.
     if (bootstrap) {
       user.admin = true;
-      console.log(`[bootstrap] first account "${user.name}" (${user.id}) created via BOOTSTRAP_CODE and granted admin — you can unset BOOTSTRAP_CODE now.`);
+      // JSON.stringify, not raw: the name is caller-supplied and may carry newlines, which would
+      // otherwise let a registration forge extra lines in the log.
+      console.log(`[bootstrap] first account ${JSON.stringify(user.name)} (${user.id}) created via BOOTSTRAP_CODE and granted admin — clear BOOTSTRAP_CODE now.`);
     }
     db.users.push(user);
     db.creds.push({

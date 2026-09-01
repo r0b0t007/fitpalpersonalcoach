@@ -94,9 +94,14 @@ accounts live.
 `INVITE_ONLY` on an empty database would otherwise be a lockout with no key: registering
 needs an invite, invites are minted only by an admin, and admins are recognised only by
 `ADMIN_UIDS` — so nobody, including you, could get in. `BOOTSTRAP_CODE` breaks that loop
-without opening the door, and **disarms itself the moment a user exists**, so leaving it
-set afterwards does nothing. Use a long random string (16+ characters; shorter values are
-ignored with a warning). `ADMIN_UIDS` still works and is the way to add further admins.
+without opening the door, and **disarms itself the moment a user exists**. Use a long
+random string — `openssl rand -hex 16`; shorter than 16 characters is ignored with a
+warning. It needs `INVITE_ONLY=1` to be usable at all, since that is what makes the
+sign-in form ask for a code. `ADMIN_UIDS` still works and is how you add further admins.
+
+**Clear it once you're in.** Disarming is re-checked per request against the current user
+count rather than recorded once, so an instance whose data directory is lost or restored
+from an empty backup re-arms while the variable is still set.
 Hosting and pipeline specifics: **[docs/DEPLOY_NAMECHEAP.md](docs/DEPLOY_NAMECHEAP.md)**;
 generic self-hosting (Docker, HTTPS, passkeys): **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
 

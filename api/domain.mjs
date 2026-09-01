@@ -111,9 +111,13 @@ export const sessionSort = (a, b) => (a.date + a.time).localeCompare(b.date + b.
 // minted only by an admin, and admins are recognised only by ADMIN_UIDS — so nobody, the operator
 // included, can ever get in. BOOTSTRAP_CODE breaks the loop without opening the door: it counts as
 // an invite for the very first account, and that account is made an admin. It disarms itself the
-// moment a user exists, so leaving it set afterwards is inert — unlike the alternative of running
-// INVITE_ONLY=0 for a while, which opens the instance to whoever finds it first and stays open
-// until someone remembers to close it.
+// moment a user exists — unlike the alternative of running INVITE_ONLY=0 for a while, which opens
+// the instance to whoever finds it first and stays open until someone remembers to close it.
+//
+// Note this is a live condition, not a one-time event: it is re-evaluated per request against the
+// current user count, so an instance whose data directory is lost or restored from an empty backup
+// re-arms while the variable is still set. Clearing it after bootstrapping is what makes "spent"
+// unconditional.
 export const BOOTSTRAP_MIN = 16
 
 // Matched case-insensitively, because the sign-in form upper-cases whatever is typed into the code

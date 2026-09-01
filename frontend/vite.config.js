@@ -32,5 +32,8 @@ export default defineConfig({
       '/gif': { target: media, changeOrigin: true }
     }
   },
-  build: { chunkSizeWarningLimit: 1500 }
+  build: { chunkSizeWarningLimit: 1500 },
+  // Each suite still picks its own environment via a `@vitest-environment` docblock; this only
+  // adds a guard that repairs a broken localStorage before any of them run. See test/setup.js.
+  test: { setupFiles: ['./test/setup.js'] }
 })
