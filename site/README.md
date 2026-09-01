@@ -50,12 +50,33 @@ One-time setup:
    *Edit Cloudflare Workers* template (or a custom token with **Account →
    Cloudflare Pages → Edit**). Save it as the `CLOUDFLARE_API_TOKEN` GitHub secret.
    `CLOUDFLARE_ACCOUNT_ID` is already set.
-2. **Custom domain** — Pages project → Custom domains → add `fitpal.ma`. Cloudflare
-   will ask you to move the domain's nameservers to Cloudflare (full setup, also
-   gives you DNS/CDN for free) or, if the zone stays elsewhere, to add a CNAME to
-   `fitpal.pages.dev`. Since `.ma` registration lives at NindoHost, the CNAME route
-   works without a registrar transfer.
+2. **Custom domain** — Pages project → *Custom domains* → add the apex. With the zone on
+   Cloudflare nameservers this rewrites the apex to a proxied `CNAME → fitpal.pages.dev`
+   in one click; if the zone lives elsewhere, add that CNAME at the other DNS host.
+   Then send `www` to the apex: zone → *Rules* → *Redirect Rules* → **Redirect from WWW
+   to root** template (301, keep *Preserve query string*), which matches the canonical
+   tags — they are apex-only. Without it `www` inherits the apex CNAME, chains into
+   Pages and serves a 522.
+   **Status:** already done for `fitpal.ma`; redo only when re-pointing to a new domain.
 3. Flip the `DEPLOY_SITE` repository variable to `true`.
+
+> **The zone is on Cloudflare nameservers** (`braden`/`natasha.ns.cloudflare.com`),
+> moved from NindoHost, which is what makes Universal SSL and the apex CNAME possible.
+> Only `fitpal.ma`, `www` and `app` are proxied — the mail and cPanel records
+> (`mail`, `webmail`, `cpanel`, `autodiscover`, `whm`, …) must stay **DNS-only**, since
+> Cloudflare's proxy carries HTTP(S) only and would black-hole IMAP/SMTP and the cPanel
+> ports. The `MX` records and the SPF `TXT` are unproxied by nature and were preserved
+> through the migration.
+>
+> One consequence worth knowing: the SPF record still starts `v=spf1 +a …`, and `+a`
+> now resolves to Cloudflare's Pages IPs rather than the mail server. Delivery still
+> passes on `+mx` and `include:spf.web-hosting.com`, so nothing is broken today. But if
+> mail is ever sent directly from the hosting box (PHP `mail()`, a cron job), add that
+> IP explicitly instead of relying on `+a`:
+>
+> ```
+> v=spf1 +a +mx +ip4:198.54.114.94 +ip4:198.54.116.94 include:spf.web-hosting.com ~all
+> ```
 
 `.github/workflows/deploy-site.yml` then runs on every push to main touching
 `site/**`: HTML/SEO check job → `production`-environment approval → `wrangler pages

@@ -11,7 +11,8 @@ import {
 import webpush from 'web-push';
 import {
   normPhone, hasPendingPhone, pruneRequests, decideRequest, REQ_MAX_PENDING,
-  validateSession, expandRepeats, pruneSessions, sessionSort, addDaysISO, SESSION_WINDOW_DAYS
+  validateSession, expandRepeats, pruneSessions, sessionSort, addDaysISO, SESSION_WINDOW_DAYS,
+  bootstrapMatches, BOOTSTRAP_MIN
 } from './domain.mjs';
 
 const PORT = +(process.env.PORT || 3000);
@@ -31,6 +32,17 @@ const ALLOW_GUEST = !/^(0|false|no|off)$/i.test(process.env.ALLOW_GUEST || '');
 // "Request access": visitors without an invite code can ask for one from the sign-in screen;
 // the admin approves a request into an invite code. Off by default, like the other gates.
 const REQUEST_ACCESS = /^(1|true|yes|on)$/i.test(process.env.REQUEST_ACCESS || '');
+// One-shot code that lets the very first account in and makes it an admin, so INVITE_ONLY on an
+// empty database isn't a lockout with no key (see bootstrapMatches in domain.mjs). Meaningful only
+// alongside INVITE_ONLY=1 — without it there is no deadlock to break.
+const BOOTSTRAP_CODE = (process.env.BOOTSTRAP_CODE || '').trim();
+if (BOOTSTRAP_CODE && BOOTSTRAP_CODE.length < BOOTSTRAP_MIN)
+  console.warn(`[bootstrap] BOOTSTRAP_CODE is under ${BOOTSTRAP_MIN} characters and will be ignored — use a long random string.`);
+// Without INVITE_ONLY the sign-in form never renders the code field, so the operator has nowhere
+// to type this and registers as an ordinary user instead. That failure looks exactly like the
+// feature being broken, so say it out loud rather than letting them find out from the dashboard.
+if (BOOTSTRAP_CODE && !INVITE_ONLY)
+  console.warn('[bootstrap] BOOTSTRAP_CODE is set but INVITE_ONLY is off — the sign-in form will not ask for a code, and the first account will NOT be made an admin. Set INVITE_ONLY=1.');
 // 90 days keeps someone who trains a few times a week permanently signed in without a stolen
 // cookie staying good for a year. Overridable because a family instance and one on the open
 // internet don't want the same number. Only affects cookies minted from now on — the expiry is
@@ -55,6 +67,9 @@ db.invites = db.invites || [];
 db.requests = db.requests || [];   // access requests: pending → approved (mints an invite) | rejected
 db.sessions = db.sessions || [];   // group sessions (coached classes) — public read, admin write
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
+// Re-evaluated per request rather than cached: it must go false the instant the first user lands,
+// including between a registration's options and verify calls.
+const isBootstrapCode = code => bootstrapMatches(code, BOOTSTRAP_CODE, db.users.length);
 function saveDb() { atomicWrite(dbFile, JSON.stringify(db, null, 2)); }
 function atomicWrite(file, content) {
   const tmp = file + '.tmp';
@@ -300,7 +315,7 @@ const routes = {
     const name = String(body.name || '').trim().slice(0, 40);
     if (!name) return json(res, 400, { error: 'name required' });
     const code = String(body.code || '').trim().toUpperCase();
-    if (INVITE_ONLY && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked))
+    if (INVITE_ONLY && !isBootstrapCode(code) && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked))
       return json(res, 403, { error: 'a valid invite code is required' });
     const uid = crypto.randomBytes(12).toString('base64url');
     const options = await generateRegistrationOptions({
@@ -332,13 +347,25 @@ const routes = {
     const { credential } = verification.registrationInfo;
     if (db.creds.find(x => x.id === credential.id)) return json(res, 409, { error: 'credential already registered' });
     // Re-check the invite at the last moment (it may have been used/revoked since options), then burn it.
+    // The bootstrap code is re-checked here too rather than trusted from the challenge: if someone
+    // else finished registering in between, the database is no longer empty and the code is spent.
+    // From here to db.users.push there is no await, so that check can't go stale under concurrency.
+    const bootstrap = isBootstrapCode(c.code);
     let invite = null;
-    if (INVITE_ONLY) {
+    if (INVITE_ONLY && !bootstrap) {
       invite = db.invites.find(i => i.code === c.code && !i.usedBy && !i.revoked);
       if (!invite) return json(res, 403, { error: 'invite code is no longer valid — ask for a new one' });
     }
     const user = { id: c.uid, name: c.name, created: new Date().toISOString() };
     if (invite) { user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created; }
+    // Stored on the row, which isAdmin already honours — so the operator never has to find their
+    // uid and set ADMIN_UIDS by hand, and the code is inert from here on.
+    if (bootstrap) {
+      user.admin = true;
+      // JSON.stringify, not raw: the name is caller-supplied and may carry newlines, which would
+      // otherwise let a registration forge extra lines in the log.
+      console.log(`[bootstrap] first account ${JSON.stringify(user.name)} (${user.id}) created via BOOTSTRAP_CODE and granted admin — clear BOOTSTRAP_CODE now.`);
+    }
     db.users.push(user);
     db.creds.push({
       id: credential.id, userId: user.id,

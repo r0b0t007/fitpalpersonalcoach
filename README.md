@@ -83,12 +83,25 @@ RP_NAME=FIT'ONE
 INVITE_ONLY=1                # profiles need an invite code
 REQUEST_ACCESS=1             # …but visitors can request one from the sign-in screen
 ALLOW_GUEST=0                # a profile is the only way in (timetable stays public)
-ADMIN_UIDS=<your-uid>        # register your own passkey first, find the id in data/db.json
+BOOTSTRAP_CODE=<long-random> # lets the first account in and makes it an admin
 ```
 
-Bootstrap order: deploy → register your own profile → copy your user id from
-`data/db.json` into `ADMIN_UIDS` → restart. Settings then shows the **Admin dashboard**,
-where access requests, the class timetable, invite codes and member accounts live.
+Bootstrap order: deploy → open the app → *Create new profile* → enter `BOOTSTRAP_CODE`
+as the invite code. That account is created as an admin, and Settings then shows the
+**Admin dashboard**, where access requests, the class timetable, invite codes and member
+accounts live.
+
+`INVITE_ONLY` on an empty database would otherwise be a lockout with no key: registering
+needs an invite, invites are minted only by an admin, and admins are recognised only by
+`ADMIN_UIDS` — so nobody, including you, could get in. `BOOTSTRAP_CODE` breaks that loop
+without opening the door, and **disarms itself the moment a user exists**. Use a long
+random string — `openssl rand -hex 16`; shorter than 16 characters is ignored with a
+warning. It needs `INVITE_ONLY=1` to be usable at all, since that is what makes the
+sign-in form ask for a code. `ADMIN_UIDS` still works and is how you add further admins.
+
+**Clear it once you're in.** Disarming is re-checked per request against the current user
+count rather than recorded once, so an instance whose data directory is lost or restored
+from an empty backup re-arms while the variable is still set.
 Hosting and pipeline specifics: **[docs/DEPLOY_NAMECHEAP.md](docs/DEPLOY_NAMECHEAP.md)**;
 generic self-hosting (Docker, HTTPS, passkeys): **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
 
@@ -222,6 +235,7 @@ All via `.env` (see `.env.example`):
 | `SESSION_DAYS`| How long a sign-in lasts, in days                    | `90`                    |
 | `ADMIN_UIDS`  | User ids that get the admin dashboard (comma-separated) | *(none)*             |
 | `INVITE_ONLY` | Require an invite code to create a profile           | *(off)*                 |
+| `BOOTSTRAP_CODE` | One-shot code that lets the **first** account in and makes it an admin; ignored under 16 chars, and inert once any user exists | *(none)* |
 | `REQUEST_ACCESS` | Let visitors without a code request one from the sign-in screen (FIT'ONE) | *(off)* |
 | `ALLOW_GUEST` | Offer "Continue without account" — set `0` to require a profile | *(on)*       |
 | `VAPID_SUBJECT` | Contact URL sent with push notifications           | your `ORIGIN`           |

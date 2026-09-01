@@ -1,5 +1,7 @@
-// Pure domain helpers for access requests and group sessions — kept out of server.js so
-// they can be unit-tested (node --test) without booting the HTTP server or touching disk.
+// Pure domain helpers for access requests, group sessions and first-run bootstrap — kept out of
+// server.js so they can be unit-tested (node --test) without booting the HTTP server or touching
+// disk. The one import is node's own constant-time compare; nothing here reads env or state.
+import { timingSafeEqual } from 'node:crypto'
 
 /* ---------- access requests ---------- */
 export const REQ_PENDING_DAYS = 14   // a request nobody decided on expires by itself
@@ -103,3 +105,30 @@ export const pruneSessions = (sessions, todayIso) =>
   (sessions || []).filter(s => s.date >= addDaysISO(todayIso, -SESSION_KEEP_DAYS))
 
 export const sessionSort = (a, b) => (a.date + a.time).localeCompare(b.date + b.time)
+
+/* ---------- first-run bootstrap ---------- */
+// INVITE_ONLY plus an empty database is a closed loop: registering needs an invite, invites are
+// minted only by an admin, and admins are recognised only by ADMIN_UIDS — so nobody, the operator
+// included, can ever get in. BOOTSTRAP_CODE breaks the loop without opening the door: it counts as
+// an invite for the very first account, and that account is made an admin. It disarms itself the
+// moment a user exists — unlike the alternative of running INVITE_ONLY=0 for a while, which opens
+// the instance to whoever finds it first and stays open until someone remembers to close it.
+//
+// Note this is a live condition, not a one-time event: it is re-evaluated per request against the
+// current user count, so an instance whose data directory is lost or restored from an empty backup
+// re-arms while the variable is still set. Clearing it after bootstrapping is what makes "spent"
+// unconditional.
+export const BOOTSTRAP_MIN = 16
+
+// Matched case-insensitively, because the sign-in form upper-cases whatever is typed into the code
+// field — the length floor is what stops that from costing real entropy. Constant-time compare so
+// the secret can't be recovered a byte at a time; the length check comes first because
+// timingSafeEqual throws on differing lengths (and a length leak is not the secret).
+export function bootstrapMatches(code, secret, userCount) {
+  const want = String(secret || '').trim().toUpperCase()
+  if (want.length < BOOTSTRAP_MIN) return false
+  if (userCount !== 0) return false
+  const got = Buffer.from(String(code || '').trim().toUpperCase())
+  const exp = Buffer.from(want)
+  return got.length === exp.length && timingSafeEqual(got, exp)
+}

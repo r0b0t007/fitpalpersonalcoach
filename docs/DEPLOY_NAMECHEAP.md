@@ -1,15 +1,21 @@
 # Deploying FIT'ONE to Namecheap shared hosting
 
 The API runs as a cPanel **"Setup Node.js App"** application (Phusion Passenger); the
-frontend is a static build served from `public_html`. CI/CD lives in these workflows:
+frontend is a static build served from the `app.fitpal.ma` document root. Both share
+one origin — see step 0. CI/CD lives in these workflows:
+
+> **Not `public_html`.** That is the *main* domain's document root on this cPanel
+> account, which belongs to a different site. `deploy-web.yml` still defaults to it, so
+> `WEB_SERVER_DIR` must be set (see the variables table) — an unset value points an
+> rsync `--delete` at the neighbouring site and mirrors this build over it.
 
 - `.github/workflows/test.yml` — test phase; runs on every PR and push to main
   (frontend suite + build + locale checks, api unit tests + parse gate, mcp).
 - `.github/workflows/deploy-api.yml` — deploys the API via rsync over SSH after the tests
   pass in the same run. **Off by default** until you finish the setup below.
 - `.github/workflows/deploy-web.yml` — builds the frontend (media pointed at the
-  pinned jsDelivr dataset mirror) and syncs `dist/` into `public_html` via rsync over SSH,
-  with the same guardrails. **Off by default** (`DEPLOY_WEB` variable).
+  pinned jsDelivr dataset mirror) and syncs `dist/` into `WEB_SERVER_DIR` via rsync over
+  SSH, with the same guardrails. **Off by default** (`DEPLOY_WEB` variable).
 - `.github/workflows/deploy-site.yml` — the **fitpal.ma marketing site** (`site/`).
   No longer on this host: it deploys to **Cloudflare Pages** (project `fitpal`), so
   nothing in this document applies to it. See [site/README.md](../site/README.md).
@@ -18,9 +24,22 @@ frontend is a static build served from `public_html`. CI/CD lives in these workf
 
 0. **Create the app subdomain** — cPanel → *Domains* → create `app.fitpal.ma` with its
    own document root (e.g. `app.fitpal.ma/`). The React frontend is deployed there by
-   `deploy-web.yml`. DNS for it already exists in Cloudflare as an A record to the
-   server, **DNS-only (grey cloud)** so cPanel's AutoSSL can validate and passkeys /
-   push reach the origin directly.
+   `deploy-web.yml`. DNS for it lives in Cloudflare as an A record to the server,
+   **proxied (orange cloud)** — see the TLS note below.
+
+   > **TLS comes from Cloudflare, not cPanel.** Namecheap shared hosting has no AutoSSL,
+   > and the Standard SSL that ships with the plan covers only `fitpal.ma` and
+   > `www.fitpal.ma` — never `app.`. Instead the record is proxied and Cloudflare's
+   > Universal SSL (`fitpal.ma` + `*.fitpal.ma`) terminates TLS at the edge, with the
+   > zone in **Full** mode so the Cloudflare↔origin hop is encrypted too. This matters
+   > beyond tidiness: **passkeys only work in a secure context**, so without HTTPS the
+   > app shows "this browser doesn't support passkeys" and nobody can sign in.
+   >
+   > To upgrade to **Full (strict)**, generate a CSR in cPanel (*SSL/TLS → Certificate
+   > Signing Requests*), sign it under Cloudflare → SSL/TLS → *Origin Server* → Create
+   > Certificate, install the result on `app.fitpal.ma`, then switch the zone mode.
+   > Optional — Full already encrypts both hops; strict additionally validates the
+   > origin certificate.
 
    > **Single origin, deliberately.** The frontend calls `/api/...` relative to its own
    > host, the API has no CORS headers, and the session cookie is `SameSite=Lax`
@@ -38,9 +57,39 @@ frontend is a static build served from `public_html`. CI/CD lives in these workf
      application root so deploys can never touch member data. Create the folder once.
    - `RP_ID=app.fitpal.ma`, `ORIGIN=https://app.fitpal.ma`, `RP_NAME=FIT'ONE`
      **Pick these before anyone registers** — passkeys bind permanently to `RP_ID`.
-   - `ADMIN_UIDS=<your uid>`, `INVITE_ONLY=1`, `REQUEST_ACCESS=1`, `ALLOW_GUEST=0`
+   - `INVITE_ONLY=1`, `REQUEST_ACCESS=1`, `ALLOW_GUEST=0`
      (or whatever policy the club wants — see `.env.example` for what each does)
+   - `BOOTSTRAP_CODE=<long random string>` — **set this before the first deploy**; see below.
+     `ADMIN_UIDS` is not needed to get started: the bootstrap account is made an admin.
    - `PORT` is injected by Passenger; leave it unset.
+
+   > **Why `BOOTSTRAP_CODE` is not optional here.** `INVITE_ONLY=1` on an empty database is
+   > a closed loop: registering needs an invite, invites are minted only by an admin, and
+   > admins are recognised only by `ADMIN_UIDS` — so nobody, you included, can get in.
+   > Generate one with `openssl rand -hex 16`, paste it into the env vars, and restart.
+   >
+   > Then: open `https://app.fitpal.ma` → *Create new profile* → enter that value in the
+   > **Invite code** field. The account is created as an admin, so there is no uid to look
+   > up and no second restart. Confirm with `GET /api/me`, which should report
+   > `"admin":true`; the app log also prints a `[bootstrap]` line naming the account.
+   >
+   > The code **disarms itself as soon as any user exists** — re-using it afterwards gets
+   > the same 403 as any wrong code, so unlike temporarily running `INVITE_ONLY=0` there is
+   > never a window where the public URL accepts anyone who finds it. Values under 16
+   > characters are ignored with a warning rather than accepted weak.
+   >
+   > **Then clear it.** Disarming is a live condition, re-checked per request against the
+   > current user count — not a one-time event. If `DATA_DIR` is ever lost or restored from
+   > an empty backup, a variable still sitting in cPanel re-arms, and whoever has the code
+   > becomes admin. Deleting it once you're in is what makes that impossible.
+   >
+   > `BOOTSTRAP_CODE` only does anything with `INVITE_ONLY=1` — without it the sign-in form
+   > never asks for a code, so there is nowhere to type it and the account is created as an
+   > ordinary member. The app warns about this combination at startup.
+   >
+   > From then on the flow in the README applies: members submit an access request, you
+   > approve it in the admin dashboard, and that mints their invite. `ADMIN_UIDS` is how
+   > you add *further* admins later.
 3. **Enable SSH and authorize a deploy key** (all three deploy workflows use rsync
    over SSH on port 21098):
    - Namecheap dashboard → Hosting List → *Manage* → enable **Shell Access** (on
@@ -79,8 +128,8 @@ Repository → Settings:
 **Approval gate (recommended):** Settings → Environments → `production` → add yourself
 under *Required reviewers*. Every deploy then pauses until a human clicks approve.
 
-**Branch protection:** on a paid plan, require the `test`, `api` and `mcp` checks on
-`main`. On the free private tier that setting isn't enforceable — the pipeline compensates
+**Branch protection:** on a paid plan, require the `test`, `api`, `mcp` and
+`frontend-next-node` checks on `main`. On the free private tier that setting isn't enforceable — the pipeline compensates
 by re-running the api tests inside the deploy workflow itself, so nothing unreviewed can
 deploy without at least passing tests.
 
@@ -97,10 +146,10 @@ polls `API_HEALTH_URL` for up to 2 minutes and fails loudly if the API doesn't c
 Automated by `deploy-web.yml`: push to `main` touching `frontend/**` → the frontend suite
 re-runs → (approval, if configured) → the app is built with `VITE_IMG_BASE`/`VITE_GIF_BASE`
 pointing at the pinned jsDelivr dataset mirror (shared hosting has no local media download,
-unlike the Docker web container) → `dist/` is synced into `public_html` → the workflow
+unlike the Docker web container) → `dist/` is synced into `WEB_SERVER_DIR` → the workflow
 fetches `WEB_URL` and fails if the page doesn't serve the app. The rsync `--delete`
-mirrors the build exactly but excludes the server-owned paths in `public_html`
-(`.htaccess`, `.well-known/`, `cgi-bin/`), so cPanel and AutoSSL keep working. The app calls `/api`
+mirrors the build exactly but excludes the server-owned paths in the document root
+(`.htaccess`, `.well-known/`, `cgi-bin/`), so cPanel keeps working. The app calls `/api`
 on its own origin, which is exactly where the Node app is mounted; it uses hash routing,
 so no `.htaccess` rewrites are needed.
 
