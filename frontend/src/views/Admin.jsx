@@ -24,10 +24,11 @@ const rel = ts => {
 }
 const dur = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60) + 'm' }
 
-function UserDetail({ id, onChanged, close }) {
+function UserDetail({ id, users, onChanged, close }) {
   const [d, setD] = useState(null)
   const toast = useUI(s => s.toast)
-  useEffect(() => { api('/api/admin/user?id=' + encodeURIComponent(id)).then(setD).catch(e => toast(e.message)) }, [id])
+  const load = () => api('/api/admin/user?id=' + encodeURIComponent(id)).then(setD).catch(e => toast(e.message))
+  useEffect(() => { load() }, [id])
   if (!d) return <div className="muted small">Loading…</div>
   const u = d.user
   const setDisabled = disabled => {
@@ -35,10 +36,22 @@ function UserDetail({ id, onChanged, close }) {
       .then(() => { toast(disabled ? 'User disabled' : 'User enabled'); onChanged(); close() })
       .catch(e => toast(e.message))
   }
+  const setCoach = coach =>
+    api('/api/admin/user/coach', { method: 'POST', body: JSON.stringify({ id: u.id, coach }) })
+      .then(() => { toast(coach ? 'Now a coach' : 'Coach role removed'); load(); onChanged() })
+      .catch(e => toast(e.message))
+  const assignCoach = coachId =>
+    api('/api/admin/user/assign-coach', { method: 'POST', body: JSON.stringify({ id: u.id, coachId }) })
+      .then(() => { toast(coachId ? 'Coach assigned' : 'Coach cleared'); load(); onChanged() })
+      .catch(e => toast(e.message))
+  // Admins are coaches implicitly, so the toggle is about the explicit flag only — otherwise it
+  // would read as "on" for an admin and turning it off would appear to do nothing.
+  const coaches = (users || []).filter(c => c.coach && c.id !== u.id && !c.disabled)
   return <>
     <h3 className="capitalize">{u.name}</h3>
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '8px 0 12px' }}>
       {u.admin && <span className="tag acc">admin</span>}
+      {u.coach && !u.admin && <span className="tag acc">coach</span>}
       {u.disabled && <span className="tag" style={{ color: 'var(--red)' }}>disabled</span>}
       {u.invitedBy && <span className="tag">invite {u.invitedBy}</span>}
       <span className="tag">joined {u.created ? fmtDate(u.created.slice(0, 10)) : '—'}</span>
@@ -53,6 +66,33 @@ function UserDetail({ id, onChanged, close }) {
       onClick={() => u.disabled ? setDisabled(false)
         : confirmSheet({ title: 'Disable ' + u.name + '?', message: 'They are signed out everywhere and can no longer sync or log in until re-enabled.', confirmText: 'Disable', danger: true, onConfirm: () => setDisabled(true) })}>
       {u.disabled ? 'Enable account' : 'Disable account'}</button>}
+    <h4 className="sec">Coaching</h4>
+    {u.admin
+      ? <div className="dim small" style={{ marginBottom: 10 }}>Admins can coach anyone — no assignment needed.</div>
+      : <>
+        <button className={'btn ' + (u.ownCoachFlag ? '' : 'primary')} style={{ marginBottom: 8 }}
+          onClick={() => u.ownCoachFlag
+            ? confirmSheet({
+              title: 'Remove coach role from ' + u.name + '?',
+              message: 'Members assigned to them are unassigned, and they lose access to those members immediately.',
+              confirmText: 'Remove', danger: true, onConfirm: () => setCoach(false)
+            })
+            : setCoach(true)}>
+          {u.ownCoachFlag ? 'Remove coach role' : 'Make a coach'}</button>
+        <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.4 }}>
+          A coach builds programs and sends them to their own members, and can see those members’ training. They cannot manage invites, access requests or accounts.
+        </div>
+      </>}
+    <div className="row between" style={{ marginBottom: 4 }}>
+      <span className="small">Their coach</span>
+      <select className="input" style={{ width: 'auto', minWidth: 140 }} value={u.coachId || ''}
+        onChange={e => assignCoach(e.target.value)}>
+        <option value="">— none —</option>
+        {coaches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+    </div>
+    {!coaches.length && <div className="dim small" style={{ marginBottom: 8 }}>No coaches yet — make someone a coach first.</div>}
+
     <h4 className="sec">Workout history</h4>
     {d.workouts.length ? <div className="list" style={{ gap: 0 }}>
       {d.workouts.slice(0, 60).map(w => <div key={w.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
@@ -232,7 +272,7 @@ export default function Admin() {
   useEffect(() => { if (!user?.admin) return; loadUsers(); loadInvites(); loadRequests(); loadSessions(); const iv = setInterval(loadUsers, 15000); return () => clearInterval(iv) }, [])
   if (!user?.admin) return null
 
-  const openUser = id => openSheet(close => <UserDetail id={id} onChanged={loadUsers} close={close} />)
+  const openUser = id => openSheet(close => <UserDetail id={id} users={users} onChanged={loadUsers} close={close} />)
   const liveUsers = (users || []).filter(u => u.live)
   const activeCount = (users || []).filter(u => u.lastSync && Date.now() - u.lastSync < 7 * 86400000).length
   const disabledCount = (users || []).filter(u => u.disabled).length
@@ -272,7 +312,7 @@ export default function Admin() {
     <h4 className="sec">Users</h4>
     <div className="list">
       {(users || []).map(u => <div key={u.id} className="item" onClick={() => openUser(u.id)} style={u.disabled ? { opacity: .55 } : null}>
-        <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{u.name} {u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>admin</span>}{u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>off</span>}</div>
+        <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{u.name} {u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>admin</span>}{u.coach && !u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>coach</span>}{u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>off</span>}</div>
           <div className="ss">{u.live ? 'training now · ' + u.live.name : u.workouts + ' workouts' + (u.lastWorkout ? ' · last ' + fmtDate(u.lastWorkout) : '') + ' · synced ' + rel(u.lastSync)}</div></div>
         {u.hasPush && <Icon name="bell" title="push enabled" style={{ fontSize: 15, color: 'var(--label-3)' }} />}<Icon name="chevronRight" className="chev" />
       </div>)}

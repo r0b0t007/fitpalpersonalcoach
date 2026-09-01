@@ -5,7 +5,9 @@ import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW, setsDoneActi
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { BRAND } from '../lib/brand.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor } from '../sheets.jsx'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor, coachPlanSheet } from '../sheets.jsx'
+import { parsePlan } from '../lib/plan-share.js'
+import { api } from '../lib/api.js'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
@@ -16,7 +18,25 @@ export default function Home() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
+  const assignments = useStore(s => s.assignments)
+  const loadAssignments = useStore(s => s.loadAssignments)
   const [weekOffset, setWeekOffset] = useState(0)
+
+  // A program a coach sent. Surfaced as a card rather than auto-opening a sheet: arriving to a
+  // modal you didn't ask for is a bad way to be told, and the push notification already got
+  // their attention. parsePlan here is what drops exercises this build doesn't know about.
+  const offer = assignments?.[0]
+  const openOffer = () => {
+    let parsed
+    try { parsed = parsePlan(offer.bundle) } catch { return }
+    const decide = accept => api('/api/assignments/decide', { method: 'POST', body: JSON.stringify({ id: offer.id, accept }) })
+      .catch(() => {})
+      .finally(loadAssignments)
+    coachPlanSheet({
+      bundle: parsed, from: offer.coachName, note: offer.note, schedule: offer.schedule,
+      onAccept: () => decide(true), onDecline: () => decide(false)
+    })
+  }
 
   const today = new Date()
   const routine = effectiveRoutine(S, todayISO())
@@ -51,6 +71,14 @@ export default function Home() {
       <div><h1>{user ? t('Hi {0}', user.name) : BRAND}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
       <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
     </div>
+
+    {offer && <div className="card" style={{ borderColor: 'var(--acc)' }} onClick={openOffer}>
+      <div className="row between">
+        <div><div className="tt">{t('{0} sent you a program', offer.coachName)}</div>
+          <div className="ss dim">{offer.note || t('Tap to review it.')}</div></div>
+        <Icon name="chevronRight" className="chev" />
+      </div>
+    </div>}
 
     <div className="card">
       <div className="row between" style={{ marginBottom: 8 }}>

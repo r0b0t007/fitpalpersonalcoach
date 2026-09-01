@@ -599,5 +599,11 @@ export default {
   'No sessions this month': 'В этом месяце занятий нет',
   'Upcoming': 'Скоро',
   'Loading…': 'Загрузка…',
-  'No sessions scheduled yet.': 'Занятий пока не запланировано.'
+  'No sessions scheduled yet.': 'Занятий пока не запланировано.',
+  'Coach dashboard': 'Кабинет тренера',
+  'Your coach': 'Ваш тренер',
+  '{0} can see your training and send you programs.': '{0} видит ваши тренировки и может присылать вам программы.',
+  '{0} sent you a program': '{0} прислал вам программу',
+  'Tap to review it.': 'Нажмите, чтобы посмотреть.',
+  'Decline': 'Отклонить'
 }

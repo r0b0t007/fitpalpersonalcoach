@@ -90,6 +90,11 @@ one origin — see step 0. CI/CD lives in these workflows:
    > From then on the flow in the README applies: members submit an access request, you
    > approve it in the admin dashboard, and that mints their invite. `ADMIN_UIDS` is how
    > you add *further* admins later.
+   >
+   > **Coaches need no env var.** The role is stored on the user and granted from the admin
+   > dashboard (member → *Coaching* → *Make a coach*), so trainers can be added and removed
+   > without a restart. A coach sees only the members assigned to them and cannot manage
+   > invites, access requests or accounts.
 3. **Enable SSH and authorize a deploy key** (all three deploy workflows use rsync
    over SSH on port 21098):
    - Namecheap dashboard → Hosting List → *Manage* → enable **Shell Access** (on

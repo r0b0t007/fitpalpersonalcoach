@@ -599,5 +599,11 @@ export default {
   'No sessions this month': 'Brak zajęć w tym miesiącu',
   'Upcoming': 'Nadchodzące',
   'Loading…': 'Ładowanie…',
-  'No sessions scheduled yet.': 'Nie zaplanowano jeszcze żadnych zajęć.'
+  'No sessions scheduled yet.': 'Nie zaplanowano jeszcze żadnych zajęć.',
+  'Coach dashboard': 'Panel trenera',
+  'Your coach': 'Twój trener',
+  '{0} can see your training and send you programs.': '{0} widzi Twoje treningi i może wysyłać Ci programy.',
+  '{0} sent you a program': '{0} wysłał Ci program',
+  'Tap to review it.': 'Dotknij, aby zobaczyć.',
+  'Decline': 'Odrzuć'
 }

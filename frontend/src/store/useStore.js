@@ -84,6 +84,16 @@ export const useStore = create((set, get) => {
     S: (() => { const s = loadState(); registerCustom(s.customEx); return s })(),
     user: (() => { try { return JSON.parse(localStorage.getItem('gym_user')) || null } catch { return null } })(),
     ready: false,
+    // Programs a coach has sent that this member hasn't answered yet. Server-owned and never
+    // persisted locally — the source of truth is the inbox, so a decision made on one device
+    // doesn't leave a stale offer sitting on another.
+    assignments: [],
+
+    async loadAssignments() {
+      if (!get().user) return set({ assignments: [] })
+      try { const { assignments } = await api('/api/assignments'); set({ assignments: assignments || [] }) }
+      catch { /* offline, or an older server without the route — no offers is the safe answer */ }
+    },
 
     // Mutate a draft of S via producer fn, then persist + schedule sync.
     update(mut, push = true) {
@@ -109,7 +119,9 @@ export const useStore = create((set, get) => {
     setUser(u) {
       if (u) { localStorage.setItem('gym_user', JSON.stringify(u)); localStorage.removeItem('gym_guest') }
       else localStorage.removeItem('gym_user')
-      set({ user: u })
+      // Offers belong to whoever is signed in; leaving them behind would show one profile's
+      // pending program to the next person on a shared device.
+      set({ user: u, ...(u ? null : { assignments: [] }) })
     },
 
     async pushState() {
@@ -193,6 +205,7 @@ export const useStore = create((set, get) => {
         const me = await api('/api/me')
         get().setUser(me.user)
         await get().pullState()
+        get().loadAssignments()   // not awaited: an offer is never worth delaying first paint for
         // Re-stamp the reminder's timezone on every load — keeps it correct if you're travelling,
         // without needing to revisit Settings.
         const tz = localTZ()

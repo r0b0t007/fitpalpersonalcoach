@@ -3,7 +3,9 @@
 # directly (same HMAC the server uses), and exercises every route including the refusals.
 set -u
 API="/c/Users/Chouchou/Desktop/Ahmed/Code Projects/opengym/openGym/api"
-D="$(dirname "$0")/coachdata"
+# Throwaway instance data goes to a temp dir, never inside the repo: this creates a `secret`
+# and `vapid.json`, and a stray commit of those is exactly the sort of thing nobody notices.
+D="${TMPDIR:-/tmp}/opengym-coach-smoke.$$"
 PORT=3990
 B="http://localhost:$PORT"
 rm -rf "$D"; mkdir -p "$D"
@@ -22,7 +24,7 @@ JSON
 
 DATA_DIR="$D" PORT=$PORT RP_ID=localhost ORIGIN="http://localhost:$PORT" node "$API/server.js" > "$D/log" 2>&1 &
 SRV=$!
-trap 'kill $SRV 2>/dev/null' EXIT
+trap 'kill $SRV 2>/dev/null; rm -rf "$D"' EXIT
 for i in $(seq 1 30); do curl -sf "$B/api/health" >/dev/null 2>&1 && break; sleep 0.4; done
 
 SECRET=$(cat "$D/secret")

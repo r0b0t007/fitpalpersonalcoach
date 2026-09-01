@@ -599,5 +599,11 @@ export default {
   'No sessions this month': 'इस महीने कोई क्लास नहीं',
   'Upcoming': 'आगामी',
   'Loading…': 'लोड हो रहा है…',
-  'No sessions scheduled yet.': 'अभी कोई क्लास निर्धारित नहीं है।'
+  'No sessions scheduled yet.': 'अभी कोई क्लास निर्धारित नहीं है।',
+  'Coach dashboard': 'कोच डैशबोर्ड',
+  'Your coach': 'आपके कोच',
+  '{0} can see your training and send you programs.': '{0} आपकी ट्रेनिंग देख सकते हैं और आपको प्रोग्राम भेज सकते हैं।',
+  '{0} sent you a program': '{0} ने आपको एक प्रोग्राम भेजा',
+  'Tap to review it.': 'देखने के लिए टैप करें।',
+  'Decline': 'अस्वीकार करें'
 }

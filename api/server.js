@@ -581,7 +581,11 @@ const routes = {
     if (!u) return json(res, 404, { error: 'no such user' });
     const S = readState(u.id) || {};
     json(res, 200, {
-      user: { id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled, admin: isAdmin(u), invitedBy: u.invitedBy || null },
+      user: {
+        id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled,
+        admin: isAdmin(u), invitedBy: u.invitedBy || null,
+        coach: isCoach(u), ownCoachFlag: u.coach === true, coachId: u.coachId || null
+      },
       unit: S.unit || 'kg',
       lastSync: S._ts || null,
       routines: (S.routines || []).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: (r.ex || []).length })),

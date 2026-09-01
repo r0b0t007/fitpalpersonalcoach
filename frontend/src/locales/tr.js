@@ -599,5 +599,11 @@ export default {
   'No sessions this month': 'Bu ay ders yok',
   'Upcoming': 'Yaklaşan',
   'Loading…': 'Yükleniyor…',
-  'No sessions scheduled yet.': 'Henüz planlanmış ders yok.'
+  'No sessions scheduled yet.': 'Henüz planlanmış ders yok.',
+  'Coach dashboard': 'Antrenör paneli',
+  'Your coach': 'Antrenörünüz',
+  '{0} can see your training and send you programs.': '{0} antrenmanlarınızı görebilir ve size program gönderebilir.',
+  '{0} sent you a program': '{0} size bir program gönderdi',
+  'Tap to review it.': 'İncelemek için dokunun.',
+  'Decline': 'Reddet'
 }

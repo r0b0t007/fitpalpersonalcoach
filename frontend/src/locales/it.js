@@ -599,5 +599,11 @@ export default {
   'No sessions this month': 'Nessun corso questo mese',
   'Upcoming': 'In arrivo',
   'Loading…': 'Caricamento…',
-  'No sessions scheduled yet.': 'Nessun corso in programma per ora.'
+  'No sessions scheduled yet.': 'Nessun corso in programma per ora.',
+  'Coach dashboard': 'Area coach',
+  'Your coach': 'Il tuo coach',
+  '{0} can see your training and send you programs.': '{0} può vedere i tuoi allenamenti e inviarti programmi.',
+  '{0} sent you a program': '{0} ti ha inviato un programma',
+  'Tap to review it.': 'Tocca per vederlo.',
+  'Decline': 'Rifiuta'
 }
