@@ -57,34 +57,31 @@ one origin — see step 0. CI/CD lives in these workflows:
      application root so deploys can never touch member data. Create the folder once.
    - `RP_ID=app.fitpal.ma`, `ORIGIN=https://app.fitpal.ma`, `RP_NAME=FIT'ONE`
      **Pick these before anyone registers** — passkeys bind permanently to `RP_ID`.
-   - `ADMIN_UIDS=<your uid>`, `INVITE_ONLY=1`, `REQUEST_ACCESS=1`, `ALLOW_GUEST=0`
+   - `INVITE_ONLY=1`, `REQUEST_ACCESS=1`, `ALLOW_GUEST=0`
      (or whatever policy the club wants — see `.env.example` for what each does)
+   - `BOOTSTRAP_CODE=<long random string>` — **set this before the first deploy**; see below.
+     `ADMIN_UIDS` is not needed to get started: the bootstrap account is made an admin.
    - `PORT` is injected by Passenger; leave it unset.
 
-   > **Bootstrap the first admin before turning on `INVITE_ONLY`.** Registration requires
-   > a valid invite, every invite is minted by an admin, and admins are recognised only by
-   > `ADMIN_UIDS` — so an empty database with `INVITE_ONLY=1` locks *everyone* out,
-   > including you. There is no first-user exception in `POST /api/register/options`.
+   > **Why `BOOTSTRAP_CODE` is not optional here.** `INVITE_ONLY=1` on an empty database is
+   > a closed loop: registering needs an invite, invites are minted only by an admin, and
+   > admins are recognised only by `ADMIN_UIDS` — so nobody, you included, can get in.
+   > Generate one with `openssl rand -hex 16`, paste it into the env vars, and restart.
    >
-   > Order that works, env vars in the *Setup Node.js App* screen:
-   > 1. Set `INVITE_ONLY=0`, restart the app.
-   > 2. Open `https://app.fitpal.ma`, *Create new profile*, register your passkey.
-   > 3. Read your uid: visit `https://app.fitpal.ma/api/me` in the same browser — you are
-   >    signed in from step 2, and it returns `{"user":{"id":"…"}}`. (It needs a session,
-   >    not admin, which is what makes this work before `ADMIN_UIDS` is set.) Failing that,
-   >    it is `users[0].id` in `$DATA_DIR/db.json` over SSH.
-   > 4. Set `ADMIN_UIDS=<that uid>` and `INVITE_ONLY=1`, restart.
-   > 5. Confirm the gate is back up — `curl -X POST https://app.fitpal.ma/api/register/options
-   >    -H 'Content-Type: application/json' -d '{"name":"x"}'` must return **403**.
+   > Then: open `https://app.fitpal.ma` → *Create new profile* → enter that value in the
+   > **Invite code** field. The account is created as an admin, so there is no uid to look
+   > up and no second restart. Confirm with `GET /api/me`, which should report
+   > `"admin":true`; the app log also prints a `[bootstrap]` line naming the account.
    >
-   > ⚠️ **Step 1 opens registration to the whole internet.** `app.fitpal.ma` is public and
-   > now HTTPS-reachable, so between steps 1 and 4 anyone who finds the host can create a
-   > profile. Keep the window to minutes, do it at a quiet hour, and afterwards check the
-   > admin dashboard's member list for accounts you didn't create — `/api/health` reporting
-   > more than one user is the quick tell.
+   > The code **disarms itself as soon as any user exists** — re-using it afterwards gets
+   > the same 403 as any wrong code, so unlike temporarily running `INVITE_ONLY=0` there is
+   > never a window where the public URL accepts anyone who finds it. Clearing it from
+   > cPanel afterwards is tidiness, not security. Values under 16 characters are ignored
+   > with a warning rather than accepted weak.
    >
    > From then on the flow in the README applies: members submit an access request, you
-   > approve it in the admin dashboard, and that mints their invite.
+   > approve it in the admin dashboard, and that mints their invite. `ADMIN_UIDS` is how
+   > you add *further* admins later.
 3. **Enable SSH and authorize a deploy key** (all three deploy workflows use rsync
    over SSH on port 21098):
    - Namecheap dashboard → Hosting List → *Manage* → enable **Shell Access** (on

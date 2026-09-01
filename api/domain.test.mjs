@@ -4,7 +4,8 @@ import assert from 'node:assert/strict'
 import {
   normPhone, hasPendingPhone, pruneRequests, decideRequest,
   addDaysISO, isRealDate, validateSession, expandRepeats, pruneSessions, sessionSort,
-  REQ_PENDING_DAYS, REQ_DECIDED_DAYS, MAX_REPEAT_WEEKS
+  REQ_PENDING_DAYS, REQ_DECIDED_DAYS, MAX_REPEAT_WEEKS,
+  bootstrapMatches, BOOTSTRAP_MIN
 } from './domain.mjs'
 
 const DAY = 86400000
@@ -114,4 +115,52 @@ test('pruneSessions drops only the long-gone; sessionSort orders by date then ti
     { id: 'c', date: '2026-08-30', time: '20:00' },
   ].sort(sessionSort)
   assert.deepEqual(sorted.map(x => x.id), ['c', 'a', 'b'])
+})
+
+/* ---------- first-run bootstrap ---------- */
+// The value of this helper is entirely in when it says NO, so that is what these cover.
+
+const SECRET = 'K7QW2ZP9RM4XVT8B'   // exactly BOOTSTRAP_MIN, the shortest thing accepted
+
+test('bootstrap: matches the configured code on an empty database', () => {
+  assert.equal(bootstrapMatches(SECRET, SECRET, 0), true)
+})
+
+test('bootstrap: disarms the moment a user exists', () => {
+  // The whole safety story — the window closes by itself rather than waiting for the operator
+  // to remember, which is what setting INVITE_ONLY=0 by hand gets wrong.
+  assert.equal(bootstrapMatches(SECRET, SECRET, 1), false)
+  assert.equal(bootstrapMatches(SECRET, SECRET, 47), false)
+})
+
+test('bootstrap: unset or blank code is never armed', () => {
+  for (const secret of [undefined, null, '', '   ']) {
+    assert.equal(bootstrapMatches('', secret, 0), false)
+    assert.equal(bootstrapMatches('ANYTHING', secret, 0), false)
+  }
+})
+
+test('bootstrap: a short code is refused rather than silently weakened', () => {
+  const short = 'A'.repeat(BOOTSTRAP_MIN - 1)
+  assert.equal(bootstrapMatches(short, short, 0), false)
+  assert.equal(bootstrapMatches('letmein', 'letmein', 0), false)
+})
+
+test('bootstrap: wrong code of the same length is rejected', () => {
+  // Same length matters: it is the branch that actually reaches the constant-time compare.
+  const wrong = 'K7QW2ZP9RM4XVT8C'
+  assert.equal(wrong.length, SECRET.length)
+  assert.equal(bootstrapMatches(wrong, SECRET, 0), false)
+})
+
+test('bootstrap: differing lengths are rejected without throwing', () => {
+  // timingSafeEqual throws on unequal buffers, so the length gate has to come first.
+  assert.equal(bootstrapMatches(SECRET + 'EXTRA', SECRET, 0), false)
+  assert.equal(bootstrapMatches('K7QW2ZP9RM4XVT8', SECRET, 0), false)
+})
+
+test('bootstrap: case and surrounding space are forgiven, since the form upper-cases input', () => {
+  assert.equal(bootstrapMatches(SECRET.toLowerCase(), SECRET, 0), true)
+  assert.equal(bootstrapMatches('  ' + SECRET + '  ', SECRET, 0), true)
+  assert.equal(bootstrapMatches(SECRET, SECRET.toLowerCase(), 0), true)
 })
