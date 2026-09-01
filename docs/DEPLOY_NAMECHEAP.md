@@ -18,9 +18,22 @@ frontend is a static build served from `public_html`. CI/CD lives in these workf
 
 0. **Create the app subdomain** — cPanel → *Domains* → create `app.fitpal.ma` with its
    own document root (e.g. `app.fitpal.ma/`). The React frontend is deployed there by
-   `deploy-web.yml`. DNS for it already exists in Cloudflare as an A record to the
-   server, **DNS-only (grey cloud)** so cPanel's AutoSSL can validate and passkeys /
-   push reach the origin directly.
+   `deploy-web.yml`. DNS for it lives in Cloudflare as an A record to the server,
+   **proxied (orange cloud)** — see the TLS note below.
+
+   > **TLS comes from Cloudflare, not cPanel.** Namecheap shared hosting has no AutoSSL,
+   > and the Standard SSL that ships with the plan covers only `fitpal.ma` and
+   > `www.fitpal.ma` — never `app.`. Instead the record is proxied and Cloudflare's
+   > Universal SSL (`fitpal.ma` + `*.fitpal.ma`) terminates TLS at the edge, with the
+   > zone in **Full** mode so the Cloudflare↔origin hop is encrypted too. This matters
+   > beyond tidiness: **passkeys only work in a secure context**, so without HTTPS the
+   > app shows "this browser doesn't support passkeys" and nobody can sign in.
+   >
+   > To upgrade to **Full (strict)**, generate a CSR in cPanel (*SSL/TLS → Certificate
+   > Signing Requests*), sign it under Cloudflare → SSL/TLS → *Origin Server* → Create
+   > Certificate, install the result on `app.fitpal.ma`, then switch the zone mode.
+   > Optional — Full already encrypts both hops; strict additionally validates the
+   > origin certificate.
 
    > **Single origin, deliberately.** The frontend calls `/api/...` relative to its own
    > host, the API has no CORS headers, and the session cookie is `SameSite=Lax`
@@ -41,6 +54,21 @@ frontend is a static build served from `public_html`. CI/CD lives in these workf
    - `ADMIN_UIDS=<your uid>`, `INVITE_ONLY=1`, `REQUEST_ACCESS=1`, `ALLOW_GUEST=0`
      (or whatever policy the club wants — see `.env.example` for what each does)
    - `PORT` is injected by Passenger; leave it unset.
+
+   > **Bootstrap the first admin before turning on `INVITE_ONLY`.** Registration requires
+   > a valid invite, every invite is minted by an admin, and admins are recognised only by
+   > `ADMIN_UIDS` — so an empty database with `INVITE_ONLY=1` locks *everyone* out,
+   > including you. There is no first-user exception in `POST /api/register/options`.
+   >
+   > Order that works, all in the *Setup Node.js App* screen:
+   > 1. Start with `INVITE_ONLY=0`, restart the app.
+   > 2. Open `https://app.fitpal.ma`, *Create new profile*, register your passkey.
+   > 3. Read your uid — `GET /api/health` reports the user count, and the id itself is the
+   >    `users[0].id` in `$DATA_DIR/db.json` over SSH.
+   > 4. Set `ADMIN_UIDS=<that uid>` and `INVITE_ONLY=1`, restart.
+   >
+   > From then on the flow in the README applies: members submit an access request, you
+   > approve it in the admin dashboard, and that mints their invite.
 3. **Enable SSH and authorize a deploy key** (all three deploy workflows use rsync
    over SSH on port 21098):
    - Namecheap dashboard → Hosting List → *Manage* → enable **Shell Access** (on
@@ -99,8 +127,8 @@ re-runs → (approval, if configured) → the app is built with `VITE_IMG_BASE`/
 pointing at the pinned jsDelivr dataset mirror (shared hosting has no local media download,
 unlike the Docker web container) → `dist/` is synced into `public_html` → the workflow
 fetches `WEB_URL` and fails if the page doesn't serve the app. The rsync `--delete`
-mirrors the build exactly but excludes the server-owned paths in `public_html`
-(`.htaccess`, `.well-known/`, `cgi-bin/`), so cPanel and AutoSSL keep working. The app calls `/api`
+mirrors the build exactly but excludes the server-owned paths in the document root
+(`.htaccess`, `.well-known/`, `cgi-bin/`), so cPanel keeps working. The app calls `/api`
 on its own origin, which is exactly where the Node app is mounted; it uses hash routing,
 so no `.htaccess` rewrites are needed.
 
