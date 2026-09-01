@@ -59,9 +59,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Node 22, matching api/Dockerfile and the Namecheap cPanel app — also the version the
-      # test suite is known-green on (Node 26's experimental localStorage global shadows
-      # happy-dom's in the frontend suite; keep every job on the production version).
+      # Node 22, matching api/Dockerfile and the Namecheap cPanel app. This used to carry a
+      # warning that newer Node broke the frontend suite via its localStorage global; that is
+      # fixed at the source now (frontend/test/setup.js) and verified by frontend-next-node
+      # below, so the pin here is production parity and nothing more.
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -75,6 +76,28 @@ jobs:
         working-directory: api
       - run: npm test
         working-directory: api
+
+  # The localStorage repair in frontend/test/setup.js is guarded by a feature check, so on the
+  # pinned Node 22 above it never executes — leaving the fix for "green in CI, red locally" itself
+  # unverified by CI, which is the same split it exists to close. This leg runs the unit suite on a
+  # runtime that does expose the global, so a regression in the shim fails a build instead of
+  # waiting to ambush whoever next runs the suite on a current Node.
+  #
+  # Unit suite only: build, locale checks and the fatigue probe are covered on the production
+  # version above and have no stake in this.
+  frontend-next-node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
 
   mcp:
     runs-on: ubuntu-latest

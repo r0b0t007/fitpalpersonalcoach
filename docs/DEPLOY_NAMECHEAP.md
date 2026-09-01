@@ -128,8 +128,8 @@ Repository → Settings:
 **Approval gate (recommended):** Settings → Environments → `production` → add yourself
 under *Required reviewers*. Every deploy then pauses until a human clicks approve.
 
-**Branch protection:** on a paid plan, require the `test`, `api` and `mcp` checks on
-`main`. On the free private tier that setting isn't enforceable — the pipeline compensates
+**Branch protection:** on a paid plan, require the `test`, `api`, `mcp` and
+`frontend-next-node` checks on `main`. On the free private tier that setting isn't enforceable — the pipeline compensates
 by re-running the api tests inside the deploy workflow itself, so nothing unreviewed can
 deploy without at least passing tests.
 
