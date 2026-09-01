@@ -50,10 +50,14 @@ One-time setup:
    *Edit Cloudflare Workers* template (or a custom token with **Account →
    Cloudflare Pages → Edit**). Save it as the `CLOUDFLARE_API_TOKEN` GitHub secret.
    `CLOUDFLARE_ACCOUNT_ID` is already set.
-2. **Custom domain** — done. `fitpal.ma` is attached to the Pages project, so the
-   apex is a proxied `CNAME → fitpal.pages.dev` and every push to `main` lands on the
-   live domain. `www.fitpal.ma` 301s to the apex via a Cloudflare Redirect Rule
-   ("Redirect from WWW to root"), matching the canonical tags, which are apex-only.
+2. **Custom domain** — Pages project → *Custom domains* → add the apex. With the zone on
+   Cloudflare nameservers this rewrites the apex to a proxied `CNAME → fitpal.pages.dev`
+   in one click; if the zone lives elsewhere, add that CNAME at the other DNS host.
+   Then send `www` to the apex: zone → *Rules* → *Redirect Rules* → **Redirect from WWW
+   to root** template (301, keep *Preserve query string*), which matches the canonical
+   tags — they are apex-only. Without it `www` inherits the apex CNAME, chains into
+   Pages and serves a 522.
+   **Status:** already done for `fitpal.ma`; redo only when re-pointing to a new domain.
 3. Flip the `DEPLOY_SITE` repository variable to `true`.
 
 > **The zone is on Cloudflare nameservers** (`braden`/`natasha.ns.cloudflare.com`),
@@ -66,8 +70,13 @@ One-time setup:
 >
 > One consequence worth knowing: the SPF record still starts `v=spf1 +a …`, and `+a`
 > now resolves to Cloudflare's Pages IPs rather than the mail server. Delivery still
-> passes on `+mx` and `include:spf.web-hosting.com`, but if mail is ever sent directly
-> from the hosting box, add its IP explicitly rather than relying on `+a`.
+> passes on `+mx` and `include:spf.web-hosting.com`, so nothing is broken today. But if
+> mail is ever sent directly from the hosting box (PHP `mail()`, a cron job), add that
+> IP explicitly instead of relying on `+a`:
+>
+> ```
+> v=spf1 +a +mx +ip4:198.54.114.94 +ip4:198.54.116.94 include:spf.web-hosting.com ~all
+> ```
 
 `.github/workflows/deploy-site.yml` then runs on every push to main touching
 `site/**`: HTML/SEO check job → `production`-environment approval → `wrangler pages

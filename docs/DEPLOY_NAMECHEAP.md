@@ -1,15 +1,21 @@
 # Deploying FIT'ONE to Namecheap shared hosting
 
 The API runs as a cPanel **"Setup Node.js App"** application (Phusion Passenger); the
-frontend is a static build served from `public_html`. CI/CD lives in these workflows:
+frontend is a static build served from the `app.fitpal.ma` document root. Both share
+one origin — see step 0. CI/CD lives in these workflows:
+
+> **Not `public_html`.** That is the *main* domain's document root on this cPanel
+> account, which belongs to a different site. `deploy-web.yml` still defaults to it, so
+> `WEB_SERVER_DIR` must be set (see the variables table) — an unset value points an
+> rsync `--delete` at the neighbouring site and mirrors this build over it.
 
 - `.github/workflows/test.yml` — test phase; runs on every PR and push to main
   (frontend suite + build + locale checks, api unit tests + parse gate, mcp).
 - `.github/workflows/deploy-api.yml` — deploys the API via rsync over SSH after the tests
   pass in the same run. **Off by default** until you finish the setup below.
 - `.github/workflows/deploy-web.yml` — builds the frontend (media pointed at the
-  pinned jsDelivr dataset mirror) and syncs `dist/` into `public_html` via rsync over SSH,
-  with the same guardrails. **Off by default** (`DEPLOY_WEB` variable).
+  pinned jsDelivr dataset mirror) and syncs `dist/` into `WEB_SERVER_DIR` via rsync over
+  SSH, with the same guardrails. **Off by default** (`DEPLOY_WEB` variable).
 - `.github/workflows/deploy-site.yml` — the **fitpal.ma marketing site** (`site/`).
   No longer on this host: it deploys to **Cloudflare Pages** (project `fitpal`), so
   nothing in this document applies to it. See [site/README.md](../site/README.md).
@@ -60,12 +66,22 @@ frontend is a static build served from `public_html`. CI/CD lives in these workf
    > `ADMIN_UIDS` — so an empty database with `INVITE_ONLY=1` locks *everyone* out,
    > including you. There is no first-user exception in `POST /api/register/options`.
    >
-   > Order that works, all in the *Setup Node.js App* screen:
-   > 1. Start with `INVITE_ONLY=0`, restart the app.
+   > Order that works, env vars in the *Setup Node.js App* screen:
+   > 1. Set `INVITE_ONLY=0`, restart the app.
    > 2. Open `https://app.fitpal.ma`, *Create new profile*, register your passkey.
-   > 3. Read your uid — `GET /api/health` reports the user count, and the id itself is the
-   >    `users[0].id` in `$DATA_DIR/db.json` over SSH.
+   > 3. Read your uid: visit `https://app.fitpal.ma/api/me` in the same browser — you are
+   >    signed in from step 2, and it returns `{"user":{"id":"…"}}`. (It needs a session,
+   >    not admin, which is what makes this work before `ADMIN_UIDS` is set.) Failing that,
+   >    it is `users[0].id` in `$DATA_DIR/db.json` over SSH.
    > 4. Set `ADMIN_UIDS=<that uid>` and `INVITE_ONLY=1`, restart.
+   > 5. Confirm the gate is back up — `curl -X POST https://app.fitpal.ma/api/register/options
+   >    -H 'Content-Type: application/json' -d '{"name":"x"}'` must return **403**.
+   >
+   > ⚠️ **Step 1 opens registration to the whole internet.** `app.fitpal.ma` is public and
+   > now HTTPS-reachable, so between steps 1 and 4 anyone who finds the host can create a
+   > profile. Keep the window to minutes, do it at a quiet hour, and afterwards check the
+   > admin dashboard's member list for accounts you didn't create — `/api/health` reporting
+   > more than one user is the quick tell.
    >
    > From then on the flow in the README applies: members submit an access request, you
    > approve it in the admin dashboard, and that mints their invite.
@@ -125,7 +141,7 @@ polls `API_HEALTH_URL` for up to 2 minutes and fails loudly if the API doesn't c
 Automated by `deploy-web.yml`: push to `main` touching `frontend/**` → the frontend suite
 re-runs → (approval, if configured) → the app is built with `VITE_IMG_BASE`/`VITE_GIF_BASE`
 pointing at the pinned jsDelivr dataset mirror (shared hosting has no local media download,
-unlike the Docker web container) → `dist/` is synced into `public_html` → the workflow
+unlike the Docker web container) → `dist/` is synced into `WEB_SERVER_DIR` → the workflow
 fetches `WEB_URL` and fails if the page doesn't serve the app. The rsync `--delete`
 mirrors the build exactly but excludes the server-owned paths in the document root
 (`.htaccess`, `.well-known/`, `cgi-bin/`), so cPanel keeps working. The app calls `/api`
