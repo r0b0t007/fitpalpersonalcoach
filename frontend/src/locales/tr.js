@@ -605,5 +605,7 @@ export default {
   '{0} can see your training and send you programs.': '{0} antrenmanlarınızı görebilir ve size program gönderebilir.',
   '{0} sent you a program': '{0} size bir program gönderdi',
   'Tap to review it.': 'İncelemek için dokunun.',
-  'Decline': 'Reddet'
+  'Decline': 'Reddet',
+  'That program couldn’t be read.': 'Bu program okunamadı.',
+  'Ask {0} to send it again.': '{0} kişisinden tekrar göndermesini isteyin.'
 }

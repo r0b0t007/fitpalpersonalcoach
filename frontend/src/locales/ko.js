@@ -605,5 +605,7 @@ export default {
   '{0} can see your training and send you programs.': '{0} 님이 내 운동 기록을 보고 프로그램을 보낼 수 있습니다.',
   '{0} sent you a program': '{0} 님이 프로그램을 보냈습니다',
   'Tap to review it.': '탭하여 확인하세요.',
-  'Decline': '거절'
+  'Decline': '거절',
+  'That program couldn’t be read.': '이 프로그램을 읽을 수 없습니다.',
+  'Ask {0} to send it again.': '{0} 님에게 다시 보내 달라고 요청하세요.'
 }

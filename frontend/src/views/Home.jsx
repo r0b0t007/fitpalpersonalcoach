@@ -5,7 +5,8 @@ import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW, setsDoneActi
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { BRAND } from '../lib/brand.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor, coachPlanSheet } from '../sheets.jsx'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor, coachPlanSheet, confirmSheet } from '../sheets.jsx'
+import { useUI } from '../store/useUI.js'
 import { parsePlan } from '../lib/plan-share.js'
 import { api } from '../lib/api.js'
 import LineChart from '../components/LineChart.jsx'
@@ -26,15 +27,25 @@ export default function Home() {
   // modal you didn't ask for is a bad way to be told, and the push notification already got
   // their attention. parsePlan here is what drops exercises this build doesn't know about.
   const offer = assignments?.[0]
+  const decideOffer = accept => api('/api/assignments/decide', { method: 'POST', body: JSON.stringify({ id: offer.id, accept }) })
+    .catch(() => {})
+    .finally(loadAssignments)
   const openOffer = () => {
     let parsed
-    try { parsed = parsePlan(offer.bundle) } catch { return }
-    const decide = accept => api('/api/assignments/decide', { method: 'POST', body: JSON.stringify({ id: offer.id, accept }) })
-      .catch(() => {})
-      .finally(loadAssignments)
+    try { parsed = parsePlan(offer.bundle) } catch {
+      // The server validates shape, not the exercise catalogue, so a bundle can still be
+      // unreadable here. Say so and let them clear it — a card that does nothing when tapped and
+      // cannot be dismissed is worse than the program never arriving.
+      useUI.getState().toast(t('That program couldn’t be read.'))
+      return confirmSheet({
+        title: t('That program couldn’t be read.'),
+        message: t('Ask {0} to send it again.', offer.coachName),
+        confirmText: t('Decline'), danger: true, onConfirm: () => decideOffer(false)
+      })
+    }
     coachPlanSheet({
       bundle: parsed, from: offer.coachName, note: offer.note, schedule: offer.schedule,
-      onAccept: () => decide(true), onDecline: () => decide(false)
+      onAccept: () => decideOffer(true), onDecline: () => decideOffer(false)
     })
   }
 

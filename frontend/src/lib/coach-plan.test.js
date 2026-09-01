@@ -76,6 +76,39 @@ describe('accepting a coach’s program', () => {
     expect(s.routines.find(r => r.id === 'own-1').name).toBe('My Legs')
   })
 
+  // The bug these exist for: the coach ticks "also set their weekly schedule" while their own
+  // plan has no weekday assignments. buildPlanBundle then emits week:{}, PlanImport hides the
+  // toggle because scheduledDays is 0, and the member is never shown the setting that is about
+  // to erase their whole Mon-Sun plan. Clearing a week and putting nothing back is never what
+  // anyone asked for, so mergePlan refuses it outright rather than trusting the caller.
+  it('never clears the member’s week when the incoming plan has no scheduled days', () => {
+    const s = member()
+    const bundle = parsePlan(buildPlanBundle({
+      routines: [{ id: 'c1', name: 'Block A', emoji: 'barbell', ex: [{ id: '0025', sets: 4, reps: 8 }] }],
+      week: {}, customEx: []
+    }, 'Coach plan'))
+    expect(bundle.scheduledDays).toBe(0)
+
+    mergePlan(s, bundle, { schedule: true })
+
+    expect(s.week).toEqual({ 1: 'own-1', 4: 'own-2' })
+    expect(s.routines).toHaveLength(3)          // the routines still arrive
+  })
+
+  it('never clears the week when the incoming days point at routines that aren’t in the plan', () => {
+    // Same hole from the other side — a week entry referencing a routine the bundle doesn't
+    // carry contributes nothing, so wiping first would again leave the member with an empty week.
+    const s = member()
+    const bundle = parsePlan({
+      opengym_plan: 1, name: 'x', customEx: [],
+      routines: [{ id: 'c1', name: 'Block A', ex: [{ id: '0025', sets: 3 }] }],
+      week: { 2: 'a-routine-not-in-this-bundle' }
+    })
+    mergePlan(s, bundle, { schedule: true })
+
+    expect(s.week).toEqual({ 1: 'own-1', 4: 'own-2' })
+  })
+
   it('reuses a custom exercise the member already has instead of duplicating it', () => {
     const s = member()
     s.customEx = [{ id: 'mine', n: 'Sled Push', bp: 'legs' }]

@@ -141,6 +141,9 @@ export const useStore = create((set, get) => {
           if (active) next.active = active
           persist(next, false)
         } else if (hasData(S)) { await get().pushState() }
+        // Offers refresh on every sync, not just at boot — otherwise a member sitting in the app
+        // wouldn't see a program arrive until they reloaded.
+        get().loadAssignments()
       } catch (e) { /* offline — keep local */ }
     },
 

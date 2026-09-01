@@ -685,7 +685,10 @@ export const coachPlanSheet = ({ bundle, from, note, schedule, onAccept, onDecli
     defaultSchedule={schedule} onAccept={onAccept} onDecline={onDecline} close={close} />)
 
 function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAccept, onDecline }) {
-  const [schedule, setSchedule] = useState(!!defaultSchedule)
+  // Clamped to what the bundle can actually deliver: the toggle below only renders when there
+  // are scheduled days, so a coach's `schedule: true` on a bundle with none would otherwise sit
+  // on with no way for the member to see it, let alone turn it off.
+  const [schedule, setSchedule] = useState(!!defaultSchedule && bundle.scheduledDays > 0)
   const apply = () => {
     // Merge first, then tell the server. The member's own data is the source of truth: if the
     // decide call fails afterwards the offer simply stands again, and because mergePlan adds

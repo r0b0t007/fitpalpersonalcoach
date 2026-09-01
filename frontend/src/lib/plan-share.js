@@ -129,11 +129,15 @@ export function mergePlan(s, bundle, { schedule } = {}) {
       ex: (r.ex || []).map(e => ({ ...e, id: exIdMap[e.id] || e.id }))
     })
   })
-  if (schedule) {
+  // Only replace the week when there is actually something to put back. Clearing it and then
+  // adding nothing wipes the member's whole Mon–Sun plan — while the sheet above promises that
+  // nothing they already have is changed, and with no scheduled days there is no toggle on
+  // screen to explain where it went. Filtering on ridMap covers the same hole from the other
+  // side: a week entry pointing at a routine that isn't in the bundle contributes nothing.
+  const incomingWeek = Object.entries(bundle.week || {}).filter(([, oldId]) => ridMap[oldId])
+  if (schedule && incomingWeek.length) {
     WEEK_ORDER.forEach(d => { delete s.week[d] })
-    Object.entries(bundle.week || {}).forEach(([d, oldId]) => {
-      if (ridMap[oldId]) s.week[d] = ridMap[oldId]
-    })
+    incomingWeek.forEach(([d, oldId]) => { s.week[d] = ridMap[oldId] })
   }
   return { routines: bundle.routines.length }
 }

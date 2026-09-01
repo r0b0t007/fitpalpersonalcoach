@@ -605,5 +605,7 @@ export default {
   '{0} can see your training and send you programs.': '{0} видит ваши тренировки и может присылать вам программы.',
   '{0} sent you a program': '{0} прислал вам программу',
   'Tap to review it.': 'Нажмите, чтобы посмотреть.',
-  'Decline': 'Отклонить'
+  'Decline': 'Отклонить',
+  'That program couldn’t be read.': 'Не удалось прочитать эту программу.',
+  'Ask {0} to send it again.': 'Попросите {0} отправить её ещё раз.'
 }
