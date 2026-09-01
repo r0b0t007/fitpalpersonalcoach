@@ -12,7 +12,9 @@ import webpush from 'web-push';
 import {
   normPhone, hasPendingPhone, pruneRequests, decideRequest, REQ_MAX_PENDING,
   validateSession, expandRepeats, pruneSessions, sessionSort, addDaysISO, SESSION_WINDOW_DAYS,
-  bootstrapMatches, BOOTSTRAP_MIN
+  bootstrapMatches, BOOTSTRAP_MIN,
+  canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
+  pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX
 } from './domain.mjs';
 
 const PORT = +(process.env.PORT || 3000);
@@ -66,7 +68,23 @@ db.subs = db.subs || [];
 db.invites = db.invites || [];
 db.requests = db.requests || [];   // access requests: pending → approved (mints an invite) | rejected
 db.sessions = db.sessions || [];   // group sessions (coached classes) — public read, admin write
+db.assignments = db.assignments || [];  // programs a coach pushed: pending → accepted | declined
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
+// A coach programs for the members assigned to them. Admins are coaches implicitly — they run the
+// gym — but the reverse is deliberately not true: the point of the role is handing a trainer
+// programming duties WITHOUT invites, access requests or account control.
+const isCoach = user => !!user && (user.coach === true || isAdmin(user));
+// One shape for "who am I", used by /api/me and by both verify handlers, so a client never sees
+// three subtly different user objects depending on how it got there.
+const publicUser = u => {
+  const coach = u.coachId ? db.users.find(x => x.id === u.coachId) : null;
+  return {
+    id: u.id, name: u.name, admin: isAdmin(u), coach: isCoach(u),
+    // The member is told who can see their training. A coach reading someone's history is a real
+    // privacy change and should never be invisible to the person being read.
+    coachName: coach ? coach.name : null
+  };
+};
 // Re-evaluated per request rather than cached: it must go false the instant the first user lands,
 // including between a registration's options and verify calls.
 const isBootstrapCode = code => bootstrapMatches(code, BOOTSTRAP_CODE, db.users.length);
@@ -224,6 +242,26 @@ function requireAdmin(req, res) {
   if (!isAdmin(user)) { json(res, 403, { error: 'forbidden' }); return null; }
   return user;
 }
+// Guard for /api/coach/* — being a coach only gets you through the door. Every one of these
+// routes must ALSO check canCoachMember for the specific member it touches, because the role
+// says "may coach someone", never "may coach this person".
+function requireCoach(req, res) {
+  const user = readSession(req);
+  if (!user) { json(res, 401, { error: 'not signed in' }); return null; }
+  if (!isCoach(user)) { json(res, 403, { error: 'forbidden' }); return null; }
+  return user;
+}
+// The member summary the admin list and the coach list both render.
+const memberCard = u => {
+  const S = readState(u.id) || {};
+  const workouts = S.workouts || [];
+  const last = workouts[workouts.length - 1];
+  return {
+    id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled,
+    workouts: workouts.length, lastWorkout: last ? last.d : null,
+    lastSync: S._ts || null, live: livePresence(u.id)
+  };
+};
 function sessionCookie(user) {
   return `gymsid=${makeSession(user)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly;${SECURE} SameSite=Lax`;
 }
@@ -307,7 +345,7 @@ const routes = {
   'GET /api/me': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } });
+    json(res, 200, { user: publicUser(user) });
   },
 
   'POST /api/register/options': async (req, res) => {
@@ -374,7 +412,7 @@ const routes = {
       transports: body.credential?.response?.transports || []
     });
     saveDb();
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/login/options': async (req, res) => {
@@ -413,7 +451,7 @@ const routes = {
     const user = db.users.find(u => u.id === cred.userId);
     if (!user) return json(res, 500, { error: 'user missing' });
     if (user.disabled) return json(res, 403, { error: 'this account has been disabled' });
-    json(res, 200, { user: { id: user.id, name: user.name, admin: isAdmin(user) } }, { 'Set-Cookie': sessionCookie(user) });
+    json(res, 200, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(user) });
   },
 
   'POST /api/logout': async (req, res) => json(res, 200, { ok: true }, { 'Set-Cookie': clearCookie }),
@@ -524,6 +562,7 @@ const routes = {
       return {
         id: u.id, name: u.name, created: u.created || null,
         disabled: !!u.disabled, admin: isAdmin(u), invitedBy: u.invitedBy || null,
+        coach: isCoach(u), coachId: u.coachId || null,
         workouts: workouts.length,
         lastWorkout: last ? last.d : null,
         lastSync: S._ts || null,
@@ -561,6 +600,129 @@ const routes = {
     if (u.disabled) presence.delete(u.id);   // drop them off "training now" at once
     saveDb();
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
+  },
+
+  // Granting/revoking the coach role, and pointing a member at their coach. Admin-only: the
+  // whole point of the role is that a coach cannot widen their own reach.
+  'POST /api/admin/user/coach': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'no such user' });
+    u.coach = !!body.coach;
+    // Revoking leaves their members coachless rather than silently pointing at a non-coach —
+    // otherwise re-granting the role later would hand back a roster nobody reviewed.
+    if (!u.coach) db.users.forEach(m => { if (m.coachId === u.id) delete m.coachId; });
+    saveDb();
+    json(res, 200, { ok: true, id: u.id, coach: u.coach });
+  },
+
+  'POST /api/admin/user/assign-coach': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const u = db.users.find(x => x.id === body.id);
+    if (!u) return json(res, 404, { error: 'no such user' });
+    const coachId = String(body.coachId || '').trim();
+    if (!coachId) { delete u.coachId; saveDb(); return json(res, 200, { ok: true, id: u.id, coachId: null }); }
+    const c = db.users.find(x => x.id === coachId);
+    if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
+    if (c.id === u.id) return json(res, 400, { error: 'a member cannot be their own coach' });
+    u.coachId = c.id;
+    saveDb();
+    json(res, 200, { ok: true, id: u.id, coachId: c.id });
+  },
+
+  /* ---------- coaching ---------- */
+  // Being a coach gets you through requireCoach; canCoachMember decides each individual member,
+  // so a coach can never read or write someone who isn't theirs.
+  'GET /api/coach/members': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const admin = isAdmin(coach);
+    const members = db.users
+      .filter(u => canCoachMember(coach, u, { isAdmin: admin }))
+      .map(memberCard);
+    json(res, 200, { members, now: Date.now() });
+  },
+
+  'GET /api/coach/member': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const id = new URL(req.url, 'http://x').searchParams.get('id');
+    const u = db.users.find(x => x.id === id);
+    // Same 403 whether the member doesn't exist or isn't theirs — a different answer for each
+    // would let a coach enumerate the gym's membership.
+    if (!u || !canCoachMember(coach, u, { isAdmin: isAdmin(coach) })) return json(res, 403, { error: 'forbidden' });
+    const S = readState(u.id) || {};
+    json(res, 200, {
+      user: { id: u.id, name: u.name, created: u.created || null },
+      unit: S.unit || 'kg',
+      lastSync: S._ts || null,
+      routines: (S.routines || []).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: (r.ex || []).length })),
+      bodyweight: S.bodyweight || [],
+      workouts: (S.workouts || []).slice().reverse()
+    });
+  },
+
+  // Push a plan to one or more members. The bundle is stored on the assignment and merged by the
+  // MEMBER's client on accept — never written into their state here. Their app syncs by
+  // whole-state replacement, so a server-side write would be clobbered by the next push from any
+  // device that had an unsynced change.
+  'POST /api/coach/assign': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const body = await readBody(req);
+    const { bundle, error } = validateAssignmentBundle(body.bundle);
+    if (error) return json(res, 400, { error });
+    const ids = Array.isArray(body.memberIds) ? [...new Set(body.memberIds.map(String))] : [];
+    if (!ids.length) return json(res, 400, { error: 'pick at least one member' });
+    const admin = isAdmin(coach);
+    const targets = [];
+    for (const id of ids) {
+      const u = db.users.find(x => x.id === id);
+      if (!u || !canCoachMember(coach, u, { isAdmin: admin })) return json(res, 403, { error: 'forbidden' });
+      if (pendingAssignmentsFor(db.assignments, u.id).length >= ASSIGN_MAX_PENDING)
+        return json(res, 429, { error: `${u.name} already has ${ASSIGN_MAX_PENDING} programs waiting` });
+      targets.push(u);
+    }
+    const note = String(body.note || '').trim().slice(0, ASSIGN_NOTE_MAX);
+    const created = new Date().toISOString();
+    const rows = targets.map(u => ({
+      id: crypto.randomBytes(12).toString('base64url'),
+      coachId: coach.id, coachName: coach.name, memberId: u.id,
+      bundle, note, schedule: !!body.schedule, created, status: 'pending'
+    }));
+    db.assignments = pruneAssignments(db.assignments.concat(rows));
+    saveDb();
+    // Best-effort: a member who never enabled push simply finds it next time they open the app.
+    targets.forEach(u => sendPush(u.id, {
+      title: RP_NAME,
+      body: `${coach.name} sent you a program`,
+      tag: 'assignment'
+    }).catch(() => {}));
+    json(res, 200, { ok: true, sent: rows.length });
+  },
+
+  // The member's own inbox. Pending only — a decided assignment has already been merged locally,
+  // and re-offering it would invite a duplicate.
+  'GET /api/assignments': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const mine = pendingAssignmentsFor(db.assignments, user.id).map(a => ({
+      id: a.id, coachName: a.coachName, note: a.note, created: a.created,
+      schedule: !!a.schedule, bundle: a.bundle
+    }));
+    json(res, 200, { assignments: mine });
+  },
+
+  'POST /api/assignments/decide': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    const a = db.assignments.find(x => x.id === body.id);
+    // Only the recipient answers, and only their own — never the coach, never another member.
+    if (!a || a.memberId !== user.id) return json(res, 404, { error: 'no such assignment' });
+    const { error } = decideAssignment(a, !!body.accept);
+    if (error) return json(res, 409, { error });
+    saveDb();
+    json(res, 200, { ok: true, status: a.status });
   },
 
   'GET /api/admin/invites': async (req, res) => {

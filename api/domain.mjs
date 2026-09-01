@@ -132,3 +132,81 @@ export function bootstrapMatches(code, secret, userCount) {
   const exp = Buffer.from(want)
   return got.length === exp.length && timingSafeEqual(got, exp)
 }
+
+/* ---------- coaching: assignments ---------- */
+// A coach pushes a plan bundle to a member, who accepts or declines it. The bundle is the same
+// shape buildPlanBundle() produces for the "share a plan with a friend" file, so a coach programs
+// in the ordinary Plan screen and nothing new has to be authored.
+//
+// Deliberately NOT validated against the exercise catalogue here: that lives in the frontend
+// (~870 KB) along with i18n, and the API has no business importing either. The member's client
+// re-reads the bundle through parsePlan() on accept, which drops exercises it doesn't know. So
+// this is a structural and anti-abuse gate — shape, and bounds on what one coach can park in
+// db.json — not a semantic one.
+export const ASSIGN_MAX_ROUTINES = 20
+export const ASSIGN_MAX_EX = 60            // per routine
+export const ASSIGN_MAX_CUSTOM = 100
+export const ASSIGN_MAX_BYTES = 128 * 1024
+export const ASSIGN_MAX_PENDING = 5        // per member, so a coach cannot flood one inbox
+export const ASSIGN_NOTE_MAX = 280
+export const ASSIGN_PENDING_DAYS = 30      // an offer nobody answered expires by itself
+export const ASSIGN_DECIDED_DAYS = 30      // decided history kept this long, then dropped
+
+// One place for "may this coach act on this member", because it guards five routes and getting
+// it wrong in any one of them exposes another member's training history. Admins pass regardless
+// (they own the gym); isAdmin is passed in rather than read here so this stays pure — the server's
+// isAdmin also consults ADMIN_UIDS, which is env, not state.
+export function canCoachMember(coach, member, { isAdmin = false } = {}) {
+  if (!coach || !member || !coach.id || !member.id) return false
+  if (member.id === coach.id) return false   // coaching yourself is the ordinary Plan screen
+  if (member.disabled) return false
+  return isAdmin || member.coachId === coach.id
+}
+
+export function validateAssignmentBundle(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { error: 'plan required' }
+  if (!raw.opengym_plan) return { error: 'not a plan bundle' }
+  if (!Array.isArray(raw.routines) || raw.routines.length === 0) return { error: 'plan has no routines' }
+  if (raw.routines.length > ASSIGN_MAX_ROUTINES) return { error: `too many routines (max ${ASSIGN_MAX_ROUTINES})` }
+  for (const r of raw.routines) {
+    if (!r || typeof r !== 'object' || !r.id || !Array.isArray(r.ex)) return { error: 'malformed routine' }
+    if (r.ex.length > ASSIGN_MAX_EX) return { error: `a routine has more than ${ASSIGN_MAX_EX} exercises` }
+    for (const e of r.ex) if (!e || typeof e !== 'object' || !e.id) return { error: 'malformed exercise' }
+  }
+  const customEx = Array.isArray(raw.customEx) ? raw.customEx.filter(c => c && c.id) : []
+  if (customEx.length > ASSIGN_MAX_CUSTOM) return { error: 'too many custom exercises' }
+  // Size last: cheap checks first, and this one serialises the whole thing.
+  let bytes
+  try { bytes = Buffer.byteLength(JSON.stringify(raw)) } catch { return { error: 'plan is not serialisable' } }
+  if (bytes > ASSIGN_MAX_BYTES) return { error: 'plan is too large' }
+  // Rebuilt rather than stored as-is, so a caller cannot smuggle extra top-level keys into db.json.
+  return {
+    bundle: {
+      opengym_plan: raw.opengym_plan,
+      name: String(raw.name || '').slice(0, 80),
+      week: raw.week && typeof raw.week === 'object' && !Array.isArray(raw.week) ? raw.week : {},
+      routines: raw.routines,
+      customEx
+    }
+  }
+}
+
+export const pendingAssignmentsFor = (assignments, memberId) =>
+  (assignments || []).filter(a => a.memberId === memberId && a.status === 'pending')
+
+export function pruneAssignments(assignments, now = Date.now()) {
+  return (assignments || []).filter(a => {
+    const days = a.status === 'pending' ? ASSIGN_PENDING_DAYS : ASSIGN_DECIDED_DAYS
+    const t = Date.parse((a.status === 'pending' ? a.created : a.decidedAt || a.created) || '') || 0
+    return now - t < days * 86400000
+  })
+}
+
+// Mirrors decideRequest: the member is the only one who can answer, and only once.
+export function decideAssignment(assignment, accept, now = Date.now()) {
+  if (!assignment) return { error: 'no such assignment' }
+  if (assignment.status !== 'pending') return { error: 'already decided' }
+  assignment.status = accept ? 'accepted' : 'declined'
+  assignment.decidedAt = new Date(now).toISOString()
+  return { assignment }
+}
