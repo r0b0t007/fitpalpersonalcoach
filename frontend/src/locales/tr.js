@@ -607,5 +607,8 @@ export default {
   'Tap to review it.': 'İncelemek için dokunun.',
   'Decline': 'Reddet',
   'That program couldn’t be read.': 'Bu program okunamadı.',
-  'Ask {0} to send it again.': '{0} kişisinden tekrar göndermesini isteyin.'
+  'Ask {0} to send it again.': '{0} kişisinden tekrar göndermesini isteyin.',
+  'All rooms': 'Tüm salonlar',
+  'Cancelled': 'İptal edildi',
+  'This class is cancelled.': 'Bu ders iptal edildi.'
 }

@@ -9,6 +9,16 @@ import Icon from '../components/Icon.jsx'
 // is public and nothing here writes. Admins manage the timetable from the admin dashboard.
 // Booking is out of scope, so capacity reads as information ("ask at the desk"), not a button.
 
+// Same normalisation the server clashes on (roomKey in domain.mjs): "Studio 1" and "studio  1"
+// are one room there, so listing them as two chips each showing half that studio's timetable
+// would contradict it. One chip per real room, labelled with the first spelling seen.
+const roomKey = r => String(r || '').trim().toLowerCase().replace(/\s+/g, ' ')
+const roomsOf = list => {
+  const seen = new Map()
+  for (const s of list || []) if (s.room && !seen.has(roomKey(s.room))) seen.set(roomKey(s.room), s.room)
+  return [...seen.values()].sort()
+}
+
 const endOf = (time, min) => {
   const [h, m] = time.split(':').map(Number)
   const tot = h * 60 + m + (min || 0)
@@ -16,11 +26,17 @@ const endOf = (time, min) => {
 }
 
 function SessionRow({ s, onClick }) {
-  return <div className="item" onClick={onClick}>
-    <span className="lrow-i" style={{ width: 34, height: 34, borderRadius: 8, fontSize: 19, background: 'var(--acc-soft)', color: 'var(--acc)' }}><Icon name="people" /></span>
-    <div className="grow"><div className="tt">{s.title}</div>
-      <div className="ss">{[s.time + '–' + endOf(s.time, s.minutes), s.coach, s.minutes + ' min'].filter(Boolean).join(' · ')}</div></div>
-    <Icon name="chevronRight" className="chev" />
+  // A cancelled class stays on the timetable rather than vanishing: someone who planned their
+  // week around it should find out what happened, not just fail to find it.
+  return <div className="item" onClick={onClick} style={s.cancelled ? { opacity: .6 } : null}>
+    <span className="lrow-i" style={{ width: 34, height: 34, borderRadius: 8, fontSize: 19, background: s.cancelled ? 'var(--surface-3)' : 'var(--acc-soft)', color: s.cancelled ? 'var(--label-3)' : 'var(--acc)' }}><Icon name="people" /></span>
+    <div className="grow">
+      <div className="tt" style={s.cancelled ? { textDecoration: 'line-through' } : null}>{s.title}</div>
+      <div className="ss">{[s.time + '–' + endOf(s.time, s.minutes), s.room, s.coachName, s.minutes + ' min'].filter(Boolean).join(' · ')}</div>
+    </div>
+    {s.cancelled
+      ? <span className="tag" style={{ color: 'var(--red)' }}>{t('Cancelled')}</span>
+      : <Icon name="chevronRight" className="chev" />}
   </div>
 }
 
@@ -30,8 +46,14 @@ function SessionDetail({ s }) {
     <div className="muted small" style={{ marginBottom: 12 }}>
       {[fmtDate(s.date, true), s.time + '–' + endOf(s.time, s.minutes), s.minutes + ' min'].join(' · ')}
     </div>
-    {s.coach && <div className="row" style={{ gap: 8, marginBottom: 10 }}>
-      <Icon name="person" style={{ color: 'var(--label-2)' }} /><span>{t('Coach: {0}', s.coach)}</span>
+    {s.cancelled && <div className="small" style={{ color: 'var(--red)', marginBottom: 12, lineHeight: 1.4 }}>
+      {t('This class is cancelled.')}{s.cancelReason ? ' ' + s.cancelReason : ''}
+    </div>}
+    {s.room && <div className="row" style={{ gap: 8, marginBottom: 10 }}>
+      <Icon name="house" style={{ color: 'var(--label-2)' }} /><span>{s.room}</span>
+    </div>}
+    {s.coachName && <div className="row" style={{ gap: 8, marginBottom: 10 }}>
+      <Icon name="person" style={{ color: 'var(--label-2)' }} /><span>{t('Coach: {0}', s.coachName)}</span>
     </div>}
     {s.capacity > 0 && <div className="row" style={{ gap: 8, marginBottom: 10 }}>
       <Icon name="people" style={{ color: 'var(--label-2)' }} /><span>{t('{0} spots — ask at the desk to join', s.capacity)}</span>
@@ -44,11 +66,18 @@ function SessionDetail({ s }) {
 export default function Sessions() {
   const [sessions, setSessions] = useState(null)
   const [cur, setCur] = useState(() => { const d = new Date(); d.setDate(1); return d })
+  const [room, setRoom] = useState('')
   const openSheet = useUI(s => s.openSheet)
   useEffect(() => { api('/api/sessions').then(d => setSessions(d.sessions)).catch(() => setSessions([])) }, [])
 
+  // With spinning, yoga and Zumba running in different studios at the same hour, a flat list
+  // where the only difference is the title text is the readability problem. Filtering by room
+  // is enough to answer "what is on in the studio I go to".
+  const rooms = roomsOf(sessions)
+  const shown = (sessions || []).filter(s => !room || roomKey(s.room) === roomKey(room))
+
   const byDay = {}
-  for (const s of sessions || []) (byDay[s.date] = byDay[s.date] || []).push(s)
+  for (const s of shown) (byDay[s.date] = byDay[s.date] || []).push(s)
 
   const detail = s => openSheet(() => <SessionDetail s={s} />)
   const openDay = iso => {
@@ -91,6 +120,11 @@ export default function Sessions() {
       </div>
       <div className="cal-grid">{['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(l => <div key={l} className="cal-h">{t(l)}</div>)}{cells}</div>
     </div>
+
+    {rooms.length > 1 && <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '2px 2px 4px' }}>
+      <span className={'tag' + (room ? '' : ' acc')} onClick={() => setRoom('')} style={{ cursor: 'pointer' }}>{t('All rooms')}</span>
+      {rooms.map(r => <span key={r} className={'tag' + (roomKey(room) === roomKey(r) ? ' acc' : '')} onClick={() => setRoom(r)} style={{ cursor: 'pointer' }}>{r}</span>)}
+    </div>}
 
     <h4 className="sec">{t('Upcoming')}</h4>
     {sessions == null ? <div className="muted small">{t('Loading…')}</div>

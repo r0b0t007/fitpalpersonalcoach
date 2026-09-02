@@ -607,5 +607,8 @@ export default {
   'Tap to review it.': '탭하여 확인하세요.',
   'Decline': '거절',
   'That program couldn’t be read.': '이 프로그램을 읽을 수 없습니다.',
-  'Ask {0} to send it again.': '{0} 님에게 다시 보내 달라고 요청하세요.'
+  'Ask {0} to send it again.': '{0} 님에게 다시 보내 달라고 요청하세요.',
+  'All rooms': '모든 룸',
+  'Cancelled': '취소됨',
+  'This class is cancelled.': '이 수업은 취소되었습니다.'
 }

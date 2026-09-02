@@ -5,7 +5,8 @@ import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
 import { fmtDate, fmtVol, fmtDur } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
-import { buildPlanBundle } from '../lib/plan-share.js'
+import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
+import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 
@@ -14,10 +15,11 @@ import { Button } from '../components/ui.jsx'
 // English-only for the same reason as Admin.jsx — an operator surface, not part of the
 // translated end-user experience. The member's side of this (the offer sheet) IS translated.
 //
-// There is no program builder here on purpose. A coach programs in the ordinary Plan screen and
-// sends that, which is exactly what buildPlanBundle already produces for "share a plan with a
-// friend". A separate library would be a second place to author routines and a second thing to
-// keep working.
+// Programs are authored in the ordinary Plan screen and then SAVED here as a named snapshot --
+// a frozen copy of the routines you chose. That keeps one place to write routines (no second
+// editor to keep working) while still separating client programming from personal training:
+// once saved, changing your own Plan does not touch a program you already have in the library,
+// and sending picks a program rather than shipping everything you happen to have.
 
 const rel = ts => {
   if (!ts) return 'never'
@@ -29,13 +31,25 @@ const rel = ts => {
 }
 const dur = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60) + 'm' }
 
-function MemberDetail({ id, close }) {
+function MemberDetail({ id, close, pending, onChanged }) {
   const [d, setD] = useState(null)
   const toast = useUI(s => s.toast)
   useEffect(() => { api('/api/coach/member?id=' + encodeURIComponent(id)).then(setD).catch(e => toast(e.message)) }, [id])
   if (!d) return <div className="muted small">Loading…</div>
+  // Only while it is still unanswered: once a member has acted on a program it is their data,
+  // and unsending would mean reaching into their plan.
+  const withdraw = a => api('/api/coach/assignments/withdraw', { method: 'POST', body: JSON.stringify({ id: a.id }) })
+    .then(() => { toast('Program withdrawn'); close(); onChanged?.() })
+    .catch(e => toast(e.message))
   return <>
     <h3 className="capitalize">{d.user.name}</h3>
+    {(pending || []).length > 0 && <div className="card" style={{ marginBottom: 12 }}>
+      <div className="small" style={{ fontWeight: 600, marginBottom: 4 }}>Waiting for them to answer</div>
+      {pending.map(a => <div key={a.id} className="row between" style={{ padding: '7px 2px' }}>
+        <span className="dim small">Sent {fmtDate(String(a.created).slice(0, 10))}</span>
+        <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => withdraw(a)}>Withdraw</button>
+      </div>)}
+    </div>}
     <div className="tiles" style={{ textAlign: 'left', margin: '10px 0' }}>
       <div className="tile"><div className="l">Workouts</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.workouts.length}</div></div>
       <div className="tile"><div className="l">Weigh-ins</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.bodyweight.length}</div></div>
@@ -62,7 +76,7 @@ function MemberDetail({ id, close }) {
   </>
 }
 
-function SendSheet({ members, close }) {
+function SendSheet({ members, close, program }) {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const toast = useUI(s => s.toast)
@@ -71,7 +85,9 @@ function SendSheet({ members, close }) {
   const [schedule, setSchedule] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const bundle = buildPlanBundle(S, (user?.name || 'Coach') + '’s program')
+  // A saved program when one was chosen; otherwise the coach's current plan, which is what the
+  // very first version always sent.
+  const bundle = program ? program.bundle : buildPlanBundle(S, (user?.name || 'Coach') + '’s program')
   const exCount = bundle.routines.reduce((n, r) => n + r.ex.length, 0)
   const days = Object.keys(bundle.week || {}).length
   const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : p.concat(id))
@@ -94,7 +110,7 @@ function SendSheet({ members, close }) {
   </>
 
   return <>
-    <h3>Send your plan</h3>
+    <h3>{program ? 'Send “' + program.name + '”' : 'Send your current plan'}</h3>
     <div className="muted small" style={{ marginBottom: 4 }}>
       {bundle.routines.length} {bundle.routines.length === 1 ? 'routine' : 'routines'} · {exCount} exercises
       {days ? ' · scheduled on ' + days + (days === 1 ? ' day' : ' days') : ''}
@@ -129,21 +145,74 @@ function SendSheet({ members, close }) {
   </>
 }
 
+// Saving a program = snapshotting the routines you picked. Copies, not references: a program
+// you saved last month must not change because you edited your own Plan this morning.
+function SaveProgramSheet({ close }) {
+  const S = useStore(s => s.S)
+  const toast = useUI(s => s.toast)
+  const [name, setName] = useState('')
+  const [picked, setPicked] = useState([])
+  const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : p.concat(id))
+
+  const save = () => {
+    if (!picked.length) { toast('Pick at least one routine'); return }
+    const bundle = buildProgramBundle(S, picked, name.trim() || 'Program')
+    useStore.getState().update(s => {
+      s.programs = s.programs || []
+      s.programs.push({ id: uid(), name: name.trim() || 'Program', created: new Date().toISOString(), bundle })
+    })
+    toast('Program saved')
+    close()
+  }
+
+  const usable = (S.routines || []).filter(r => (r.ex || []).length)
+  if (!usable.length) return <>
+    <h3>Nothing to save yet</h3>
+    <div className="dim small" style={{ lineHeight: 1.5 }}>
+      Build the routines in your own Plan first, then come back and save the ones that make up this program.
+    </div>
+  </>
+
+  return <>
+    <h3>Save a program</h3>
+    <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.4 }}>
+      This takes a copy of the routines you pick. Editing your own Plan later will not change it.
+    </div>
+    <input className="input" placeholder="Program name (e.g. Beginner Block A)" maxLength={40}
+      value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: 10 }} />
+    <h4 className="sec">Routines to include</h4>
+    <div className="list" style={{ gap: 0 }}>
+      {usable.map(r => <label key={r.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <div><div className="small" style={{ fontWeight: 600 }}>{r.name}</div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>{r.ex.length} exercises</div></div>
+        <input type="checkbox" checked={picked.includes(r.id)} onChange={() => toggle(r.id)} />
+      </label>)}
+    </div>
+    <Button variant="primary" style={{ marginTop: 14 }} disabled={!picked.length} onClick={save}>
+      {picked.length ? 'Save ' + picked.length + (picked.length === 1 ? ' routine' : ' routines') + ' as a program' : 'Pick at least one routine'}
+    </Button>
+  </>
+}
+
 export default function Coach() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
   const [members, setMembers] = useState(null)
+  const [classes, setClasses] = useState(null)
+  const programs = useStore(s => s.S.programs) || []
 
   const load = () => api('/api/coach/members').then(d => setMembers(d.members)).catch(e => toast(e.message || 'Failed to load'))
+  const loadClasses = () => api('/api/coach/sessions').then(d => setClasses(d.sessions)).catch(() => setClasses([]))
   useEffect(() => {
     if (!user?.coach) return
-    load()
+    load(); loadClasses()
     const iv = setInterval(load, 15000)   // keeps "training now" live, same as Admin
     return () => clearInterval(iv)
   }, [])
   if (!user?.coach) return null
+  const nextClasses = (classes || []).slice(0, 8)
 
   const live = (members || []).filter(m => m.live)
   const active = (members || []).filter(m => m.lastSync && Date.now() - m.lastSync < 7 * 86400000).length
@@ -162,18 +231,47 @@ export default function Coach() {
       <div className="tile"><div className="l">Active 7d</div><div className="v">{members ? active : '—'}</div></div>
     </div>
 
+    {/* Classes first: an instructor opening the app wants to know what they are teaching today,
+        before anything about programming. Admin owns the timetable, so this is read-only. */}
     <div className="card">
-      <div className="row between"><h2 style={{ margin: 0 }}>Send a program</h2>
-        <Button variant="primary" size="sm" icon="share" disabled={!members?.length}
-          onClick={() => openSheet(close => <SendSheet members={members || []} close={close} />)}>Send my plan</Button></div>
-      <div className="small muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
-        Build it in your own Plan, then send it. Members accept before anything is added to theirs.
+      <h2 style={{ margin: '0 0 6px' }}>My classes</h2>
+      {classes == null ? <div className="dim small">Loading…</div>
+        : nextClasses.length ? nextClasses.map(s => <div key={s.id} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)', opacity: s.cancelled ? .55 : 1 }}>
+          <div><div className="small" style={{ fontWeight: 600, textDecoration: s.cancelled ? 'line-through' : 'none' }}>{s.title}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.room ? ' · ' + s.room : ''}</div></div>
+          {s.cancelled && <span className="tag" style={{ color: 'var(--red)' }}>cancelled</span>}
+        </div>)
+        : <div className="dim small">No classes assigned to you. An admin sets the timetable.</div>}
+    </div>
+
+    <div className="card">
+      <div className="row between"><h2 style={{ margin: 0 }}>Programs</h2>
+        <Button variant="primary" size="sm" icon="plus"
+          onClick={() => openSheet(close => <SaveProgramSheet close={close} />)}>Save a program</Button></div>
+      <div className="small muted" style={{ margin: '6px 0 8px', lineHeight: 1.4 }}>
+        Write the routines in your own Plan, save the ones that make up a program here, then send it.
+        Members accept before anything is added to theirs.
       </div>
+      {programs.map(p => <div key={p.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <div><div className="small" style={{ fontWeight: 600 }}>{p.name}</div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>
+            {p.bundle.routines.length} {p.bundle.routines.length === 1 ? 'routine' : 'routines'} · saved {fmtDate(String(p.created).slice(0, 10))}</div></div>
+        <div className="row" style={{ gap: 6 }}>
+          <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} disabled={!members?.length}
+            onClick={() => openSheet(close => <SendSheet members={members || []} close={close} program={p} />)}>Send</button>
+          <button className="iconbtn" aria-label="Delete program"
+            onClick={() => useStore.getState().update(s => { s.programs = (s.programs || []).filter(x => x.id !== p.id) })}><Icon name="trash" /></button>
+        </div>
+      </div>)}
+      {!programs.length && <div className="dim small">No saved programs yet.</div>}
+      <div style={{ height: 10 }} />
+      <Button variant="ghost" className="dim" disabled={!members?.length}
+        onClick={() => openSheet(close => <SendSheet members={members || []} close={close} />)}>Send my current plan instead</Button>
     </div>
 
     {live.length > 0 && <div className="card" style={{ borderColor: 'var(--acc)' }}>
       <h2 className="row" style={{ margin: '0 0 8px', gap: 6 }}><Icon name="dot" style={{ fontSize: 10, color: 'var(--green)' }} />Training now</h2>
-      {live.map(m => <div key={m.id} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)' }} onClick={() => openSheet(close => <MemberDetail id={m.id} close={close} />)}>
+      {live.map(m => <div key={m.id} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)' }} onClick={() => openSheet(close => <MemberDetail id={m.id} close={close} pending={m.pending} onChanged={load} />)}>
         <div><div className="small" style={{ fontWeight: 600 }}>{m.name}</div>
           <div className="dim" style={{ fontSize: '.72rem' }}>{m.live.name} · ex {m.live.exIdx}/{m.live.exTotal} · {m.live.setsDone}/{m.live.setsTotal} sets</div></div>
         <span className="tag acc">{dur(Date.now() - m.live.startedAt)}</span>
@@ -182,9 +280,15 @@ export default function Coach() {
 
     <h4 className="sec">My members</h4>
     <div className="list">
-      {(members || []).map(m => <div key={m.id} className="item" onClick={() => openSheet(close => <MemberDetail id={m.id} close={close} />)}>
+      {(members || []).map(m => <div key={m.id} className="item" onClick={() => openSheet(close => <MemberDetail id={m.id} close={close} pending={m.pending} onChanged={load} />)}>
         <div className="grow">
-          <div className="tt">{m.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{m.name}</div>
+          <div className="tt">
+            {m.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{m.name}
+            {/* Sending used to tell you nothing. Now the roster says whether they answered. */}
+            {m.pending?.length > 0 && <span className="tag" style={{ marginLeft: 6 }}>program waiting</span>}
+            {!m.pending?.length && m.lastDecision?.status === 'declined' && <span className="tag" style={{ marginLeft: 6, color: 'var(--yellow)' }}>declined</span>}
+            {!m.pending?.length && m.lastDecision?.status === 'accepted' && <span className="tag acc" style={{ marginLeft: 6 }}>accepted</span>}
+          </div>
           <div className="ss">{m.live ? 'training now · ' + m.live.name : m.workouts + ' workouts' + (m.lastWorkout ? ' · last ' + fmtDate(m.lastWorkout) : '') + ' · synced ' + rel(m.lastSync)}</div>
         </div>
         <Icon name="chevronRight" className="chev" />

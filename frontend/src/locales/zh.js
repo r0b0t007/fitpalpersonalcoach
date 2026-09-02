@@ -607,5 +607,8 @@ export default {
   'Tap to review it.': '点按查看。',
   'Decline': '拒绝',
   'That program couldn’t be read.': '无法读取该训练计划。',
-  'Ask {0} to send it again.': '请让 {0} 重新发送。'
+  'Ask {0} to send it again.': '请让 {0} 重新发送。',
+  'All rooms': '所有教室',
+  'Cancelled': '已取消',
+  'This class is cancelled.': '该课程已取消。'
 }

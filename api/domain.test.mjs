@@ -7,7 +7,8 @@ import {
   REQ_PENDING_DAYS, REQ_DECIDED_DAYS, MAX_REPEAT_WEEKS,
   bootstrapMatches, BOOTSTRAP_MIN,
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
-  pendingAssignmentsFor, ASSIGN_MAX_ROUTINES, ASSIGN_MAX_EX, ASSIGN_PENDING_DAYS
+  pendingAssignmentsFor, ASSIGN_MAX_ROUTINES, ASSIGN_MAX_EX, ASSIGN_PENDING_DAYS,
+  sessionsOverlap, findSessionConflicts
 } from './domain.mjs'
 
 const DAY = 86400000
@@ -74,10 +75,20 @@ test('validateSession rejects what would silently vanish, clamps the rest', () =
   assert.equal(validateSession({}).error, 'title required')
   assert.equal(validateSession({ title: 'Spin', date: '2026-02-30', time: '18:00' }).error, 'invalid date')
   assert.equal(validateSession({ title: 'Spin', date: '2026-08-28', time: '24:00' }).error, 'invalid time')
-  const { session } = validateSession({ title: ' Spin ', coach: 'Ana', date: '2026-08-28', time: '18:00', minutes: 9999, capacity: '12', note: 'x' })
-  assert.deepEqual(session, { title: 'Spin', date: '2026-08-28', time: '18:00', coach: 'Ana', minutes: 240, note: 'x', capacity: 12 })
+  const { session } = validateSession({ title: ' Spin ', coach: 'Ana', room: ' Studio 1 ', date: '2026-08-28', time: '18:00', minutes: 9999, capacity: '12', note: 'x' })
+  assert.deepEqual(session, { title: 'Spin', date: '2026-08-28', time: '18:00', room: 'Studio 1', coach: 'Ana', minutes: 240, note: 'x', capacity: 12 })
   // capacity 0 / empty = unlimited = omitted
   assert.equal('capacity' in validateSession({ title: 'a', date: '2026-08-28', time: '06:00', capacity: 0 }).session, false)
+  // coachId is the real link; it stays off the row entirely when a class has no account behind it
+  // (a guest instructor), so `coach` remains the display fallback rather than a dangling id.
+  const named = validateSession({ title: 'a', date: '2026-08-28', time: '06:00', coachId: 'u1' }).session
+  assert.equal(named.coachId, 'u1')
+  assert.equal('coachId' in validateSession({ title: 'a', date: '2026-08-28', time: '06:00' }).session, false)
+  // Cancelling keeps the class on the timetable with its reason, rather than deleting it.
+  const off = validateSession({ title: 'a', date: '2026-08-28', time: '06:00', cancelled: true, cancelReason: 'Coach ill' }).session
+  assert.equal(off.cancelled, true)
+  assert.equal(off.cancelReason, 'Coach ill')
+  assert.equal('cancelled' in validateSession({ title: 'a', date: '2026-08-28', time: '06:00' }).session, false)
 })
 
 test('expandRepeats: single session gets no seriesId, weekly copies share one', () => {
@@ -257,4 +268,73 @@ test('pruneAssignments drops the long-expired and keeps the fresh', () => {
   ], now)
   assert.equal(kept.length, 2)
   assert.equal(pruneAssignments(null, now).length, 0)
+})
+
+/* ---------- timetable clashes ---------- */
+// A club running spin, yoga and Zumba in separate studios needs exactly two rules: one room
+// holds one class, and one coach teaches one class. Nothing enforced either before.
+
+const cls = (o = {}) => ({
+  id: 'x', title: 'Spin', date: '2026-09-10', time: '18:00', minutes: 45, room: 'Studio 1', ...o
+})
+
+test('sessionsOverlap: only a real time collision on the same day', () => {
+  assert.equal(sessionsOverlap(cls(), cls({ time: '18:30' })), true)      // starts mid-class
+  assert.equal(sessionsOverlap(cls(), cls({ time: '17:30' })), true)      // ends mid-class
+  assert.equal(sessionsOverlap(cls(), cls({ time: '18:00' })), true)      // exactly together
+  // Half-open: back-to-back classes are the normal timetable, not a clash.
+  assert.equal(sessionsOverlap(cls(), cls({ time: '18:45' })), false)
+  assert.equal(sessionsOverlap(cls(), cls({ time: '17:15' })), false)
+  assert.equal(sessionsOverlap(cls(), cls({ date: '2026-09-11' })), false)
+  assert.equal(sessionsOverlap(cls(), cls({ time: 'nonsense' })), false)
+})
+
+test('conflicts: same room at the same time is caught, a different room is not', () => {
+  const existing = [cls({ id: 'a' })]
+  const clash = findSessionConflicts(existing, cls({ id: 'b', title: 'Yoga', time: '18:15' }))
+  assert.equal(clash.length, 1)
+  assert.equal(clash[0].why, 'room')
+  assert.equal(clash[0].title, 'Spin')
+  assert.equal(findSessionConflicts(existing, cls({ id: 'b', room: 'Studio 2', time: '18:15' })).length, 0)
+})
+
+test('conflicts: room matching survives spacing and capitalisation', () => {
+  const existing = [cls({ id: 'a', room: 'Studio 1' })]
+  assert.equal(findSessionConflicts(existing, cls({ id: 'b', room: '  studio   1 ' })).length, 1)
+})
+
+test('conflicts: a coach cannot be in two rooms at once', () => {
+  const existing = [cls({ id: 'a', room: 'Studio 1', coachId: 'ana' })]
+  const clash = findSessionConflicts(existing, cls({ id: 'b', room: 'Studio 2', coachId: 'ana', time: '18:15' }))
+  assert.equal(clash.length, 1)
+  assert.equal(clash[0].why, 'coach')
+  // A different coach in a different room at the same hour is the normal case.
+  assert.equal(findSessionConflicts(existing, cls({ id: 'b', room: 'Studio 2', coachId: 'bob' })).length, 0)
+})
+
+test('conflicts: a blank room never collides with another blank room', () => {
+  // Otherwise every unroomed class would clash with every other one at the same time.
+  const existing = [cls({ id: 'a', room: '' })]
+  assert.equal(findSessionConflicts(existing, cls({ id: 'b', room: '' })).length, 0)
+})
+
+test('conflicts: never reports the session against itself, nor a cancelled one', () => {
+  const existing = [cls({ id: 'a' })]
+  assert.equal(findSessionConflicts(existing, cls({ id: 'a' })).length, 0)
+  assert.equal(findSessionConflicts([cls({ id: 'a', cancelled: true })], cls({ id: 'b' })).length, 0)
+  assert.equal(findSessionConflicts(existing, cls({ id: 'b', cancelled: true })).length, 0)
+})
+
+test('conflicts: a series save ignores its own siblings', () => {
+  // Every weekly copy shares a room and time, so without this a 26-week series would report
+  // 25 clashes against itself the moment anyone edited it.
+  const series = [cls({ id: 'a', seriesId: 'S' }), cls({ id: 'b', seriesId: 'S', date: '2026-09-17' })]
+  assert.equal(findSessionConflicts(series, cls({ id: 'c', seriesId: 'S' }), { skipSeriesId: 'S' }).length, 0)
+  assert.equal(findSessionConflicts(series, cls({ id: 'c' })).length, 1)
+})
+
+test('conflicts: tolerates junk input rather than throwing', () => {
+  assert.deepEqual(findSessionConflicts(null, cls()), [])
+  assert.deepEqual(findSessionConflicts([null, undefined], cls()), [])
+  assert.deepEqual(findSessionConflicts([cls()], null), [])
 })

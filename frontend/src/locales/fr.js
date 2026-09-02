@@ -607,5 +607,8 @@ export default {
   'Tap to review it.': 'Appuyez pour le consulter.',
   'Decline': 'Refuser',
   'That program couldn’t be read.': 'Ce programme n’a pas pu être lu.',
-  'Ask {0} to send it again.': 'Demandez à {0} de le renvoyer.'
+  'Ask {0} to send it again.': 'Demandez à {0} de le renvoyer.',
+  'All rooms': 'Toutes les salles',
+  'Cancelled': 'Annulé',
+  'This class is cancelled.': 'Ce cours est annulé.'
 }

@@ -11,6 +11,11 @@ export const DEF = {
   unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
   theme: 'dark', accent: 'gold', body: 'male', targetW: null,
   bodyweight: [], routines: [], week: {}, dayPlan: {},
+  // Coaches only: named programs written for clients, kept out of `routines` so that progressing
+  // a client never changes what the coach themselves trains tomorrow. Each one is a frozen
+  // snapshot of chosen routines (see Coach.jsx), which is why editing your own Plan afterwards
+  // leaves already-saved programs alone.
+  programs: [],
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // effort: which per-set effort scale is logged — 'none' | 'rir' | 'rpe'. null, not 'none', so
   // that a profile which never chose (loaded state is overlaid on DEF, on every path: local,

@@ -14,7 +14,8 @@ import {
   validateSession, expandRepeats, pruneSessions, sessionSort, addDaysISO, SESSION_WINDOW_DAYS,
   bootstrapMatches, BOOTSTRAP_MIN,
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
-  pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX
+  pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
+  findSessionConflicts
 } from './domain.mjs';
 
 const PORT = +(process.env.PORT || 3000);
@@ -251,15 +252,40 @@ function requireCoach(req, res) {
   if (!isCoach(user)) { json(res, 403, { error: 'forbidden' }); return null; }
   return user;
 }
+// A pending offer outlives the relationship it came from unless something retires it. Without
+// this a member could accept a program from an ex-coach up to 30 days later — with that person's
+// name still on the card — and those dead rows also consume the per-member pending cap, blocking
+// the NEW coach with "already has 5 programs waiting" and clearable by nobody but the member.
+function expireAssignmentsWhere(pred) {
+  let n = 0;
+  for (const a of db.assignments) {
+    if (a.status === 'pending' && pred(a)) {
+      a.status = 'expired';
+      a.decidedAt = new Date().toISOString();
+      n++;
+    }
+  }
+  return n;
+}
+
 // The member summary the admin list and the coach list both render.
-const memberCard = u => {
+const memberCard = (u, viewerId = null) => {
   const S = readState(u.id) || {};
   const workouts = S.workouts || [];
   const last = workouts[workouts.length - 1];
+  // Sending used to be a black hole — a decline looked exactly like "hasn't opened the app".
+  const mine = db.assignments.filter(a => a.memberId === u.id);
+  const lastDecided = mine.filter(a => a.status === 'accepted' || a.status === 'declined')
+    .sort((a, b) => String(b.decidedAt).localeCompare(String(a.decidedAt)))[0];
   return {
     id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled,
     workouts: workouts.length, lastWorkout: last ? last.d : null,
-    lastSync: S._ts || null, live: livePresence(u.id)
+    lastSync: S._ts || null, live: livePresence(u.id),
+    // Only the viewer's own offers: withdraw is theirs to press, and another coach's pending
+    // program is not their business to see or cancel.
+    pending: mine.filter(a => a.status === 'pending' && (!viewerId || a.coachId === viewerId))
+      .map(a => ({ id: a.id, created: a.created, coachId: a.coachId })),
+    lastDecision: lastDecided ? { status: lastDecided.status, at: lastDecided.decidedAt } : null
   };
 };
 function sessionCookie(user) {
@@ -334,6 +360,35 @@ function mintInvite(adminId, note, requestId) {
 }
 
 const isoTodayUTC = () => new Date().toISOString().slice(0, 10);
+
+// Whole days from a to b, UTC-noon so DST can never make it 0.999 and floor to the wrong number.
+const daysBetweenISO = (a, b) => {
+  const t = iso => Date.parse(iso + 'T12:00:00Z');
+  const d = (t(b) - t(a)) / 86400000;
+  return Number.isFinite(d) ? Math.round(d) : 0;
+};
+
+// The assigned coach is told when a class lands on them, moves, or is called off. Deliberately
+// only the coach: with no booking there is no attendee list, and pushing every cancelled yoga
+// class to everyone who installed the app is the kind of noise that gets notifications muted.
+// Members find out from the struck-through row on the timetable.
+// The timetable is public, so a session leaves here with a resolved coach NAME and no ids: the
+// name follows the account (rename a coach and every class updates), while an anonymous reader
+// learns nothing about who holds an account. Falls back to the free-text `coach` for guests.
+const publicSession = s => {
+  const { coachId, createdBy, ...rest } = s;
+  const acct = coachId ? db.users.find(u => u.id === coachId) : null;
+  return { ...rest, coachName: acct ? acct.name : (s.coach || '') };
+};
+
+function notifyCoachOfSession(session, what) {
+  if (!session || !session.coachId) return;
+  const when = `${session.date} ${session.time}`;
+  const body = what === 'cancelled' ? `${session.title} on ${when} was cancelled`
+    : what === 'moved' ? `${session.title} moved to ${when}`
+    : `You're teaching ${session.title} on ${when}`;
+  sendPush(session.coachId, { title: RP_NAME, body, tag: 'session' }).catch(() => {});
+}
 
 /* ---------- routes ---------- */
 const routes = {
@@ -616,7 +671,12 @@ const routes = {
     u.coach = !!body.coach;
     // Revoking leaves their members coachless rather than silently pointing at a non-coach —
     // otherwise re-granting the role later would hand back a roster nobody reviewed.
-    if (!u.coach) db.users.forEach(m => { if (m.coachId === u.id) delete m.coachId; });
+    if (!u.coach) {
+      db.users.forEach(m => { if (m.coachId === u.id) delete m.coachId; });
+      // An admin is still a coach with the flag off, so their offers stay valid — retiring them
+      // here would cancel programs from someone who never lost the ability to send them.
+      if (!isCoach(u)) expireAssignmentsWhere(a => a.coachId === u.id);
+    }
     saveDb();
     json(res, 200, { ok: true, id: u.id, coach: u.coach });
   },
@@ -627,11 +687,20 @@ const routes = {
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'no such user' });
     const coachId = String(body.coachId || '').trim();
-    if (!coachId) { delete u.coachId; saveDb(); return json(res, 200, { ok: true, id: u.id, coachId: null }); }
+    if (!coachId) {
+      const had = u.coachId;
+      delete u.coachId;
+      if (had) expireAssignmentsWhere(a => a.memberId === u.id && a.coachId === had);
+      saveDb();
+      return json(res, 200, { ok: true, id: u.id, coachId: null });
+    }
     const c = db.users.find(x => x.id === coachId);
     if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
     if (c.id === u.id) return json(res, 400, { error: 'a member cannot be their own coach' });
+    const previous = u.coachId;
     u.coachId = c.id;
+    // Offers from whoever had them before are no longer this coach's to stand behind.
+    if (previous && previous !== c.id) expireAssignmentsWhere(a => a.memberId === u.id && a.coachId === previous);
     saveDb();
     json(res, 200, { ok: true, id: u.id, coachId: c.id });
   },
@@ -644,7 +713,7 @@ const routes = {
     const admin = isAdmin(coach);
     const members = db.users
       .filter(u => canCoachMember(coach, u, { isAdmin: admin }))
-      .map(memberCard);
+      .map(u => memberCard(u, coach.id));
     json(res, 200, { members, now: Date.now() });
   },
 
@@ -670,6 +739,17 @@ const routes = {
   // MEMBER's client on accept — never written into their state here. Their app syncs by
   // whole-state replacement, so a server-side write would be clobbered by the next push from any
   // device that had an unsynced change.
+  // The classes this coach is teaching. Mirrors GET /api/sessions but scoped to them, so a coach
+  // opening the app sees their own week rather than the whole club's timetable.
+  'GET /api/coach/sessions': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const from = isoTodayUTC();
+    const sessions = db.sessions
+      .filter(s => s.coachId === coach.id && s.date >= from)
+      .sort(sessionSort);
+    json(res, 200, { sessions });
+  },
+
   'POST /api/coach/assign': async (req, res) => {
     const coach = requireCoach(req, res); if (!coach) return;
     const body = await readBody(req);
@@ -704,6 +784,21 @@ const routes = {
     json(res, 200, { ok: true, sent: rows.length });
   },
 
+  // Pull back a program that hasn't been answered yet. Only the coach who sent it, and only
+  // while it is still pending — once a member has acted on it, it is their data, not the
+  // coach's, and unsending would mean reaching into their plan.
+  'POST /api/coach/assignments/withdraw': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const body = await readBody(req);
+    const a = db.assignments.find(x => x.id === body.id);
+    if (!a || a.coachId !== coach.id) return json(res, 404, { error: 'no such assignment' });
+    if (a.status !== 'pending') return json(res, 409, { error: 'already decided' });
+    a.status = 'withdrawn';
+    a.decidedAt = new Date().toISOString();
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
   // The member's own inbox. Pending only — a decided assignment has already been merged locally,
   // and re-offering it would invite a duplicate.
   'GET /api/assignments': async (req, res) => {
@@ -723,6 +818,16 @@ const routes = {
     const a = db.assignments.find(x => x.id === body.id);
     // Only the recipient answers, and only their own — never the coach, never another member.
     if (!a || a.memberId !== user.id) return json(res, 404, { error: 'no such assignment' });
+    // Re-checked here, not only at send: an admin may have moved this member to another coach
+    // between the offer arriving and them answering it. expireAssignmentsWhere covers the normal
+    // path; this closes the race.
+    const sender = db.users.find(x => x.id === a.coachId);
+    if (a.status === 'pending' && body.accept && (!sender || !canCoachMember(sender, user, { isAdmin: isAdmin(sender) }))) {
+      a.status = 'expired';
+      a.decidedAt = new Date().toISOString();
+      saveDb();
+      return json(res, 409, { error: 'that program is no longer available' });
+    }
     const { error } = decideAssignment(a, !!body.accept);
     if (error) return json(res, 409, { error });
     saveDb();
@@ -825,8 +930,15 @@ const routes = {
   // Windowed to the recent past — old sessions also age out of db.json on save (pruneSessions).
   'GET /api/sessions': async (req, res) => {
     const from = addDaysISO(isoTodayUTC(), -SESSION_WINDOW_DAYS);
-    const sessions = db.sessions.filter(s => s.date >= from).sort(sessionSort);
-    json(res, 200, { sessions });
+    const rows = db.sessions.filter(s => s.date >= from).sort(sessionSort);
+    // Everyone gets the resolved coachName — the view renders that and nothing else, so handing
+    // admins the raw row alone made the coach disappear from their own timetable. Admins
+    // additionally keep coachId, which the edit sheet needs to prefill the picker; anonymous
+    // readers get no ids at all, since this endpoint is deliberately public.
+    const admin = isAdmin(readSession(req));
+    json(res, 200, {
+      sessions: rows.map(r => admin ? { ...publicSession(r), coachId: r.coachId || null } : publicSession(r))
+    });
   },
 
   // Create (repeatWeeks spawns dated copies sharing a seriesId) or edit. Editing with
@@ -838,27 +950,108 @@ const routes = {
     const v = validateSession(body.session || {});
     if (v.error) return json(res, 400, { error: v.error });
     const s = v.session;
+    // A named coach must be a real coach account. Same rule and wording as assign-coach, so the
+    // two places that attach a coach to something cannot drift apart.
+    if (s.coachId) {
+      const c = db.users.find(x => x.id === s.coachId);
+      if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
+      s.coach = '';   // the display fallback is for guests only; an account owns its own name
+    }
     const existing = s.id && db.sessions.find(x => x.id === s.id);
+
+    // Every date this save will actually land on, not just the one on screen. Checking only the
+    // edited occurrence made the warning useless for the two cases it exists for: a 26-week
+    // series validated week 1 and dropped the other 25 wherever they fell, and "move the weekly
+    // class to Wednesdays" validated the first Wednesday only.
+    const seriesId = body.series && existing ? existing.seriesId : null;
+    const shift = existing && seriesId ? daysBetweenISO(existing.date, s.date) : 0;
+    const occurrences = existing
+      ? (seriesId
+        ? db.sessions.filter(x => x.seriesId === seriesId && x.date >= existing.date)
+          .map(x => ({ ...s, id: x.id, date: shift ? addDaysISO(x.date, shift) : x.date }))
+        : [{ ...s, id: existing.id }])
+      : expandRepeats(s, body.repeatWeeks, () => 'candidate').map(x => ({ ...x, id: null }));
+
+    // Warn about a double-booked room or coach, but let the admin proceed: real clubs overlap
+    // deliberately, and a hard block would eventually stop something legitimate at the worst
+    // moment. Two round trips — report, then commit with confirm.
+    if (!body.confirm) {
+      const seen = new Set();
+      const conflicts = [];
+      for (const occ of occurrences) {
+        // A cancelled class holds no room; without this, reopening one to fix a typo warns
+        // against whatever legitimately took the slot it freed.
+        const candidate = { ...occ, cancelled: existing ? !!existing.cancelled : false };
+        for (const c of findSessionConflicts(db.sessions, candidate, { skipSeriesId: seriesId })) {
+          if (seen.has(c.id)) continue;
+          seen.add(c.id);
+          conflicts.push(c);
+        }
+      }
+      if (conflicts.length) return json(res, 200, { conflicts: conflicts.slice(0, 5) });
+    }
+
     if (existing) {
-      const patch = { title: s.title, coach: s.coach, time: s.time, minutes: s.minutes, note: s.note, updated: Date.now() };
+      const patch = {
+        title: s.title, coach: s.coach, room: s.room, time: s.time,
+        minutes: s.minutes, note: s.note, updated: Date.now()
+      };
+      // Told before the row is overwritten: after this, existing.coachId is the NEW coach and
+      // whoever the class was taken off would never hear about it.
+      const previousCoach = existing.coachId || null;
+      const rescheduled = existing.date !== s.date || existing.time !== s.time;
       if (body.series && existing.seriesId) {
-        for (const x of db.sessions)
-          if (x.seriesId === existing.seriesId && x.date >= existing.date)
-            Object.assign(x, patch, 'capacity' in s ? { capacity: s.capacity } : { capacity: undefined });
-        // A date edit applies to this occurrence only — siblings keep their own weeks. Assigned
-        // after the loop so the sibling selection above still keys off the original date.
-        existing.date = s.date;
+        // Dates move as a DELTA across the series, not as an absolute. Previously a date edit hit
+        // only the clicked occurrence, so moving a weekly class from Tuesdays to Wednesdays meant
+        // editing all 26 by hand. Shifting every sibling by the same number of days moves the
+        // whole class while preserving its weekly spacing.
+        const siblings = db.sessions.filter(x => x.seriesId === existing.seriesId && x.date >= existing.date);
+        for (const x of siblings) {
+          Object.assign(x, patch);
+          if ('capacity' in s) x.capacity = s.capacity; else delete x.capacity;
+          if (s.coachId) x.coachId = s.coachId; else delete x.coachId;
+          if (shift) x.date = addDaysISO(x.date, shift);
+        }
       } else {
         Object.assign(existing, patch, { date: s.date });
         if ('capacity' in s) existing.capacity = s.capacity; else delete existing.capacity;
+        if (s.coachId) existing.coachId = s.coachId; else delete existing.coachId;
       }
+      // Only when something they'd act on changed. Pushing "Yoga moved to …" because the capacity
+      // was edited is how a coach learns to ignore these.
+      if (previousCoach && previousCoach !== (existing.coachId || null))
+        notifyCoachOfSession({ ...existing, coachId: previousCoach }, 'cancelled');
+      if (existing.coachId && (rescheduled || previousCoach !== (existing.coachId || null)))
+        notifyCoachOfSession(existing, previousCoach === existing.coachId ? 'moved' : 'assigned');
     } else {
       const created = expandRepeats(s, body.repeatWeeks, () => crypto.randomBytes(12).toString('base64url'));
       for (const x of created) db.sessions.push({ ...x, updated: Date.now(), createdBy: admin.id });
+      notifyCoachOfSession(created[0], 'assigned');
     }
     db.sessions = pruneSessions(db.sessions, isoTodayUTC());
     saveDb();
     json(res, 200, { ok: true });
+  },
+
+  // Cancelling keeps the class visible, struck through with its reason, so a member who planned
+  // around it finds an answer instead of an absence. Deleting stays available for a mistake.
+  'POST /api/admin/sessions/cancel': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const s = db.sessions.find(x => x.id === body.id);
+    if (!s) return json(res, 404, { error: 'no such session' });
+    const reason = String(body.reason || '').trim().slice(0, 120);
+    const targets = body.series && s.seriesId
+      ? db.sessions.filter(x => x.seriesId === s.seriesId && x.date >= s.date)
+      : [s];
+    for (const x of targets) {
+      if (body.restore) { delete x.cancelled; delete x.cancelReason; }
+      else { x.cancelled = true; x.cancelReason = reason; }
+      x.updated = Date.now();
+    }
+    saveDb();
+    if (!body.restore) notifyCoachOfSession(s, 'cancelled');
+    json(res, 200, { ok: true, cancelled: !body.restore, count: targets.length });
   },
 
   'POST /api/admin/sessions/delete': async (req, res) => {
