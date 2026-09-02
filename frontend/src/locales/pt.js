@@ -610,5 +610,6 @@ export default {
   'Ask {0} to send it again.': 'Peça a {0} para o enviar novamente.',
   'All rooms': 'Todas as salas',
   'Cancelled': 'Cancelada',
-  'This class is cancelled.': 'Esta aula foi cancelada.'
+  'This class is cancelled.': 'Esta aula foi cancelada.',
+  'Invite code filled in from your link.': 'Código de convite preenchido a partir do seu link.'
 }

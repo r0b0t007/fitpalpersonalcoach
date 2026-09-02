@@ -10,6 +10,7 @@ import { wakeLockSupported } from '../lib/wakelock.js'
 import { t, LANGS, INSTR_LANGS } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { BRAND, FILE_PREFIX } from '../lib/brand.js'
+import { pendingInvite, clearInvite } from '../lib/invite.js'
 import { MOBILE, shareExport, syncReminder } from '../lib/mobile.js'
 import { loadStarterPlan, confirmSheet, importFromApp } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -338,7 +339,10 @@ function PushCard({ S, update, toast }) {
 // one, so a form that cannot collect it is a form that cannot succeed.
 function RegisterInline({ close, setUser, pushState, pullState, toast }) {
   const nameRef = useRef(null)
-  const [code, setCode] = useState('')
+  // A guest who taps an invite link lands here rather than on the sign-in screen, so this path
+  // needs the same prefill — otherwise they hold a link and are asked for a code they never saw.
+  const fromLink = pendingInvite()
+  const [code, setCode] = useState(fromLink)
   const [inviteOnly, setInviteOnly] = useState(false)
   useEffect(() => { api('/api/config').then(c => setInviteOnly(!!c.invite_only)).catch(() => {}) }, [])
   const go = async () => {
@@ -346,7 +350,9 @@ function RegisterInline({ close, setUser, pushState, pullState, toast }) {
     if (!n) { toast(t('Enter a name')); return }
     if (inviteOnly && !code.trim()) { toast(t('An invite code is required')); return }
     try {
-      const u = await passkeyRegister(n, code.trim()); setUser(u); close()
+      const u = await passkeyRegister(n, code.trim())
+      clearInvite()   // redeemed: drop it from memory and from the address bar
+      setUser(u); close()
       if (hasData(useStore.getState().S)) { await pushState(); toast(t('Profile created — data moved into it')) }
       else { await pullState(); toast(t('Welcome, {0}', u.name)) }
     } catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') toast(e.message || t('Registration failed')) }
@@ -359,7 +365,11 @@ function RegisterInline({ close, setUser, pushState, pullState, toast }) {
       <div style={{ height: 10 }} />
       <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
         onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
-      <div className="dim small" style={{ marginTop: 6 }}>{t('This app is invite-only — enter the code you were given.')}</div>
+      <div className="dim small" style={{ marginTop: 6 }}>
+        {fromLink && code === fromLink
+          ? t('Invite code filled in from your link.')
+          : t('This app is invite-only — enter the code you were given.')}
+      </div>
     </>}
     <div style={{ height: 12 }} /><Button variant="primary" onClick={go}>{t('Create passkey')}</Button>
   </>

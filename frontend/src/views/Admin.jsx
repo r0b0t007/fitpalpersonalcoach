@@ -52,7 +52,9 @@ function UserDetail({ id, users, onChanged, close }) {
       .catch(e => toast(e.message))
   const assignCoach = coachId =>
     api('/api/admin/user/assign-coach', { method: 'POST', body: JSON.stringify({ id: u.id, coachId }) })
-      .then(() => { toast(coachId ? 'Coach assigned' : 'Coach cleared'); load(); onChanged() })
+      // Closes on success: the sheet captured the coach list when it opened, so leaving it up
+      // after a change shows a stale roster — and there is nothing left to do here anyway.
+      .then(() => { toast(coachId ? 'Coach assigned' : 'Coach cleared'); onChanged(); close() })
       .catch(e => toast(e.message))
   // Admins are coaches implicitly, so the toggle is about the explicit flag only — otherwise it
   // would read as "on" for an admin and turning it off would appear to do nothing.
@@ -74,7 +76,12 @@ function UserDetail({ id, users, onChanged, close }) {
     </div>
     {!u.admin && <button className={'btn ' + (u.disabled ? 'primary' : 'danger')} style={{ margin: '12px 0 4px' }}
       onClick={() => u.disabled ? setDisabled(false)
-        : confirmSheet({ title: 'Disable ' + u.name + '?', message: 'They are signed out everywhere and can no longer sync or log in until re-enabled.', confirmText: 'Disable', danger: true, onConfirm: () => setDisabled(true) })}>
+        : confirmSheet({
+          title: 'Disable ' + u.name + '?',
+          message: 'They are signed out everywhere and can no longer sync or log in until re-enabled.'
+            + (u.coach ? ' Members assigned to them are unassigned and their pending programs are withdrawn — re-enabling does not bring the roster back.' : ''),
+          confirmText: 'Disable', danger: true, onConfirm: () => setDisabled(true)
+        })}>
       {u.disabled ? 'Enable account' : 'Disable account'}</button>}
     <h4 className="sec">Coaching</h4>
     {u.admin
@@ -114,28 +121,62 @@ function UserDetail({ id, users, onChanged, close }) {
   </>
 }
 
-function InvitesCard({ invites, reload }) {
+// A member joining has to end up on their own device anyway — passkeys can only be created there
+// — so the useful thing to hand them is a link that carries the code, not sixteen hex characters
+// to retype. `?invite=` rather than a hash route: the app is hash-routed and the query survives
+// it untouched, with nothing new to register.
+export const inviteLink = code => `${location.origin}${location.pathname}?invite=${encodeURIComponent(code)}`
+
+function InvitesCard({ invites, inviteOnly, reload }) {
   const toast = useUI(s => s.toast)
-  const gen = () => api('/api/admin/invites/new', { method: 'POST', body: '{}' })
-    .then(({ invite }) => { navigator.clipboard?.writeText(invite.code).catch(() => {}); toast('Code ' + invite.code + ' created & copied'); reload() })
+  const [note, setNote] = useState('')
+  const copy = (text, said) => { navigator.clipboard?.writeText(text).catch(() => {}); toast(said) }
+  // The server has always accepted a note; the client sent `{}` and never rendered one, which is
+  // why three codes generated on Monday are an anonymous wall of hex by Wednesday.
+  const gen = () => api('/api/admin/invites/new', { method: 'POST', body: JSON.stringify({ note: note.trim() }) })
+    .then(({ invite }) => { copy(inviteLink(invite.code), 'Invite link copied · ' + invite.code); setNote(''); reload() })
     .catch(e => toast(e.message))
-  const revoke = code => api('/api/admin/invites/revoke', { method: 'POST', body: JSON.stringify({ code }) })
-    .then(() => { toast('Code revoked'); reload() }).catch(e => toast(e.message))
-  const open = (invites || []).filter(i => !i.usedBy)
+  const revoke = i => confirmSheet({
+    title: 'Revoke this code?',
+    message: (i.note ? `“${i.note}” — ` : '') + `${i.code} stops working immediately. If you already sent it out, whoever has it will not be able to join.`,
+    confirmText: 'Revoke', danger: true,
+    onConfirm: () => api('/api/admin/invites/revoke', { method: 'POST', body: JSON.stringify({ code: i.code }) })
+      .then(() => { toast('Code revoked'); reload() }).catch(e => toast(e.message))
+  })
+  const open = (invites || []).filter(i => !i.usedBy && !i.revoked)
   const used = (invites || []).filter(i => i.usedBy)
+  const revoked = (invites || []).filter(i => !i.usedBy && i.revoked)
   return <div className="card">
     <div className="row between"><h2 style={{ margin: 0 }}>Invite codes</h2>
       <Button variant="primary" size="sm" onClick={gen} icon="plus">Generate</Button></div>
-    <div className="small muted" style={{ margin: '6px 0 10px' }}>{open.length} unused · {used.length} redeemed</div>
+    <div className="small muted" style={{ margin: '6px 0 8px' }}>{open.length} unused · {used.length} redeemed{revoked.length ? ' · ' + revoked.length + ' revoked' : ''}</div>
+    {/* Without this an admin can hand out codes on an open instance and never learn they do
+        nothing — signup was never gated, and nothing in the UI said so. */}
+    {inviteOnly === false && <div className="small" style={{ color: 'var(--yellow)', marginBottom: 8, lineHeight: 1.4 }}>
+      Signup is currently open to anyone with the address — codes are not required and not checked.
+      Set <span style={{ fontFamily: 'monospace' }}>INVITE_ONLY=1</span> and restart to make these matter.
+    </div>}
+    <input className="input" placeholder="Who is this for? (optional)" maxLength={60}
+      value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: 10 }} />
     {open.map(i => <div key={i.code} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
-      <span style={{ fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', fontWeight: 500, letterSpacing: '.06em' }}
-        onClick={() => { navigator.clipboard?.writeText(i.code).catch(() => {}); toast('Copied ' + i.code) }}>{i.code}</span>
-      <button className="iconbtn" style={{ width: 32, height: 30, borderRadius: 8, fontSize: 15, color: 'var(--red)' }} onClick={() => revoke(i.code)} aria-label="revoke"><Icon name="trash" /></button>
+      <div style={{ minWidth: 0 }}>
+        {i.note && <div className="small" style={{ fontWeight: 600 }}>{i.note}</div>}
+        <span className="dim" style={{ fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', fontSize: '.74rem', letterSpacing: '.06em' }}
+          onClick={() => copy(i.code, 'Copied ' + i.code)}>{i.code}</span>
+      </div>
+      <div className="row" style={{ gap: 6 }}>
+        <button className="btn" style={{ width: 'auto', padding: '4px 10px' }}
+          onClick={() => copy(inviteLink(i.code), 'Invite link copied')}>Copy link</button>
+        <button className="iconbtn" style={{ width: 32, height: 30, borderRadius: 8, fontSize: 15, color: 'var(--red)' }} onClick={() => revoke(i)} aria-label="revoke"><Icon name="trash" /></button>
+      </div>
     </div>)}
     {used.map(i => <div key={i.code} className="row between dim" style={{ padding: '7px 2px', fontSize: '.8rem' }}>
       <span style={{ fontFamily: 'monospace' }}>{i.code}</span><span>→ {i.usedByName || 'used'}</span>
     </div>)}
-    {!open.length && !used.length && <div className="dim small">No codes yet — generate one to invite someone.</div>}
+    {revoked.map(i => <div key={i.code} className="row between dim" style={{ padding: '7px 2px', fontSize: '.8rem', textDecoration: 'line-through' }}>
+      <span style={{ fontFamily: 'monospace' }}>{i.code}</span><span>{i.note || 'revoked'}</span>
+    </div>)}
+    {!open.length && !used.length && !revoked.length && <div className="dim small">No codes yet — generate one to invite someone.</div>}
   </div>
 }
 
@@ -148,8 +189,8 @@ function RequestsCard({ requests, reload }) {
   const decided = requests.filter(r => r.status !== 'pending')
   const decide = (id, approve) => api('/api/admin/requests/decide', { method: 'POST', body: JSON.stringify({ id, approve }) })
     .then(({ request }) => {
-      if (request.code) navigator.clipboard?.writeText(request.code).catch(() => {})
-      toast(approve ? 'Approved — code ' + request.code + ' copied. Send it to ' + request.name + '.' : 'Request rejected')
+      if (request.code) navigator.clipboard?.writeText(inviteLink(request.code)).catch(() => {})
+      toast(approve ? 'Approved — link copied · ' + request.code + ' · send it to ' + request.name : 'Request rejected')
       reload()
     }).catch(e => toast(e.message))
   const clearAll = () => confirmSheet({
@@ -166,7 +207,11 @@ function RequestsCard({ requests, reload }) {
         <div className="dim" style={{ fontSize: '.72rem' }}>{r.phone}{r.note ? ' · ' + r.note : ''} · {fmtDate(r.created.slice(0, 10))}</div></div>
       <div className="row" style={{ gap: 6, flexShrink: 0 }}>
         <Button variant="primary" size="sm" onClick={() => decide(r.id, true)}>Approve</Button>
-        <Button size="sm" onClick={() => decide(r.id, false)}>Reject</Button>
+        <Button size="sm" onClick={() => confirmSheet({
+          title: 'Reject ' + r.name + '?',
+          message: 'This cannot be undone, and they are never told — so they will not know to ask again. If you are unsure, leave it pending.',
+          confirmText: 'Reject', danger: true, onConfirm: () => decide(r.id, false)
+        })}>Reject</Button>
       </div>
     </div>)}
     {!pending.length && <div className="dim small">No open requests.</div>}
@@ -175,13 +220,16 @@ function RequestsCard({ requests, reload }) {
       {decided.map(r => <div key={r.id} className="row between" style={{ padding: '7px 2px', fontSize: '.8rem', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <span>{r.name}</span> <span className="dim">· {r.phone}</span>
-          {r.status === 'approved' && r.code && !r.redeemed && <div className="row" style={{ gap: 10, marginTop: 2 }}>
+          {r.status === 'approved' && r.code && !r.redeemed && !r.codeDead && <div className="row" style={{ gap: 10, marginTop: 2 }}>
             <span style={{ fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: '.06em' }}
-              onClick={() => { navigator.clipboard?.writeText(r.code).catch(() => {}); toast('Copied ' + r.code) }}>{r.code}</span>
+              onClick={() => { navigator.clipboard?.writeText(inviteLink(r.code)).catch(() => {}); toast('Invite link copied') }}>{r.code}</span>
             {/* phone is requester-supplied text — reduce it to dialable characters so it can't
                 smuggle ?body=… into the URI and rewrite the message the admin taps to send */}
-            <a href={'sms:' + r.phone.replace(/[^\d+]/g, '') + '?body=' + encodeURIComponent('Your ' + BRAND + ' invite code: ' + r.code)}>text it to {r.name}</a>
+            <a href={'sms:' + r.phone.replace(/[^\d+]/g, '') + '?body=' + encodeURIComponent('Join ' + BRAND + ': ' + inviteLink(r.code))}>text it to {r.name}</a>
           </div>}
+          {/* Revoking the code used to leave this row still offering to text it. */}
+          {r.status === 'approved' && r.codeDead && !r.redeemed &&
+            <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>code revoked — generate a new invite if they still need one</div>}
         </div>
         <span className={'tag' + (r.redeemed || r.status === 'approved' ? ' acc' : '')}
           style={r.status === 'rejected' ? { color: 'var(--red)' } : null}>{r.redeemed ? 'joined' : r.status}</span>
@@ -201,7 +249,12 @@ function SessionSheet({ session, close, reload, users, rooms }) {
   // press into a deliberate override rather than a mystery.
   const [clashes, setClashes] = useState(null)
   const set = patch => setF(x => ({ ...x, ...patch, ...(patch.coachId !== undefined ? { coach: '' } : null) }))
+  // The currently-assigned coach stays in the list even when disabled, marked as such: excluding
+  // them made the picker read "no coach" for a class that has one, and the save then failed with
+  // an error nothing on screen explained.
+  const assigned = (users || []).find(u => u.id === f.coachId)
   const coaches = (users || []).filter(u => u.coach && !u.disabled)
+    .concat(assigned && assigned.disabled ? [assigned] : [])
 
   const save = (series, confirm = false) => {
     if (!f.title.trim()) { toast('Enter a title'); return }
@@ -274,7 +327,7 @@ function SessionSheet({ session, close, reload, users, rooms }) {
       else set({ coachId: e.target.value })
     }}>
       <option value="">— no coach —</option>
-      {coaches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      {coaches.map(c => <option key={c.id} value={c.id}>{c.name}{c.disabled ? ' (disabled)' : ''}</option>)}
       <option value="__guest">Guest instructor…</option>
     </select>
     {!f.coachId && f.coach !== '' && <>
@@ -336,7 +389,13 @@ function SessionsCard({ sessions, users, reload }) {
   const [room, setRoom] = useState('')
   const [showAll, setShowAll] = useState(false)
   const rooms = roomsOf(sessions)
-  const coachName = s => s.coachId ? ((users || []).find(u => u.id === s.coachId)?.name || 'coach') : (s.coach || '')
+  // Mirrors the server: someone disabled or no longer a coach is not shown as teaching, so the
+  // row falls through to "coach unavailable" and the admin can reassign.
+  const coachName = s => {
+    if (!s.coachId) return s.coach || ''
+    const c = (users || []).find(u => u.id === s.coachId)
+    return c && c.coach && !c.disabled ? c.name : ''
+  }
   const edit = s => openSheet(close => <SessionSheet session={s} close={close} reload={reload} users={users} rooms={rooms} />)
   const upcoming = (sessions || [])
     .filter(s => s.date >= todayISO())
@@ -357,7 +416,7 @@ function SessionsCard({ sessions, users, reload }) {
         {s.title}
         {s.seriesId && <span className="tag" style={{ marginLeft: 6 }}>weekly</span>}
         {s.cancelled && <span className="tag" style={{ marginLeft: 6, color: 'var(--red)' }}>cancelled</span>}</div>
-        <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.room ? ' · ' + s.room : ''}{coachName(s) ? ' · ' + coachName(s) : ''}{s.capacity ? ' · ' + s.capacity + ' spots' : ''}</div></div>
+        <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.room ? ' · ' + s.room : ''}{coachName(s) ? ' · ' + coachName(s) : (s.coachId ? ' · coach unavailable' : '')}{s.capacity ? ' · ' + s.capacity + ' spots' : ''}</div></div>
       <Icon name="chevronRight" className="chev" />
     </div>)}
     {upcoming.length > shown.length && <div className="small acc" style={{ padding: '9px 2px', cursor: 'pointer' }} onClick={() => setShowAll(true)}>
@@ -373,13 +432,17 @@ export default function Admin() {
   const openSheet = useUI(s => s.openSheet)
   const [users, setUsers] = useState(null)
   const [invites, setInvites] = useState(null)
-  const [inviteOnly, setInviteOnly] = useState(false)
+  // null = not known yet. Starting at false made the "signup is open to anyone" warning flash on
+  // every load of an invite-only instance, and stay up for good if the fetch that sets it failed.
+  const [inviteOnly, setInviteOnly] = useState(null)
   const [requests, setRequests] = useState(null)
   const [reqEnabled, setReqEnabled] = useState(false)
   const [sessions, setSessions] = useState(null)
 
   const loadUsers = () => api('/api/admin/users').then(d => { setUsers(d.users); setInviteOnly(d.invite_only) }).catch(e => toast(e.message || 'Failed to load'))
-  const loadInvites = () => api('/api/admin/invites').then(d => setInvites(d.invites)).catch(() => {})
+  const loadInvites = () => api('/api/admin/invites')
+    .then(d => { setInvites(d.invites); if (d.invite_only !== undefined) setInviteOnly(d.invite_only) })
+    .catch(() => {})
   const loadRequests = () => api('/api/admin/requests').then(d => { setRequests(d.requests); setReqEnabled(d.request_access) }).catch(() => {})
   const loadSessions = () => api('/api/sessions').then(d => setSessions(d.sessions)).catch(() => {})
   // poll every 15s so the "training now" section stays live without a manual refresh
@@ -387,6 +450,14 @@ export default function Admin() {
   if (!user?.admin) return null
 
   const openUser = id => openSheet(close => <UserDetail id={id} users={users} onChanged={loadUsers} close={close} />)
+  // A member whose coach was disabled keeps pointing at them until an admin reassigns, and the
+  // dropdown drops disabled coaches from its options — so name the state rather than showing a
+  // row that silently reads as unassigned.
+  const coachNameOf = u => {
+    if (!u.coachId) return ''
+    const c = (users || []).find(x => x.id === u.coachId)
+    return c ? (c.disabled ? 'coach ' + c.name + ' (disabled)' : 'coach ' + c.name) : 'coach removed'
+  }
   const liveUsers = (users || []).filter(u => u.live)
   const activeCount = (users || []).filter(u => u.lastSync && Date.now() - u.lastSync < 7 * 86400000).length
   const disabledCount = (users || []).filter(u => u.disabled).length
@@ -421,13 +492,18 @@ export default function Admin() {
 
     <SessionsCard sessions={sessions} users={users} reload={loadSessions} />
 
-    <InvitesCard invites={invites} reload={loadInvites} />
+    <InvitesCard invites={invites} inviteOnly={inviteOnly} reload={() => { loadInvites(); loadRequests() }} />
 
     <h4 className="sec">Users</h4>
     <div className="list">
-      {(users || []).map(u => <div key={u.id} className="item" onClick={() => openUser(u.id)} style={u.disabled ? { opacity: .55 } : null}>
+      {[...(users || [])].sort((a, b) => String(b.created || '').localeCompare(String(a.created || '')))
+        .map(u => <div key={u.id} className="item" onClick={() => openUser(u.id)} style={u.disabled ? { opacity: .55 } : null}>
         <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{u.name} {u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>admin</span>}{u.coach && !u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>coach</span>}{u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>off</span>}</div>
-          <div className="ss">{u.live ? 'training now · ' + u.live.name : u.workouts + ' workouts' + (u.lastWorkout ? ' · last ' + fmtDate(u.lastWorkout) : '') + ' · synced ' + rel(u.lastSync)}</div></div>
+          <div className="ss">{[
+            u.live ? 'training now · ' + u.live.name
+              : u.workouts + ' workouts' + (u.lastWorkout ? ' · last ' + fmtDate(u.lastWorkout) : '') + ' · synced ' + rel(u.lastSync),
+            coachNameOf(u)
+          ].filter(Boolean).join(' · ')}</div></div>
         {u.hasPush && <Icon name="bell" title="push enabled" style={{ fontSize: 15, color: 'var(--label-3)' }} />}<Icon name="chevronRight" className="chev" />
       </div>)}
       {users && !users.length && <div className="empty">No users yet.</div>}

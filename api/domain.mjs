@@ -211,6 +211,10 @@ export function canCoachMember(coach, member, { isAdmin = false } = {}) {
   if (!coach || !member || !coach.id || !member.id) return false
   if (member.id === coach.id) return false   // coaching yourself is the ordinary Plan screen
   if (member.disabled) return false
+  // A locked-out coach is as unable to coach as a demoted one. Only the member's flag was
+  // checked before, so a program from a disabled coach stayed acceptable — their session was
+  // dead, but the offer already in the member's inbox was not.
+  if (coach.disabled) return false
   return isAdmin || member.coachId === coach.id
 }
 

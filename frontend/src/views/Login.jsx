@@ -5,6 +5,7 @@ import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
+import { pendingInvite, clearInvite } from '../lib/invite.js'
 import { useState, useRef, useEffect } from 'react'
 import { BRAND } from '../lib/brand.js'
 import Logo from '../components/Logo.jsx'
@@ -44,7 +45,10 @@ function RegisterSheet({ close }) {
   const { setUser, pushState, pullState, loadConfig } = useStore()
   const config = useStore(s => s.config)
   const [name, setName] = useState('')
-  const [code, setCode] = useState('')
+  // From the link when there is one; kept in the shared cache so dismissing this sheet and
+  // reopening it does not lose the invite.
+  const fromLink = pendingInvite()
+  const [code, setCode] = useState(fromLink)
   const inviteOnly = !!config?.invite_only
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
@@ -57,6 +61,7 @@ function RegisterSheet({ close }) {
     if (inviteOnly && !code.trim()) { useUI.getState().toast(t('An invite code is required')); return }
     try {
       const u = await passkeyRegister(n, code.trim())
+      clearInvite()   // redeemed: drop it from memory and from the address bar
       setUser(u); close()
       if (hasData(useStore.getState().S)) { await pushState(); useUI.getState().toast(t('Profile created — data from this device moved into it')) }
       else { await pullState(); useUI.getState().toast(t('Welcome, {0}', u.name)) }
@@ -70,7 +75,11 @@ function RegisterSheet({ close }) {
       <div style={{ height: 10 }} />
       <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
         onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
-      <div className="dim small" style={{ marginTop: 6 }}>{t('This app is invite-only — enter the code you were given.')}</div>
+      <div className="dim small" style={{ marginTop: 6 }}>
+        {fromLink && code === fromLink
+          ? t('Invite code filled in from your link.')
+          : t('This app is invite-only — enter the code you were given.')}
+      </div>
     </>}
     <div style={{ height: 12 }} />
     <Button variant="primary" onClick={go}>{t('Create passkey')}</Button>
@@ -86,6 +95,15 @@ export default function Login() {
   const { setUser, pullState, setGuest } = useStore()
   const config = useStore(s => s.config)
   const canGuest = guestAllowed(config)
+  // Arriving from an invite link means the intent is already clear, so open the sheet rather than
+  // leaving a prefilled field behind a button nobody was told to press. Waits for config, since
+  // that decides whether the code field renders at all; DEMO has no backend to join.
+  const opened = useRef(false)
+  useEffect(() => {
+    if (DEMO || opened.current || !config || !webauthnOK() || !pendingInvite()) return
+    opened.current = true
+    useUI.getState().openSheet(close => <RegisterSheet close={close} />)
+  }, [config])
   const signIn = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }

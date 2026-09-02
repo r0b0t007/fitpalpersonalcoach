@@ -610,5 +610,6 @@ export default {
   'Ask {0} to send it again.': '{0} से इसे दोबारा भेजने को कहें।',
   'All rooms': 'सभी कक्ष',
   'Cancelled': 'रद्द',
-  'This class is cancelled.': 'यह क्लास रद्द कर दी गई है।'
+  'This class is cancelled.': 'यह क्लास रद्द कर दी गई है।',
+  'Invite code filled in from your link.': 'आपके लिंक से आमंत्रण कोड भर दिया गया।'
 }

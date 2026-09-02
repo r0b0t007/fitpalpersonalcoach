@@ -256,6 +256,20 @@ function requireCoach(req, res) {
 // this a member could accept a program from an ex-coach up to 30 days later — with that person's
 // name still on the card — and those dead rows also consume the per-member pending cap, blocking
 // the NEW coach with "already has 5 programs waiting" and clearable by nobody but the member.
+// Everything that stops being true when someone can no longer coach: their roster, their
+// unanswered offers, and their name on upcoming classes. Both losing the role and being disabled
+// mean exactly this, so neither path gets to remember only half of it.
+function detachCoach(coachId) {
+  db.users.forEach(m => { if (m.coachId === coachId) delete m.coachId; });
+  expireAssignmentsWhere(a => a.coachId === coachId);
+  // Classes deliberately keep their coachId. Stripping it off every future occurrence — up to a
+  // 26-week series — is unrecoverable, and disabling is often temporary (a coach off sick for a
+  // week). Instead, eligibility is applied at the two places it is observable: coachOf() below
+  // refuses to NAME someone who can no longer coach, and notifyCoachOfSession refuses to push to
+  // them. Re-enabling restores the timetable exactly as it was, and the admin can reassign in
+  // the meantime.
+}
+
 function expireAssignmentsWhere(pred) {
   let n = 0;
   for (const a of db.assignments) {
@@ -375,14 +389,22 @@ const daysBetweenISO = (a, b) => {
 // The timetable is public, so a session leaves here with a resolved coach NAME and no ids: the
 // name follows the account (rename a coach and every class updates), while an anonymous reader
 // learns nothing about who holds an account. Falls back to the free-text `coach` for guests.
+// Naming someone who is disabled or no longer a coach would be worse than naming nobody: a member
+// reading "taught by Ana" turns up expecting Ana. Blank until an admin reassigns.
+const coachOf = s => {
+  const acct = s.coachId ? db.users.find(u => u.id === s.coachId) : null;
+  if (acct && isCoach(acct) && !acct.disabled) return acct.name;
+  return acct ? '' : (s.coach || '');
+};
 const publicSession = s => {
   const { coachId, createdBy, ...rest } = s;
-  const acct = coachId ? db.users.find(u => u.id === coachId) : null;
-  return { ...rest, coachName: acct ? acct.name : (s.coach || '') };
+  return { ...rest, coachName: coachOf(s) };
 };
 
 function notifyCoachOfSession(session, what) {
   if (!session || !session.coachId) return;
+  const acct = db.users.find(u => u.id === session.coachId);
+  if (!acct || acct.disabled || !isCoach(acct)) return;   // their access is gone; so is the ping
   const when = `${session.date} ${session.time}`;
   const body = what === 'cancelled' ? `${session.title} on ${when} was cancelled`
     : what === 'moved' ? `${session.title} moved to ${when}`
@@ -656,7 +678,14 @@ const routes = {
     if (!u) return json(res, 404, { error: 'no such user' });
     if (isAdmin(u)) return json(res, 400, { error: 'cannot disable an admin' });
     u.disabled = !!body.disabled;
-    if (u.disabled) presence.delete(u.id);   // drop them off "training now" at once
+    if (u.disabled) {
+      presence.delete(u.id);   // drop them off "training now" at once
+      // Disabling a coach has to do what revoking the role does. It used to lock the account and
+      // stop there, which left their members still pointing at them and their pending programs
+      // still acceptable — and because a disabled coach drops out of the admin dropdown, those
+      // members rendered as "— none —" while in fact still assigned. Invisible and wrong.
+      if (isCoach(u)) detachCoach(u.id);
+    }
     saveDb();
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
   },
@@ -671,12 +700,9 @@ const routes = {
     u.coach = !!body.coach;
     // Revoking leaves their members coachless rather than silently pointing at a non-coach —
     // otherwise re-granting the role later would hand back a roster nobody reviewed.
-    if (!u.coach) {
-      db.users.forEach(m => { if (m.coachId === u.id) delete m.coachId; });
-      // An admin is still a coach with the flag off, so their offers stay valid — retiring them
-      // here would cancel programs from someone who never lost the ability to send them.
-      if (!isCoach(u)) expireAssignmentsWhere(a => a.coachId === u.id);
-    }
+    // An admin is still a coach with the flag off, so nothing is detached — their roster and
+    // offers stay valid because they never lost the ability to coach.
+    if (!u.coach && !isCoach(u)) detachCoach(u.id);
     saveDb();
     json(res, 200, { ok: true, id: u.id, coach: u.coach });
   },
@@ -696,6 +722,10 @@ const routes = {
     }
     const c = db.users.find(x => x.id === coachId);
     if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
+    // The dropdown filters disabled coaches out of a snapshot taken when the sheet opened, so
+    // without this a coach disabled in the meantime is still selectable — and lands the member
+    // in the "reads as unassigned but isn't" state this release exists to remove.
+    if (c.disabled) return json(res, 400, { error: 'that coach is disabled' });
     if (c.id === u.id) return json(res, 400, { error: 'a member cannot be their own coach' });
     const previous = u.coachId;
     u.coachId = c.id;
@@ -857,7 +887,11 @@ const routes = {
     const inv = db.invites.find(i => i.code === String(body.code || '').toUpperCase());
     if (!inv) return json(res, 404, { error: 'no such code' });
     if (inv.usedBy) return json(res, 400, { error: 'already used — cannot revoke' });
-    db.invites = db.invites.filter(i => i.code !== inv.code);
+    // Flagged, not deleted. The registration gate already refuses a revoked code, and dropping
+    // the row destroyed the only record that this code was ever issued — including the note
+    // saying who it went to, and the link an approved request still offered to text them.
+    inv.revoked = true;
+    inv.revokedAt = new Date().toISOString();
     saveDb();
     json(res, 200, { ok: true });
   },
@@ -901,7 +935,11 @@ const routes = {
     db.requests = pruneRequests(db.requests);
     // redeemed = the minted code was actually used to register, via the invite's usedBy.
     const requests = db.requests.map(r => ({
-      ...r, redeemed: !!(r.code && db.invites.find(i => i.code === r.code)?.usedBy)
+      ...r,
+      redeemed: !!(r.code && db.invites.find(i => i.code === r.code)?.usedBy),
+      // Dead = revoked, or the row is gone entirely (older data, before revoke kept a record).
+      // Either way there is nothing left worth texting to the requester.
+      codeDead: !!(r.code && (() => { const i = db.invites.find(x => x.code === r.code); return !i || !!i.revoked })())
     })).reverse();   // newest first for display
     json(res, 200, { requests, request_access: REQUEST_ACCESS });
   },
@@ -955,6 +993,8 @@ const routes = {
     if (s.coachId) {
       const c = db.users.find(x => x.id === s.coachId);
       if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
+      const unchanged = s.id && db.sessions.find(x => x.id === s.id)?.coachId === s.coachId;
+      if (c.disabled && !unchanged) return json(res, 400, { error: 'that coach is disabled' });
       s.coach = '';   // the display fallback is for guests only; an account owns its own name
     }
     const existing = s.id && db.sessions.find(x => x.id === s.id);

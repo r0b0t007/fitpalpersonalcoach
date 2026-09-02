@@ -610,5 +610,6 @@ export default {
   'Ask {0} to send it again.': '请让 {0} 重新发送。',
   'All rooms': '所有教室',
   'Cancelled': '已取消',
-  'This class is cancelled.': '该课程已取消。'
+  'This class is cancelled.': '该课程已取消。',
+  'Invite code filled in from your link.': '已从你的链接填入邀请码。'
 }
