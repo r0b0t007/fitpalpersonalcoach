@@ -157,6 +157,19 @@ chk "the note is stored"               "for Sara"   "$(get -H "Cookie: $ADMIN" "
 curl -s -o /dev/null -X POST "$B/api/admin/invites/revoke" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d "{\"code\":\"$NCODE\"}"
 chk "the row survives, flagged revoked"      true   "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(!!(d.invites.find(i=>i.code===process.argv[1])||{}).revoked)" "$NCODE")"
 
+echo "== a disabled coach cannot be attached to anything =="
+curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":true}'
+chk "assign-coach refuses a disabled coach"   400   "$(code -X POST "$B/api/admin/user/assign-coach" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"mem3","coachId":"coachB"}')"
+chk "a class cannot be given to one either"   400   "$(code -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"title":"X","date":"2027-05-04","time":"10:00","coachId":"coachB"},"confirm":true}')"
+curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":false}'
+
+echo "== disabling also takes them off their upcoming classes =="
+curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN"   -d '{"session":{"title":"Spin with B","date":"2027-05-11","time":"10:00","room":"Studio 4","coachId":"coachB"},"confirm":true}'
+chk "the class names them"                    true   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.sessions.some(s=>s.coachId===process.argv[1]))" coachB)"
+curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":true}'
+chk "disabling detaches them from it"            0   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));d.sessions.filter(s=>s.coachId===process.argv[1]).length" coachB)"
+chk "the class itself survives"                true   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.sessions.some(s=>s.title===process.argv[1]))" 'Spin with B')"
+
 echo ""
 echo "passed $pass, failed $fail"
 [ "$fail" = "0" ] || { echo "--- server log ---"; tail -20 "$D/log"; }

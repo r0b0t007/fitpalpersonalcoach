@@ -256,6 +256,18 @@ function requireCoach(req, res) {
 // this a member could accept a program from an ex-coach up to 30 days later — with that person's
 // name still on the card — and those dead rows also consume the per-member pending cap, blocking
 // the NEW coach with "already has 5 programs waiting" and clearable by nobody but the member.
+// Everything that stops being true when someone can no longer coach: their roster, their
+// unanswered offers, and their name on upcoming classes. Both losing the role and being disabled
+// mean exactly this, so neither path gets to remember only half of it.
+function detachCoach(coachId) {
+  db.users.forEach(m => { if (m.coachId === coachId) delete m.coachId; });
+  expireAssignmentsWhere(a => a.coachId === coachId);
+  const today = isoTodayUTC();
+  for (const s of db.sessions) {
+    if (s.coachId === coachId && s.date >= today) { delete s.coachId; s.updated = Date.now(); }
+  }
+}
+
 function expireAssignmentsWhere(pred) {
   let n = 0;
   for (const a of db.assignments) {
@@ -662,10 +674,7 @@ const routes = {
       // stop there, which left their members still pointing at them and their pending programs
       // still acceptable — and because a disabled coach drops out of the admin dropdown, those
       // members rendered as "— none —" while in fact still assigned. Invisible and wrong.
-      if (isCoach(u)) {
-        db.users.forEach(m => { if (m.coachId === u.id) delete m.coachId; });
-        expireAssignmentsWhere(a => a.coachId === u.id);
-      }
+      if (isCoach(u)) detachCoach(u.id);
     }
     saveDb();
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
@@ -681,12 +690,9 @@ const routes = {
     u.coach = !!body.coach;
     // Revoking leaves their members coachless rather than silently pointing at a non-coach —
     // otherwise re-granting the role later would hand back a roster nobody reviewed.
-    if (!u.coach) {
-      db.users.forEach(m => { if (m.coachId === u.id) delete m.coachId; });
-      // An admin is still a coach with the flag off, so their offers stay valid — retiring them
-      // here would cancel programs from someone who never lost the ability to send them.
-      if (!isCoach(u)) expireAssignmentsWhere(a => a.coachId === u.id);
-    }
+    // An admin is still a coach with the flag off, so nothing is detached — their roster and
+    // offers stay valid because they never lost the ability to coach.
+    if (!u.coach && !isCoach(u)) detachCoach(u.id);
     saveDb();
     json(res, 200, { ok: true, id: u.id, coach: u.coach });
   },
@@ -706,6 +712,10 @@ const routes = {
     }
     const c = db.users.find(x => x.id === coachId);
     if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
+    // The dropdown filters disabled coaches out of a snapshot taken when the sheet opened, so
+    // without this a coach disabled in the meantime is still selectable — and lands the member
+    // in the "reads as unassigned but isn't" state this release exists to remove.
+    if (c.disabled) return json(res, 400, { error: 'that coach is disabled' });
     if (c.id === u.id) return json(res, 400, { error: 'a member cannot be their own coach' });
     const previous = u.coachId;
     u.coachId = c.id;
@@ -973,6 +983,7 @@ const routes = {
     if (s.coachId) {
       const c = db.users.find(x => x.id === s.coachId);
       if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
+      if (c.disabled) return json(res, 400, { error: 'that coach is disabled' });
       s.coach = '';   // the display fallback is for guests only; an account owns its own name
     }
     const existing = s.id && db.sessions.find(x => x.id === s.id);

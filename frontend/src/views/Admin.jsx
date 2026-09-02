@@ -152,7 +152,7 @@ function InvitesCard({ invites, inviteOnly, reload }) {
     <div className="small muted" style={{ margin: '6px 0 8px' }}>{open.length} unused · {used.length} redeemed{revoked.length ? ' · ' + revoked.length + ' revoked' : ''}</div>
     {/* Without this an admin can hand out codes on an open instance and never learn they do
         nothing — signup was never gated, and nothing in the UI said so. */}
-    {!inviteOnly && <div className="small" style={{ color: 'var(--yellow)', marginBottom: 8, lineHeight: 1.4 }}>
+    {inviteOnly === false && <div className="small" style={{ color: 'var(--yellow)', marginBottom: 8, lineHeight: 1.4 }}>
       Signup is currently open to anyone with the address — codes are not required and not checked.
       Set <span style={{ fontFamily: 'monospace' }}>INVITE_ONLY=1</span> and restart to make these matter.
     </div>}
@@ -189,8 +189,8 @@ function RequestsCard({ requests, reload }) {
   const decided = requests.filter(r => r.status !== 'pending')
   const decide = (id, approve) => api('/api/admin/requests/decide', { method: 'POST', body: JSON.stringify({ id, approve }) })
     .then(({ request }) => {
-      if (request.code) navigator.clipboard?.writeText(request.code).catch(() => {})
-      toast(approve ? 'Approved — code ' + request.code + ' copied. Send it to ' + request.name + '.' : 'Request rejected')
+      if (request.code) navigator.clipboard?.writeText(inviteLink(request.code)).catch(() => {})
+      toast(approve ? 'Approved — invite link copied. Send it to ' + request.name + '.' : 'Request rejected')
       reload()
     }).catch(e => toast(e.message))
   const clearAll = () => confirmSheet({
@@ -421,13 +421,17 @@ export default function Admin() {
   const openSheet = useUI(s => s.openSheet)
   const [users, setUsers] = useState(null)
   const [invites, setInvites] = useState(null)
-  const [inviteOnly, setInviteOnly] = useState(false)
+  // null = not known yet. Starting at false made the "signup is open to anyone" warning flash on
+  // every load of an invite-only instance, and stay up for good if the fetch that sets it failed.
+  const [inviteOnly, setInviteOnly] = useState(null)
   const [requests, setRequests] = useState(null)
   const [reqEnabled, setReqEnabled] = useState(false)
   const [sessions, setSessions] = useState(null)
 
   const loadUsers = () => api('/api/admin/users').then(d => { setUsers(d.users); setInviteOnly(d.invite_only) }).catch(e => toast(e.message || 'Failed to load'))
-  const loadInvites = () => api('/api/admin/invites').then(d => setInvites(d.invites)).catch(() => {})
+  const loadInvites = () => api('/api/admin/invites')
+    .then(d => { setInvites(d.invites); if (d.invite_only !== undefined) setInviteOnly(d.invite_only) })
+    .catch(() => {})
   const loadRequests = () => api('/api/admin/requests').then(d => { setRequests(d.requests); setReqEnabled(d.request_access) }).catch(() => {})
   const loadSessions = () => api('/api/sessions').then(d => setSessions(d.sessions)).catch(() => {})
   // poll every 15s so the "training now" section stays live without a manual refresh
@@ -477,7 +481,7 @@ export default function Admin() {
 
     <SessionsCard sessions={sessions} users={users} reload={loadSessions} />
 
-    <InvitesCard invites={invites} inviteOnly={inviteOnly} reload={loadInvites} />
+    <InvitesCard invites={invites} inviteOnly={inviteOnly} reload={() => { loadInvites(); loadRequests() }} />
 
     <h4 className="sec">Users</h4>
     <div className="list">

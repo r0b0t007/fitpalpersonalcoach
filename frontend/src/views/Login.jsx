@@ -40,26 +40,33 @@ function RequestAccessSheet({ close }) {
   </>
 }
 
-// An invite arrives as a link (?invite=CODE) rather than sixteen characters to retype. Read once
-// at module load and wiped from the address bar immediately: the code is a live credential until
-// someone redeems it, and a shared screenshot or a copied URL should not carry it around.
-const takeInviteFromUrl = () => {
+// An invite arrives as a link (?invite=CODE) rather than sixteen characters to retype.
+//
+// Read WITHOUT stripping: Login.jsx is a static import, so anything done at module scope runs for
+// every visitor including signed-in users and guests, who never render this screen. Wiping the
+// parameter there destroyed the invite for anyone who happened to already be logged in — the
+// component that would have used it never mounted. The URL is cleaned in takeInvite() below,
+// at the moment the code is actually consumed, which is also when it stops being worth hiding.
+const peekInvite = () => {
+  try { return (new URL(location.href).searchParams.get('invite') || '').trim().toUpperCase().slice(0, 40) }
+  catch { return '' }
+}
+const takeInvite = () => {
+  const code = peekInvite()
+  if (!code) return ''
   try {
     const url = new URL(location.href)
-    const code = (url.searchParams.get('invite') || '').trim().toUpperCase()
-    if (!code) return ''
     url.searchParams.delete('invite')
     history.replaceState(null, '', url.pathname + url.search + url.hash)
-    return code.slice(0, 40)
-  } catch { return '' }
+  } catch { /* the code still works; only the tidy-up failed */ }
+  return code
 }
-const INVITE_FROM_URL = takeInviteFromUrl()
 
-function RegisterSheet({ close }) {
+function RegisterSheet({ close, initialCode = '' }) {
   const { setUser, pushState, pullState, loadConfig } = useStore()
   const config = useStore(s => s.config)
   const [name, setName] = useState('')
-  const [code, setCode] = useState(INVITE_FROM_URL)
+  const [code, setCode] = useState(initialCode)
   const inviteOnly = !!config?.invite_only
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
@@ -86,7 +93,7 @@ function RegisterSheet({ close }) {
       <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
         onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
       <div className="dim small" style={{ marginTop: 6 }}>
-        {INVITE_FROM_URL && code === INVITE_FROM_URL
+        {initialCode && code === initialCode
           ? t('Invite code filled in from your link.')
           : t('This app is invite-only — enter the code you were given.')}
       </div>
@@ -110,9 +117,10 @@ export default function Login() {
   // that decides whether the code field renders at all; DEMO has no backend to join.
   const opened = useRef(false)
   useEffect(() => {
-    if (!INVITE_FROM_URL || DEMO || opened.current || !config || !webauthnOK()) return
+    if (DEMO || opened.current || !config || !webauthnOK() || !peekInvite()) return
     opened.current = true
-    useUI.getState().openSheet(close => <RegisterSheet close={close} />)
+    const code = takeInvite()   // clears the URL now that it is being used
+    useUI.getState().openSheet(close => <RegisterSheet close={close} initialCode={code} />)
   }, [config])
   const signIn = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
@@ -143,7 +151,7 @@ export default function Login() {
       {webauthnOK() ? <>
         <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
         <div style={{ height: 10 }} />
-        <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
+        <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} initialCode={takeInvite()} />)}>{t('Create new profile')}</Button>
         {canGuest && <div style={{ height: 10 }} />}
       </> : <div className="card small muted" style={{ textAlign: 'left' }}>{canGuest
         ? t("This browser doesn't support passkeys — you can still use {0} locally on this device.", BRAND)
