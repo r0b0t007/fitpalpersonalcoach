@@ -292,3 +292,15 @@ export function printPlan(S, owner) {
   if (doc.readyState === 'complete') setTimeout(run, 120)
   else ifr.onload = () => setTimeout(run, 120)
 }
+
+// A coach's saved program: a frozen copy of the routines they picked, plus only the weekdays
+// pointing at those routines. Dropping the orphan days matters — a snapshot carrying a schedule
+// that references routines it does not contain would make mergePlan clear the member's week and
+// put only part of it back. Lives here so the Coach screen and its tests exercise one function.
+export function buildProgramBundle(S, routineIds, name) {
+  const ids = new Set(routineIds || [])
+  const routines = (S.routines || []).filter(r => ids.has(r.id))
+  const week = {}
+  for (const [d, rid] of Object.entries(S.week || {})) if (ids.has(rid)) week[d] = rid
+  return buildPlanBundle({ routines, week, customEx: S.customEx }, name)
+}

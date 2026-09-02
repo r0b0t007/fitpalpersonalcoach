@@ -99,6 +99,33 @@ echo "== members still read the timetable without signing in =="
 chk "public timetable is readable"                200 "$(code "$B/api/sessions")"
 chk "cancel needs admin"                          403 "$(code -X POST "$B/api/admin/sessions/cancel" -H 'Content-Type: application/json' -H "Cookie: $ANA" -d "{\"id\":\"$SID\"}")"
 
+echo "== clashes are checked across the WHOLE series, not just week 1 =="
+# The review's sharpest finding: creating 4 weekly copies validated only the first, so weeks 2-4
+# could land on an occupied room in silence -- and the headline "move a class to Wednesdays"
+# validated the first Wednesday only.
+curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN"   -d "{\"session\":{\"title\":\"Blocker\",\"date\":\"2027-06-15\",\"time\":\"10:00\",\"minutes\":60,\"room\":\"Studio 9\"},\"confirm\":true}"
+chk "a later week of a new series is caught"     room   "$(save "{\"session\":{\"title\":\"Weekly\",\"date\":\"2027-06-01\",\"time\":\"10:00\",\"minutes\":60,\"room\":\"Studio 9\"},\"repeatWeeks\":4}" | jq_ 'String((d.conflicts||[])[0]&&d.conflicts[0].why)')"
+chk "week 1 alone still saves cleanly"           true   "$(save "{\"session\":{\"title\":\"Weekly\",\"date\":\"2027-06-01\",\"time\":\"10:00\",\"minutes\":60,\"room\":\"Studio 9\"},\"repeatWeeks\":1}" | jq_ 'String(d.ok===true)')"
+
+echo "== editing a cancelled class must not clash with its own replacement =="
+curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN"   -d "{\"session\":{\"title\":\"Original\",\"date\":\"2027-07-05\",\"time\":\"12:00\",\"minutes\":60,\"room\":\"Studio 7\"},\"confirm\":true}"
+OID=$(sessions | jq_ 'd.sessions.find(s=>s.title==="Original").id')
+cancel "{\"id\":\"$OID\",\"reason\":\"off\"}" >/dev/null
+curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN"   -d "{\"session\":{\"title\":\"Replacement\",\"date\":\"2027-07-05\",\"time\":\"12:00\",\"minutes\":60,\"room\":\"Studio 7\"},\"confirm\":true}"
+chk "fixing a typo on the cancelled one is clean" true   "$(save "{\"session\":{\"id\":\"$OID\",\"title\":\"Original fixed\",\"date\":\"2027-07-05\",\"time\":\"12:00\",\"minutes\":60,\"room\":\"Studio 7\"}}" | jq_ 'String(d.ok===true)')"
+
+echo "== restoring a whole series in one press =="
+curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN"   -d "{\"session\":{\"title\":\"Restorable\",\"date\":\"2027-08-02\",\"time\":\"09:00\",\"room\":\"Studio 8\"},\"repeatWeeks\":3,\"confirm\":true}"
+RID=$(sessions | jq_ 'd.sessions.filter(s=>s.title==="Restorable").sort((a,b)=>a.date<b.date?-1:1)[0].id')
+cancel "{\"id\":\"$RID\",\"series\":true,\"reason\":\"x\"}" >/dev/null
+chk "all three cancelled"                           3 "$(sessions | jq_ 'd.sessions.filter(s=>s.title==="Restorable"&&s.cancelled).length')"
+chk "restore with series clears all three"          0   "$(cancel "{\"id\":\"$RID\",\"series\":true,\"restore\":true}" >/dev/null; sessions | jq_ 'd.sessions.filter(s=>s.title==="Restorable"&&s.cancelled).length')"
+
+echo "== an admin still sees the coach on the public timetable =="
+chk "admin rows carry coachName"                 true   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | jq_ 'String(d.sessions.some(s=>!!s.coachName))')"
+chk "...and coachId, which the edit sheet needs" true   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | jq_ 'String(d.sessions.some(s=>!!s.coachId))')"
+chk "anonymous readers get the name but no id"  true   "$(curl -s "$B/api/sessions" | jq_ 'String(d.sessions.some(s=>!!s.coachName) && d.sessions.every(s=>!("coachId" in s)))')"
+
 echo ""
 echo "passed $pass, failed $fail"
 [ "$fail" = "0" ] || { echo "--- server log ---"; tail -20 "$D/log"; }

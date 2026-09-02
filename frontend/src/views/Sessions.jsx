@@ -9,6 +9,16 @@ import Icon from '../components/Icon.jsx'
 // is public and nothing here writes. Admins manage the timetable from the admin dashboard.
 // Booking is out of scope, so capacity reads as information ("ask at the desk"), not a button.
 
+// Same normalisation the server clashes on (roomKey in domain.mjs): "Studio 1" and "studio  1"
+// are one room there, so listing them as two chips each showing half that studio's timetable
+// would contradict it. One chip per real room, labelled with the first spelling seen.
+const roomKey = r => String(r || '').trim().toLowerCase().replace(/\s+/g, ' ')
+const roomsOf = list => {
+  const seen = new Map()
+  for (const s of list || []) if (s.room && !seen.has(roomKey(s.room))) seen.set(roomKey(s.room), s.room)
+  return [...seen.values()].sort()
+}
+
 const endOf = (time, min) => {
   const [h, m] = time.split(':').map(Number)
   const tot = h * 60 + m + (min || 0)
@@ -63,8 +73,8 @@ export default function Sessions() {
   // With spinning, yoga and Zumba running in different studios at the same hour, a flat list
   // where the only difference is the title text is the readability problem. Filtering by room
   // is enough to answer "what is on in the studio I go to".
-  const rooms = [...new Set((sessions || []).map(s => s.room).filter(Boolean))].sort()
-  const shown = (sessions || []).filter(s => !room || s.room === room)
+  const rooms = roomsOf(sessions)
+  const shown = (sessions || []).filter(s => !room || roomKey(s.room) === roomKey(room))
 
   const byDay = {}
   for (const s of shown) (byDay[s.date] = byDay[s.date] || []).push(s)
@@ -113,7 +123,7 @@ export default function Sessions() {
 
     {rooms.length > 1 && <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '2px 2px 4px' }}>
       <span className={'tag' + (room ? '' : ' acc')} onClick={() => setRoom('')} style={{ cursor: 'pointer' }}>{t('All rooms')}</span>
-      {rooms.map(r => <span key={r} className={'tag' + (room === r ? ' acc' : '')} onClick={() => setRoom(r)} style={{ cursor: 'pointer' }}>{r}</span>)}
+      {rooms.map(r => <span key={r} className={'tag' + (roomKey(room) === roomKey(r) ? ' acc' : '')} onClick={() => setRoom(r)} style={{ cursor: 'pointer' }}>{r}</span>)}
     </div>}
 
     <h4 className="sec">{t('Upcoming')}</h4>

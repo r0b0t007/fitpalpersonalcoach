@@ -5,7 +5,7 @@
 // than the implementation: existing routines, their ids, their exercises and the member's own
 // weekly schedule all have to come out the other side untouched.
 import { describe, it, expect } from 'vitest'
-import { buildPlanBundle, parsePlan, mergePlan } from './plan-share.js'
+import { buildPlanBundle, buildProgramBundle, parsePlan, mergePlan } from './plan-share.js'
 
 // A member with a plan of their own already in place.
 const member = () => ({
@@ -139,13 +139,9 @@ describe('saving a program from selected routines', () => {
     week: { 1: 'a', 3: 'b', 5: 'mine' },
     customEx: []
   })
-  // What Coach.jsx does when you pick routines and press save.
-  const snapshot = (S, ids, name) => {
-    const routines = S.routines.filter(r => ids.includes(r.id))
-    const week = {}
-    for (const [d, rid] of Object.entries(S.week)) if (ids.includes(rid)) week[d] = rid
-    return buildPlanBundle({ routines, week, customEx: S.customEx }, name)
-  }
+  // The real handler, not a re-implementation of it: Coach.jsx calls this same function, so
+  // these tests fail if the shipped snapshot logic changes.
+  const snapshot = buildProgramBundle
 
   it('takes only the routines that were picked, not the whole plan', () => {
     const bundle = snapshot(coachPlan(), ['a', 'b'], 'Block A')

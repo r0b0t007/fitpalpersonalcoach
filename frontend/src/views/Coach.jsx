@@ -5,7 +5,7 @@ import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
 import { fmtDate, fmtVol, fmtDur } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
-import { buildPlanBundle } from '../lib/plan-share.js'
+import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
@@ -155,13 +155,8 @@ function SaveProgramSheet({ close }) {
   const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : p.concat(id))
 
   const save = () => {
-    const routines = S.routines.filter(r => picked.includes(r.id))
-    if (!routines.length) { toast('Pick at least one routine'); return }
-    // Only the weekdays pointing at routines that made the cut — otherwise the snapshot would
-    // carry a schedule referencing routines it does not contain.
-    const week = {}
-    for (const [d, rid] of Object.entries(S.week || {})) if (picked.includes(rid)) week[d] = rid
-    const bundle = buildPlanBundle({ routines, week, customEx: S.customEx }, name.trim() || 'Program')
+    if (!picked.length) { toast('Pick at least one routine'); return }
+    const bundle = buildProgramBundle(S, picked, name.trim() || 'Program')
     useStore.getState().update(s => {
       s.programs = s.programs || []
       s.programs.push({ id: uid(), name: name.trim() || 'Program', created: new Date().toISOString(), bundle })

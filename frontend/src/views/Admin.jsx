@@ -22,6 +22,16 @@ const rel = ts => {
   if (s < 86400) return Math.floor(s / 3600) + 'h ago'
   return Math.floor(s / 86400) + 'd ago'
 }
+// Same normalisation the server clashes on (roomKey in domain.mjs): "Studio 1" and "studio  1"
+// are one room there, so listing them as two chips each showing half that studio's timetable
+// would contradict it. One chip per real room, labelled with the first spelling seen.
+const roomKey = r => String(r || '').trim().toLowerCase().replace(/\s+/g, ' ')
+const roomsOf = list => {
+  const seen = new Map()
+  for (const s of list || []) if (s.room && !seen.has(roomKey(s.room))) seen.set(roomKey(s.room), s.room)
+  return [...seen.values()].sort()
+}
+
 const dur = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60) + 'm' }
 
 function UserDetail({ id, users, onChanged, close }) {
@@ -202,14 +212,12 @@ function SessionSheet({ session, close, reload, users, rooms }) {
       })
       .catch(e => toast(e.message))
   }
-  const cancel = series => confirmSheet({
-    title: series ? 'Cancel this and all upcoming in the series?' : 'Cancel this session?',
-    message: 'It stays on the timetable marked cancelled, so members who planned around it can see what happened. The coach is notified.',
-    confirmText: 'Cancel class', danger: true,
-    onConfirm: () => api('/api/admin/sessions/cancel', { method: 'POST', body: JSON.stringify({ id: session.id, series, reason: f.note || '' }) })
-      .then(() => { close(); toast('Class cancelled'); reload() }).catch(e => toast(e.message))
-  })
-  const restore = () => api('/api/admin/sessions/cancel', { method: 'POST', body: JSON.stringify({ id: session.id, restore: true }) })
+  // The reason members will read on the timetable, so it is asked for rather than borrowed from
+  // the class note — cancelling a class noted "Bring a mat" used to tell everyone exactly that.
+  const [cancelling, setCancelling] = useState(null)
+  const doCancel = (series, reason) => api('/api/admin/sessions/cancel', { method: 'POST', body: JSON.stringify({ id: session.id, series, reason }) })
+    .then(() => { close(); toast('Class cancelled'); reload() }).catch(e => toast(e.message))
+  const restore = series => api('/api/admin/sessions/cancel', { method: 'POST', body: JSON.stringify({ id: session.id, series, restore: true }) })
     .then(() => { close(); toast('Class restored'); reload() }).catch(e => toast(e.message))
   const del = series => confirmSheet({
     title: series ? 'Delete this and all upcoming in the series?' : 'Delete this session?',
@@ -218,6 +226,20 @@ function SessionSheet({ session, close, reload, users, rooms }) {
     onConfirm: () => api('/api/admin/sessions/delete', { method: 'POST', body: JSON.stringify({ id: session.id, series }) })
       .then(() => { close(); toast('Session deleted'); reload() }).catch(e => toast(e.message))
   })
+
+  if (cancelling) return <>
+    <h3>{cancelling.series ? 'Cancel this and all upcoming?' : 'Cancel this class?'}</h3>
+    <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.4 }}>
+      It stays on the timetable marked cancelled, so members who planned around it can see what happened. The coach is notified.
+    </div>
+    <input className="input" placeholder="Reason members will see (optional)" maxLength={120} autoFocus
+      value={cancelling.reason} onChange={e => setCancelling(c => ({ ...c, reason: e.target.value }))} />
+    <div style={{ height: 12 }} />
+    <Button variant="danger" onClick={() => doCancel(cancelling.series, cancelling.reason.trim())}>
+      {cancelling.series ? 'Cancel all upcoming' : 'Cancel this class'}</Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={() => setCancelling(null)}>Keep it</Button>
+  </>
 
   if (clashes) return <>
     <h3>That slot is already taken</h3>
@@ -257,7 +279,7 @@ function SessionSheet({ session, close, reload, users, rooms }) {
     </select>
     {!f.coachId && f.coach !== '' && <>
       <div style={{ height: 8 }} />
-      <input className="input" placeholder="Guest instructor name" maxLength={40} value={f.coach.trim()} onChange={e => setF(x => ({ ...x, coach: e.target.value, coachId: '' }))} />
+      <input className="input" placeholder="Guest instructor name" maxLength={40} value={f.coach} onChange={e => setF(x => ({ ...x, coach: e.target.value, coachId: '' }))} />
     </>}
     {!coaches.length && <div className="dim small" style={{ marginTop: 6 }}>No coaches yet — make someone a coach to assign classes to them.</div>}
     <div style={{ height: 10 }} />
@@ -289,11 +311,15 @@ function SessionSheet({ session, close, reload, users, rooms }) {
       </div></>}
     {session && <><div style={{ height: 12 }} />
       {session.cancelled
-        ? <Button variant="primary" onClick={restore}>Restore this class</Button>
-        : <>
-          <Button variant="danger" onClick={() => cancel(false)}>Cancel class</Button>
+        ? <>
+          <Button variant="primary" onClick={() => restore(false)}>Restore this class</Button>
           {session.seriesId && <><div style={{ height: 8 }} />
-            <Button variant="danger" onClick={() => cancel(true)}>Cancel this + upcoming in series</Button></>}
+            <Button onClick={() => restore(true)}>Restore this + upcoming in series</Button></>}
+        </>
+        : <>
+          <Button variant="danger" onClick={() => setCancelling({ series: false, reason: '' })}>Cancel class</Button>
+          {session.seriesId && <><div style={{ height: 8 }} />
+            <Button variant="danger" onClick={() => setCancelling({ series: true, reason: '' })}>Cancel this + upcoming in series</Button></>}
         </>}
       <h4 className="sec">Remove entirely</h4>
       <div className="dim small" style={{ marginBottom: 8, lineHeight: 1.4 }}>
@@ -309,12 +335,12 @@ function SessionsCard({ sessions, users, reload }) {
   const openSheet = useUI(s => s.openSheet)
   const [room, setRoom] = useState('')
   const [showAll, setShowAll] = useState(false)
-  const rooms = [...new Set((sessions || []).map(s => s.room).filter(Boolean))].sort()
+  const rooms = roomsOf(sessions)
   const coachName = s => s.coachId ? ((users || []).find(u => u.id === s.coachId)?.name || 'coach') : (s.coach || '')
   const edit = s => openSheet(close => <SessionSheet session={s} close={close} reload={reload} users={users} rooms={rooms} />)
   const upcoming = (sessions || [])
     .filter(s => s.date >= todayISO())
-    .filter(s => !room || s.room === room)
+    .filter(s => !room || roomKey(s.room) === roomKey(room))
   // A 26-week series of two weekly classes overflowed the old flat cap of 30 immediately, so the
   // list stays short by default and opens on request rather than silently truncating.
   const shown = showAll ? upcoming : upcoming.slice(0, 30)
@@ -324,7 +350,7 @@ function SessionsCard({ sessions, users, reload }) {
     <div className="small muted" style={{ margin: '6px 0 10px' }}>{upcoming.length} upcoming · visible to everyone, guests included</div>
     {rooms.length > 1 && <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
       <span className={'tag' + (room ? '' : ' acc')} onClick={() => setRoom('')} style={{ cursor: 'pointer' }}>All rooms</span>
-      {rooms.map(r => <span key={r} className={'tag' + (room === r ? ' acc' : '')} onClick={() => setRoom(r)} style={{ cursor: 'pointer' }}>{r}</span>)}
+      {rooms.map(r => <span key={r} className={'tag' + (roomKey(room) === roomKey(r) ? ' acc' : '')} onClick={() => setRoom(r)} style={{ cursor: 'pointer' }}>{r}</span>)}
     </div>}
     {shown.map(s => <div key={s.id} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)', opacity: s.cancelled ? .55 : 1 }} onClick={() => edit(s)}>
       <div><div className="small" style={{ fontWeight: 600, textDecoration: s.cancelled ? 'line-through' : 'none' }}>
