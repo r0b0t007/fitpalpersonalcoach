@@ -656,7 +656,17 @@ const routes = {
     if (!u) return json(res, 404, { error: 'no such user' });
     if (isAdmin(u)) return json(res, 400, { error: 'cannot disable an admin' });
     u.disabled = !!body.disabled;
-    if (u.disabled) presence.delete(u.id);   // drop them off "training now" at once
+    if (u.disabled) {
+      presence.delete(u.id);   // drop them off "training now" at once
+      // Disabling a coach has to do what revoking the role does. It used to lock the account and
+      // stop there, which left their members still pointing at them and their pending programs
+      // still acceptable — and because a disabled coach drops out of the admin dropdown, those
+      // members rendered as "— none —" while in fact still assigned. Invisible and wrong.
+      if (isCoach(u)) {
+        db.users.forEach(m => { if (m.coachId === u.id) delete m.coachId; });
+        expireAssignmentsWhere(a => a.coachId === u.id);
+      }
+    }
     saveDb();
     json(res, 200, { ok: true, id: u.id, disabled: u.disabled });
   },
@@ -857,7 +867,11 @@ const routes = {
     const inv = db.invites.find(i => i.code === String(body.code || '').toUpperCase());
     if (!inv) return json(res, 404, { error: 'no such code' });
     if (inv.usedBy) return json(res, 400, { error: 'already used — cannot revoke' });
-    db.invites = db.invites.filter(i => i.code !== inv.code);
+    // Flagged, not deleted. The registration gate already refuses a revoked code, and dropping
+    // the row destroyed the only record that this code was ever issued — including the note
+    // saying who it went to, and the link an approved request still offered to text them.
+    inv.revoked = true;
+    inv.revokedAt = new Date().toISOString();
     saveDb();
     json(res, 200, { ok: true });
   },
@@ -901,7 +915,11 @@ const routes = {
     db.requests = pruneRequests(db.requests);
     // redeemed = the minted code was actually used to register, via the invite's usedBy.
     const requests = db.requests.map(r => ({
-      ...r, redeemed: !!(r.code && db.invites.find(i => i.code === r.code)?.usedBy)
+      ...r,
+      redeemed: !!(r.code && db.invites.find(i => i.code === r.code)?.usedBy),
+      // Dead = revoked, or the row is gone entirely (older data, before revoke kept a record).
+      // Either way there is nothing left worth texting to the requester.
+      codeDead: !!(r.code && (() => { const i = db.invites.find(x => x.code === r.code); return !i || !!i.revoked })())
     })).reverse();   // newest first for display
     json(res, 200, { requests, request_access: REQUEST_ACCESS });
   },

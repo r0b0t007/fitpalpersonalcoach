@@ -610,5 +610,6 @@ export default {
   'Ask {0} to send it again.': '{0} kişisinden tekrar göndermesini isteyin.',
   'All rooms': 'Tüm salonlar',
   'Cancelled': 'İptal edildi',
-  'This class is cancelled.': 'Bu ders iptal edildi.'
+  'This class is cancelled.': 'Bu ders iptal edildi.',
+  'Invite code filled in from your link.': 'Davet kodu bağlantınızdan dolduruldu.'
 }

@@ -133,6 +133,30 @@ AID2=$(get -H "Cookie: $M3" "$B/api/assignments" | node -pe "JSON.parse(require(
 curl -s -o /dev/null -X POST "$B/api/assignments/decide" -H 'Content-Type: application/json' -H "Cookie: $M3" -d "{\"id\":\"$AID2\",\"accept\":false}"
 chk "a decline is now visible to the coach" declined   "$(get -H "Cookie: $(cook coachB)" "$B/api/coach/members" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(((d.members.find(m=>m.id==='mem3')||{}).lastDecision||{}).status)")"
 
+echo "== disabling a coach must do what revoking the role does =="
+# It used to only lock the account: the roster still pointed at them and their pending programs
+# stayed acceptable, while the admin dropdown dropped them -- so those members rendered as
+# "no coach" while still assigned, with live offers. Invisible and wrong.
+curl -s -o /dev/null -X POST "$B/api/admin/user/coach" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","coach":true}'
+curl -s -o /dev/null -X POST "$B/api/admin/user/assign-coach" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"mem3","coachId":"coachB"}'
+CB2=$(cook coachB); M3B=$(cook mem3)
+chk "coachB sends mem3 a program"             200 "$(send "$CB2" '["mem3"]')"
+chk "mem3 has it pending"                       1 "$(get -H "Cookie: $M3B" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+DIS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":true}')
+chk "admin disables the coach"                200 "$DIS"
+chk "their roster is unassigned"                0   "$(get -H "Cookie: $ADMIN" "$B/api/admin/users" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).users.filter(u=>u.coachId==='coachB').length")"
+chk "the pending offer is gone"                 0 "$(get -H "Cookie: $M3B" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+chk "the disabled coach cannot list members"  401 "$(code -H "Cookie: $CB2" "$B/api/coach/members")"
+curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":false}'
+chk "re-enabling does not resurrect the roster" 0   "$(get -H "Cookie: $ADMIN" "$B/api/admin/users" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).users.filter(u=>u.coachId==='coachB').length")"
+
+echo "== revoking an invite keeps the record =="
+NEW=$(curl -s -X POST "$B/api/admin/invites/new" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"note":"for Sara"}')
+NCODE=$(echo "$NEW" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "the note is stored"               "for Sara"   "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.invites.find(i=>i.code===process.argv[1])||{}).note)" "$NCODE")"
+curl -s -o /dev/null -X POST "$B/api/admin/invites/revoke" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d "{\"code\":\"$NCODE\"}"
+chk "the row survives, flagged revoked"      true   "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(!!(d.invites.find(i=>i.code===process.argv[1])||{}).revoked)" "$NCODE")"
+
 echo ""
 echo "passed $pass, failed $fail"
 [ "$fail" = "0" ] || { echo "--- server log ---"; tail -20 "$D/log"; }

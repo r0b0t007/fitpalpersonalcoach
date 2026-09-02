@@ -40,11 +40,26 @@ function RequestAccessSheet({ close }) {
   </>
 }
 
+// An invite arrives as a link (?invite=CODE) rather than sixteen characters to retype. Read once
+// at module load and wiped from the address bar immediately: the code is a live credential until
+// someone redeems it, and a shared screenshot or a copied URL should not carry it around.
+const takeInviteFromUrl = () => {
+  try {
+    const url = new URL(location.href)
+    const code = (url.searchParams.get('invite') || '').trim().toUpperCase()
+    if (!code) return ''
+    url.searchParams.delete('invite')
+    history.replaceState(null, '', url.pathname + url.search + url.hash)
+    return code.slice(0, 40)
+  } catch { return '' }
+}
+const INVITE_FROM_URL = takeInviteFromUrl()
+
 function RegisterSheet({ close }) {
   const { setUser, pushState, pullState, loadConfig } = useStore()
   const config = useStore(s => s.config)
   const [name, setName] = useState('')
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(INVITE_FROM_URL)
   const inviteOnly = !!config?.invite_only
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
@@ -70,7 +85,11 @@ function RegisterSheet({ close }) {
       <div style={{ height: 10 }} />
       <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
         onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
-      <div className="dim small" style={{ marginTop: 6 }}>{t('This app is invite-only — enter the code you were given.')}</div>
+      <div className="dim small" style={{ marginTop: 6 }}>
+        {INVITE_FROM_URL && code === INVITE_FROM_URL
+          ? t('Invite code filled in from your link.')
+          : t('This app is invite-only — enter the code you were given.')}
+      </div>
     </>}
     <div style={{ height: 12 }} />
     <Button variant="primary" onClick={go}>{t('Create passkey')}</Button>
@@ -86,6 +105,15 @@ export default function Login() {
   const { setUser, pullState, setGuest } = useStore()
   const config = useStore(s => s.config)
   const canGuest = guestAllowed(config)
+  // Arriving from an invite link means the intent is already clear, so open the sheet rather than
+  // leaving a prefilled field behind a button nobody was told to press. Waits for config, since
+  // that decides whether the code field renders at all; DEMO has no backend to join.
+  const opened = useRef(false)
+  useEffect(() => {
+    if (!INVITE_FROM_URL || DEMO || opened.current || !config || !webauthnOK()) return
+    opened.current = true
+    useUI.getState().openSheet(close => <RegisterSheet close={close} />)
+  }, [config])
   const signIn = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }

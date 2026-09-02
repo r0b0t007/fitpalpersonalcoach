@@ -200,6 +200,14 @@ test('canCoachMember: only the coach’s own, active members', () => {
   assert.equal(canCoachMember(COACH, null), false)
 })
 
+test('canCoachMember: a disabled coach can no longer coach anyone', () => {
+  // Only the member's flag was checked, so a locked-out coach's pending programs stayed
+  // acceptable — their session was dead but the offer already sitting in an inbox was not.
+  assert.equal(canCoachMember({ ...COACH, disabled: true }, MINE), false)
+  // Even as an admin: the account is locked out, which is the whole point of disabling it.
+  assert.equal(canCoachMember({ ...COACH, disabled: true }, THEIRS, { isAdmin: true }), false)
+})
+
 test('canCoachMember: an admin reaches anyone, but still not a disabled member or themselves', () => {
   assert.equal(canCoachMember(COACH, THEIRS, { isAdmin: true }), true)
   assert.equal(canCoachMember(COACH, { ...THEIRS, disabled: true }, { isAdmin: true }), false)

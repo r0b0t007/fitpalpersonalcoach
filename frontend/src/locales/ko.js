@@ -610,5 +610,6 @@ export default {
   'Ask {0} to send it again.': '{0} 님에게 다시 보내 달라고 요청하세요.',
   'All rooms': '모든 룸',
   'Cancelled': '취소됨',
-  'This class is cancelled.': '이 수업은 취소되었습니다.'
+  'This class is cancelled.': '이 수업은 취소되었습니다.',
+  'Invite code filled in from your link.': '링크에서 초대 코드를 자동으로 입력했습니다.'
 }
