@@ -77,14 +77,65 @@ export function validateSession(raw) {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return { error: 'invalid time' }
   const s = {
     title, date, time,
+    // Free text, not a rooms table: a club has a handful of studios and a CRUD for them would be
+    // more screens than it saves. The admin form autocompletes from rooms already in use, and
+    // roomKey() below is what makes clash detection survive "Studio 1" vs "studio 1".
+    room: String(raw.room || '').trim().slice(0, 40),
+    // coachId is the real link to a coach account; `coach` stays as the display fallback so old
+    // rows keep rendering and a guest instructor with no account can still be named.
     coach: String(raw.coach || '').trim().slice(0, 40),
     minutes: Math.max(5, Math.min(240, Math.round(+raw.minutes || 60))),
     note: String(raw.note || '').trim().slice(0, 200)
+  }
+  if (raw.coachId) s.coachId = String(raw.coachId)
+  // A cancelled class stays on the timetable, struck through, so a member who planned around it
+  // finds an answer instead of an absence. Deleting is a separate, deliberate action.
+  if (raw.cancelled) {
+    s.cancelled = true
+    s.cancelReason = String(raw.cancelReason || '').trim().slice(0, 120)
   }
   const cap = raw.capacity
   if (cap != null && cap !== '' && +cap > 0) s.capacity = Math.min(500, Math.round(+cap))
   if (raw.id) s.id = String(raw.id)
   return { session: s }
+}
+
+/* ---------- clashes ---------- */
+// Two classes cannot share a room, and one coach cannot be in two rooms at once. Nothing in the
+// app enforced either, which on a timetable of spinning/yoga/Zumba across separate studios is the
+// mistake that actually happens. Reported, not blocked: real clubs overlap deliberately
+// (a handover, a room split), so the admin gets a warning and the final say.
+const roomKey = r => String(r || '').trim().toLowerCase().replace(/\s+/g, ' ')
+const minutesOf = hhmm => {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(hhmm || ''))
+  return m ? +m[1] * 60 + +m[2] : null
+}
+
+// Half-open intervals, so 18:00-19:00 and 19:00-20:00 are back-to-back rather than a clash.
+export function sessionsOverlap(a, b) {
+  if (!a || !b || a.date !== b.date) return false
+  const aS = minutesOf(a.time), bS = minutesOf(b.time)
+  if (aS == null || bS == null) return false
+  return aS < bS + (+b.minutes || 60) && bS < aS + (+a.minutes || 60)
+}
+
+// Candidate may be unsaved (no id yet). `skipSeriesId` lets a series-wide save ignore its own
+// siblings, which would otherwise all report as clashes against each other.
+export function findSessionConflicts(sessions, candidate, { skipSeriesId = null } = {}) {
+  if (!candidate || candidate.cancelled) return []
+  return (sessions || []).filter(s => {
+    if (!s || s.cancelled) return false
+    if (candidate.id && s.id === candidate.id) return false
+    if (skipSeriesId && s.seriesId === skipSeriesId) return false
+    if (!sessionsOverlap(s, candidate)) return false
+    const sameRoom = !!roomKey(candidate.room) && roomKey(s.room) === roomKey(candidate.room)
+    const sameCoach = !!candidate.coachId && s.coachId === candidate.coachId
+    return sameRoom || sameCoach
+  }).map(s => ({
+    id: s.id, title: s.title, date: s.date, time: s.time, minutes: s.minutes,
+    room: s.room || '', coachId: s.coachId || null, coach: s.coach || '',
+    why: (!!roomKey(candidate.room) && roomKey(s.room) === roomKey(candidate.room)) ? 'room' : 'coach'
+  }))
 }
 
 // repeatWeeks dated copies at +7d steps — covers weekly classes without a recurring-rule

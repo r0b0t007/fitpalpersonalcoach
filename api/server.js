@@ -14,7 +14,8 @@ import {
   validateSession, expandRepeats, pruneSessions, sessionSort, addDaysISO, SESSION_WINDOW_DAYS,
   bootstrapMatches, BOOTSTRAP_MIN,
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
-  pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX
+  pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
+  findSessionConflicts
 } from './domain.mjs';
 
 const PORT = +(process.env.PORT || 3000);
@@ -334,6 +335,26 @@ function mintInvite(adminId, note, requestId) {
 }
 
 const isoTodayUTC = () => new Date().toISOString().slice(0, 10);
+
+// Whole days from a to b, UTC-noon so DST can never make it 0.999 and floor to the wrong number.
+const daysBetweenISO = (a, b) => {
+  const t = iso => Date.parse(iso + 'T12:00:00Z');
+  const d = (t(b) - t(a)) / 86400000;
+  return Number.isFinite(d) ? Math.round(d) : 0;
+};
+
+// The assigned coach is told when a class lands on them, moves, or is called off. Deliberately
+// only the coach: with no booking there is no attendee list, and pushing every cancelled yoga
+// class to everyone who installed the app is the kind of noise that gets notifications muted.
+// Members find out from the struck-through row on the timetable.
+function notifyCoachOfSession(session, what) {
+  if (!session || !session.coachId) return;
+  const when = `${session.date} ${session.time}`;
+  const body = what === 'cancelled' ? `${session.title} on ${when} was cancelled`
+    : what === 'moved' ? `${session.title} moved to ${when}`
+    : `You're teaching ${session.title} on ${when}`;
+  sendPush(session.coachId, { title: RP_NAME, body, tag: 'session' }).catch(() => {});
+}
 
 /* ---------- routes ---------- */
 const routes = {
@@ -670,6 +691,17 @@ const routes = {
   // MEMBER's client on accept — never written into their state here. Their app syncs by
   // whole-state replacement, so a server-side write would be clobbered by the next push from any
   // device that had an unsynced change.
+  // The classes this coach is teaching. Mirrors GET /api/sessions but scoped to them, so a coach
+  // opening the app sees their own week rather than the whole club's timetable.
+  'GET /api/coach/sessions': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const from = isoTodayUTC();
+    const sessions = db.sessions
+      .filter(s => s.coachId === coach.id && s.date >= from)
+      .sort(sessionSort);
+    json(res, 200, { sessions });
+  },
+
   'POST /api/coach/assign': async (req, res) => {
     const coach = requireCoach(req, res); if (!coach) return;
     const body = await readBody(req);
@@ -838,27 +870,77 @@ const routes = {
     const v = validateSession(body.session || {});
     if (v.error) return json(res, 400, { error: v.error });
     const s = v.session;
+    // A named coach must be a real coach account. Same rule and wording as assign-coach, so the
+    // two places that attach a coach to something cannot drift apart.
+    if (s.coachId) {
+      const c = db.users.find(x => x.id === s.coachId);
+      if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
+      s.coach = '';   // the display fallback is for guests only; an account owns its own name
+    }
     const existing = s.id && db.sessions.find(x => x.id === s.id);
+
+    // Warn about a double-booked room or coach, but let the admin proceed: real clubs overlap
+    // deliberately, and a hard block would eventually stop something legitimate at the worst
+    // moment. Two round trips — report, then commit with confirm.
+    if (!body.confirm) {
+      const seriesId = body.series && existing ? existing.seriesId : null;
+      const conflicts = findSessionConflicts(db.sessions, { ...s, id: existing ? existing.id : null }, { skipSeriesId: seriesId });
+      if (conflicts.length) return json(res, 200, { conflicts: conflicts.slice(0, 5) });
+    }
+
     if (existing) {
-      const patch = { title: s.title, coach: s.coach, time: s.time, minutes: s.minutes, note: s.note, updated: Date.now() };
+      const patch = {
+        title: s.title, coach: s.coach, room: s.room, time: s.time,
+        minutes: s.minutes, note: s.note, updated: Date.now()
+      };
       if (body.series && existing.seriesId) {
-        for (const x of db.sessions)
-          if (x.seriesId === existing.seriesId && x.date >= existing.date)
-            Object.assign(x, patch, 'capacity' in s ? { capacity: s.capacity } : { capacity: undefined });
-        // A date edit applies to this occurrence only — siblings keep their own weeks. Assigned
-        // after the loop so the sibling selection above still keys off the original date.
-        existing.date = s.date;
+        // Dates move as a DELTA across the series, not as an absolute. Previously a date edit hit
+        // only the clicked occurrence, so moving a weekly class from Tuesdays to Wednesdays meant
+        // editing all 26 by hand. Shifting every sibling by the same number of days moves the
+        // whole class while preserving its weekly spacing.
+        const shift = daysBetweenISO(existing.date, s.date);
+        const siblings = db.sessions.filter(x => x.seriesId === existing.seriesId && x.date >= existing.date);
+        for (const x of siblings) {
+          Object.assign(x, patch);
+          if ('capacity' in s) x.capacity = s.capacity; else delete x.capacity;
+          if (s.coachId) x.coachId = s.coachId; else delete x.coachId;
+          if (shift) x.date = addDaysISO(x.date, shift);
+        }
       } else {
         Object.assign(existing, patch, { date: s.date });
         if ('capacity' in s) existing.capacity = s.capacity; else delete existing.capacity;
+        if (s.coachId) existing.coachId = s.coachId; else delete existing.coachId;
       }
+      notifyCoachOfSession(existing, 'moved');
     } else {
       const created = expandRepeats(s, body.repeatWeeks, () => crypto.randomBytes(12).toString('base64url'));
       for (const x of created) db.sessions.push({ ...x, updated: Date.now(), createdBy: admin.id });
+      notifyCoachOfSession(created[0], 'assigned');
     }
     db.sessions = pruneSessions(db.sessions, isoTodayUTC());
     saveDb();
     json(res, 200, { ok: true });
+  },
+
+  // Cancelling keeps the class visible, struck through with its reason, so a member who planned
+  // around it finds an answer instead of an absence. Deleting stays available for a mistake.
+  'POST /api/admin/sessions/cancel': async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const s = db.sessions.find(x => x.id === body.id);
+    if (!s) return json(res, 404, { error: 'no such session' });
+    const reason = String(body.reason || '').trim().slice(0, 120);
+    const targets = body.series && s.seriesId
+      ? db.sessions.filter(x => x.seriesId === s.seriesId && x.date >= s.date)
+      : [s];
+    for (const x of targets) {
+      if (body.restore) { delete x.cancelled; delete x.cancelReason; }
+      else { x.cancelled = true; x.cancelReason = reason; }
+      x.updated = Date.now();
+    }
+    saveDb();
+    if (!body.restore) notifyCoachOfSession(s, 'cancelled');
+    json(res, 200, { ok: true, cancelled: !body.restore, count: targets.length });
   },
 
   'POST /api/admin/sessions/delete': async (req, res) => {
