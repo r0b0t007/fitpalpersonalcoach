@@ -262,10 +262,12 @@ function requireCoach(req, res) {
 function detachCoach(coachId) {
   db.users.forEach(m => { if (m.coachId === coachId) delete m.coachId; });
   expireAssignmentsWhere(a => a.coachId === coachId);
-  const today = isoTodayUTC();
-  for (const s of db.sessions) {
-    if (s.coachId === coachId && s.date >= today) { delete s.coachId; s.updated = Date.now(); }
-  }
+  // Classes deliberately keep their coachId. Stripping it off every future occurrence — up to a
+  // 26-week series — is unrecoverable, and disabling is often temporary (a coach off sick for a
+  // week). Instead, eligibility is applied at the two places it is observable: coachOf() below
+  // refuses to NAME someone who can no longer coach, and notifyCoachOfSession refuses to push to
+  // them. Re-enabling restores the timetable exactly as it was, and the admin can reassign in
+  // the meantime.
 }
 
 function expireAssignmentsWhere(pred) {
@@ -387,14 +389,22 @@ const daysBetweenISO = (a, b) => {
 // The timetable is public, so a session leaves here with a resolved coach NAME and no ids: the
 // name follows the account (rename a coach and every class updates), while an anonymous reader
 // learns nothing about who holds an account. Falls back to the free-text `coach` for guests.
+// Naming someone who is disabled or no longer a coach would be worse than naming nobody: a member
+// reading "taught by Ana" turns up expecting Ana. Blank until an admin reassigns.
+const coachOf = s => {
+  const acct = s.coachId ? db.users.find(u => u.id === s.coachId) : null;
+  if (acct && isCoach(acct) && !acct.disabled) return acct.name;
+  return acct ? '' : (s.coach || '');
+};
 const publicSession = s => {
   const { coachId, createdBy, ...rest } = s;
-  const acct = coachId ? db.users.find(u => u.id === coachId) : null;
-  return { ...rest, coachName: acct ? acct.name : (s.coach || '') };
+  return { ...rest, coachName: coachOf(s) };
 };
 
 function notifyCoachOfSession(session, what) {
   if (!session || !session.coachId) return;
+  const acct = db.users.find(u => u.id === session.coachId);
+  if (!acct || acct.disabled || !isCoach(acct)) return;   // their access is gone; so is the ping
   const when = `${session.date} ${session.time}`;
   const body = what === 'cancelled' ? `${session.title} on ${when} was cancelled`
     : what === 'moved' ? `${session.title} moved to ${when}`
@@ -983,7 +993,8 @@ const routes = {
     if (s.coachId) {
       const c = db.users.find(x => x.id === s.coachId);
       if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
-      if (c.disabled) return json(res, 400, { error: 'that coach is disabled' });
+      const unchanged = s.id && db.sessions.find(x => x.id === s.id)?.coachId === s.coachId;
+      if (c.disabled && !unchanged) return json(res, 400, { error: 'that coach is disabled' });
       s.coach = '';   // the display fallback is for guests only; an account owns its own name
     }
     const existing = s.id && db.sessions.find(x => x.id === s.id);

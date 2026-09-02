@@ -5,6 +5,7 @@ import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
+import { pendingInvite, clearInvite } from '../lib/invite.js'
 import { useState, useRef, useEffect } from 'react'
 import { BRAND } from '../lib/brand.js'
 import Logo from '../components/Logo.jsx'
@@ -40,33 +41,14 @@ function RequestAccessSheet({ close }) {
   </>
 }
 
-// An invite arrives as a link (?invite=CODE) rather than sixteen characters to retype.
-//
-// Read WITHOUT stripping: Login.jsx is a static import, so anything done at module scope runs for
-// every visitor including signed-in users and guests, who never render this screen. Wiping the
-// parameter there destroyed the invite for anyone who happened to already be logged in — the
-// component that would have used it never mounted. The URL is cleaned in takeInvite() below,
-// at the moment the code is actually consumed, which is also when it stops being worth hiding.
-const peekInvite = () => {
-  try { return (new URL(location.href).searchParams.get('invite') || '').trim().toUpperCase().slice(0, 40) }
-  catch { return '' }
-}
-const takeInvite = () => {
-  const code = peekInvite()
-  if (!code) return ''
-  try {
-    const url = new URL(location.href)
-    url.searchParams.delete('invite')
-    history.replaceState(null, '', url.pathname + url.search + url.hash)
-  } catch { /* the code still works; only the tidy-up failed */ }
-  return code
-}
-
-function RegisterSheet({ close, initialCode = '' }) {
+function RegisterSheet({ close }) {
   const { setUser, pushState, pullState, loadConfig } = useStore()
   const config = useStore(s => s.config)
   const [name, setName] = useState('')
-  const [code, setCode] = useState(initialCode)
+  // From the link when there is one; kept in the shared cache so dismissing this sheet and
+  // reopening it does not lose the invite.
+  const fromLink = pendingInvite()
+  const [code, setCode] = useState(fromLink)
   const inviteOnly = !!config?.invite_only
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
@@ -79,6 +61,7 @@ function RegisterSheet({ close, initialCode = '' }) {
     if (inviteOnly && !code.trim()) { useUI.getState().toast(t('An invite code is required')); return }
     try {
       const u = await passkeyRegister(n, code.trim())
+      clearInvite()   // redeemed: drop it from memory and from the address bar
       setUser(u); close()
       if (hasData(useStore.getState().S)) { await pushState(); useUI.getState().toast(t('Profile created — data from this device moved into it')) }
       else { await pullState(); useUI.getState().toast(t('Welcome, {0}', u.name)) }
@@ -93,7 +76,7 @@ function RegisterSheet({ close, initialCode = '' }) {
       <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
         onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
       <div className="dim small" style={{ marginTop: 6 }}>
-        {initialCode && code === initialCode
+        {fromLink && code === fromLink
           ? t('Invite code filled in from your link.')
           : t('This app is invite-only — enter the code you were given.')}
       </div>
@@ -117,10 +100,9 @@ export default function Login() {
   // that decides whether the code field renders at all; DEMO has no backend to join.
   const opened = useRef(false)
   useEffect(() => {
-    if (DEMO || opened.current || !config || !webauthnOK() || !peekInvite()) return
+    if (DEMO || opened.current || !config || !webauthnOK() || !pendingInvite()) return
     opened.current = true
-    const code = takeInvite()   // clears the URL now that it is being used
-    useUI.getState().openSheet(close => <RegisterSheet close={close} initialCode={code} />)
+    useUI.getState().openSheet(close => <RegisterSheet close={close} />)
   }, [config])
   const signIn = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
@@ -151,7 +133,7 @@ export default function Login() {
       {webauthnOK() ? <>
         <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
         <div style={{ height: 10 }} />
-        <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} initialCode={takeInvite()} />)}>{t('Create new profile')}</Button>
+        <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
         {canGuest && <div style={{ height: 10 }} />}
       </> : <div className="card small muted" style={{ textAlign: 'left' }}>{canGuest
         ? t("This browser doesn't support passkeys — you can still use {0} locally on this device.", BRAND)

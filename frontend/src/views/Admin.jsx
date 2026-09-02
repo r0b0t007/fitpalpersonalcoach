@@ -134,7 +134,7 @@ function InvitesCard({ invites, inviteOnly, reload }) {
   // The server has always accepted a note; the client sent `{}` and never rendered one, which is
   // why three codes generated on Monday are an anonymous wall of hex by Wednesday.
   const gen = () => api('/api/admin/invites/new', { method: 'POST', body: JSON.stringify({ note: note.trim() }) })
-    .then(({ invite }) => { copy(inviteLink(invite.code), 'Invite link copied'); setNote(''); reload() })
+    .then(({ invite }) => { copy(inviteLink(invite.code), 'Invite link copied · ' + invite.code); setNote(''); reload() })
     .catch(e => toast(e.message))
   const revoke = i => confirmSheet({
     title: 'Revoke this code?',
@@ -190,7 +190,7 @@ function RequestsCard({ requests, reload }) {
   const decide = (id, approve) => api('/api/admin/requests/decide', { method: 'POST', body: JSON.stringify({ id, approve }) })
     .then(({ request }) => {
       if (request.code) navigator.clipboard?.writeText(inviteLink(request.code)).catch(() => {})
-      toast(approve ? 'Approved — invite link copied. Send it to ' + request.name + '.' : 'Request rejected')
+      toast(approve ? 'Approved — link copied · ' + request.code + ' · send it to ' + request.name : 'Request rejected')
       reload()
     }).catch(e => toast(e.message))
   const clearAll = () => confirmSheet({
@@ -249,7 +249,12 @@ function SessionSheet({ session, close, reload, users, rooms }) {
   // press into a deliberate override rather than a mystery.
   const [clashes, setClashes] = useState(null)
   const set = patch => setF(x => ({ ...x, ...patch, ...(patch.coachId !== undefined ? { coach: '' } : null) }))
+  // The currently-assigned coach stays in the list even when disabled, marked as such: excluding
+  // them made the picker read "no coach" for a class that has one, and the save then failed with
+  // an error nothing on screen explained.
+  const assigned = (users || []).find(u => u.id === f.coachId)
   const coaches = (users || []).filter(u => u.coach && !u.disabled)
+    .concat(assigned && assigned.disabled ? [assigned] : [])
 
   const save = (series, confirm = false) => {
     if (!f.title.trim()) { toast('Enter a title'); return }
@@ -322,7 +327,7 @@ function SessionSheet({ session, close, reload, users, rooms }) {
       else set({ coachId: e.target.value })
     }}>
       <option value="">— no coach —</option>
-      {coaches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      {coaches.map(c => <option key={c.id} value={c.id}>{c.name}{c.disabled ? ' (disabled)' : ''}</option>)}
       <option value="__guest">Guest instructor…</option>
     </select>
     {!f.coachId && f.coach !== '' && <>
@@ -384,7 +389,13 @@ function SessionsCard({ sessions, users, reload }) {
   const [room, setRoom] = useState('')
   const [showAll, setShowAll] = useState(false)
   const rooms = roomsOf(sessions)
-  const coachName = s => s.coachId ? ((users || []).find(u => u.id === s.coachId)?.name || 'coach') : (s.coach || '')
+  // Mirrors the server: someone disabled or no longer a coach is not shown as teaching, so the
+  // row falls through to "coach unavailable" and the admin can reassign.
+  const coachName = s => {
+    if (!s.coachId) return s.coach || ''
+    const c = (users || []).find(u => u.id === s.coachId)
+    return c && c.coach && !c.disabled ? c.name : ''
+  }
   const edit = s => openSheet(close => <SessionSheet session={s} close={close} reload={reload} users={users} rooms={rooms} />)
   const upcoming = (sessions || [])
     .filter(s => s.date >= todayISO())
@@ -405,7 +416,7 @@ function SessionsCard({ sessions, users, reload }) {
         {s.title}
         {s.seriesId && <span className="tag" style={{ marginLeft: 6 }}>weekly</span>}
         {s.cancelled && <span className="tag" style={{ marginLeft: 6, color: 'var(--red)' }}>cancelled</span>}</div>
-        <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.room ? ' · ' + s.room : ''}{coachName(s) ? ' · ' + coachName(s) : ''}{s.capacity ? ' · ' + s.capacity + ' spots' : ''}</div></div>
+        <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.room ? ' · ' + s.room : ''}{coachName(s) ? ' · ' + coachName(s) : (s.coachId ? ' · coach unavailable' : '')}{s.capacity ? ' · ' + s.capacity + ' spots' : ''}</div></div>
       <Icon name="chevronRight" className="chev" />
     </div>)}
     {upcoming.length > shown.length && <div className="small acc" style={{ padding: '9px 2px', cursor: 'pointer' }} onClick={() => setShowAll(true)}>

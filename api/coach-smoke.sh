@@ -163,12 +163,17 @@ chk "assign-coach refuses a disabled coach"   400   "$(code -X POST "$B/api/admi
 chk "a class cannot be given to one either"   400   "$(code -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"title":"X","date":"2027-05-04","time":"10:00","coachId":"coachB"},"confirm":true}')"
 curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":false}'
 
-echo "== disabling also takes them off their upcoming classes =="
+echo "== a disabled coach is unnamed on the timetable, but the class keeps its assignment =="
+# Deleting coachId off every future occurrence would be unrecoverable, and disabling is often
+# temporary. So the assignment survives and only the DISPLAY and the push respect eligibility.
 curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN"   -d '{"session":{"title":"Spin with B","date":"2027-05-11","time":"10:00","room":"Studio 4","coachId":"coachB"},"confirm":true}'
-chk "the class names them"                    true   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.sessions.some(s=>s.coachId===process.argv[1]))" coachB)"
+chk "while active, the class names them"  "Coach B"   "$(curl -s "$B/api/sessions" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.sessions.find(s=>s.title===process.argv[1])||{}).coachName)" 'Spin with B')"
 curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":true}'
-chk "disabling detaches them from it"            0   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));d.sessions.filter(s=>s.coachId===process.argv[1]).length" coachB)"
-chk "the class itself survives"                true   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.sessions.some(s=>s.title===process.argv[1]))" 'Spin with B')"
+chk "disabled: members are shown no coach"      ""   "$(curl -s "$B/api/sessions" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.sessions.find(s=>s.title===process.argv[1])||{}).coachName)" 'Spin with B')"
+chk "...but the assignment is NOT destroyed"  true   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.sessions.find(s=>s.title===process.argv[1])||{}).coachId===process.argv[2])" 'Spin with B' coachB)"
+chk "editing that class does not force a swap" true   "$(curl -s -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"id":"'"$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));(d.sessions.find(s=>s.title===process.argv[1])||{}).id" 'Spin with B')"'","title":"Spin with B","date":"2027-05-11","time":"10:30","room":"Studio 4","coachId":"coachB"},"confirm":true}' | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).ok===true)")"
+curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":false}'
+chk "re-enabling restores the name"       "Coach B"   "$(curl -s "$B/api/sessions" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.sessions.find(s=>s.title===process.argv[1])||{}).coachName)" 'Spin with B')"
 
 echo ""
 echo "passed $pass, failed $fail"
