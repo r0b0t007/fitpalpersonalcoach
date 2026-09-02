@@ -123,3 +123,62 @@ describe('accepting a coach’s program', () => {
     expect(s.routines.at(-1).ex[0].id).toBe('mine')
   })
 })
+
+/* ---------- the program library ---------- */
+// A saved program is a frozen copy, not a view onto the coach's live plan. That is the whole
+// point of having a library: progressing a client must not change what the coach trains
+// tomorrow, and editing your own plan must not silently rewrite a program you saved last month.
+
+describe('saving a program from selected routines', () => {
+  const coachPlan = () => ({
+    routines: [
+      { id: 'a', name: 'Push', emoji: 'barbell', ex: [{ id: '0025', sets: 4, reps: 8 }] },
+      { id: 'b', name: 'Pull', emoji: 'pullup', ex: [{ id: '0027', sets: 4, reps: 8 }] },
+      { id: 'mine', name: 'My own cardio', emoji: 'bike', ex: [{ id: '0043', sets: 1, reps: 1 }] }
+    ],
+    week: { 1: 'a', 3: 'b', 5: 'mine' },
+    customEx: []
+  })
+  // What Coach.jsx does when you pick routines and press save.
+  const snapshot = (S, ids, name) => {
+    const routines = S.routines.filter(r => ids.includes(r.id))
+    const week = {}
+    for (const [d, rid] of Object.entries(S.week)) if (ids.includes(rid)) week[d] = rid
+    return buildPlanBundle({ routines, week, customEx: S.customEx }, name)
+  }
+
+  it('takes only the routines that were picked, not the whole plan', () => {
+    const bundle = snapshot(coachPlan(), ['a', 'b'], 'Block A')
+    expect(bundle.routines.map(r => r.name)).toEqual(['Push', 'Pull'])
+    expect(bundle.routines.some(r => r.name === 'My own cardio')).toBe(false)
+  })
+
+  it('drops weekdays pointing at routines that were left out', () => {
+    // Otherwise the snapshot carries a schedule referencing routines it does not contain, and
+    // mergePlan would clear the member's week and put only part of it back.
+    const bundle = snapshot(coachPlan(), ['a', 'b'], 'Block A')
+    expect(Object.keys(bundle.week).sort()).toEqual(['1', '3'])
+  })
+
+  it('is a copy — editing the coach’s plan afterwards leaves it untouched', () => {
+    const S = coachPlan()
+    const bundle = snapshot(S, ['a'], 'Block A')
+    // The coach progresses their own training, hard.
+    S.routines[0].name = 'Push (renamed)'
+    S.routines[0].ex[0].sets = 99
+    S.routines.push({ id: 'new', name: 'Added later', ex: [] })
+
+    expect(bundle.routines).toHaveLength(1)
+    expect(bundle.routines[0].name).toBe('Push')
+    expect(bundle.routines[0].ex[0].sets).toBe(4)
+  })
+
+  it('what a member receives from a saved program still leaves their own plan alone', () => {
+    const bundle = parsePlan(snapshot(coachPlan(), ['a', 'b'], 'Block A'))
+    const s = member()
+    mergePlan(s, bundle, { schedule: false })
+    expect(s.routines.find(r => r.id === 'own-1').name).toBe('My Legs')
+    expect(s.week).toEqual({ 1: 'own-1', 4: 'own-2' })
+    expect(s.routines).toHaveLength(4)
+  })
+})

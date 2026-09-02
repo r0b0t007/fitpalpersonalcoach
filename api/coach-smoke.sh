@@ -106,6 +106,33 @@ chk "coachB reports coach:true"              true "$(get -H "Cookie: $CB" "$B/ap
 chk "mem2 reports coach:false"               false "$(get -H "Cookie: $M2" "$B/api/me" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).user.coach)")"
 chk "mem2 is told who their coach is"    "Coach B" "$(get -H "Cookie: $M2" "$B/api/me" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).user.coachName)")"
 
+echo "== a stale offer must not outlive the relationship =="
+# The bug: an offer stayed pending after the member moved to another coach, so it could still be
+# accepted with the ex-coach's name on it -- and it kept consuming the 5-slot pending cap.
+curl -s -o /dev/null -X POST "$B/api/admin/user/coach" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachA","coach":true}'
+curl -s -o /dev/null -X POST "$B/api/admin/user/assign-coach" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"mem3","coachId":"coachA"}'
+CA=$(cook coachA); M3=$(cook mem3)
+chk "coachA sends mem3 a program"             200 "$(send "$CA" '["mem3"]')"
+chk "mem3 has it pending"                       1 "$(get -H "Cookie: $M3" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+curl -s -o /dev/null -X POST "$B/api/admin/user/assign-coach" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"mem3","coachId":"coachB"}'
+chk "moving them to coachB retires the offer"   0 "$(get -H "Cookie: $M3" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+chk "...so the new coach is not blocked"      200 "$(send "$(cook coachB)" '["mem3"]')"
+
+echo "== withdrawing a program sent by mistake =="
+WID=$(get -H "Cookie: $M3" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments[0].id")
+wd() { curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/coach/assignments/withdraw" -H 'Content-Type: application/json' -H "Cookie: $1" -d "{\"id\":\"$WID\"}"; }
+chk "another coach cannot withdraw it"        404 "$(wd "$CA")"
+chk "someone with no coach role at all is 403" 403 "$(wd "$M1")"
+chk "the sending coach can"                   200 "$(wd "$(cook coachB)")"
+chk "it leaves the member's inbox"              0 "$(get -H "Cookie: $M3" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+chk "withdrawing twice is refused"            409 "$(wd "$(cook coachB)")"
+
+echo "== the coach can finally see what happened =="
+chk "roster reports a pending count"            1   "$(send "$(cook coachB)" '["mem3"]' >/dev/null; get -H "Cookie: $(cook coachB)" "$B/api/coach/members" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));(d.members.find(m=>m.id==='mem3')||{}).pending.length")"
+AID2=$(get -H "Cookie: $M3" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments[0].id")
+curl -s -o /dev/null -X POST "$B/api/assignments/decide" -H 'Content-Type: application/json' -H "Cookie: $M3" -d "{\"id\":\"$AID2\",\"accept\":false}"
+chk "a decline is now visible to the coach" declined   "$(get -H "Cookie: $(cook coachB)" "$B/api/coach/members" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(((d.members.find(m=>m.id==='mem3')||{}).lastDecision||{}).status)")"
+
 echo ""
 echo "passed $pass, failed $fail"
 [ "$fail" = "0" ] || { echo "--- server log ---"; tail -20 "$D/log"; }

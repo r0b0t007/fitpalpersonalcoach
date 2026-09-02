@@ -252,15 +252,37 @@ function requireCoach(req, res) {
   if (!isCoach(user)) { json(res, 403, { error: 'forbidden' }); return null; }
   return user;
 }
+// A pending offer outlives the relationship it came from unless something retires it. Without
+// this a member could accept a program from an ex-coach up to 30 days later — with that person's
+// name still on the card — and those dead rows also consume the per-member pending cap, blocking
+// the NEW coach with "already has 5 programs waiting" and clearable by nobody but the member.
+function expireAssignmentsWhere(pred) {
+  let n = 0;
+  for (const a of db.assignments) {
+    if (a.status === 'pending' && pred(a)) {
+      a.status = 'expired';
+      a.decidedAt = new Date().toISOString();
+      n++;
+    }
+  }
+  return n;
+}
+
 // The member summary the admin list and the coach list both render.
 const memberCard = u => {
   const S = readState(u.id) || {};
   const workouts = S.workouts || [];
   const last = workouts[workouts.length - 1];
+  // Sending used to be a black hole — a decline looked exactly like "hasn't opened the app".
+  const mine = db.assignments.filter(a => a.memberId === u.id);
+  const lastDecided = mine.filter(a => a.status === 'accepted' || a.status === 'declined')
+    .sort((a, b) => String(b.decidedAt).localeCompare(String(a.decidedAt)))[0];
   return {
     id: u.id, name: u.name, created: u.created || null, disabled: !!u.disabled,
     workouts: workouts.length, lastWorkout: last ? last.d : null,
-    lastSync: S._ts || null, live: livePresence(u.id)
+    lastSync: S._ts || null, live: livePresence(u.id),
+    pending: mine.filter(a => a.status === 'pending').map(a => ({ id: a.id, created: a.created, coachId: a.coachId })),
+    lastDecision: lastDecided ? { status: lastDecided.status, at: lastDecided.decidedAt } : null
   };
 };
 function sessionCookie(user) {
@@ -646,7 +668,10 @@ const routes = {
     u.coach = !!body.coach;
     // Revoking leaves their members coachless rather than silently pointing at a non-coach —
     // otherwise re-granting the role later would hand back a roster nobody reviewed.
-    if (!u.coach) db.users.forEach(m => { if (m.coachId === u.id) delete m.coachId; });
+    if (!u.coach) {
+      db.users.forEach(m => { if (m.coachId === u.id) delete m.coachId; });
+      expireAssignmentsWhere(a => a.coachId === u.id);
+    }
     saveDb();
     json(res, 200, { ok: true, id: u.id, coach: u.coach });
   },
@@ -657,11 +682,20 @@ const routes = {
     const u = db.users.find(x => x.id === body.id);
     if (!u) return json(res, 404, { error: 'no such user' });
     const coachId = String(body.coachId || '').trim();
-    if (!coachId) { delete u.coachId; saveDb(); return json(res, 200, { ok: true, id: u.id, coachId: null }); }
+    if (!coachId) {
+      const had = u.coachId;
+      delete u.coachId;
+      if (had) expireAssignmentsWhere(a => a.memberId === u.id && a.coachId === had);
+      saveDb();
+      return json(res, 200, { ok: true, id: u.id, coachId: null });
+    }
     const c = db.users.find(x => x.id === coachId);
     if (!c || !isCoach(c)) return json(res, 400, { error: 'that user is not a coach' });
     if (c.id === u.id) return json(res, 400, { error: 'a member cannot be their own coach' });
+    const previous = u.coachId;
     u.coachId = c.id;
+    // Offers from whoever had them before are no longer this coach's to stand behind.
+    if (previous && previous !== c.id) expireAssignmentsWhere(a => a.memberId === u.id && a.coachId === previous);
     saveDb();
     json(res, 200, { ok: true, id: u.id, coachId: c.id });
   },
@@ -745,6 +779,21 @@ const routes = {
     json(res, 200, { ok: true, sent: rows.length });
   },
 
+  // Pull back a program that hasn't been answered yet. Only the coach who sent it, and only
+  // while it is still pending — once a member has acted on it, it is their data, not the
+  // coach's, and unsending would mean reaching into their plan.
+  'POST /api/coach/assignments/withdraw': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const body = await readBody(req);
+    const a = db.assignments.find(x => x.id === body.id);
+    if (!a || a.coachId !== coach.id) return json(res, 404, { error: 'no such assignment' });
+    if (a.status !== 'pending') return json(res, 409, { error: 'already decided' });
+    a.status = 'withdrawn';
+    a.decidedAt = new Date().toISOString();
+    saveDb();
+    json(res, 200, { ok: true });
+  },
+
   // The member's own inbox. Pending only — a decided assignment has already been merged locally,
   // and re-offering it would invite a duplicate.
   'GET /api/assignments': async (req, res) => {
@@ -764,6 +813,16 @@ const routes = {
     const a = db.assignments.find(x => x.id === body.id);
     // Only the recipient answers, and only their own — never the coach, never another member.
     if (!a || a.memberId !== user.id) return json(res, 404, { error: 'no such assignment' });
+    // Re-checked here, not only at send: an admin may have moved this member to another coach
+    // between the offer arriving and them answering it. expireAssignmentsWhere covers the normal
+    // path; this closes the race.
+    const sender = db.users.find(x => x.id === a.coachId);
+    if (body.accept && (!sender || !canCoachMember(sender, user, { isAdmin: isAdmin(sender) }))) {
+      a.status = 'expired';
+      a.decidedAt = new Date().toISOString();
+      saveDb();
+      return json(res, 409, { error: 'that program is no longer available' });
+    }
     const { error } = decideAssignment(a, !!body.accept);
     if (error) return json(res, 409, { error });
     saveDb();
