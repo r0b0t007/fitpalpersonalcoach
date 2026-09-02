@@ -135,15 +135,18 @@ export default function Coach() {
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
   const [members, setMembers] = useState(null)
+  const [classes, setClasses] = useState(null)
 
   const load = () => api('/api/coach/members').then(d => setMembers(d.members)).catch(e => toast(e.message || 'Failed to load'))
+  const loadClasses = () => api('/api/coach/sessions').then(d => setClasses(d.sessions)).catch(() => setClasses([]))
   useEffect(() => {
     if (!user?.coach) return
-    load()
+    load(); loadClasses()
     const iv = setInterval(load, 15000)   // keeps "training now" live, same as Admin
     return () => clearInterval(iv)
   }, [])
   if (!user?.coach) return null
+  const nextClasses = (classes || []).slice(0, 8)
 
   const live = (members || []).filter(m => m.live)
   const active = (members || []).filter(m => m.lastSync && Date.now() - m.lastSync < 7 * 86400000).length
@@ -160,6 +163,19 @@ export default function Coach() {
       <div className="tile"><div className="l">Members</div><div className="v">{members ? members.length : '—'}</div></div>
       <div className="tile"><div className="l">Training now</div><div className="v" style={{ color: live.length ? 'var(--acc)' : undefined }}>{members ? live.length : '—'}</div></div>
       <div className="tile"><div className="l">Active 7d</div><div className="v">{members ? active : '—'}</div></div>
+    </div>
+
+    {/* Classes first: an instructor opening the app wants to know what they are teaching today,
+        before anything about programming. Admin owns the timetable, so this is read-only. */}
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>My classes</h2>
+      {classes == null ? <div className="dim small">Loading…</div>
+        : nextClasses.length ? nextClasses.map(s => <div key={s.id} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)', opacity: s.cancelled ? .55 : 1 }}>
+          <div><div className="small" style={{ fontWeight: 600, textDecoration: s.cancelled ? 'line-through' : 'none' }}>{s.title}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.room ? ' · ' + s.room : ''}</div></div>
+          {s.cancelled && <span className="tag" style={{ color: 'var(--red)' }}>cancelled</span>}
+        </div>)
+        : <div className="dim small">No classes assigned to you. An admin sets the timetable.</div>}
     </div>
 
     <div className="card">

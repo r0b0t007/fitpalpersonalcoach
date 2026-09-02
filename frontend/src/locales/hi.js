@@ -607,5 +607,8 @@ export default {
   'Tap to review it.': 'देखने के लिए टैप करें।',
   'Decline': 'अस्वीकार करें',
   'That program couldn’t be read.': 'यह प्रोग्राम पढ़ा नहीं जा सका।',
-  'Ask {0} to send it again.': '{0} से इसे दोबारा भेजने को कहें।'
+  'Ask {0} to send it again.': '{0} से इसे दोबारा भेजने को कहें।',
+  'All rooms': 'सभी कक्ष',
+  'Cancelled': 'रद्द',
+  'This class is cancelled.': 'यह क्लास रद्द कर दी गई है।'
 }

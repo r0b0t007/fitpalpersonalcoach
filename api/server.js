@@ -347,6 +347,15 @@ const daysBetweenISO = (a, b) => {
 // only the coach: with no booking there is no attendee list, and pushing every cancelled yoga
 // class to everyone who installed the app is the kind of noise that gets notifications muted.
 // Members find out from the struck-through row on the timetable.
+// The timetable is public, so a session leaves here with a resolved coach NAME and no ids: the
+// name follows the account (rename a coach and every class updates), while an anonymous reader
+// learns nothing about who holds an account. Falls back to the free-text `coach` for guests.
+const publicSession = s => {
+  const { coachId, createdBy, ...rest } = s;
+  const acct = coachId ? db.users.find(u => u.id === coachId) : null;
+  return { ...rest, coachName: acct ? acct.name : (s.coach || '') };
+};
+
 function notifyCoachOfSession(session, what) {
   if (!session || !session.coachId) return;
   const when = `${session.date} ${session.time}`;
@@ -857,8 +866,12 @@ const routes = {
   // Windowed to the recent past — old sessions also age out of db.json on save (pruneSessions).
   'GET /api/sessions': async (req, res) => {
     const from = addDaysISO(isoTodayUTC(), -SESSION_WINDOW_DAYS);
-    const sessions = db.sessions.filter(s => s.date >= from).sort(sessionSort);
-    json(res, 200, { sessions });
+    const rows = db.sessions.filter(s => s.date >= from).sort(sessionSort);
+    // The admin dashboard edits these, so it needs the raw row (coachId prefills the picker).
+    // Everyone else — including anonymous readers, since this endpoint is deliberately public —
+    // gets the resolved name and no ids.
+    const admin = isAdmin(readSession(req));
+    json(res, 200, { sessions: admin ? rows : rows.map(publicSession) });
   },
 
   // Create (repeatWeeks spawns dated copies sharing a seriesId) or edit. Editing with

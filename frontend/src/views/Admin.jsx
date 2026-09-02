@@ -181,29 +181,85 @@ function RequestsCard({ requests, reload }) {
 }
 
 /* ---------- group sessions ---------- */
-function SessionSheet({ session, close, reload }) {
+function SessionSheet({ session, close, reload, users, rooms }) {
   const toast = useUI(s => s.toast)
   const [f, setF] = useState(session
-    ? { title: session.title, coach: session.coach || '', date: session.date, time: session.time, minutes: session.minutes, capacity: session.capacity || '', note: session.note || '', id: session.id }
-    : { title: '', coach: '', date: todayISO(), time: '18:00', minutes: 60, capacity: '', note: '' })
+    ? { title: session.title, coach: session.coach || '', coachId: session.coachId || '', room: session.room || '', date: session.date, time: session.time, minutes: session.minutes, capacity: session.capacity || '', note: session.note || '', id: session.id }
+    : { title: '', coach: '', coachId: '', room: '', date: todayISO(), time: '18:00', minutes: 60, capacity: '', note: '' })
   const [repeat, setRepeat] = useState(1)
-  const set = patch => setF(x => ({ ...x, ...patch }))
-  const save = series => {
+  // Clashes come back from the server on an unconfirmed save; showing them turns the second
+  // press into a deliberate override rather than a mystery.
+  const [clashes, setClashes] = useState(null)
+  const set = patch => setF(x => ({ ...x, ...patch, ...(patch.coachId !== undefined ? { coach: '' } : null) }))
+  const coaches = (users || []).filter(u => u.coach && !u.disabled)
+
+  const save = (series, confirm = false) => {
     if (!f.title.trim()) { toast('Enter a title'); return }
-    api('/api/admin/sessions/save', { method: 'POST', body: JSON.stringify({ session: f, repeatWeeks: repeat, series }) })
-      .then(() => { close(); toast('Session saved'); reload() }).catch(e => toast(e.message))
+    api('/api/admin/sessions/save', { method: 'POST', body: JSON.stringify({ session: f, repeatWeeks: repeat, series, confirm }) })
+      .then(r => {
+        if (r.conflicts?.length) { setClashes({ list: r.conflicts, series }); return }
+        close(); toast('Session saved'); reload()
+      })
+      .catch(e => toast(e.message))
   }
+  const cancel = series => confirmSheet({
+    title: series ? 'Cancel this and all upcoming in the series?' : 'Cancel this session?',
+    message: 'It stays on the timetable marked cancelled, so members who planned around it can see what happened. The coach is notified.',
+    confirmText: 'Cancel class', danger: true,
+    onConfirm: () => api('/api/admin/sessions/cancel', { method: 'POST', body: JSON.stringify({ id: session.id, series, reason: f.note || '' }) })
+      .then(() => { close(); toast('Class cancelled'); reload() }).catch(e => toast(e.message))
+  })
+  const restore = () => api('/api/admin/sessions/cancel', { method: 'POST', body: JSON.stringify({ id: session.id, restore: true }) })
+    .then(() => { close(); toast('Class restored'); reload() }).catch(e => toast(e.message))
   const del = series => confirmSheet({
     title: series ? 'Delete this and all upcoming in the series?' : 'Delete this session?',
-    message: 'It disappears from the calendar for everyone.', confirmText: 'Delete', danger: true,
+    message: 'It disappears from the calendar entirely, with no trace for members. To call off a class people were expecting, cancel it instead.',
+    confirmText: 'Delete', danger: true,
     onConfirm: () => api('/api/admin/sessions/delete', { method: 'POST', body: JSON.stringify({ id: session.id, series }) })
       .then(() => { close(); toast('Session deleted'); reload() }).catch(e => toast(e.message))
   })
+
+  if (clashes) return <>
+    <h3>That slot is already taken</h3>
+    <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.4 }}>
+      Nothing has been saved yet. Overlapping classes are sometimes deliberate, so this is a warning, not a rule.
+    </div>
+    <div className="list" style={{ gap: 0, marginBottom: 14 }}>
+      {clashes.list.map(c => <div key={c.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <div><div className="small" style={{ fontWeight: 600 }}>{c.title}</div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>
+            {fmtDate(c.date, true)} · {c.time} · {c.minutes} min{c.room ? ' · ' + c.room : ''}</div></div>
+        <span className="tag" style={{ color: 'var(--yellow)' }}>{c.why === 'room' ? 'same room' : 'same coach'}</span>
+      </div>)}
+    </div>
+    <Button variant="primary" onClick={() => save(clashes.series, true)}>Save anyway</Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={() => setClashes(null)}>Go back and change it</Button>
+  </>
+
   return <>
     <h3>{session ? 'Edit session' : 'Add session'}</h3>
+    {session?.cancelled && <div className="small" style={{ color: 'var(--yellow)', marginBottom: 10, lineHeight: 1.4 }}>
+      This class is cancelled{session.cancelReason ? ' — “' + session.cancelReason + '”' : ''}.
+    </div>}
     <input className="input" placeholder="Title (e.g. Spinning)" maxLength={60} value={f.title} onChange={e => set({ title: e.target.value })} />
     <div style={{ height: 10 }} />
-    <input className="input" placeholder="Coach" maxLength={40} value={f.coach} onChange={e => set({ coach: e.target.value })} />
+    <input className="input" list="room-list" placeholder="Room (e.g. Studio 1)" maxLength={40} value={f.room} onChange={e => set({ room: e.target.value })} />
+    <datalist id="room-list">{(rooms || []).map(r => <option key={r} value={r} />)}</datalist>
+    <div style={{ height: 10 }} />
+    <select className="input" value={f.coachId || (f.coach ? '__guest' : '')} onChange={e => {
+      if (e.target.value === '__guest') setF(x => ({ ...x, coachId: '', coach: x.coach || ' ' }))
+      else set({ coachId: e.target.value })
+    }}>
+      <option value="">— no coach —</option>
+      {coaches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      <option value="__guest">Guest instructor…</option>
+    </select>
+    {!f.coachId && f.coach !== '' && <>
+      <div style={{ height: 8 }} />
+      <input className="input" placeholder="Guest instructor name" maxLength={40} value={f.coach.trim()} onChange={e => setF(x => ({ ...x, coach: e.target.value, coachId: '' }))} />
+    </>}
+    {!coaches.length && <div className="dim small" style={{ marginTop: 6 }}>No coaches yet — make someone a coach to assign classes to them.</div>}
     <div style={{ height: 10 }} />
     <div className="row" style={{ gap: 10 }}>
       <input type="date" className="input" style={{ flex: 1 }} value={f.date} onChange={e => set({ date: e.target.value })} />
@@ -227,28 +283,60 @@ function SessionSheet({ session, close, reload }) {
     <div style={{ height: 12 }} />
     <Button variant="primary" onClick={() => save(false)}>{session ? 'Save' : repeat > 1 ? 'Add ' + repeat + ' sessions' : 'Add session'}</Button>
     {session?.seriesId && <><div style={{ height: 8 }} />
-      <Button onClick={() => save(true)}>Save for this + upcoming in series</Button></>}
-    {session && <><div style={{ height: 8 }} />
-      <Button variant="danger" onClick={() => del(false)}>Delete</Button>
+      <Button onClick={() => save(true)}>Save for this + upcoming in series</Button>
+      <div className="dim small" style={{ marginTop: 6, lineHeight: 1.4 }}>
+        Moving the date this way shifts every later class in the series by the same number of days — that is how you move a weekly class to a different weekday.
+      </div></>}
+    {session && <><div style={{ height: 12 }} />
+      {session.cancelled
+        ? <Button variant="primary" onClick={restore}>Restore this class</Button>
+        : <>
+          <Button variant="danger" onClick={() => cancel(false)}>Cancel class</Button>
+          {session.seriesId && <><div style={{ height: 8 }} />
+            <Button variant="danger" onClick={() => cancel(true)}>Cancel this + upcoming in series</Button></>}
+        </>}
+      <h4 className="sec">Remove entirely</h4>
+      <div className="dim small" style={{ marginBottom: 8, lineHeight: 1.4 }}>
+        Deleting leaves no trace for members. Use it for something added by mistake, not for a class people were expecting.
+      </div>
+      <Button variant="ghost" className="dim" onClick={() => del(false)}>Delete</Button>
       {session.seriesId && <><div style={{ height: 8 }} />
-        <Button variant="danger" onClick={() => del(true)}>Delete this + upcoming in series</Button></>}</>}
+        <Button variant="ghost" className="dim" onClick={() => del(true)}>Delete this + upcoming in series</Button></>}</>}
   </>
 }
 
-function SessionsCard({ sessions, reload }) {
+function SessionsCard({ sessions, users, reload }) {
   const openSheet = useUI(s => s.openSheet)
-  const edit = s => openSheet(close => <SessionSheet session={s} close={close} reload={reload} />)
-  const upcoming = (sessions || []).filter(s => s.date >= todayISO())
+  const [room, setRoom] = useState('')
+  const [showAll, setShowAll] = useState(false)
+  const rooms = [...new Set((sessions || []).map(s => s.room).filter(Boolean))].sort()
+  const coachName = s => s.coachId ? ((users || []).find(u => u.id === s.coachId)?.name || 'coach') : (s.coach || '')
+  const edit = s => openSheet(close => <SessionSheet session={s} close={close} reload={reload} users={users} rooms={rooms} />)
+  const upcoming = (sessions || [])
+    .filter(s => s.date >= todayISO())
+    .filter(s => !room || s.room === room)
+  // A 26-week series of two weekly classes overflowed the old flat cap of 30 immediately, so the
+  // list stays short by default and opens on request rather than silently truncating.
+  const shown = showAll ? upcoming : upcoming.slice(0, 30)
   return <div className="card">
     <div className="row between"><h2 style={{ margin: 0 }}>Group sessions</h2>
       <Button variant="primary" size="sm" icon="plus" onClick={() => edit(null)}>Add session</Button></div>
     <div className="small muted" style={{ margin: '6px 0 10px' }}>{upcoming.length} upcoming · visible to everyone, guests included</div>
-    {upcoming.slice(0, 30).map(s => <div key={s.id} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }} onClick={() => edit(s)}>
-      <div><div className="small" style={{ fontWeight: 600 }}>{s.title}{s.seriesId && <span className="tag" style={{ marginLeft: 6 }}>weekly</span>}</div>
-        <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.coach ? ' · ' + s.coach : ''}{s.capacity ? ' · ' + s.capacity + ' spots' : ''}</div></div>
+    {rooms.length > 1 && <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+      <span className={'tag' + (room ? '' : ' acc')} onClick={() => setRoom('')} style={{ cursor: 'pointer' }}>All rooms</span>
+      {rooms.map(r => <span key={r} className={'tag' + (room === r ? ' acc' : '')} onClick={() => setRoom(r)} style={{ cursor: 'pointer' }}>{r}</span>)}
+    </div>}
+    {shown.map(s => <div key={s.id} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)', opacity: s.cancelled ? .55 : 1 }} onClick={() => edit(s)}>
+      <div><div className="small" style={{ fontWeight: 600, textDecoration: s.cancelled ? 'line-through' : 'none' }}>
+        {s.title}
+        {s.seriesId && <span className="tag" style={{ marginLeft: 6 }}>weekly</span>}
+        {s.cancelled && <span className="tag" style={{ marginLeft: 6, color: 'var(--red)' }}>cancelled</span>}</div>
+        <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.room ? ' · ' + s.room : ''}{coachName(s) ? ' · ' + coachName(s) : ''}{s.capacity ? ' · ' + s.capacity + ' spots' : ''}</div></div>
       <Icon name="chevronRight" className="chev" />
     </div>)}
-    {!upcoming.length && <div className="dim small">Nothing scheduled — add the week's classes.</div>}
+    {upcoming.length > shown.length && <div className="small acc" style={{ padding: '9px 2px', cursor: 'pointer' }} onClick={() => setShowAll(true)}>
+      Show all {upcoming.length}</div>}
+    {!upcoming.length && <div className="dim small">{room ? 'Nothing scheduled in ' + room + '.' : "Nothing scheduled — add the week's classes."}</div>}
   </div>
 }
 
@@ -305,7 +393,7 @@ export default function Admin() {
     {requests && (reqEnabled || requests.length > 0) &&
       <RequestsCard requests={requests} reload={() => { loadRequests(); loadInvites() }} />}
 
-    <SessionsCard sessions={sessions} reload={loadSessions} />
+    <SessionsCard sessions={sessions} users={users} reload={loadSessions} />
 
     <InvitesCard invites={invites} reload={loadInvites} />
 
