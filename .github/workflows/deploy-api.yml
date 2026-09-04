@@ -33,6 +33,11 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # The smoke steps below background a server. If one accepts connections but wedges in a
+    # handler, a readiness curl waits and the job would sit at the 6-hour default - and because
+    # this workflow is `cancel-in-progress: false`, every later push to main queues behind it,
+    # so deploys stop entirely. Fail in ten minutes instead.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
