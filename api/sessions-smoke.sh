@@ -28,10 +28,16 @@ trap 'kill $SRV 2>/dev/null; rm -rf "$D"' EXIT
 # Probing /api/health alone is not enough, and the port-taken case is exactly where it fails: if
 # something else is already listening - a leftover server from an earlier run, or the app itself
 # in another terminal - it answers the probe cheerfully while OUR node has died on EADDRINUSE.
-# The run then reads the wrong instance, finds no secret to sign cookies with, and degrades into
-# the same wall of FAILs. So gate on our own process still being alive and on the secret THIS
-# instance wrote, not merely on something answering at that address.
-ready() { kill -0 $SRV 2>/dev/null && [ -s "$D/secret" ] && curl -sf --max-time 5 "$B/api/health" >/dev/null 2>&1; }
+# The run then reads the wrong instance, has no matching secret to sign cookies with, and
+# degrades into the same wall of FAILs.
+#
+# `kill -0` is what catches that: the secret is written at module load, before listen(), so it
+# exists even when the bind then fails. The -s test guards the narrower case of a DATA_DIR that
+# is somehow not ours to read, and keeps the check honest if secret creation ever moves after
+# listen(). --max-time keeps a wedged handler from stretching this loop: a readiness probe
+# against localhost answers in milliseconds or not at all, and 30 iterations of a long timeout
+# would outlast the job budget the workflows set.
+ready() { kill -0 $SRV 2>/dev/null && [ -s "$D/secret" ] && curl -sf --max-time 2 "$B/api/health" >/dev/null 2>&1; }
 for i in $(seq 1 30); do
   kill -0 $SRV 2>/dev/null || break   # it died; waiting the full 12s tells us nothing more
   ready && break
