@@ -7,7 +7,7 @@ import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, workoutVolu
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
-import { starterRoutines } from './lib/starter.js'
+import { starterRoutines, PROGRAMS, programById, programRoutines, programSchedule } from './lib/starter.js'
 import Media, { Thumb } from './components/Media.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
@@ -45,14 +45,70 @@ export function confirmSheet(opts) {
   ui().openSheet(close => <ConfirmDialog {...opts} close={close} />, { kind: 'center' })
 }
 
-/* ============================ starter plan ============================ */
-export function loadStarterPlan() {
-  const [push, pull, legs] = starterRoutines()
+/* ============================ ready-made plans ============================ */
+// Display copy lives here rather than in starter.js, because these strings are UI chrome and get
+// translated, while the routine names the registry stores are user-editable data and stay English.
+const PROGRAM_COPY = {
+  ppl: () => ({ name: t('Push / Pull / Legs'), blurb: t('The classic three-day split. A missed session shifts the whole week.') }),
+  fullbody: () => ({ name: t('Full Body'), blurb: t('Every session trains everything — the most forgiving if you miss a day.') }),
+  upperlower: () => ({ name: t('Upper / Lower'), blurb: t('Two upper days, two lower. Each muscle group twice a week.') }),
+  strength5x5: () => ({ name: t('Strength 5×5'), blurb: t('Five sets of five on the big lifts, adding weight every session.') }),
+  bodypart: () => ({ name: t('One muscle a day'), blurb: t('Chest, back, shoulders, arms, legs — five days, one group each.') })
+}
+
+// Adds the routines and schedules them; it never removes anything you already had, and it only
+// touches the weekdays this program uses, so an existing plan on other days survives.
+export function loadProgram(id) {
+  const p = programById(id)
+  if (!p) return
+  const routines = programRoutines(id)
+  const slots = programSchedule(id)
   update(st => {
-    st.routines.push(push, pull, legs)
-    st.week[1] = push.id; st.week[3] = pull.id; st.week[5] = legs.id
+    st.routines.push(...routines)
+    p.days.forEach((day, i) => { st.week[day] = routines[slots[i]].id })
   })
-  toast(t('Starter plan loaded — Mon Push · Wed Pull · Fri Legs'))
+  const copy = PROGRAM_COPY[id]?.() || { name: id }
+  toast(t('{0} loaded — {1}', copy.name, p.days.map(d => t(DAYN[d])).join(' · ')))
+  nav('/plan')
+}
+
+// Kept for the demo build and anything still calling the old name.
+export const loadStarterPlan = () => loadProgram('ppl')
+
+export const programPickerSheet = () => ui().openSheet(close => <ProgramPicker close={close} />)
+
+function ProgramPicker({ close }) {
+  const st = useStore(s => s.S)
+  const has = st.routines.length > 0
+  return <>
+    <h3>{t('Ready-made plans')}</h3>
+    <div className="dim small" style={{ marginBottom: 14, lineHeight: 1.4 }}>
+      {has
+        ? t('These are added alongside the routines you already have — nothing is replaced.')
+        : t('Pick one to get started. You can edit or delete anything afterwards.')}
+    </div>
+    <div className="list" style={{ gap: 0 }}>
+      {PROGRAMS.map(p => {
+        const { name, blurb } = PROGRAM_COPY[p.id]()
+        const exN = p.routines.reduce((n, [, , list]) => n + list.length, 0)
+        return <div key={p.id} className="item" onClick={() => { close(); loadProgram(p.id) }}>
+          <div className="grow">
+            <div className="tt">{name}</div>
+            <div className="ss">{blurb}</div>
+            <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>
+              {t('{0} days a week', p.days.length)} · {t(p.routines.length === 1 ? '{0} routine' : '{0} routines', p.routines.length)} · {exCount(exN)}
+            </div>
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>
+      })}
+    </div>
+    {/* The week map holds one routine per weekday and cannot alternate fortnightly, so say what
+        the schedule actually does rather than letting someone assume it rotates for them. */}
+    <div className="dim small" style={{ marginTop: 12, lineHeight: 1.4 }}>
+      {t('Strength 5×5 alternates two sessions: the schedule starts you A · B · A, and you swap a day whenever you like.')}
+    </div>
+  </>
 }
 
 /* ============================ weight picker (shared: body weight + goal) ============================ */
