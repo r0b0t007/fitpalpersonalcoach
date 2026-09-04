@@ -295,6 +295,18 @@ h4.sec{
    fade on the <svg> instead of in the stroke colour flattens the icon first and
    fades it as one shape — and it does that for every icon, not just this one. */
 #tabbar button .icn{font-size:25px;--icon-stroke:1.65;color:var(--label)}
+/* Labels are 10px in a cell that is ~70px wide at 360px — and narrower in the builds that keep
+   six. Nothing clamped them before, so Ejercicios, Exercicios and Ubungen ran into their
+   neighbours in exactly the languages least likely to be tested. */
+/* Last child, not every span: the FAB's .cir and the icon wrapper are spans too, and clipping
+   the wrapper would cut the badge off, since it sits deliberately outside the icon's box. */
+#tabbar button > span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tabbar button .tb-i{position:relative;display:flex;align-items:center;justify-content:center}
+/* A coach's program used to be visible only if you happened to be looking at Home. */
+#tabbar .tb-dot{
+  position:absolute;top:0;right:-2px;width:9px;height:9px;border-radius:50%;
+  background:var(--acc);box-shadow:0 0 0 2px var(--bg-el);
+}
 #tabbar button.on{color:var(--acc)}
 #tabbar button.on .icn{--icon-stroke:2;color:inherit;opacity:1}
 #tabbar button.start{margin-top:-24px}

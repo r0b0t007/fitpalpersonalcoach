@@ -88,8 +88,6 @@ export default function Settings() {
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : user ? <>
         <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
-        {user.coach && <Row icon="share" iconTint="var(--indigo)" title={t('Coach dashboard')} accessory="chevron" onClick={() => nav('/coach')} />}
         {/* Told, not hidden: a coach can read this member's training history, and the person being
             read should never have to discover that from somewhere else. */}
         {user.coachName && <Row icon="personCircle" iconTint="var(--grey)" title={t('Your coach')} subtitle={t('{0} can see your training and send you programs.', user.coachName)} />}
