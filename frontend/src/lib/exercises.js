@@ -22,8 +22,19 @@ export const smOf = ex => {
   return [...new Set([...base, ...(SECONDARY_ADDITIONS[ex?.id] || [])])]
 }
 
+// Two names in the generated dataset are unusable as-is: 0739's is mojibake (it stores
+// "sled 45в° leg press"), and its clean twin 1463 carries a camera-angle suffix that reads as
+// nonsense in a routine row. Corrected the same way SECONDARY_ADDITIONS is - an overlay, so a
+// dataset refresh cannot quietly undo it and EXDB itself stays pristine for anyone who wants
+// the raw catalogue.
+const NAME_FIXES = {
+  '0739': 'sled 45° leg press',
+  '1463': 'sled 45° leg press (side view)'
+}
+const CATALOGUE = EXDB.map(e => (NAME_FIXES[e.id] ? { ...e, n: NAME_FIXES[e.id] } : e))
+
 export const EXIDX = {}
-EXDB.forEach(e => { EXIDX[e.id] = e })
+CATALOGUE.forEach(e => { EXIDX[e.id] = e })
 export const BODYPARTS = [...new Set(EXDB.map(e => e.bp))].sort()
 
 // Equipment options present in a given list of exercises, most common first (issue #6).
@@ -44,7 +55,7 @@ export function registerCustom(list) {
   ;(list || []).forEach(e => { EXIDX[e.id] = e })
 }
 // Full searchable catalogue — customs first so your own exercises are easy to find.
-export const allExercises = st => [...(st.customEx || []), ...EXDB]
+export const allExercises = st => [...(st.customEx || []), ...CATALOGUE]
 
 // Media normally sits next to the app (img/ and gif/, mounted into the web container).
 // A build can point them somewhere else — the demo build pulls them off a CDN instead of

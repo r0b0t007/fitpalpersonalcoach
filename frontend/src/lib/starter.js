@@ -16,10 +16,11 @@ import { uid } from './format.js'
 // resolves and '25' does not. Every id here is covered by a test that walks the whole registry
 // against EXDB — a typo would otherwise ship as a silent blank row in someone's routine.
 //
-// Four movements a normal program wants are simply not in the dataset, so each uses the closest
-// match that has an animation rather than a guess: cable rear delt row (0203) for a face pull,
-// barbell glute bridge (1409) for a hip thrust, hanging leg raise (0472) where a plank would go,
-// and seated overhead press (0091) — every standing barbell variant upstream is grip-qualified.
+// Some movements a normal program wants are not in the dataset, so the closest match with an
+// animation is used rather than a guess. Three are in play here: cable rear delt row (0203) for a
+// face pull, hanging leg raise (0472) where a plank would go, and seated overhead press (0091),
+// since every standing barbell variant upstream is grip-qualified. A hip thrust is also absent —
+// barbell glute bridge (1409) is the stand-in if a program ever wants one, but none currently do.
 export const PROGRAMS = [
   {
     id: 'ppl',

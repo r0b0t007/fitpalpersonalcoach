@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import { PROGRAMS, programById, programRoutines, programSchedule, starterRoutines } from './starter.js'
 import { EXIDX } from './exercises.js'
+import { PROGRAM_COPY, copyFor } from './program-copy.js'
 import { ICON_NAMES } from '../components/Icon.jsx'
 
 describe('program registry', () => {
@@ -60,6 +61,23 @@ describe('program registry', () => {
     }
   })
 
+  it('every program has display copy, so the picker cannot throw on open', () => {
+    // The picker calls copyFor for each entry. Adding a program to the registry and forgetting
+    // its strings used to be a runtime crash that no test noticed.
+    const missing = PROGRAMS.filter(p => !PROGRAM_COPY[p.id]).map(p => p.id)
+    expect(missing).toEqual([])
+    for (const p of PROGRAMS) {
+      const c = copyFor(p.id)
+      expect(c.name, p.id + ' name').toBeTruthy()
+      expect(c.blurb, p.id + ' blurb').toBeTruthy()
+    }
+  })
+
+  it('copyFor degrades instead of throwing for an unknown program', () => {
+    expect(() => copyFor('nope')).not.toThrow()
+    expect(copyFor('nope').name).toBe('nope')
+  })
+
   it('ids are unique, so programById cannot be ambiguous', () => {
     expect(new Set(PROGRAMS.map(p => p.id)).size).toBe(PROGRAMS.length)
   })
@@ -113,5 +131,15 @@ describe('starterRoutines stays exactly what demoSeed expects', () => {
     expect(push.ex.map(e => e.id)).toEqual(['0025', '0047', '0426', '0334', '0241', '0251'])
     expect(pull.ex.map(e => e.id)).toEqual(['2330', '0027', '1323', '0031', '0313'])
     expect(legs.ex.map(e => e.id)).toEqual(['0043', '0085', '0739', '0585', '0586', '0605'])
+  })
+})
+
+describe('leg press naming', () => {
+  it('neither leg press shows mojibake or a camera angle in a routine row', () => {
+    // 0739 stores "sled 45<mojibake> leg press" and 1463 stores "(side pov)"; both are corrected
+    // by an overlay in exercises.js. PPL uses the first, the newer programs the second.
+    expect(EXIDX['0739'].n).toBe('sled 45° leg press')
+    expect(EXIDX['1463'].n).toBe('sled 45° leg press (side view)')
+    for (const id of ['0739', '1463']) expect(EXIDX[id].n).not.toMatch(/pov|в/i)
   })
 })

@@ -7,7 +7,8 @@ import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, workoutVolu
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
-import { starterRoutines, PROGRAMS, programById, programRoutines, programSchedule } from './lib/starter.js'
+import { PROGRAMS, programById, programRoutines, programSchedule } from './lib/starter.js'
+import { copyFor } from './lib/program-copy.js'
 import Media, { Thumb } from './components/Media.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
@@ -46,16 +47,6 @@ export function confirmSheet(opts) {
 }
 
 /* ============================ ready-made plans ============================ */
-// Display copy lives here rather than in starter.js, because these strings are UI chrome and get
-// translated, while the routine names the registry stores are user-editable data and stay English.
-const PROGRAM_COPY = {
-  ppl: () => ({ name: t('Push / Pull / Legs'), blurb: t('The classic three-day split. A missed session shifts the whole week.') }),
-  fullbody: () => ({ name: t('Full Body'), blurb: t('Every session trains everything — the most forgiving if you miss a day.') }),
-  upperlower: () => ({ name: t('Upper / Lower'), blurb: t('Two upper days, two lower. Each muscle group twice a week.') }),
-  strength5x5: () => ({ name: t('Strength 5×5'), blurb: t('Five sets of five on the big lifts, adding weight every session.') }),
-  bodypart: () => ({ name: t('One muscle a day'), blurb: t('Chest, back, shoulders, arms, legs — five days, one group each.') })
-}
-
 // Adds the routines and schedules them; it never removes anything you already had, and it only
 // touches the weekdays this program uses, so an existing plan on other days survives.
 export function loadProgram(id) {
@@ -67,13 +58,9 @@ export function loadProgram(id) {
     st.routines.push(...routines)
     p.days.forEach((day, i) => { st.week[day] = routines[slots[i]].id })
   })
-  const copy = PROGRAM_COPY[id]?.() || { name: id }
-  toast(t('{0} loaded — {1}', copy.name, p.days.map(d => t(DAYN[d])).join(' · ')))
+  toast(t('{0} loaded — {1}', copyFor(id).name, p.days.map(d => t(DAYN[d])).join(' · ')))
   nav('/plan')
 }
-
-// Kept for the demo build and anything still calling the old name.
-export const loadStarterPlan = () => loadProgram('ppl')
 
 export const programPickerSheet = () => ui().openSheet(close => <ProgramPicker close={close} />)
 
@@ -84,14 +71,27 @@ function ProgramPicker({ close }) {
     <h3>{t('Ready-made plans')}</h3>
     <div className="dim small" style={{ marginBottom: 14, lineHeight: 1.4 }}>
       {has
-        ? t('These are added alongside the routines you already have — nothing is replaced.')
+        ? t('Your routines are kept — but the weekdays a plan uses are reassigned to it.')
         : t('Pick one to get started. You can edit or delete anything afterwards.')}
     </div>
     <div className="list" style={{ gap: 0 }}>
       {PROGRAMS.map(p => {
-        const { name, blurb } = PROGRAM_COPY[p.id]()
+        const { name, blurb } = copyFor(p.id)
         const exN = p.routines.reduce((n, [, , list]) => n + list.length, 0)
-        return <div key={p.id} className="item" onClick={() => { close(); loadProgram(p.id) }}>
+        // Only when it would actually displace something. Naming the days makes the cost concrete
+        // rather than asking a vague "are you sure".
+        const taken = p.days.filter(d => st.week[d])
+        const choose = () => {
+          close()
+          if (!taken.length) return loadProgram(p.id)
+          confirmSheet({
+            title: t('Reassign {0}?', taken.map(d => t(DAYN[d])).join(' · ')),
+            message: t('Those days already have a routine. The plan takes them over — your existing routines are kept and can be put back on any day.'),
+            confirmText: t('Load it'),
+            onConfirm: () => loadProgram(p.id)
+          })
+        }
+        return <div key={p.id} className="item" onClick={choose}>
           <div className="grow">
             <div className="tt">{name}</div>
             <div className="ss">{blurb}</div>
