@@ -23,6 +23,7 @@ import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLIC
 import { MOBILE, shareExport } from './lib/mobile.js'
 import { BRAND, FILE_PREFIX } from './lib/brand.js'
 import { buildCompletedWorkout } from './lib/finish-workout.js'
+import { api } from './lib/api.js'
 import { isWarmupRow } from './lib/workout-model.js'
 
 const S = () => useStore.getState().S
@@ -739,6 +740,31 @@ export const planImportSheet = bundle => ui().openSheet(close => <PlanImport bun
 export const coachPlanSheet = ({ bundle, from, note, schedule, onAccept, onDecline }) =>
   ui().openSheet(close => <PlanImport bundle={bundle} from={from} note={note}
     defaultSchedule={schedule} onAccept={onAccept} onDecline={onDecline} close={close} />)
+
+// Opening a coach's offer, from wherever the member happens to meet it - the Home card or the
+// You hub. Shared rather than copied because of the catch below: the server validates a bundle's
+// shape, not the exercise catalogue, so a program can still arrive unreadable, and a card that
+// does nothing when tapped and cannot be dismissed is worse than the program never arriving.
+// Two screens owning separate copies of that is how one of them quietly loses the handling.
+export function openCoachOffer(offer) {
+  if (!offer) return
+  const decide = accept => api('/api/assignments/decide', { method: 'POST', body: JSON.stringify({ id: offer.id, accept }) })
+    .catch(() => {})
+    .finally(() => useStore.getState().loadAssignments())
+  let parsed
+  try { parsed = parsePlan(offer.bundle) } catch {
+    toast(t('That program couldn’t be read.'))
+    return confirmSheet({
+      title: t('That program couldn’t be read.'),
+      message: t('Ask {0} to send it again.', offer.coachName),
+      confirmText: t('Decline'), danger: true, onConfirm: () => decide(false)
+    })
+  }
+  coachPlanSheet({
+    bundle: parsed, from: offer.coachName, note: offer.note, schedule: offer.schedule,
+    onAccept: () => decide(true), onDecline: () => decide(false)
+  })
+}
 
 function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAccept, onDecline }) {
   // Clamped to what the bundle can actually deliver: the toggle below only renders when there

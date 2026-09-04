@@ -5,10 +5,7 @@ import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW, setsDoneActi
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { BRAND } from '../lib/brand.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, programPickerSheet, bwDeltaColor, coachPlanSheet, confirmSheet } from '../sheets.jsx'
-import { useUI } from '../store/useUI.js'
-import { parsePlan } from '../lib/plan-share.js'
-import { api } from '../lib/api.js'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, programPickerSheet, bwDeltaColor, openCoachOffer } from '../sheets.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
@@ -20,35 +17,13 @@ export default function Home() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const assignments = useStore(s => s.assignments)
-  const loadAssignments = useStore(s => s.loadAssignments)
   const [weekOffset, setWeekOffset] = useState(0)
 
   // A program a coach sent. Surfaced as a card rather than auto-opening a sheet: arriving to a
   // modal you didn't ask for is a bad way to be told, and the push notification already got
-  // their attention. parsePlan here is what drops exercises this build doesn't know about.
+  // their attention. The opening itself lives in sheets.jsx because the You hub shows the same
+  // offer — off Home there used to be no sign one was waiting at all.
   const offer = assignments?.[0]
-  const decideOffer = accept => api('/api/assignments/decide', { method: 'POST', body: JSON.stringify({ id: offer.id, accept }) })
-    .catch(() => {})
-    .finally(loadAssignments)
-  const openOffer = () => {
-    let parsed
-    try { parsed = parsePlan(offer.bundle) } catch {
-      // The server validates shape, not the exercise catalogue, so a bundle can still be
-      // unreadable here. Say so and let them clear it — a card that does nothing when tapped and
-      // cannot be dismissed is worse than the program never arriving.
-      useUI.getState().toast(t('That program couldn’t be read.'))
-      return confirmSheet({
-        title: t('That program couldn’t be read.'),
-        message: t('Ask {0} to send it again.', offer.coachName),
-        confirmText: t('Decline'), danger: true, onConfirm: () => decideOffer(false)
-      })
-    }
-    coachPlanSheet({
-      bundle: parsed, from: offer.coachName, note: offer.note, schedule: offer.schedule,
-      onAccept: () => decideOffer(true), onDecline: () => decideOffer(false)
-    })
-  }
-
   const today = new Date()
   const routine = effectiveRoutine(S, todayISO())
   const todayOvr = S.dayPlan[todayISO()] !== undefined
@@ -83,7 +58,7 @@ export default function Home() {
       <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
     </div>
 
-    {offer && <div className="card" style={{ borderColor: 'var(--acc)' }} onClick={openOffer}>
+    {offer && <div className="card" style={{ borderColor: 'var(--acc)' }} onClick={() => openCoachOffer(offer)}>
       <div className="row between">
         <div><div className="tt">{t('{0} sent you a program', offer.coachName)}</div>
           <div className="ss dim">{offer.note || t('Tap to review it.')}</div></div>
@@ -156,7 +131,10 @@ export default function Home() {
       </> : <div className="muted small">{t("No entries yet — log your weight to start the curve. It's also asked before every workout.")}</div>}
     </div>
 
-    <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => calendarSheet()}>
+    {/* Stats no longer has a cell in the tab bar, and this card is already a stats summary —
+        streak, this week, lifetime total — so it becomes the way through to the full screen.
+        The calendar it used to open keeps its own target rather than being lost. */}
+    <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => nav('/stats')}>
       <div className="row between">
         <div>
           <div className="row" style={{ gap: 7, fontSize: 22, fontWeight: 600, letterSpacing: '-.021em' }}>
@@ -165,7 +143,10 @@ export default function Home() {
           </div>
           <div className="muted small" style={{ marginTop: 2 }}>{wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}</div>
         </div>
-        <Icon name="calendar" className="chev" style={{ fontSize: 20 }} />
+        <button className="iconbtn" style={{ width: 34, height: 34, fontSize: 17 }}
+          onClick={e => { e.stopPropagation(); calendarSheet() }} aria-label={t('Calendar')} title={t('Calendar')}>
+          <Icon name="calendar" />
+        </button>
       </div>
     </div>
   </div>

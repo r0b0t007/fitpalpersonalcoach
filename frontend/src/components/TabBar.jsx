@@ -7,15 +7,22 @@ import { MOBILE } from '../lib/mobile.js'
 import { DEMO } from '../lib/demo.js'
 import Icon from './Icon.jsx'
 
+// Everything the You hub owns. /stats and /library lost their own cells; /settings, /history and
+// the two dashboards never had one.
+const YOU_ROUTES = ['you', 'stats', 'history', 'library', 'settings', 'admin', 'coach']
+
 export default function TabBar({ onStart }) {
   const nav = useNavigate()
   const loc = useLocation()
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const isGuest = useStore(s => s.isGuest())
+  const assignments = useStore(s => s.assignments)
   if (!user && !isGuest) return null
   const cur = loc.pathname.split('/')[1] || 'home'
-  const on = k => cur === k || (cur === 'history' && k === 'stats') || (cur === 'settings' && k === 'home')
+  // Six routes have no cell of their own and all belong to the hub, so it stays lit while you are
+  // inside any of them. Miss one and the bar reads as though nothing is selected.
+  const on = k => cur === k || (k === 'you' && YOU_ROUTES.includes(cur))
 
   const startWorkout = () => {
     if (!S.active) {
@@ -24,9 +31,10 @@ export default function TabBar({ onStart }) {
     }
     nav('/workout')
   }
-  const Tab = ({ k, icon, to, label }) => (
+  const Tab = ({ k, icon, to, label, dot }) => (
     <button className={on(k) ? 'on' : ''} onClick={() => nav(to)}>
-      <Icon name={icon} /><span>{label}</span>
+      <span className="tb-i"><Icon name={icon} />{dot && <i className="tb-dot" />}</span>
+      <span>{label}</span>
     </button>
   )
 
@@ -38,11 +46,10 @@ export default function TabBar({ onStart }) {
         <span className="cir"><Icon name={S.active ? 'play' : 'dumbbell'} /></span>
         <span>{S.active ? t('Resume') : t('Start')}</span>
       </button>
-      <Tab k="stats" icon="chart" to="/stats" label={t('Stats')} />
       {/* the timetable lives on the server — the standalone mobile and demo builds have none,
           so the tab would only ever show an empty state there */}
       {!MOBILE && !DEMO && <Tab k="sessions" icon="people" to="/sessions" label={t('Sessions')} />}
-      <Tab k="library" icon="list" to="/library" label={t('Exercises')} />
+      <Tab k="you" icon="personCircle" to="/you" label={t('You')} dot={!!assignments?.length} />
     </nav>
   )
 }

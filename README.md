@@ -87,7 +87,7 @@ BOOTSTRAP_CODE=<long-random> # lets the first account in and makes it an admin
 ```
 
 Bootstrap order: deploy → open the app → *Create new profile* → enter `BOOTSTRAP_CODE`
-as the invite code. That account is created as an admin, and Settings then shows the
+as the invite code. That account is created as an admin, and the **You** tab then shows the
 **Admin dashboard**, where access requests, the class timetable, invite codes and member
 accounts live.
 

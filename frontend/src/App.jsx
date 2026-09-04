@@ -27,6 +27,7 @@ import History from './views/History.jsx'
 import Library from './views/Library.jsx'
 import Sessions from './views/Sessions.jsx'
 import Settings from './views/Settings.jsx'
+import You from './views/You.jsx'
 import Admin from './views/Admin.jsx'
 import Coach from './views/Coach.jsx'
 
@@ -80,6 +81,7 @@ function Shell() {
               <Route path="/history" element={<History />} />
               <Route path="/library" element={<Library />} />
               {!MOBILE && !DEMO && <Route path="/sessions" element={<Sessions />} />}
+              <Route path="/you" element={<You />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
               <Route path="/coach" element={user?.coach ? <Coach /> : <Navigate to="/home" replace />} />
