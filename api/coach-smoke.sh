@@ -25,12 +25,30 @@ JSON
 DATA_DIR="$D" PORT=$PORT RP_ID=localhost ORIGIN="http://localhost:$PORT" node "$API/server.js" > "$D/log" 2>&1 &
 SRV=$!
 trap 'kill $SRV 2>/dev/null; rm -rf "$D"' EXIT
-for i in $(seq 1 30); do curl -sf "$B/api/health" >/dev/null 2>&1 && break; sleep 0.4; done
-# Without this, a server that never booted (missing dep, port taken, syntax error) shows up as
-# every check failing at once, with the actual cause buried under the wall of FAILs. Matters most
-# in CI, where nobody is watching a terminal that has the log right there.
-curl -sf "$B/api/health" >/dev/null 2>&1 || {
-  echo "server never came up on $B after 12s"; echo "--- server log ---"; tail -40 "$D/log"; exit 1; }
+# A server that never booted (missing dep, port taken, syntax error) otherwise shows up as every
+# check failing at once, with the real cause buried under the wall of FAILs.
+#
+# Probing /api/health alone is not enough, and the port-taken case is exactly where it fails: if
+# something else is already listening - a leftover server from an earlier run, or the app itself
+# in another terminal - it answers the probe cheerfully while OUR node has died on EADDRINUSE.
+# The run then reads the wrong instance, has no matching secret to sign cookies with, and
+# degrades into the same wall of FAILs.
+#
+# `kill -0` is what catches that: the secret is written at module load, before listen(), so it
+# exists even when the bind then fails. The -s test guards the narrower case of a DATA_DIR that
+# is somehow not ours to read, and keeps the check honest if secret creation ever moves after
+# listen(). --max-time keeps a wedged handler from stretching this loop: a readiness probe
+# against localhost answers in milliseconds or not at all, and 30 iterations of a long timeout
+# would outlast the job budget the workflows set.
+ready() { kill -0 $SRV 2>/dev/null && [ -s "$D/secret" ] && curl -sf --max-time 2 "$B/api/health" >/dev/null 2>&1; }
+for i in $(seq 1 30); do
+  kill -0 $SRV 2>/dev/null || break   # it died; waiting the full 12s tells us nothing more
+  ready && break
+  sleep 0.4
+done
+ready || {
+  echo "server did not start on $B - port taken, missing dependency, or a crash on boot"
+  echo "--- server log ---"; tail -40 "$D/log"; exit 1; }
 
 SECRET=$(cat "$D/secret")
 cook() { node -e "
@@ -47,6 +65,14 @@ chk() { # chk <label> <expected> <actual>
 }
 code() { curl -s -o /dev/null -w "%{http_code}" "$@"; }
 get()  { curl -s "$@"; }
+
+# Computed, not literal - a hardcoded date falls out of the GET /api/sessions window (7 days
+# back) once the clock passes it, and this suite gates deploys. See the note in sessions-smoke.sh.
+eval "$(node -e "
+const d = new Date(); d.setUTCHours(0,0,0,0); d.setUTCDate(d.getUTCDate() + 120);
+const at = n => { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) };
+process.stdout.write('C1=' + at(0) + '\nC2=' + at(7));
+")"
 
 BUNDLE='{"opengym_plan":1,"name":"Block A","week":{"1":"r1"},"routines":[{"id":"r1","name":"Push","emoji":"barbell","ex":[{"id":"0025","sets":4,"reps":8}]}],"customEx":[]}'
 send() { curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/coach/assign" -H 'Content-Type: application/json' -H "Cookie: $1" -d "{\"memberIds\":$2,\"bundle\":$BUNDLE,\"note\":\"go\"}"; }
@@ -165,18 +191,18 @@ chk "the row survives, flagged revoked"      true   "$(get -H "Cookie: $ADMIN" "
 echo "== a disabled coach cannot be attached to anything =="
 curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":true}'
 chk "assign-coach refuses a disabled coach"   400   "$(code -X POST "$B/api/admin/user/assign-coach" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"mem3","coachId":"coachB"}')"
-chk "a class cannot be given to one either"   400   "$(code -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"title":"X","date":"2027-05-04","time":"10:00","coachId":"coachB"},"confirm":true}')"
+chk "a class cannot be given to one either"   400   "$(code -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"title":"X","date":"'"$C1"'","time":"10:00","coachId":"coachB"},"confirm":true}')"
 curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":false}'
 
 echo "== a disabled coach is unnamed on the timetable, but the class keeps its assignment =="
 # Deleting coachId off every future occurrence would be unrecoverable, and disabling is often
 # temporary. So the assignment survives and only the DISPLAY and the push respect eligibility.
-curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN"   -d '{"session":{"title":"Spin with B","date":"2027-05-11","time":"10:00","room":"Studio 4","coachId":"coachB"},"confirm":true}'
+curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN"   -d '{"session":{"title":"Spin with B","date":"'"$C2"'","time":"10:00","room":"Studio 4","coachId":"coachB"},"confirm":true}'
 chk "while active, the class names them"  "Coach B"   "$(curl -s "$B/api/sessions" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.sessions.find(s=>s.title===process.argv[1])||{}).coachName)" 'Spin with B')"
 curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":true}'
 chk "disabled: members are shown no coach"      ""   "$(curl -s "$B/api/sessions" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.sessions.find(s=>s.title===process.argv[1])||{}).coachName)" 'Spin with B')"
 chk "...but the assignment is NOT destroyed"  true   "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.sessions.find(s=>s.title===process.argv[1])||{}).coachId===process.argv[2])" 'Spin with B' coachB)"
-chk "editing that class does not force a swap" true   "$(curl -s -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"id":"'"$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));(d.sessions.find(s=>s.title===process.argv[1])||{}).id" 'Spin with B')"'","title":"Spin with B","date":"2027-05-11","time":"10:30","room":"Studio 4","coachId":"coachB"},"confirm":true}' | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).ok===true)")"
+chk "editing that class does not force a swap" true   "$(curl -s -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"id":"'"$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));(d.sessions.find(s=>s.title===process.argv[1])||{}).id" 'Spin with B')"'","title":"Spin with B","date":"'"$C2"'","time":"10:30","room":"Studio 4","coachId":"coachB"},"confirm":true}' | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).ok===true)")"
 curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":false}'
 chk "re-enabling restores the name"       "Coach B"   "$(curl -s "$B/api/sessions" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.sessions.find(s=>s.title===process.argv[1])||{}).coachName)" 'Spin with B')"
 

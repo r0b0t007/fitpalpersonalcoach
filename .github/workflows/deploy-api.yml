@@ -33,6 +33,12 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # The smoke steps below background a server. If one accepts connections but wedges in a
+    # handler, a readiness curl waits and the job would sit at the 6-hour default - and because
+    # this workflow is `cancel-in-progress: false`, every later push to main queues behind it,
+    # so deploys stop entirely. Fail in ten minutes instead. The deploy job below is bounded for
+    # the same reason: an rsync that stalls mid-upload blocks the group just as effectively.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -61,6 +67,11 @@ jobs:
     if: vars.DEPLOY_API == 'true'
     runs-on: ubuntu-latest
     environment: production
+    # Bounds the run itself - an ssh/rsync that stalls mid-upload would otherwise hold the
+    # deploy-api concurrency group to the 6-hour default and queue every later push behind it.
+    # Generous, because a half-finished sync is worse than a slow one: guardrail #4 above is
+    # about never cancelling mid-upload, and 30 minutes is far beyond a normal 20-second deploy.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

@@ -1,6 +1,13 @@
-# Same suite as .github/workflows/test.yml, run by gitea.com's Actions runners.
-# The GitHub copy is kept for the day that account comes back; this one is what
-# actually gates contributions today.
+# Mirror of .github/workflows/test.yml for gitea.com's Actions runners.
+#
+# Both forges are kept in step deliberately. This fork's checks and deploys run on GitHub, so
+# that copy is the one enforcing today; this one exists so the suite still runs for whoever
+# builds from the Gitea remote. The two had drifted badly — this file claimed to be the same
+# suite while running a single frontend job, triggered on mcp/** without having an mcp job, and
+# covered nothing under api/ at all, so an API change could reach main here having run nothing.
+#
+# Action versions are pinned to v4 rather than the v7 the GitHub copy uses: that is the newest
+# the Gitea runners resolve. If you change one file, change the other.
 name: Tests
 
 on:
@@ -8,12 +15,14 @@ on:
     paths:
       - 'frontend/**'
       - 'mcp/**'
+      - 'api/**'
       - '.gitea/workflows/test.yml'
   push:
     branches: [main]
     paths:
       - 'frontend/**'
       - 'mcp/**'
+      - 'api/**'
       - '.gitea/workflows/test.yml'
   workflow_dispatch:
 
@@ -36,3 +45,100 @@ jobs:
         working-directory: frontend
       - run: npm test
         working-directory: frontend
+      # A broken import or bad JSX fails the build long before any test covers it.
+      - run: npm run build
+        working-directory: frontend
+      - run: node scripts/check-locales.mjs
+        working-directory: frontend
+      # check-locales compares the packs to each other, so a key missing from ALL of them is
+      # invisible to it. This walks src/ instead. Report-only for now: there is a known
+      # backlog of untranslated demo-view strings to clear before it can fail the build.
+      - run: node scripts/check-source-strings.mjs
+        working-directory: frontend
+      # The fatigue model must never read higher after a rest day than before it.
+      # Property probe over ~108k comparisons; too slow for the unit suite, cheap here.
+      - run: npm run test:fatigue-probe
+        working-directory: frontend
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+        working-directory: api
+      # Parse gate for the server itself — the unit suite imports only the pure helpers,
+      # so a syntax error in server.js would otherwise ride a green run to a dead deploy.
+      - run: node --check server.js
+        working-directory: api
+      - run: npm test
+        working-directory: api
+
+  # The unit suite imports domain.mjs and nothing else, so without this no HTTP route, cookie
+  # check or permission boundary is covered by any automated run: canCoachMember is tested, the
+  # /api/coach/member route that depends on it is not. These two suites boot a throwaway server
+  # and exercise the routes as a black box, refusals included.
+  #
+  # timeout-minutes because this is the only job that backgrounds a long-lived process — a
+  # server that hangs should not hold a runner.
+  api-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+        working-directory: api
+      # Separate steps, not `npm run smoke`, so a failure is attributable at a glance.
+      - name: Coach role smoke (61 checks)
+        run: npm run smoke:coach
+        working-directory: api
+      - name: Timetable smoke (29 checks)
+        run: npm run smoke:sessions
+        working-directory: api
+
+  # The localStorage repair in frontend/test/setup.js is guarded by a feature check, so on the
+  # pinned Node 22 above it never executes — leaving the fix for "green in CI, red locally" itself
+  # unverified by CI, which is the same split it exists to close. This leg runs the unit suite on a
+  # runtime that does expose the global.
+  frontend-next-node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+
+  mcp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mcp/package-lock.json
+      - run: npm ci
+        working-directory: mcp
+      - run: npm test
+        working-directory: mcp
+      # The one check the vitest suite structurally cannot make. The MCP server is a bare node
+      # process, but vitest runs its tests through Vite — import.meta.glob, .jsx imports and
+      # ?raw all resolve happily there. That is how a Vite-only import reached a shared lib
+      # module with 33 green tests standing over a server that died on startup.
+      - run: npm run check:node-loadable
+        working-directory: mcp
