@@ -77,6 +77,35 @@ jobs:
       - run: npm test
         working-directory: api
 
+  # The unit suite imports domain.mjs and nothing else, so until this job existed no HTTP route,
+  # cookie check or permission boundary was covered by any automated run: canCoachMember was
+  # tested, the /api/coach/member route that depends on it was not. These two suites boot a
+  # throwaway server and exercise the routes as a black box, refusals included (401 vs 403,
+  # no-enumeration, mixed-batch rejection, the disabled-coach display rules).
+  #
+  # Its own job rather than steps on `api` above: it runs in parallel so it costs no wall clock,
+  # and the checks list names which suite broke. timeout-minutes because this is the only job
+  # that backgrounds a long-lived process — a server that hangs should not hold a runner.
+  api-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+        working-directory: api
+      # Separate steps, not `npm run smoke`, so a failure is attributable at a glance.
+      - name: Coach role smoke (61 checks)
+        run: npm run smoke:coach
+        working-directory: api
+      - name: Timetable smoke (29 checks)
+        run: npm run smoke:sessions
+        working-directory: api
+
   # The localStorage repair in frontend/test/setup.js is guarded by a feature check, so on the
   # pinned Node 22 above it never executes — leaving the fix for "green in CI, red locally" itself
   # unverified by CI, which is the same split it exists to close. This leg runs the unit suite on a
