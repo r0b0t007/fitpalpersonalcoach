@@ -25,6 +25,8 @@ export default {
   'Stats': '统计',
   'Exercises': '动作库',
   'You': '我的',
+  'Staff': '员工',
+  'Back': '返回',
   'Training': '训练',
   'Waiting for you': '待处理',
   'Calendar': '日历',

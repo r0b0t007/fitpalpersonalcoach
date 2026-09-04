@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { openCoachOffer } from '../sheets.jsx'
 import { MOBILE } from '../lib/mobile.js'
+import { DEMO } from '../lib/demo.js'
 import { Section, Row } from '../components/ui.jsx'
 
 // The hub the tab bar gained when it lost two of its six cells.
@@ -27,13 +28,14 @@ export default function You() {
     {/* Running the club is a daily job, so it sits above the member's own things rather than
         three taps down inside Settings, where it used to be. Its own section so a coach who is
         also a member does not have to pick their dashboard out of a list of preferences.
-        English-only, matching the dashboards themselves. */}
+        The dashboards themselves are English-only by choice; these labels never were, and are
+        translated in all 11 packs, so they keep using those keys. */}
     {(user?.admin || user?.coach) && (
-      <Section title="Staff">
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title="Admin dashboard"
-          subtitle="Members, coaches and the class timetable" accessory="chevron" onClick={() => nav('/admin')} />}
-        {user.coach && <Row icon="figureStrength" iconTint="var(--indigo)" title="Coach dashboard"
-          subtitle="Your members and the programs you send them" accessory="chevron" onClick={() => nav('/coach')} />}
+      <Section title={t('Staff')}>
+        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')}
+          accessory="chevron" onClick={() => nav('/admin')} />}
+        {user.coach && <Row icon="figureStrength" iconTint="var(--indigo)" title={t('Coach dashboard')}
+          accessory="chevron" onClick={() => nav('/coach')} />}
       </Section>
     )}
 
@@ -59,7 +61,7 @@ export default function You() {
 
     <Section>
       <Row icon="gear" iconTint="var(--grey)" title={t('Settings')}
-        subtitle={MOBILE ? t('Your data') : t('Account')} accessory="chevron" onClick={() => nav('/settings')} />
+        subtitle={MOBILE ? t('Your data') : DEMO ? t('Demo') : t('Account')} accessory="chevron" onClick={() => nav('/settings')} />
     </Section>
   </div>
 }

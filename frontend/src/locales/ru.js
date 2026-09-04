@@ -25,6 +25,8 @@ export default {
   'Stats': 'Статистика',
   'Exercises': 'Упражнения',
   'You': 'Профиль',
+  'Staff': 'Персонал',
+  'Back': 'Назад',
   'Training': 'Тренировки',
   'Waiting for you': 'Ждёт вас',
   'Calendar': 'Календарь',

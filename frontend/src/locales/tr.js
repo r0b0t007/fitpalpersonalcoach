@@ -25,6 +25,8 @@ export default {
   'Stats': 'İstatistik',
   'Exercises': 'Egzersizler',
   'You': 'Profil',
+  'Staff': 'Ekip',
+  'Back': 'Geri',
   'Training': 'Antrenman',
   'Waiting for you': 'Seni bekliyor',
   'Calendar': 'Takvim',

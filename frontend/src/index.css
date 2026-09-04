@@ -285,7 +285,11 @@ h4.sec{
 }
 :root[data-theme="light"] #tabbar{background:rgba(249,249,251,.78)}
 #tabbar button{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  /* min-width:0 or the ellipsis below is inert: a flex item defaults to min-width:auto, so it
+     refuses to shrink past its label's min-content width and grows instead, taking the space
+     out of its neighbours. Measured at 320px with a 16-char label: 71px against 59px each
+     without it, an even 62px with. */
+  flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;
   color:var(--label-3);font-size:10px;font-weight:500;letter-spacing:.005em;padding-top:3px;
   transition:color var(--fast);
 }
@@ -295,9 +299,9 @@ h4.sec{
    fade on the <svg> instead of in the stroke colour flattens the icon first and
    fades it as one shape — and it does that for every icon, not just this one. */
 #tabbar button .icn{font-size:25px;--icon-stroke:1.65;color:var(--label)}
-/* Labels are 10px in a cell that is ~70px wide at 360px — and narrower in the builds that keep
-   six. Nothing clamped them before, so Ejercicios, Exercicios and Ubungen ran into their
-   neighbours in exactly the languages least likely to be tested. */
+/* Labels are 10px in a cell ~70px wide at 360px. Nothing clamped them before, so a long one
+   ran into its neighbours in exactly the languages least likely to be looked at — and an
+   accessibility minimum font size can still produce one from a short word. */
 /* Last child, not every span: the FAB's .cir and the icon wrapper are spans too, and clipping
    the wrapper would cut the badge off, since it sits deliberately outside the icon's box. */
 #tabbar button > span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

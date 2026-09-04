@@ -99,7 +99,7 @@ ALLOW_GUEST=0              # remove "Continue without account"
 ```
 
 Register your own passkey profile first, then find your id in `./data/db.json` under `users[].id`
-and put it in `ADMIN_UIDS`. You'll get an **Admin dashboard** link in Settings: who's training
+and put it in `ADMIN_UIDS`. You'll get an **Admin dashboard** link at the top of the **You** tab: who's training
 right now, each user's workout history and body weight, the ability to disable an account (signed
 out and locked out everywhere until you re-enable it), and — with `INVITE_ONLY=1` — generating and
 revoking invite codes. Existing accounts keep working when you switch invite-only on. Admin access

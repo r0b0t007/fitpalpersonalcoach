@@ -25,6 +25,8 @@ export default {
   'Stats': '통계',
   'Exercises': '운동',
   'You': '프로필',
+  'Staff': '스태프',
+  'Back': '뒤로',
   'Training': '트레이닝',
   'Waiting for you': '대기 중',
   'Calendar': '캘린더',

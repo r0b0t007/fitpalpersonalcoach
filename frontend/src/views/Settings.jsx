@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore, DEF, hasData } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { ACCENTS, todayISO, localTZ } from '../lib/format.js'
@@ -18,6 +18,12 @@ import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '.
 
 export default function Settings() {
   const nav = useNavigate()
+  const loc = useLocation()
+  // Two doors now — the gear on Home and the row in the You hub — so a fixed target sends half
+  // the visitors somewhere they did not come from. location.key is 'default' only for the first
+  // entry in the router's history, i.e. someone opened #/settings directly; the hub owns this
+  // screen, so that is the fallback.
+  const goBack = () => (loc.key === 'default' ? nav('/you') : nav(-1))
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const { update, replaceState, setUser, pullState, pushState, signOut, signOutAll, resetDemo } = useStore()
@@ -70,7 +76,7 @@ export default function Settings() {
 
   return <div className="narrow">
     <div className="hdr">
-      <button className="iconbtn" onClick={() => nav('/home')} aria-label={t('Home')}><Icon name="chevronLeft" /></button>
+      <button className="iconbtn" onClick={goBack} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, marginLeft: 10 }}><h1>{t('Settings')}</h1></div>
     </div>
 
