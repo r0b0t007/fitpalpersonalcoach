@@ -5,7 +5,7 @@ import { effectiveRoutine, effectiveRoutineId, streakWeeks, lastBW, setsDoneActi
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, DAYS } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { BRAND } from '../lib/brand.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, loadStarterPlan, bwDeltaColor, coachPlanSheet, confirmSheet } from '../sheets.jsx'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, programPickerSheet, bwDeltaColor, coachPlanSheet, confirmSheet } from '../sheets.jsx'
 import { useUI } from '../store/useUI.js'
 import { parsePlan } from '../lib/plan-share.js'
 import { api } from '../lib/api.js'
@@ -120,8 +120,8 @@ export default function Home() {
           <span className="lrow-i"><Icon name="sparkles" /></span>
           <div className="big" style={{ fontSize: 22 }}>{t('Welcome!')}</div>
         </div>
-        <div className="muted small" style={{ marginBottom: 12 }}>{t('Set up your weekly routine to get going — or load a ready-made Push / Pull / Legs plan.')}</div>
-        <Button variant="primary" icon="sparkles" onClick={loadStarterPlan}>{t('Load starter plan (PPL)')}</Button>
+        <div className="muted small" style={{ marginBottom: 12 }}>{t('Set up your weekly routine to get going — or start from a ready-made plan.')}</div>
+        <Button variant="primary" icon="sparkles" onClick={programPickerSheet}>{t('Pick a ready-made plan')}</Button>
         <div style={{ height: 8 }} /><Button onClick={() => nav('/plan')}>{t('Build my own plan')}</Button>
       </div>
     )}

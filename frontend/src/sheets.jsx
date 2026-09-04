@@ -7,7 +7,8 @@ import { lastEntryFor, bestWeightFor, buildSets, effectiveRoutineId, workoutVolu
 import { beep, vibrate } from './lib/sound.js'
 import { t, instrFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
-import { starterRoutines } from './lib/starter.js'
+import { PROGRAMS, programById, programRoutines, programSchedule } from './lib/starter.js'
+import { copyFor } from './lib/program-copy.js'
 import Media, { Thumb } from './components/Media.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
@@ -45,14 +46,69 @@ export function confirmSheet(opts) {
   ui().openSheet(close => <ConfirmDialog {...opts} close={close} />, { kind: 'center' })
 }
 
-/* ============================ starter plan ============================ */
-export function loadStarterPlan() {
-  const [push, pull, legs] = starterRoutines()
+/* ============================ ready-made plans ============================ */
+// Adds the routines and schedules them; it never removes anything you already had, and it only
+// touches the weekdays this program uses, so an existing plan on other days survives.
+export function loadProgram(id) {
+  const p = programById(id)
+  if (!p) return
+  const routines = programRoutines(id)
+  const slots = programSchedule(id)
   update(st => {
-    st.routines.push(push, pull, legs)
-    st.week[1] = push.id; st.week[3] = pull.id; st.week[5] = legs.id
+    st.routines.push(...routines)
+    p.days.forEach((day, i) => { st.week[day] = routines[slots[i]].id })
   })
-  toast(t('Starter plan loaded — Mon Push · Wed Pull · Fri Legs'))
+  toast(t('{0} loaded — {1}', copyFor(id).name, p.days.map(d => t(DAYN[d])).join(' · ')))
+  nav('/plan')
+}
+
+export const programPickerSheet = () => ui().openSheet(close => <ProgramPicker close={close} />)
+
+function ProgramPicker({ close }) {
+  const st = useStore(s => s.S)
+  const has = st.routines.length > 0
+  return <>
+    <h3>{t('Ready-made plans')}</h3>
+    <div className="dim small" style={{ marginBottom: 14, lineHeight: 1.4 }}>
+      {has
+        ? t('Your routines are kept — but the weekdays a plan uses are reassigned to it.')
+        : t('Pick one to get started. You can edit or delete anything afterwards.')}
+    </div>
+    <div className="list" style={{ gap: 0 }}>
+      {PROGRAMS.map(p => {
+        const { name, blurb } = copyFor(p.id)
+        const exN = p.routines.reduce((n, [, , list]) => n + list.length, 0)
+        // Only when it would actually displace something. Naming the days makes the cost concrete
+        // rather than asking a vague "are you sure".
+        const taken = p.days.filter(d => st.week[d])
+        const choose = () => {
+          close()
+          if (!taken.length) return loadProgram(p.id)
+          confirmSheet({
+            title: t('Reassign {0}?', taken.map(d => t(DAYN[d])).join(' · ')),
+            message: t('Those days already have a routine. The plan takes them over — your existing routines are kept and can be put back on any day.'),
+            confirmText: t('Load it'),
+            onConfirm: () => loadProgram(p.id)
+          })
+        }
+        return <div key={p.id} className="item" onClick={choose}>
+          <div className="grow">
+            <div className="tt">{name}</div>
+            <div className="ss">{blurb}</div>
+            <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>
+              {t('{0} days a week', p.days.length)} · {t(p.routines.length === 1 ? '{0} routine' : '{0} routines', p.routines.length)} · {exCount(exN)}
+            </div>
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>
+      })}
+    </div>
+    {/* The week map holds one routine per weekday and cannot alternate fortnightly, so say what
+        the schedule actually does rather than letting someone assume it rotates for them. */}
+    <div className="dim small" style={{ marginTop: 12, lineHeight: 1.4 }}>
+      {t('Strength 5×5 alternates two sessions: the schedule starts you A · B · A, and you swap a day whenever you like.')}
+    </div>
+  </>
 }
 
 /* ============================ weight picker (shared: body weight + goal) ============================ */
