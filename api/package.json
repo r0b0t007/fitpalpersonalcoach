@@ -7,7 +7,10 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "smoke:coach": "bash coach-smoke.sh",
+    "smoke:sessions": "bash sessions-smoke.sh",
+    "smoke": "npm run smoke:coach && npm run smoke:sessions"
   },
   "dependencies": {
     "@simplewebauthn/server": "^13.1.1",

@@ -23,6 +23,11 @@ DATA_DIR="$D" PORT=$PORT RP_ID=localhost ORIGIN="http://localhost:$PORT" node "$
 SRV=$!
 trap 'kill $SRV 2>/dev/null; rm -rf "$D"' EXIT
 for i in $(seq 1 30); do curl -sf "$B/api/health" >/dev/null 2>&1 && break; sleep 0.4; done
+# Without this, a server that never booted (missing dep, port taken, syntax error) shows up as
+# every check failing at once, with the actual cause buried under the wall of FAILs. Matters most
+# in CI, where nobody is watching a terminal that has the log right there.
+curl -sf "$B/api/health" >/dev/null 2>&1 || {
+  echo "server never came up on $B after 12s"; echo "--- server log ---"; tail -40 "$D/log"; exit 1; }
 
 SECRET=$(cat "$D/secret")
 cook() { node -e "

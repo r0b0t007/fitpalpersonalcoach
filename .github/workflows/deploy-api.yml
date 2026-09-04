@@ -46,6 +46,15 @@ jobs:
         working-directory: api
       - run: npm test
         working-directory: api
+      # npm test covers the pure helpers in domain.mjs only. These boot the server and exercise
+      # the routes themselves, so guardrail #1 above gates on the API actually working rather
+      # than on its arithmetic.
+      - name: Coach role smoke (61 checks)
+        run: npm run smoke:coach
+        working-directory: api
+      - name: Timetable smoke (29 checks)
+        run: npm run smoke:sessions
+        working-directory: api
 
   deploy:
     needs: test
