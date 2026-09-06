@@ -4,10 +4,12 @@ import { useStore, DEF, hasData } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { ACCENTS, todayISO, localTZ } from '../lib/format.js'
 import { effortOf } from '../lib/history.js'
-import { api, webauthnOK, passkeyLogin, passkeyRegister, IS_ANDROID } from '../lib/api.js'
+import { api, webauthnOK, passkeyLogin, passkeyRegister } from '../lib/api.js'
 import { pushSupported, enablePush, disablePush, sendTestPush } from '../lib/push.js'
 import { wakeLockSupported } from '../lib/wakelock.js'
-import { t, LANGS, INSTR_LANGS } from '../lib/i18n.js'
+import { alreadyInstalled, installPath, manualInstallHint, useInstallPrompt } from '../lib/install.js'
+import { installViaPrompt } from '../components/InstallCard.jsx'
+import { t, LANGS, INSTR_LANGS, DEFAULT_LANG } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { BRAND, FILE_PREFIX } from '../lib/brand.js'
 import { pendingInvite, clearInvite } from '../lib/invite.js'
@@ -31,6 +33,11 @@ export default function Settings() {
   const fileRef = useRef(null)
   const importRef = useRef(null)
   const wakeOK = wakeLockSupported()
+  useInstallPrompt()   // re-render the Tip section below when the install prompt arrives
+  // The install hint is a bonus on top of the data note, never a gate on it: the note is the only
+  // place a guest is told to export a backup, and it holds whether or not this browser can install.
+  const installOffer = alreadyInstalled() ? null : installPath()
+  const dataNote = user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!')
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -112,7 +119,7 @@ export default function Settings() {
     <Section title={t('General')} footer={t('Note: switching units only changes the label — logged numbers are not converted.')}>
       <SelectRow
         icon="globe" iconTint="var(--blue)" title={t('Language')}
-        value={S.lang || 'en'} onChange={v => update(s => { s.lang = v })}
+        value={S.lang || DEFAULT_LANG} onChange={v => update(s => { s.lang = v })}
         options={Object.entries(LANGS).map(([k, name]) => ({
           value: k, label: name,
           subtitle: INSTR_LANGS.includes(k) ? null : t("Exercise instructions aren't available in this language yet — they stay in English."),
@@ -197,11 +204,17 @@ export default function Settings() {
     <input ref={importRef} type="file" accept=".csv,.xml,text/csv,text/xml" style={{ display: 'none' }}
       onChange={ev => { const f = ev.target.files[0]; if (f) importFromApp(f); ev.target.value = '' }} />
 
-    {/* "Add to Home screen" makes no sense inside the native app */}
+    {/* The native app has its own "all data stays on this phone" row above; every web build gets
+        the data note, with an install row (live prompt) or manual steps (Safari / Chrome menu)
+        riding on it while this browser still has somewhere to install to. */}
     {!MOBILE && <Section title={t('Tip')}>
-      <Row icon="lightbulb" iconTint="var(--yellow)"
-        title={IS_ANDROID ? t('In Chrome: ⋮ menu → Add to Home screen') : t('In Safari: Share → Add to Home Screen')}
-        subtitle={t('to install {0} as a full-screen app.', BRAND) + ' ' + (user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!'))} />
+      {installOffer === 'prompt'
+        ? <Row icon="download" iconTint="var(--acc)" title={t('Install {0}', BRAND)} subtitle={dataNote}
+            accessory="chevron" onClick={installViaPrompt} />
+        : installOffer
+          ? <Row icon="lightbulb" iconTint="var(--yellow)" title={manualInstallHint(installOffer)}
+              subtitle={t('to install {0} as a full-screen app.', BRAND) + ' ' + dataNote} />
+          : <Row icon="lightbulb" iconTint="var(--yellow)" title={dataNote} />}
     </Section>}
 
     <div className="dim small" style={{ textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>

@@ -639,5 +639,11 @@ export default {
   'Chest, back, shoulders, arms, legs — five days, one group each.': '胸、背、肩、手臂、腿 — 五天，每天一个部位。',
   'Strength 5×5 alternates two sessions: the schedule starts you A · B · A, and you swap a day whenever you like.': '力量 5×5 交替两种训练：日程从 A · B · A 开始，你可以随时更换某一天。',
   '{0} days a week': '每周 {0} 天',
-  '{0} loaded — {1}': '已载入 {0} — {1}'
+  '{0} loaded — {1}': '已载入 {0} — {1}',
+  'Install {0}': '安装 {0}',
+  'Get the full-screen app on your home screen.': '将全屏应用添加到主屏幕。',
+  'Install': '安装',
+  'Not now': '暂不',
+  'Installing {0}…': '正在安装 {0}…',
+  'Could not start the install': '无法开始安装'
 }

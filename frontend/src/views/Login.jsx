@@ -9,6 +9,7 @@ import { pendingInvite, clearInvite } from '../lib/invite.js'
 import { useState, useRef, useEffect } from 'react'
 import { BRAND } from '../lib/brand.js'
 import Logo from '../components/Logo.jsx'
+import InstallCard from '../components/InstallCard.jsx'
 import { Button } from '../components/ui.jsx'
 
 // No invite code yet? Leave a name and number; the request lands in the admin dashboard, and
@@ -120,6 +121,7 @@ export default function Login() {
       <div className="card small muted" style={{ textAlign: 'left', marginTop: 16 }}>
         {t('This demo runs entirely in your browser on example data — nothing is sent anywhere. Passkey sign-in and sync across your devices come with the openGym server, which you get by self-hosting it.')}
       </div>
+      <InstallCard style={{ marginTop: 16 }} />
       <div className="dim small" style={{ marginTop: 22, lineHeight: 1.6 }}>
         <a href={REPO} target="_blank" rel="noopener">{t('Self-host it in a minute →')}</a>
       </div>
@@ -141,6 +143,7 @@ export default function Login() {
         // so say that plainly instead of offering a local profile that cannot be created.
         : t("This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.")}</div>}
       {canGuest && <Button variant="ghost" className="dim" onClick={() => setGuest(true)}>{t('Continue without account')}</Button>}
+      <InstallCard style={{ marginTop: 20 }} />
       <div className="dim small" style={{ marginTop: 26, lineHeight: 1.5 }}>{t('Passkeys use {0} — no passwords.', BIO)}<br />{t('Each profile keeps its own plan, workouts & body weight.')}</div>
     </div>
   )

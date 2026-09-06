@@ -8,6 +8,7 @@ import { BRAND } from '../lib/brand.js'
 import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, programPickerSheet, bwDeltaColor, openCoachOffer } from '../sheets.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
+import InstallCard from '../components/InstallCard.jsx'
 import { Button } from '../components/ui.jsx'
 import { glyphOf } from '../lib/glyphs.js'
 
@@ -88,6 +89,8 @@ export default function Home() {
           : <Icon name="plus" className="chev" />}
       </div>
     </div>
+
+    <InstallCard />
 
     {!S.routines.length && !S.active && (
       <div className="card">

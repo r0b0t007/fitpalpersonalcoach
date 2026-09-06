@@ -639,5 +639,11 @@ export default {
   'Chest, back, shoulders, arms, legs — five days, one group each.': 'Petto, dorso, spalle, braccia, gambe: cinque giorni, un gruppo ciascuno.',
   'Strength 5×5 alternates two sessions: the schedule starts you A · B · A, and you swap a day whenever you like.': 'Forza 5×5 alterna due sedute: il piano parte con A · B · A, e puoi scambiare un giorno quando vuoi.',
   '{0} days a week': '{0} giorni a settimana',
-  '{0} loaded — {1}': '{0} caricato — {1}'
+  '{0} loaded — {1}': '{0} caricato — {1}',
+  'Install {0}': 'Installa {0}',
+  'Get the full-screen app on your home screen.': 'Aggiungi l’app a schermo intero alla schermata Home.',
+  'Install': 'Installa',
+  'Not now': 'Non ora',
+  'Installing {0}…': 'Installazione di {0} in corso…',
+  'Could not start the install': 'Impossibile avviare l’installazione'
 }

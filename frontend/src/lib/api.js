@@ -1,6 +1,10 @@
 // Backend + WebAuthn helpers (ported from the vanilla app).
 export const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)
 export const IS_ANDROID = /Android/.test(navigator.userAgent)
+// Narrower than IS_APPLE (which also matches Mac desktops): true only on a touch iOS/iPadOS
+// device, where "Add to Home Screen" via the Safari share sheet is the only way to install —
+// there is no beforeinstallprompt API on that platform.
+export const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (IS_APPLE && navigator.maxTouchPoints > 1)
 export const BIO = IS_APPLE ? 'Face ID / Touch ID' : IS_ANDROID ? 'fingerprint or face unlock' : 'your fingerprint, face or PIN'
 export const VAULT = IS_APPLE ? 'iCloud Keychain' : IS_ANDROID ? 'Google Password Manager' : 'your password manager'
 export const webauthnOK = () => !!(window.PublicKeyCredential && navigator.credentials)
