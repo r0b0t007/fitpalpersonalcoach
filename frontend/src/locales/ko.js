@@ -639,5 +639,10 @@ export default {
   'Chest, back, shoulders, arms, legs — five days, one group each.': '가슴, 등, 어깨, 팔, 다리 — 5일 동안 하루 한 부위씩.',
   'Strength 5×5 alternates two sessions: the schedule starts you A · B · A, and you swap a day whenever you like.': '스트렝스 5×5는 두 세션을 번갈아 합니다. 일정은 A · B · A로 시작하며, 원하는 날에 바꿀 수 있습니다.',
   '{0} days a week': '주 {0}일',
-  '{0} loaded — {1}': '{0} 불러옴 — {1}'
+  '{0} loaded — {1}': '{0} 불러옴 — {1}',
+  'Install {0}': '{0} 설치',
+  'Get the full-screen app on your home screen.': '전체 화면 앱을 홈 화면에 추가하세요.',
+  'Install': '설치',
+  'Not now': '나중에',
+  'Installing {0}…': '{0} 설치 중…'
 }

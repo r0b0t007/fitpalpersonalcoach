@@ -639,5 +639,10 @@ export default {
   'Chest, back, shoulders, arms, legs — five days, one group each.': 'Pecho, espalda, hombros, brazos, pierna: cinco días, un grupo cada uno.',
   'Strength 5×5 alternates two sessions: the schedule starts you A · B · A, and you swap a day whenever you like.': 'Fuerza 5×5 alterna dos sesiones: el calendario empieza en A · B · A, y puedes cambiar un día cuando quieras.',
   '{0} days a week': '{0} días por semana',
-  '{0} loaded — {1}': '{0} cargado — {1}'
+  '{0} loaded — {1}': '{0} cargado — {1}',
+  'Install {0}': 'Instalar {0}',
+  'Get the full-screen app on your home screen.': 'Consigue la app a pantalla completa en tu pantalla de inicio.',
+  'Install': 'Instalar',
+  'Not now': 'Ahora no',
+  'Installing {0}…': 'Instalando {0}…'
 }

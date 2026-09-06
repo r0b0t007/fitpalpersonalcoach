@@ -5,10 +5,11 @@ import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, nativeLoad, nativeSave, syncReminder } from '../lib/mobile.js'
+import { DEFAULT_LANG } from '../lib/i18n-core.js'
 
 const KEY = 'gym_state_v1'
 export const DEF = {
-  unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: 'en',
+  unit: 'kg', restSec: 90, sound: true, keepAwake: true, lang: DEFAULT_LANG,
   theme: 'dark', accent: 'gold', body: 'male', targetW: null,
   bodyweight: [], routines: [], week: {}, dayPlan: {},
   // Coaches only: named programs written for clients, kept out of `routines` so that progressing

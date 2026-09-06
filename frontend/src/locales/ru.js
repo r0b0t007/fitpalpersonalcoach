@@ -639,5 +639,10 @@ export default {
   'Chest, back, shoulders, arms, legs — five days, one group each.': 'Грудь, спина, плечи, руки, ноги — пять дней, по одной группе.',
   'Strength 5×5 alternates two sessions: the schedule starts you A · B · A, and you swap a day whenever you like.': 'Сила 5×5 чередует две тренировки: расписание начинается с A · B · A, и день можно поменять в любой момент.',
   '{0} days a week': '{0} дней в неделю',
-  '{0} loaded — {1}': '{0} загружено — {1}'
+  '{0} loaded — {1}': '{0} загружено — {1}',
+  'Install {0}': 'Установить {0}',
+  'Get the full-screen app on your home screen.': 'Добавьте полноэкранное приложение на главный экран.',
+  'Install': 'Установить',
+  'Not now': 'Не сейчас',
+  'Installing {0}…': 'Установка {0}…'
 }

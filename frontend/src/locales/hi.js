@@ -639,5 +639,10 @@ export default {
   'Chest, back, shoulders, arms, legs — five days, one group each.': 'चेस्ट, बैक, शोल्डर, आर्म्स, लेग्स — पाँच दिन, हर दिन एक ग्रुप।',
   'Strength 5×5 alternates two sessions: the schedule starts you A · B · A, and you swap a day whenever you like.': 'स्ट्रेंथ 5×5 दो सेशन बदल-बदल कर चलता है: शेड्यूल A · B · A से शुरू होता है, और आप कोई भी दिन बदल सकते हैं।',
   '{0} days a week': 'हफ़्ते में {0} दिन',
-  '{0} loaded — {1}': '{0} लोड हुआ — {1}'
+  '{0} loaded — {1}': '{0} लोड हुआ — {1}',
+  'Install {0}': '{0} इंस्टॉल करें',
+  'Get the full-screen app on your home screen.': 'फ़ुल-स्क्रीन ऐप को अपनी होम स्क्रीन पर जोड़ें।',
+  'Install': 'इंस्टॉल करें',
+  'Not now': 'अभी नहीं',
+  'Installing {0}…': '{0} इंस्टॉल हो रहा है…'
 }

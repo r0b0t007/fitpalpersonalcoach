@@ -639,5 +639,10 @@ export default {
   'Chest, back, shoulders, arms, legs — five days, one group each.': 'Göğüs, sırt, omuz, kol, bacak — beş gün, her gün bir grup.',
   'Strength 5×5 alternates two sessions: the schedule starts you A · B · A, and you swap a day whenever you like.': 'Kuvvet 5×5 iki seansı dönüşümlü yapar: plan A · B · A ile başlar, istediğin günü değiştirebilirsin.',
   '{0} days a week': 'Haftada {0} gün',
-  '{0} loaded — {1}': '{0} yüklendi — {1}'
+  '{0} loaded — {1}': '{0} yüklendi — {1}',
+  'Install {0}': '{0} Yükle',
+  'Get the full-screen app on your home screen.': 'Tam ekran uygulamayı ana ekranına ekle.',
+  'Install': 'Yükle',
+  'Not now': 'Şimdi değil',
+  'Installing {0}…': '{0} yükleniyor…'
 }

@@ -2,6 +2,7 @@
 // instrFor, getLang). Plain Node-loadable — the browser-only pieces (import.meta.glob lazy
 // loads, the React subscription hook) live in i18n.js and re-export from here.
 
+export const DEFAULT_LANG = 'en'
 export const LANGS = {
   en: 'English', de: 'Deutsch', es: 'Español', fr: 'Français', it: 'Italiano',
   pt: 'Português', pl: 'Polski', tr: 'Türkçe', ru: 'Русский', zh: '中文',
@@ -13,7 +14,7 @@ export const DATE_LOCALES = {
   pl: 'pl-PL', tr: 'tr-TR', ru: 'ru-RU', zh: 'zh-CN', ko: 'ko-KR', hi: 'hi-IN'
 }
 
-let lang = 'en'                 // set only by _setLangState, called from i18n.js setLang
+let lang = DEFAULT_LANG          // set only by _setLangState, called from i18n.js setLang
 let dict = {}                   // current locale pack (empty = English fallback)
 let instr = null                // { exId: [steps] } for the current language, null = English
 let version = 0                 // bumped on every setLang; drives the React subscription selector
@@ -36,9 +37,9 @@ export const instrFor = ex => (instr && instr[ex.id]) || ex.st || []
 // exported as setLang because loading packs requires import.meta.glob, which is Vite-only.
 // Both `dict` and `instr` may be null to reset to English.
 export function _setLangState(newLang, newDict, newInstr) {
-  lang = LANGS[newLang] ? newLang : 'en'
-  dict = lang === 'en' ? {} : (newDict || {})
-  instr = lang === 'en' || !INSTR_LANGS.includes(lang) ? null : (newInstr || null)
+  lang = LANGS[newLang] ? newLang : DEFAULT_LANG
+  dict = lang === DEFAULT_LANG ? {} : (newDict || {})
+  instr = lang === DEFAULT_LANG || !INSTR_LANGS.includes(lang) ? null : (newInstr || null)
   version++
   return version
 }
