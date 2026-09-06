@@ -19,8 +19,10 @@ export default function InstallCard({ style } = {}) {
   if (!prompt && !IS_IOS) return null
 
   const onInstall = async () => {
-    const outcome = await promptInstall()
-    if (outcome === 'accepted') useUI.getState().toast(t('Installing {0}…', BRAND))
+    try {
+      const outcome = await promptInstall()
+      if (outcome === 'accepted') useUI.getState().toast(t('Installing {0}…', BRAND))
+    } catch (e) { useUI.getState().toast(e.message || t('Could not start the install')) }
   }
 
   return (

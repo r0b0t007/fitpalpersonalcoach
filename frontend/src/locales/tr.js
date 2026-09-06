@@ -644,5 +644,6 @@ export default {
   'Get the full-screen app on your home screen.': 'Tam ekran uygulamayı ana ekranına ekle.',
   'Install': 'Yükle',
   'Not now': 'Şimdi değil',
-  'Installing {0}…': '{0} yükleniyor…'
+  'Installing {0}…': '{0} yükleniyor…',
+  'Could not start the install': 'Yükleme başlatılamadı'
 }

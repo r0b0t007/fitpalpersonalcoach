@@ -644,5 +644,6 @@ export default {
   'Get the full-screen app on your home screen.': 'फ़ुल-स्क्रीन ऐप को अपनी होम स्क्रीन पर जोड़ें।',
   'Install': 'इंस्टॉल करें',
   'Not now': 'अभी नहीं',
-  'Installing {0}…': '{0} इंस्टॉल हो रहा है…'
+  'Installing {0}…': '{0} इंस्टॉल हो रहा है…',
+  'Could not start the install': 'इंस्टॉल शुरू नहीं हो सका'
 }

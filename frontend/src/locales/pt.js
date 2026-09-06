@@ -644,5 +644,6 @@ export default {
   'Get the full-screen app on your home screen.': 'Adicione a app em ecrã inteiro ao seu ecrã principal.',
   'Install': 'Instalar',
   'Not now': 'Agora não',
-  'Installing {0}…': 'A instalar {0}…'
+  'Installing {0}…': 'A instalar {0}…',
+  'Could not start the install': 'Não foi possível iniciar a instalação'
 }

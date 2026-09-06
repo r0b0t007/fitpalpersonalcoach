@@ -644,5 +644,6 @@ export default {
   'Get the full-screen app on your home screen.': 'Добавьте полноэкранное приложение на главный экран.',
   'Install': 'Установить',
   'Not now': 'Не сейчас',
-  'Installing {0}…': 'Установка {0}…'
+  'Installing {0}…': 'Установка {0}…',
+  'Could not start the install': 'Не удалось начать установку'
 }

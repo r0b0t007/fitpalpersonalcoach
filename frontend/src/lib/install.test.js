@@ -49,6 +49,13 @@ describe('shouldOfferInstall / snooze', () => {
     localStorage.setItem(install.INSTALL_SNOOZED, 'not-a-number')
     expect(install.shouldOfferInstall()).toBe(true)
   })
+  it('is false once installed, permanently — unaffected by the snooze window', () => {
+    install.markInstalled()
+    expect(install.isInstalled()).toBe(true)
+    expect(install.shouldOfferInstall()).toBe(false)
+    localStorage.setItem(install.INSTALL_SNOOZED, String(Date.now() - install.SNOOZE_MS - 1000))
+    expect(install.shouldOfferInstall()).toBe(false)
+  })
 })
 
 function fakeBeforeInstallPrompt(outcome = 'accepted') {
@@ -91,12 +98,29 @@ describe('beforeinstallprompt capture', () => {
     expect(await install.promptInstall()).toBe('unavailable')
   })
 
-  it('appinstalled snoozes and clears the deferred event', () => {
+  it('promptInstall() marks installed on "accepted" — no waiting on appinstalled', async () => {
+    install.initInstall()
+    window.dispatchEvent(fakeBeforeInstallPrompt('accepted'))
+    await install.promptInstall()
+    expect(install.isInstalled()).toBe(true)
+    expect(install.shouldOfferInstall()).toBe(false)
+  })
+
+  it('promptInstall() does not mark installed on "dismissed"', async () => {
+    install.initInstall()
+    window.dispatchEvent(fakeBeforeInstallPrompt('dismissed'))
+    const outcome = await install.promptInstall()
+    expect(outcome).toBe('dismissed')
+    expect(install.isInstalled()).toBe(false)
+  })
+
+  it('appinstalled marks installed (permanently) and clears the deferred event', () => {
     install.initInstall()
     window.dispatchEvent(fakeBeforeInstallPrompt())
     expect(install.canPrompt()).toBe(true)
     window.dispatchEvent(new Event('appinstalled'))
     expect(install.canPrompt()).toBe(false)
+    expect(install.isInstalled()).toBe(true)
     expect(install.shouldOfferInstall()).toBe(false)
   })
 })

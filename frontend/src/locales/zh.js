@@ -644,5 +644,6 @@ export default {
   'Get the full-screen app on your home screen.': '将全屏应用添加到主屏幕。',
   'Install': '安装',
   'Not now': '暂不',
-  'Installing {0}…': '正在安装 {0}…'
+  'Installing {0}…': '正在安装 {0}…',
+  'Could not start the install': '无法开始安装'
 }

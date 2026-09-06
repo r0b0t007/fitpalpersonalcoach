@@ -644,5 +644,6 @@ export default {
   'Get the full-screen app on your home screen.': '전체 화면 앱을 홈 화면에 추가하세요.',
   'Install': '설치',
   'Not now': '나중에',
-  'Installing {0}…': '{0} 설치 중…'
+  'Installing {0}…': '{0} 설치 중…',
+  'Could not start the install': '설치를 시작할 수 없습니다'
 }

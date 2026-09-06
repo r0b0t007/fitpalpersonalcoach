@@ -4,10 +4,10 @@ import { useStore, DEF, hasData } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { ACCENTS, todayISO, localTZ } from '../lib/format.js'
 import { effortOf } from '../lib/history.js'
-import { api, webauthnOK, passkeyLogin, passkeyRegister, IS_ANDROID } from '../lib/api.js'
+import { api, webauthnOK, passkeyLogin, passkeyRegister, IS_ANDROID, IS_IOS } from '../lib/api.js'
 import { pushSupported, enablePush, disablePush, sendTestPush } from '../lib/push.js'
 import { wakeLockSupported } from '../lib/wakelock.js'
-import { isStandalone, canPrompt, promptInstall, useInstallPrompt } from '../lib/install.js'
+import { isStandalone, isInstalled, canPrompt, promptInstall, useInstallPrompt } from '../lib/install.js'
 import { t, LANGS, INSTR_LANGS, DEFAULT_LANG } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { BRAND, FILE_PREFIX } from '../lib/brand.js'
@@ -199,14 +199,17 @@ export default function Settings() {
     <input ref={importRef} type="file" accept=".csv,.xml,text/csv,text/xml" style={{ display: 'none' }}
       onChange={ev => { const f = ev.target.files[0]; if (f) importFromApp(f); ev.target.value = '' }} />
 
-    {/* "Add to Home screen" makes no sense inside the native app, or once it's already installed */}
-    {!MOBILE && !isStandalone() && <Section title={t('Tip')}>
+    {/* "Add to Home screen" makes no sense inside the native app, once it's already installed, or
+        on a platform with no install path worth describing (e.g. desktop Firefox) — canPrompt()
+        covers every Chromium browser (desktop included), so only the fallback manual-steps copy
+        needs to be limited to the two platforms it actually applies to. */}
+    {!MOBILE && !isStandalone() && !isInstalled() && (canPrompt() || IS_ANDROID || IS_IOS) && <Section title={t('Tip')}>
       {canPrompt()
         ? <Row icon="download" iconTint="var(--acc)" title={t('Install {0}', BRAND)}
             subtitle={user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!')}
             accessory="chevron" onClick={promptInstall} />
         : <Row icon="lightbulb" iconTint="var(--yellow)"
-            title={IS_ANDROID ? t('In Chrome: ⋮ menu → Add to Home screen') : t('In Safari: Share → Add to Home Screen')}
+            title={IS_IOS ? t('In Safari: Share → Add to Home Screen') : t('In Chrome: ⋮ menu → Add to Home screen')}
             subtitle={t('to install {0} as a full-screen app.', BRAND) + ' ' + (user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!'))} />}
     </Section>}
 
