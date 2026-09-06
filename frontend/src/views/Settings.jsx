@@ -4,10 +4,11 @@ import { useStore, DEF, hasData } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { ACCENTS, todayISO, localTZ } from '../lib/format.js'
 import { effortOf } from '../lib/history.js'
-import { api, webauthnOK, passkeyLogin, passkeyRegister, IS_ANDROID, IS_IOS } from '../lib/api.js'
+import { api, webauthnOK, passkeyLogin, passkeyRegister } from '../lib/api.js'
 import { pushSupported, enablePush, disablePush, sendTestPush } from '../lib/push.js'
 import { wakeLockSupported } from '../lib/wakelock.js'
-import { isStandalone, isInstalled, canPrompt, promptInstall, useInstallPrompt } from '../lib/install.js'
+import { alreadyInstalled, installPath, manualInstallHint, useInstallPrompt } from '../lib/install.js'
+import { installViaPrompt } from '../components/InstallCard.jsx'
 import { t, LANGS, INSTR_LANGS, DEFAULT_LANG } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { BRAND, FILE_PREFIX } from '../lib/brand.js'
@@ -33,6 +34,10 @@ export default function Settings() {
   const importRef = useRef(null)
   const wakeOK = wakeLockSupported()
   useInstallPrompt()   // re-render the Tip section below when the install prompt arrives
+  // The install hint is a bonus on top of the data note, never a gate on it: the note is the only
+  // place a guest is told to export a backup, and it holds whether or not this browser can install.
+  const installOffer = alreadyInstalled() ? null : installPath()
+  const dataNote = user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!')
 
   const doExport = async () => {
     const json = JSON.stringify(S, null, 2)
@@ -199,18 +204,17 @@ export default function Settings() {
     <input ref={importRef} type="file" accept=".csv,.xml,text/csv,text/xml" style={{ display: 'none' }}
       onChange={ev => { const f = ev.target.files[0]; if (f) importFromApp(f); ev.target.value = '' }} />
 
-    {/* "Add to Home screen" makes no sense inside the native app, once it's already installed, or
-        on a platform with no install path worth describing (e.g. desktop Firefox) — canPrompt()
-        covers every Chromium browser (desktop included), so only the fallback manual-steps copy
-        needs to be limited to the two platforms it actually applies to. */}
-    {!MOBILE && !isStandalone() && !isInstalled() && (canPrompt() || IS_ANDROID || IS_IOS) && <Section title={t('Tip')}>
-      {canPrompt()
-        ? <Row icon="download" iconTint="var(--acc)" title={t('Install {0}', BRAND)}
-            subtitle={user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!')}
-            accessory="chevron" onClick={promptInstall} />
-        : <Row icon="lightbulb" iconTint="var(--yellow)"
-            title={IS_IOS ? t('In Safari: Share → Add to Home Screen') : t('In Chrome: ⋮ menu → Add to Home screen')}
-            subtitle={t('to install {0} as a full-screen app.', BRAND) + ' ' + (user ? t('Your data syncs with your profile — sign in anywhere to see it.') : t('Guest data stays on this device — export a backup now and then!'))} />}
+    {/* The native app has its own "all data stays on this phone" row above; every web build gets
+        the data note, with an install row (live prompt) or manual steps (Safari / Chrome menu)
+        riding on it while this browser still has somewhere to install to. */}
+    {!MOBILE && <Section title={t('Tip')}>
+      {installOffer === 'prompt'
+        ? <Row icon="download" iconTint="var(--acc)" title={t('Install {0}', BRAND)} subtitle={dataNote}
+            accessory="chevron" onClick={installViaPrompt} />
+        : installOffer
+          ? <Row icon="lightbulb" iconTint="var(--yellow)" title={manualInstallHint(installOffer)}
+              subtitle={t('to install {0} as a full-screen app.', BRAND) + ' ' + dataNote} />
+          : <Row icon="lightbulb" iconTint="var(--yellow)" title={dataNote} />}
     </Section>}
 
     <div className="dim small" style={{ textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
