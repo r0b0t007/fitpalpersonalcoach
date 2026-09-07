@@ -131,6 +131,16 @@ export const ICON_NAMES = Object.keys(P)
  * <Icon name="flame" />           — inherits font-size via `1em` sizing
  * <Icon name="flame" size={28} /> — explicit pixel size
  */
+// Icons whose meaning is "onward/back" in reading order, so they mirror under dir=rtl
+// (index.css turns data-flip into a scaleX(-1)). Marked here rather than at the ~23 call
+// sites, so a new chevron is one word away from being correct in Arabic.
+//
+// Not in here on purpose: `play` is a transport control, not a direction — a play triangle
+// points right in every locale, as it does on physical hardware. `history`, `reset` and
+// `shuffle` are circular and read the same way round the world. Flipping those is the
+// usual RTL over-correction, where every arrow on screen gets mirrored on principle.
+const FLIP = new Set(['chevronRight', 'chevronLeft', 'signOut'])
+
 export default function Icon({ name, size, className = '', style, ...rest }) {
   const d = P[name]
   if (!d) return null
@@ -141,6 +151,7 @@ export default function Icon({ name, size, className = '', style, ...rest }) {
       viewBox="0 0 24 24"
       aria-hidden="true"
       focusable="false"
+      data-flip={FLIP.has(name) ? '' : undefined}
       style={s ? { ...s, ...style } : style}
       {...rest}
     >

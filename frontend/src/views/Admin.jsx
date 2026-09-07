@@ -68,7 +68,7 @@ function UserDetail({ id, users, onChanged, close }) {
       {u.invitedBy && <span className="tag">invite {u.invitedBy}</span>}
       <span className="tag">joined {u.created ? fmtDate(u.created.slice(0, 10)) : '—'}</span>
     </div>
-    <div className="tiles" style={{ textAlign: 'left' }}>
+    <div className="tiles" style={{ textAlign: 'start' }}>
       <div className="tile"><div className="l">Workouts</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.workouts.length}</div></div>
       <div className="tile"><div className="l">Weigh-ins</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.bodyweight.length}</div></div>
       <div className="tile"><div className="l">Routines</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.routines.length}</div></div>
@@ -414,8 +414,8 @@ function SessionsCard({ sessions, users, reload }) {
     {shown.map(s => <div key={s.id} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)', opacity: s.cancelled ? .55 : 1 }} onClick={() => edit(s)}>
       <div><div className="small" style={{ fontWeight: 600, textDecoration: s.cancelled ? 'line-through' : 'none' }}>
         {s.title}
-        {s.seriesId && <span className="tag" style={{ marginLeft: 6 }}>weekly</span>}
-        {s.cancelled && <span className="tag" style={{ marginLeft: 6, color: 'var(--red)' }}>cancelled</span>}</div>
+        {s.seriesId && <span className="tag" style={{ marginInlineStart: 6 }}>weekly</span>}
+        {s.cancelled && <span className="tag" style={{ marginInlineStart: 6, color: 'var(--red)' }}>cancelled</span>}</div>
         <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(s.date, true)} · {s.time} · {s.minutes} min{s.room ? ' · ' + s.room : ''}{coachName(s) ? ' · ' + coachName(s) : (s.coachId ? ' · coach unavailable' : '')}{s.capacity ? ' · ' + s.capacity + ' spots' : ''}</div></div>
       <Icon name="chevronRight" className="chev" />
     </div>)}
@@ -465,7 +465,7 @@ export default function Admin() {
   return <div className="narrow">
     <div className="hdr">
       <button className="iconbtn" onClick={() => nav('/you')} aria-label="Back"><Icon name="chevronLeft" /></button>
-      <div style={{ flex: 1, marginLeft: 8 }}><h1 style={{ margin: 0 }}>Admin</h1>
+      <div style={{ flex: 1, marginInlineStart: 8 }}><h1 style={{ margin: 0 }}>Admin</h1>
         <div className="sub">{users ? users.length + ' users · ' + activeCount + ' active this week' : 'Loading…'}</div></div>
       <button className="iconbtn" onClick={() => { loadUsers(); loadInvites(); loadRequests(); loadSessions() }} aria-label="refresh">↻</button>
     </div>
@@ -498,7 +498,7 @@ export default function Admin() {
     <div className="list">
       {[...(users || [])].sort((a, b) => String(b.created || '').localeCompare(String(a.created || '')))
         .map(u => <div key={u.id} className="item" onClick={() => openUser(u.id)} style={u.disabled ? { opacity: .55 } : null}>
-        <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{u.name} {u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>admin</span>}{u.coach && !u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>coach</span>}{u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>off</span>}</div>
+        <div className="grow"><div className="tt">{u.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginInlineEnd: 5 }} />}{u.name} {u.admin && <span className="tag acc" style={{ marginInlineStart: 4 }}>admin</span>}{u.coach && !u.admin && <span className="tag acc" style={{ marginInlineStart: 4 }}>coach</span>}{u.disabled && <span className="tag" style={{ marginInlineStart: 4, color: 'var(--red)' }}>off</span>}</div>
           <div className="ss">{[
             u.live ? 'training now · ' + u.live.name
               : u.workouts + ' workouts' + (u.lastWorkout ? ' · last ' + fmtDate(u.lastWorkout) : '') + ' · synced ' + rel(u.lastSync),

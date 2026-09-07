@@ -6,12 +6,20 @@ export const DEFAULT_LANG = 'en'
 export const LANGS = {
   en: 'English', de: 'Deutsch', es: 'Español', fr: 'Français', it: 'Italiano',
   pt: 'Português', pl: 'Polski', tr: 'Türkçe', ru: 'Русский', zh: '中文',
-  ko: '한국어', hi: 'हिन्दी'
+  ko: '한국어', hi: 'हिन्दी', ar: 'العربية'
 }
 export const INSTR_LANGS = ['en', 'es', 'fr', 'it', 'tr', 'ru', 'zh', 'hi', 'pl', 'ko']
+// Languages that read right-to-left. Drives <html dir> (App.jsx) and, through it, every
+// logical property in index.css — so adding one here is the whole layout switch.
+export const RTL_LANGS = ['ar']
 export const DATE_LOCALES = {
   en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', it: 'it-IT', pt: 'pt-PT',
-  pl: 'pl-PL', tr: 'tr-TR', ru: 'ru-RU', zh: 'zh-CN', ko: 'ko-KR', hi: 'hi-IN'
+  pl: 'pl-PL', tr: 'tr-TR', ru: 'ru-RU', zh: 'zh-CN', ko: 'ko-KR', hi: 'hi-IN',
+  // -u-nu-latn, not plain `ar-EG`: the default Arabic numbering system is Arabic-Indic
+  // (٨٢٫٥), and this app is mostly numbers sitting in columns that only line up because
+  // of `font-variant-numeric:tabular-nums`, which those digits don't get. Latin digits
+  // with Arabic month and day names is also what the region's own fitness apps ship.
+  ar: 'ar-u-nu-latn'
 }
 
 let lang = DEFAULT_LANG          // set only by _setLangState, called from i18n.js setLang
@@ -22,6 +30,12 @@ let version = 0                 // bumped on every setLang; drives the React sub
 export const getLang = () => lang
 export const dateLocale = () => DATE_LOCALES[lang] || 'en-GB'
 export const getVersion = () => version
+
+// Writing direction for a given language (dirFor) or the current one (textDir). Takes a
+// language rather than reading `lang` so App.jsx can set <html dir> from the stored
+// preference on the first paint, before any pack has loaded.
+export const dirFor = l => (RTL_LANGS.includes(l) ? 'rtl' : 'ltr')
+export const textDir = () => dirFor(lang)
 
 // Translate a source string; {0},{1}… are replaced with args (also on the English fallback).
 export function t(s, ...args) {

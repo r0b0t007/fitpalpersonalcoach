@@ -5,11 +5,14 @@
 
 import { useSyncExternalStore } from 'react'
 import {
-  DEFAULT_LANG, LANGS, INSTR_LANGS, DATE_LOCALES,
-  getLang, dateLocale, t, instrFor, getVersion, _setLangState
+  DEFAULT_LANG, LANGS, INSTR_LANGS, RTL_LANGS, DATE_LOCALES,
+  getLang, dateLocale, dirFor, textDir, t, instrFor, getVersion, _setLangState
 } from './i18n-core.js'
 
-export { DEFAULT_LANG, LANGS, INSTR_LANGS, DATE_LOCALES, getLang, dateLocale, t, instrFor }
+export {
+  DEFAULT_LANG, LANGS, INSTR_LANGS, RTL_LANGS, DATE_LOCALES,
+  getLang, dateLocale, dirFor, textDir, t, instrFor
+}
 
 // Vite code-splits each locale pack into its own chunk via import.meta.glob; instructions use
 // the same mechanism in src/instr/. Both are lazy, so the production bundle ships English only.

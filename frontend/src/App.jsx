@@ -4,7 +4,7 @@ import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { bindUI } from './components/ui.jsx'
 import { ACCENTS } from './lib/format.js'
-import { setLang, useLang, DEFAULT_LANG } from './lib/i18n.js'
+import { setLang, useLang, dirFor, DEFAULT_LANG } from './lib/i18n.js'
 import { setNav } from './lib/nav.js'
 import { initBackButton } from './lib/back.js'
 import { useWakeLock } from './lib/wakelock.js'
@@ -50,7 +50,13 @@ function Shell() {
   useEffect(() => { setNav(navigate) }, [navigate])
   useEffect(() => { applyPrefs(S.theme, S.accent) }, [S.theme, S.accent])
   useEffect(() => { setLang(S.lang || DEFAULT_LANG) }, [S.lang])
-  useEffect(() => { document.documentElement.lang = S.lang || DEFAULT_LANG }, [langV, S.lang])
+  // `dir` alongside `lang`: every inline offset, margin and text-align in index.css is a
+  // logical property, so this attribute is the entire layout mirror for Arabic.
+  useEffect(() => {
+    const l = S.lang || DEFAULT_LANG
+    document.documentElement.lang = l
+    document.documentElement.dir = dirFor(l)
+  }, [langV, S.lang])
   // every tab/route change starts at the top of the page
   useEffect(() => { window.scrollTo(0, 0) }, [loc.pathname])
   // bound to the workout, not to the route — checking Stats mid-session keeps the screen on

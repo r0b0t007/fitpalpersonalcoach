@@ -50,7 +50,7 @@ function MemberDetail({ id, close, pending, onChanged }) {
         <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => withdraw(a)}>Withdraw</button>
       </div>)}
     </div>}
-    <div className="tiles" style={{ textAlign: 'left', margin: '10px 0' }}>
+    <div className="tiles" style={{ textAlign: 'start', margin: '10px 0' }}>
       <div className="tile"><div className="l">Workouts</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.workouts.length}</div></div>
       <div className="tile"><div className="l">Weigh-ins</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.bodyweight.length}</div></div>
       <div className="tile"><div className="l">Routines</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.routines.length}</div></div>
@@ -220,7 +220,7 @@ export default function Coach() {
   return <div className="narrow">
     <div className="hdr">
       <button className="iconbtn" onClick={() => nav('/you')} aria-label="Back"><Icon name="chevronLeft" /></button>
-      <div style={{ flex: 1, marginLeft: 8 }}><h1 style={{ margin: 0 }}>Coach</h1>
+      <div style={{ flex: 1, marginInlineStart: 8 }}><h1 style={{ margin: 0 }}>Coach</h1>
         <div className="sub">{members ? members.length + (members.length === 1 ? ' member' : ' members') + ' · ' + active + ' active this week' : 'Loading…'}</div></div>
       <button className="iconbtn" onClick={load} aria-label="refresh">↻</button>
     </div>
@@ -283,11 +283,11 @@ export default function Coach() {
       {(members || []).map(m => <div key={m.id} className="item" onClick={() => openSheet(close => <MemberDetail id={m.id} close={close} pending={m.pending} onChanged={load} />)}>
         <div className="grow">
           <div className="tt">
-            {m.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginRight: 5 }} />}{m.name}
+            {m.live && <Icon name="dot" style={{ fontSize: 9, color: 'var(--green)', display: 'inline-block', marginInlineEnd: 5 }} />}{m.name}
             {/* Sending used to tell you nothing. Now the roster says whether they answered. */}
-            {m.pending?.length > 0 && <span className="tag" style={{ marginLeft: 6 }}>program waiting</span>}
-            {!m.pending?.length && m.lastDecision?.status === 'declined' && <span className="tag" style={{ marginLeft: 6, color: 'var(--yellow)' }}>declined</span>}
-            {!m.pending?.length && m.lastDecision?.status === 'accepted' && <span className="tag acc" style={{ marginLeft: 6 }}>accepted</span>}
+            {m.pending?.length > 0 && <span className="tag" style={{ marginInlineStart: 6 }}>program waiting</span>}
+            {!m.pending?.length && m.lastDecision?.status === 'declined' && <span className="tag" style={{ marginInlineStart: 6, color: 'var(--yellow)' }}>declined</span>}
+            {!m.pending?.length && m.lastDecision?.status === 'accepted' && <span className="tag acc" style={{ marginInlineStart: 6 }}>accepted</span>}
           </div>
           <div className="ss">{m.live ? 'training now · ' + m.live.name : m.workouts + ' workouts' + (m.lastWorkout ? ' · last ' + fmtDate(m.lastWorkout) : '') + ' · synced ' + rel(m.lastSync)}</div>
         </div>

@@ -145,7 +145,13 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, classNam
     const el = ref.current
     if (!el) return value
     const r = el.getBoundingClientRect()
-    const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width))
+    // Measure from whichever edge is the *start* one. Under dir=rtl the track fills from
+    // the right, so measuring from r.left the way this used to inverted the whole control:
+    // drag toward the maximum, watch the value fall. Read from the computed style rather
+    // than the current language so a subtree pinned back to LTR still behaves.
+    const rtl = getComputedStyle(el).direction === 'rtl'
+    const off = rtl ? r.right - clientX : clientX - r.left
+    const f = Math.min(1, Math.max(0, off / r.width))
     const raw = min + f * (max - min)
     const snapped = Math.round(raw / step) * step
     // step can be fractional (0.1) — round away binary noise
@@ -170,8 +176,14 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, classNam
   }, [drag, onChange, posToValue])
 
   const key = e => {
-    const d = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? step
-      : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -step : 0
+    // Arrow keys follow the screen, not the number: in RTL the thumb moves right toward
+    // the minimum, so -> decrements. Up/Down are a vertical axis and never mirror. This
+    // is what a native <input type="range"> does under dir=rtl.
+    const h = ref.current && getComputedStyle(ref.current).direction === 'rtl' ? -step : step
+    const d = e.key === 'ArrowRight' ? h
+      : e.key === 'ArrowLeft' ? -h
+      : e.key === 'ArrowUp' ? step
+      : e.key === 'ArrowDown' ? -step : 0
     if (!d) return
     e.preventDefault()
     onChange(Math.min(max, Math.max(min, Math.round((value + d) * 1000) / 1000)))
@@ -189,7 +201,7 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, classNam
       onPointerDown={e => { e.currentTarget.setPointerCapture?.(e.pointerId); setDrag(true); onChange(posToValue(e.clientX)) }}
     >
       <span className="sld-track"><span className="sld-fill" style={{ width: pct + '%' }} /></span>
-      <span className="sld-knob" style={{ left: pct + '%' }} />
+      <span className="sld-knob" style={{ insetInlineStart: pct + '%' }} />
     </div>
   )
 }

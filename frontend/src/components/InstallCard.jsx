@@ -29,7 +29,7 @@ export default function InstallCard({ style } = {}) {
   if (path !== 'prompt' && path !== 'ios') return null
 
   return (
-    <div className="card" style={{ borderColor: 'var(--acc)', textAlign: 'left', ...style }}>
+    <div className="card" style={{ borderColor: 'var(--acc)', textAlign: 'start', ...style }}>
       <div className="row" style={{ gap: 10, marginBottom: 6 }}>
         <span className="lrow-i"><Icon name="download" /></span>
         <div className="big" style={{ fontSize: 22 }}>{t('Install {0}', BRAND)}</div>
