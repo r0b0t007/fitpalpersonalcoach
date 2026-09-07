@@ -963,7 +963,11 @@ h4.sec{
 
 /* Sign for hand-rolled inline-axis motion. The switch knob, the segmented thumb and
    the slider knob each move by an explicit distance rather than to an edge, and no
-   logical property covers a translate — so they read their direction from here. */
+   logical property covers a translate — so they read their direction from here.
+   Every rule below that pins a subtree back to `direction:ltr` resets --dir with it:
+   the slider reads its direction from the computed style in JS but centres its knob
+   from --dir in CSS, and if those two ever disagree the thumb sits a full knob-width
+   off the value it reports. */
 :root{--dir:1}
 :root[dir="rtl"]{--dir:-1}
 
@@ -987,12 +991,15 @@ h4.sec{
    columns), so mirroring them means reworking the render maths rather than flipping a
    property — and a plotted time axis conventionally keeps running left-to-right in RTL
    locales. Pinning the subtree is what stops them half-flipping. */
+/* .hm-act, not .hm-legend: that class is shared with the body-map legends (BodyMap.jsx,
+   and the fatigue/strength variants in Stats.jsx), and the body map DOES mirror — pinning
+   those made a legend read backwards against its own diagram. */
 [dir="rtl"] .chart,[dir="rtl"] .chart-i,
-[dir="rtl"] .hm-wrap,[dir="rtl"] .hm-legend{direction:ltr}
+[dir="rtl"] .hm-wrap,[dir="rtl"] .hm-legend.hm-act{direction:ltr;--dir:1}
 
 /* Numeric fields stay LTR so the minus sign, the decimal separator and the caret land
    where the digits expect them, whatever numbering system the locale resolves to. */
-[dir="rtl"] .stp .num,[dir="rtl"] .bwin input,[dir="rtl"] .timef{direction:ltr}
+[dir="rtl"] .stp .num,[dir="rtl"] .bwin input,[dir="rtl"] .timef{direction:ltr;--dir:1}
 
 /* A signed number is a number, not a sentence. `+` and `-` are bidi class ES, which binds
    to digits only when it sits BETWEEN two of them — a leading sign stays neutral, takes the

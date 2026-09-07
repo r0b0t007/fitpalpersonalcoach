@@ -51,6 +51,8 @@ export default function Heatmap({ S, onDay }) {
         <div className="hm-grid">{cols}</div>
       </div>
     </div>
-    <div className="hm-legend">{t('Less time')} <div className="hm-c l0" /><div className="hm-c l1" /><div className="hm-c l2" /><div className="hm-c l3" /><div className="hm-c l4" /> {t('More time')}</div>
+    {/* hm-act marks this as the legend for the activity grid above, which is pinned LTR.
+        `.hm-legend` alone is shared with the body-map legends, and those DO mirror. */}
+    <div className="hm-legend hm-act">{t('Less time')} <div className="hm-c l0" /><div className="hm-c l1" /><div className="hm-c l2" /><div className="hm-c l3" /><div className="hm-c l4" /> {t('More time')}</div>
   </>
 }

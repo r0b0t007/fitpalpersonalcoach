@@ -255,6 +255,12 @@ export function planPrintHTML(S, owner) {
   .ss .ex:first-of-type { padding-top: 2px; }
 
   footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #eef0f4; color: #a2a8b6; font-size: 11px; text-align: center; }
+
+  /* Same reason as the app sheet, restated because this document carries its own CSS and
+     nothing from index.css reaches it: Arabic letters join, and the Latin tracking above
+     (.14em on the kicker, .1em on a block head, .08em on a superset tag) pulls the joins
+     apart into loose disconnected glyphs. */
+  [dir="rtl"] * { letter-spacing: normal; }
 </style></head>
 <body><div class="doc">
   <header>
