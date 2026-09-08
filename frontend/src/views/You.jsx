@@ -35,7 +35,7 @@ export default function You() {
         {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')}
           accessory="chevron" onClick={() => nav('/admin')} />}
         {user.coach && <Row icon="figureStrength" iconTint="var(--indigo)" title={t('Coach dashboard')}
-          accessory="chevron" onClick={() => nav('/coach')} />}
+          accessory="chevron" onClick={() => nav('/trainer')} />}
       </Section>
     )}
 
