@@ -74,7 +74,9 @@ function RegisterSheet({ close }) {
     <input ref={ref} className="input" placeholder={t('Your name')} maxLength={40} value={name} onChange={e => setName(e.target.value)} />
     {inviteOnly && <>
       <div style={{ height: 10 }} />
-      <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
+      {/* latin: an invite code is A-Z0-9 in every language, and the tracking is what makes
+          it readable character by character. */}
+      <input className="input latin" placeholder={t('Invite code')} maxLength={40} value={code}
         onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
       <div className="dim small" style={{ marginTop: 6 }}>
         {fromLink && code === fromLink

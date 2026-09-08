@@ -258,9 +258,19 @@ export function planPrintHTML(S, owner) {
 
   /* Same reason as the app sheet, restated because this document carries its own CSS and
      nothing from index.css reaches it: Arabic letters join, and the Latin tracking above
-     (.14em on the kicker, .1em on a block head, .08em on a superset tag) pulls the joins
-     apart into loose disconnected glyphs. */
-  [dir="rtl"] * { letter-spacing: normal; }
+     (.1em on a block head, .08em on a superset tag, -.02em on the title) pulls the joins
+     apart into loose disconnected glyphs. !important, because a bare [dir=rtl] * is
+     (0,1,0) and loses to every 'header h1' / 'h3.block' / '.r-head h2' above it -- a type
+     plus a class outranks it. The kicker is exempt: it is the brand, Latin everywhere.
+     (No backticks in here: this whole sheet lives inside a template literal.) */
+  [dir="rtl"] *:not(.kicker) { letter-spacing: normal !important; }
+
+  /* plaintext, not a hard ltr pin: a scheme is usually pure Latin+digits ("3 x 10 x +10
+     kg"), where inheriting RTL detaches the leading + from its digits — but it can also
+     carry a translated "{0}/side". plaintext takes each line's direction from its own
+     first strong character, so the numeric case reads LTR and the translated one RTL,
+     without the export having to know which it built. */
+  .ex-s { unicode-bidi: plaintext; }
 </style></head>
 <body><div class="doc">
   <header>

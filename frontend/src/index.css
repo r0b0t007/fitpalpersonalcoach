@@ -369,7 +369,11 @@ h4.sec{
   background:var(--surface-2);color:var(--label-2);
 }
 .item .tt{font-size:16px;font-weight:400;line-height:1.25;letter-spacing:-.009em}
-.item .ss{color:var(--label-2);font-size:13px;margin-top:2px}
+/* plaintext: this sub-line carries set schemes from exLine() ("3 × 8 · +10 kg"), where
+   inheriting RTL would detach the leading + from its digits, but it also carries plain
+   translated text elsewhere. Taking the direction from each line's own first strong
+   character gets both right without the string builder having to care. */
+.item .ss{color:var(--label-2);font-size:13px;margin-top:2px;unicode-bidi:plaintext}
 .item .grow{flex:1;min-width:0}
 .chev{color:var(--label);flex:none;font-size:15px;--icon-stroke:2.4}
 .tag{
@@ -762,7 +766,7 @@ h4.sec{
 /* --- activity heatmap --- */
 .hm-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
 .hm-wrap::-webkit-scrollbar{display:none}
-.hm-months{display:flex;margin-inline-start:28px;margin-bottom:5px}
+.hm-months{display:flex;margin-inline-start:30px;margin-bottom:5px}
 .hm-months span{flex:none;width:14px;font-size:11px;color:var(--label-3);white-space:nowrap;overflow:visible}
 .hm-body{display:flex}
 .hm-days{display:flex;flex-direction:column;gap:3px;flex:none;width:28px}
@@ -974,8 +978,15 @@ h4.sec{
 /* Arabic is cursive: its letters join, and any tracking pulls the joins apart into
    loose disconnected glyphs. This sheet leans on negative tracking in 40-odd rules to
    tighten the Latin type scale, several behind ID selectors — so one scoped
-   !important is smaller and more honest than an RTL twin for every one of them. */
-[dir="rtl"] *{letter-spacing:normal!important}
+   !important is smaller and more honest than an RTL twin for every one of them.
+   `.latin` opts out the content that is Latin whatever the UI language: the wordmark,
+   a pair code, a monospace id. It is an exclusion rather than a louder override
+   because tracking is per-element — there is no one value to restore. Note the
+   descendant arm: the opt-out has to cover the subtree, not just the marked node.
+   Logo.jsx is why this exists — its tagline pairs letter-spacing with an equal
+   text-indent to cancel the trailing space and stay optically centred, so killing
+   the tracking alone shifted the whole line off-centre on every screen. */
+[dir="rtl"] *:not(.latin,.latin *){letter-spacing:normal!important}
 
 /* Icons that encode reading direction (chevrons, the sign-out arrow leaving its door).
    `play` and `history` are deliberately excluded: a play triangle is a physical
@@ -999,11 +1010,11 @@ h4.sec{
 
 /* Numeric fields stay LTR so the minus sign, the decimal separator and the caret land
    where the digits expect them, whatever numbering system the locale resolves to. */
-[dir="rtl"] .stp .num,[dir="rtl"] .bwin input,[dir="rtl"] .timef{direction:ltr;--dir:1}
+[dir="rtl"] .stp .num,[dir="rtl"] .timef{direction:ltr;--dir:1}
 
 /* A signed number is a number, not a sentence. `+` and `-` are bidi class ES, which binds
    to digits only when it sits BETWEEN two of them — a leading sign stays neutral, takes the
    paragraph direction and lands on the far side, so "+1" renders as "1+" and "-2.5" as
    "2.5-". Isolating the run pins the sign to the digits it belongs to. Put `signed` on
    anything that renders a number carrying its own sign. */
-.signed{direction:ltr;unicode-bidi:isolate}
+.signed{direction:ltr;unicode-bidi:isolate;--dir:1}

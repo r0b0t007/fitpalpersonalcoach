@@ -161,7 +161,7 @@ function InvitesCard({ invites, inviteOnly, reload }) {
     {open.map(i => <div key={i.code} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
       <div style={{ minWidth: 0 }}>
         {i.note && <div className="small" style={{ fontWeight: 600 }}>{i.note}</div>}
-        <span className="dim" style={{ fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', fontSize: '.74rem', letterSpacing: '.06em' }}
+        <span className="dim latin" style={{ fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', fontSize: '.74rem', letterSpacing: '.06em' }}
           onClick={() => copy(i.code, 'Copied ' + i.code)}>{i.code}</span>
       </div>
       <div className="row" style={{ gap: 6 }}>
@@ -221,7 +221,7 @@ function RequestsCard({ requests, reload }) {
         <div style={{ minWidth: 0 }}>
           <span>{r.name}</span> <span className="dim">· {r.phone}</span>
           {r.status === 'approved' && r.code && !r.redeemed && !r.codeDead && <div className="row" style={{ gap: 10, marginTop: 2 }}>
-            <span style={{ fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: '.06em' }}
+            <span className="latin" style={{ fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: '.06em' }}
               onClick={() => { navigator.clipboard?.writeText(inviteLink(r.code)).catch(() => {}); toast('Invite link copied') }}>{r.code}</span>
             {/* phone is requester-supplied text — reduce it to dialable characters so it can't
                 smuggle ?body=… into the URI and rewrite the message the admin taps to send */}

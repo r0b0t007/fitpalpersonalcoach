@@ -8,7 +8,10 @@ import { TAGLINE, GOLD } from '../lib/brand.js'
  */
 export default function Logo({ size = 34, subtitle = true }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(size * .22) }}>
+    // `latin` keeps the RTL tracking reset off the wordmark and tagline: the brand reads
+    // the same in every language, and the tagline's text-indent only cancels out while its
+    // letter-spacing survives. Covers the subtree, so neither child needs marking.
+    <div className="latin" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(size * .22) }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: Math.round(size * .1), color: GOLD,
         fontSize: size, fontWeight: 800, letterSpacing: '.04em', lineHeight: 1,
