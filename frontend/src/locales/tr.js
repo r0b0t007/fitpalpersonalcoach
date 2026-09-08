@@ -259,6 +259,7 @@ export default {
   'synced with your profile': 'profilinle eşitlenir',
   'Language': 'Dil',
   "Exercise instructions aren't available in this language yet — they stay in English.": 'Egzersiz talimatları bu dilde henüz yok — İngilizce kalır.',
+  "This language isn't translated yet — the app stays in English.": "Bu dil henüz çevrilmedi — uygulama İngilizce kalır.",
   'Theme': 'Tema',
   'Dark': 'Koyu',
   'Light': 'Açık',

@@ -5,12 +5,12 @@
 
 import { useSyncExternalStore } from 'react'
 import {
-  DEFAULT_LANG, LANGS, INSTR_LANGS, RTL_LANGS, DATE_LOCALES,
+  DEFAULT_LANG, LANGS, INSTR_LANGS, RTL_LANGS, STUB_LANGS, DATE_LOCALES,
   getLang, dateLocale, dirFor, textDir, t, instrFor, getVersion, _setLangState
 } from './i18n-core.js'
 
 export {
-  DEFAULT_LANG, LANGS, INSTR_LANGS, RTL_LANGS, DATE_LOCALES,
+  DEFAULT_LANG, LANGS, INSTR_LANGS, RTL_LANGS, STUB_LANGS, DATE_LOCALES,
   getLang, dateLocale, dirFor, textDir, t, instrFor
 }
 

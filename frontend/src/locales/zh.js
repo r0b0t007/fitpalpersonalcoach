@@ -259,6 +259,7 @@ export default {
   'synced with your profile': '与档案同步',
   'Language': '语言',
   "Exercise instructions aren't available in this language yet — they stay in English.": '动作说明暂无此语言版本——保持英文。',
+  "This language isn't translated yet — the app stays in English.": "该语言尚未翻译——应用保持英文。",
   'Theme': '主题',
   'Dark': '深色',
   'Light': '浅色',

@@ -273,6 +273,7 @@ export default {
   'synced with your profile': 'mit deinem Profil synchronisiert',
   'Language': 'Sprache',
   "Exercise instructions aren't available in this language yet — they stay in English.": 'Übungsanleitungen gibt es in dieser Sprache noch nicht — sie bleiben auf Englisch.',
+  "This language isn't translated yet — the app stays in English.": "Diese Sprache ist noch nicht übersetzt — die App bleibt auf Englisch.",
   'Theme': 'Design',
   'Dark': 'Dunkel',
   'Light': 'Hell',

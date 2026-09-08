@@ -9,6 +9,11 @@ export const LANGS = {
   ko: '한국어', hi: 'हिन्दी', ar: 'العربية'
 }
 export const INSTR_LANGS = ['en', 'es', 'fr', 'it', 'tr', 'ru', 'zh', 'hi', 'pl', 'ko']
+// Packs whose values are still their English keys. Selecting one gives you the app in
+// English with that language's layout and date formatting, which is a real state a user
+// can end up in, so the picker says so (Settings.jsx) rather than implying a translation
+// that is not there. Drop a language from here the moment its pack is filled in.
+export const STUB_LANGS = ['ar']
 // Languages that read right-to-left. Drives <html dir> (App.jsx) and, through it, every
 // logical property in index.css — so adding one here is the whole layout switch.
 export const RTL_LANGS = ['ar']

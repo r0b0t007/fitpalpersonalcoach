@@ -9,7 +9,7 @@ import { pushSupported, enablePush, disablePush, sendTestPush } from '../lib/pus
 import { wakeLockSupported } from '../lib/wakelock.js'
 import { alreadyInstalled, installPath, manualInstallHint, useInstallPrompt } from '../lib/install.js'
 import { installViaPrompt } from '../components/InstallCard.jsx'
-import { t, LANGS, INSTR_LANGS, DEFAULT_LANG } from '../lib/i18n.js'
+import { t, LANGS, INSTR_LANGS, STUB_LANGS, DEFAULT_LANG } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
 import { BRAND, FILE_PREFIX } from '../lib/brand.js'
 import { pendingInvite, clearInvite } from '../lib/invite.js'
@@ -122,7 +122,13 @@ export default function Settings() {
         value={S.lang || DEFAULT_LANG} onChange={v => update(s => { s.lang = v })}
         options={Object.entries(LANGS).map(([k, name]) => ({
           value: k, label: name,
-          subtitle: INSTR_LANGS.includes(k) ? null : t("Exercise instructions aren't available in this language yet — they stay in English."),
+          // A stub pack is the louder of the two facts and subsumes the other one: if the
+          // whole UI is still English then so are the instructions. Saying only the
+          // instructions line for a stub language implied the rest WAS translated.
+          subtitle: STUB_LANGS.includes(k)
+            ? t("This language isn't translated yet — the app stays in English.")
+            : INSTR_LANGS.includes(k) ? null
+              : t("Exercise instructions aren't available in this language yet — they stay in English."),
         }))}
       />
       <Row icon="scale" iconTint="var(--teal)" title={t('Weight unit')}>

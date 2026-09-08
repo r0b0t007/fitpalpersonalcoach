@@ -259,6 +259,7 @@ export default {
   'synced with your profile': '프로필과 동기화됨',
   'Language': '언어',
   "Exercise instructions aren't available in this language yet — they stay in English.": '운동 설명은 아직 이 언어로 제공되지 않아 영어로 표시됩니다.',
+  "This language isn't translated yet — the app stays in English.": "이 언어는 아직 번역되지 않아 앱이 영어로 표시됩니다.",
   'Theme': '테마',
   'Dark': '다크',
   'Light': '라이트',

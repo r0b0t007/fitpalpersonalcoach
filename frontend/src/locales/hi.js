@@ -259,6 +259,7 @@ export default {
   'synced with your profile': 'प्रोफ़ाइल से सिंक',
   'Language': 'भाषा',
   "Exercise instructions aren't available in this language yet — they stay in English.": 'व्यायाम निर्देश अभी इस भाषा में उपलब्ध नहीं — वे अंग्रेज़ी में रहेंगे।',
+  "This language isn't translated yet — the app stays in English.": "यह भाषा अभी अनूदित नहीं है — ऐप अंग्रेज़ी में रहेगा।",
   'Theme': 'थीम',
   'Dark': 'डार्क',
   'Light': 'लाइट',
