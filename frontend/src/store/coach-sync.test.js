@@ -13,9 +13,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const apiMock = vi.fn()
-vi.mock('../lib/api.js', () => ({ api: (...a) => apiMock(...a) }))
+vi.mock('../lib/api.js', () => ({ api: (...a) => apiMock(...a),
+  IS_IOS: false, IS_ANDROID: false, IS_APPLE: false, webauthnOK: () => true,
+}))
 vi.mock('../lib/mobile.js', () => ({
-  MOBILE: false, nativeLoad: async () => null, nativeSave: () => {}, syncReminder: () => {}
+  MOBILE: false, nativeLoad: async () => null, nativeSave: () => {}, syncReminder: () => {},
+  initReminderSync: () => {}, writeAutoBackup: () => {},
 }))
 
 const { useStore, DEF } = await import('./useStore.js')

@@ -19,7 +19,9 @@ const state = {
 }
 
 vi.mock('../store/useStore.js', () => ({ useStore: selector => selector(state) }))
-vi.mock('../lib/mobile.js', () => ({ MOBILE: true }))
+vi.mock('../lib/mobile.js', () => ({ MOBILE: true,
+  initReminderSync: () => {}, writeAutoBackup: () => {}, nativeLoad: async () => null, nativeSave: () => {}, syncReminder: () => {},
+}))
 
 const { default: TabBar } = await import('./TabBar.jsx')
 

@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { effectiveRoutine } from '../lib/history.js'
+import { effectiveRoutineIds, effectiveRoutines } from '../lib/history.js'
 import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { MOBILE } from '../lib/mobile.js'
@@ -9,7 +9,7 @@ import Icon from './Icon.jsx'
 
 // Everything the You hub owns. /stats and /library lost their own cells; /settings, /history and
 // the two dashboards never had one.
-const YOU_ROUTES = ['you', 'stats', 'history', 'library', 'settings', 'admin', 'coach']
+const YOU_ROUTES = ['you', 'stats', 'history', 'library', 'muscles', 'settings', 'admin', 'trainer', 'coach']
 
 export default function TabBar({ onStart }) {
   const nav = useNavigate()
@@ -26,8 +26,9 @@ export default function TabBar({ onStart }) {
 
   const startWorkout = () => {
     if (!S.active) {
-      const r = effectiveRoutine(S, todayISO())
-      if (r && r.ex.length) { onStart(r.id); return }
+      // A weekday can hold several routines; start the combined session if any of them has
+      // exercises, otherwise fall through to the picker.
+      if (effectiveRoutines(S, todayISO()).some(r => r.ex.length)) { onStart(effectiveRoutineIds(S, todayISO())); return }
     }
     nav('/workout')
   }
@@ -42,9 +43,12 @@ export default function TabBar({ onStart }) {
     <nav id="tabbar">
       <Tab k="home" icon="house" to="/home" label={t('Home')} />
       <Tab k="plan" icon="calendar" to="/plan" label={t('Plan')} />
-      <button className={'start' + (S.active ? ' rec' : '')} onClick={startWorkout}>
-        <span className="cir"><Icon name={S.active ? 'play' : 'dumbbell'} /></span>
-        <span>{S.active ? t('Resume') : t('Start')}</span>
+      {/* On the workout screen itself there is nothing to resume, so the button reads as the
+          tab it is and stays lit (#29); anywhere else it brings you back to the exercise you
+          were on — the marker is kept in S.active.cur and never moves on its own (#21). */}
+      <button className={'start' + (S.active ? ' rec' : '') + (S.active && cur === 'workout' ? ' on' : '')} onClick={startWorkout}>
+        <span className="cir"><Icon name={S.active ? (cur === 'workout' ? 'dumbbell' : 'play') : 'dumbbell'} /></span>
+        <span>{S.active ? (cur === 'workout' ? t('Workout') : t('Resume')) : t('Start')}</span>
       </button>
       {/* the timetable lives on the server — the standalone mobile and demo builds have none,
           so the tab would only ever show an empty state there */}

@@ -5,9 +5,12 @@
 // (see lib/i18n-core.js) so the two can't drift apart again.
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('../lib/api.js', () => ({ api: async () => ({}) }))
+vi.mock('../lib/api.js', () => ({ api: async () => ({}),
+  IS_IOS: false, IS_ANDROID: false, IS_APPLE: false, webauthnOK: () => true,
+}))
 vi.mock('../lib/mobile.js', () => ({
-  MOBILE: false, nativeLoad: async () => null, nativeSave: () => {}, syncReminder: () => {}
+  MOBILE: false, nativeLoad: async () => null, nativeSave: () => {}, syncReminder: () => {},
+  initReminderSync: () => {}, writeAutoBackup: () => {},
 }))
 
 const { DEF } = await import('./useStore.js')

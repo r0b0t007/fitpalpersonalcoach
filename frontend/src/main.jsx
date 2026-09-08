@@ -9,6 +9,9 @@ import './index.css'
 // later (e.g. in a component effect) would miss it.
 initInstall()
 
+// App.jsx restores per-route scroll itself; the browser's own attempt races it.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+
 createRoot(document.getElementById('root')).render(
   <StrictMode><App /></StrictMode>
 )

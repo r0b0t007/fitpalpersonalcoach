@@ -9,13 +9,15 @@
 //     a page break — each exercise, and each routine that fits, stays in one place.
 
 import { EXIDX, isBodyweightEq } from './exercises.js'
-import { modeOf, fmtSec, isBw, isPerSide, sideReps } from './history.js'
-import { uid, todayISO, DAYN, fmtNum, exCount } from './format.js'
-import { t } from './i18n-core.js'
+import { modeOf, fmtSec, isBw, isPerSide, sideReps, MAX_PLANNED_WARMUPS } from './history.js'
+import { deriveSessionName } from './session-merge.js'
+import { uid, todayISO, DAYN, weekOrder, weekStartOf, fmtNum, exCount } from './format.js'
+import { t, exerciseNameFor } from './i18n-core.js'
 import { BRAND, BRAND_DOMAIN } from './brand.js'
 
 const PLAN_FMT = 1
-const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]   // Mon-first, matching the Plan screen
+const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]   // every getDay() index; only the reader's own
+                                          // screen puts them in an order (see weekOrder)
 
 // Keep only the meaningful config fields, so the file stays small and readable.
 function cleanEx(e) {
@@ -43,23 +45,71 @@ function cleanEx(e) {
   // without its rule is just a list of weights.
   if (e.prog) o.prog = e.prog
   if (e.inc > 0) o.inc = e.inc
+  // Epley deload factor is a per-occurrence progression setting. Omit the default so older
+  // exports remain compact and importing them preserves the default 90% behaviour.
+  if (e.deloadFactor != null && Number(e.deloadFactor) !== 0.9) o.deloadFactor = e.deloadFactor
   if (e.repsMin != null) o.repsMin = e.repsMin
   if (e.repsMax != null) o.repsMax = e.repsMax
+  // The exercise's own rest (issue #10) is part of how it is prescribed, so it travels too —
+  // only when set, so a plan that never asked for one leaves the recipient's own default
+  // timer in charge. parsePlan and mergePlan carry it through by spread.
+  if (e.restSec > 0) o.restSec = e.restSec
   if (e.sg) o.sg = e.sg
+  if (e.note) o.note = e.note
+  const warm = cleanWarmupSets(e.warmupSets)
+  if (warm) o.warmupSets = warm
+  // Drop-sets and rest-pause are part of how the exercise is prescribed, not a logging detail.
+  // Without this a shared "3x5 with a double drop" arrived at the other end as a plain 3x5,
+  // silently — parsePlan's `dropped` counter only tracks exercises it cannot resolve at all.
+  const intens = cleanIntensifier(e.intensifier)
+  if (intens) o.intensifier = intens
   return o
+}
+
+/** Clamped the same way buildSets clamps it on the way out — the stepper showed a hand-edited
+ *  plan file's "999" verbatim, because the clamp only happened when the rows were built. */
+function cleanWarmupSets(v) {
+  const n = Math.round(Number(v)) || 0
+  return n > 0 ? Math.min(MAX_PLANNED_WARMUPS, n) : 0
+}
+
+/** A positive whole number of seconds or nothing — the same gate cleanEx applies on the way
+ *  out, so a hand-edited plan file can't hand the rest timer a string or a negative. */
+function cleanRestSec(v) {
+  const n = Math.round(Number(v)) || 0
+  return n > 0 ? n : 0
+}
+
+/** Keep the floors the config sheet and applyIntensifierPlan already enforce, and nothing else:
+ *  a plan file is someone else's data, so anything unrecognised is dropped rather than trusted. */
+function cleanIntensifier(x) {
+  const type = x && x.type
+  if (type === 'dropset') {
+    return { type, count: Math.max(1, Math.round(Number(x.count)) || 1), pct: Math.max(5, Math.round(Number(x.pct)) || 20) }
+  }
+  if (type === 'restpause') {
+    return { type, totalReps: Math.max(1, Math.round(Number(x.totalReps)) || 1), restSec: Math.max(5, Math.round(Number(x.restSec)) || 15) }
+  }
+  return null
 }
 
 /** Build the shareable bundle: every routine, the week schedule, referenced customs. */
 export function buildPlanBundle(S, name) {
   const routines = (S.routines || []).map(r => ({
-    id: r.id, name: r.name, emoji: r.emoji, ...(r.prog ? { prog: r.prog } : {}), ex: (r.ex || []).map(cleanEx)
+    id: r.id, name: r.name, emoji: r.emoji,
+    ...(r.prog ? { prog: r.prog } : {}),
+    ...(r.excludeFromProgression === true ? { excludeFromProgression: true } : {}),
+    ex: (r.ex || []).map(cleanEx)
   }))
   const usedIds = new Set(routines.flatMap(r => r.ex.map(e => e.id)))
   const customEx = (S.customEx || [])
     .filter(c => usedIds.has(c.id))
     .map(c => ({ id: c.id, n: c.n, bp: c.bp, ...(c.desc ? { desc: c.desc } : {}) }))
+  // A weekday can hold several routines (merge order preserved). `[].concat` normalises a
+  // legacy scalar id to a one-element list, so a bundle written before this change and one
+  // written after are read the same way at the other end.
   const week = {}
-  WEEK_ORDER.forEach(d => { if (S.week?.[d]) week[d] = S.week[d] })
+  WEEK_DAYS.forEach(d => { if (S.week?.[d]?.length) week[d] = [].concat(S.week[d]) })
   return { opengym_plan: PLAN_FMT, exported: todayISO(), name: name || '', week, routines, customEx }
 }
 
@@ -86,6 +136,14 @@ export function parsePlan(raw) {
       const ok = !!e && (known.has(e.id) || !!EXIDX[e.id])
       if (!ok) dropped++
       return ok
+    }).map(e => {
+      // The exercises pass through as written, so the fields that carry numbers into the
+      // planner get the same clamps on the way in that they get on the way out.
+      const warm = cleanWarmupSets(e.warmupSets)
+      const intens = cleanIntensifier(e.intensifier)
+      const rest = cleanRestSec(e.restSec)
+      const { warmupSets, intensifier, restSec, ...passthrough } = e
+      return { ...passthrough, ...(warm ? { warmupSets: warm } : {}), ...(intens ? { intensifier: intens } : {}), ...(rest ? { restSec: rest } : {}) }
     })
   }))
   return {
@@ -96,7 +154,7 @@ export function parsePlan(raw) {
     dropped,
     routineCount: routines.length,
     exerciseCount: routines.reduce((n, r) => n + r.ex.length, 0),
-    scheduledDays: WEEK_ORDER.filter(d => data.week?.[d]).length
+    scheduledDays: WEEK_DAYS.filter(d => data.week?.[d]?.length).length
   }
 }
 
@@ -110,7 +168,7 @@ export function parsePlan(raw) {
 export function mergePlan(s, bundle, { schedule } = {}) {
   s.customEx = s.customEx || []
   const exIdMap = {}
-  bundle.customEx.forEach(c => {
+  ;(bundle.customEx || []).forEach(c => {
     const same = s.customEx.find(x => (x.n || '').toLowerCase() === (c.n || '').toLowerCase() && x.bp === c.bp)
     if (same) { exIdMap[c.id] = same.id; return }
     const nid = uid()
@@ -126,18 +184,23 @@ export function mergePlan(s, bundle, { schedule } = {}) {
       name: r.name || t('Shared routine'),
       emoji: r.emoji,
       ...(r.prog ? { prog: r.prog } : {}),
+      ...(r.excludeFromProgression === true ? { excludeFromProgression: true } : {}),
       ex: (r.ex || []).map(e => ({ ...e, id: exIdMap[e.id] || e.id }))
     })
   })
   // Only replace the week when there is actually something to put back. Clearing it and then
   // adding nothing wipes the member's whole Mon–Sun plan — while the sheet above promises that
   // nothing they already have is changed, and with no scheduled days there is no toggle on
-  // screen to explain where it went. Filtering on ridMap covers the same hole from the other
-  // side: a week entry pointing at a routine that isn't in the bundle contributes nothing.
-  const incomingWeek = Object.entries(bundle.week || {}).filter(([, oldId]) => ridMap[oldId])
+  // screen to explain where it went. Locked by coach-plan.test.js.
+  //
+  // `[].concat` tolerates a pre-upgrade scalar bundle value. An id that didn't survive parsing
+  // is dropped rather than written as undefined, and a day left empty stays absent, not `[]`.
+  const incomingWeek = Object.entries(bundle.week || {})
+    .map(([d, val]) => [d, [].concat(val).map(oldId => ridMap[oldId]).filter(Boolean)])
+    .filter(([, ids]) => ids.length)
   if (schedule && incomingWeek.length) {
-    WEEK_ORDER.forEach(d => { delete s.week[d] })
-    incomingWeek.forEach(([d, oldId]) => { s.week[d] = ridMap[oldId] })
+    WEEK_DAYS.forEach(d => { delete s.week[d] })
+    incomingWeek.forEach(([d, ids]) => { s.week[d] = ids })
   }
   return { routines: bundle.routines.length }
 }
@@ -177,9 +240,10 @@ function routineHTML(r, unit) {
   const rows = units(r.ex).map(u => {
     const items = u.map(e => {
       const ex = EXIDX[e.id]
-      const name = ex ? ex.n : t('Unknown exercise')
+      const name = ex ? exerciseNameFor(ex) : t('Unknown exercise')
       const part = ex && ex.bp && ex.bp !== 'cardio' ? `<span class="part">${esc(ex.bp)}</span>` : ''
-      return `<div class="ex"><div class="ex-n">${esc(name)}${part}</div><div class="ex-s">${esc(scheme(e, unit))}</div></div>`
+      const note = e.note ? `<div class="ex-note">${esc(e.note)}</div>` : ''
+      return `<div class="ex"><div class="ex-row"><div class="ex-n">${esc(name)}${part}</div><div class="ex-s">${esc(scheme(e, unit))}</div></div>${note}</div>`
     }).join('')
     return u.length > 1
       ? `<div class="ss"><div class="ss-tag">${esc(t('Superset'))}</div><div class="ss-items">${items}</div></div>`
@@ -193,9 +257,12 @@ function routineHTML(r, unit) {
 }
 
 function weekHTML(S) {
-  const rows = WEEK_ORDER.map(d => {
-    const r = S.routines.find(x => x.id === S.week?.[d])
-    const val = r ? esc(r.name) : `<span class="rest">${esc(t('Rest'))}</span>`
+  // The printout is read by whoever exported it, so the week runs in their order.
+  const rows = weekOrder(weekStartOf(S)).map(d => {
+    const names = [].concat(S.week?.[d] || [])
+      .map(id => S.routines.find(x => x.id === id)?.name)
+      .filter(Boolean)
+    const val = names.length ? esc(deriveSessionName(names)) : `<span class="rest">${esc(t('Rest'))}</span>`
     return `<div class="w-row"><div class="w-day">${esc(t(DAYN[d]))}</div><div class="w-r">${val}</div></div>`
   }).join('')
   return `<div class="week">${rows}</div>`
@@ -241,11 +308,13 @@ export function planPrintHTML(S, owner) {
   .r-count { font-size: 12px; color: #8a90a0; white-space: nowrap; }
 
   .ex-list { display: flex; flex-direction: column; }
-  .ex { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 6px 0; break-inside: avoid; page-break-inside: avoid; }
+  .ex { display: flex; flex-direction: column; padding: 6px 0; break-inside: avoid; page-break-inside: avoid; }
   .ex + .ex, .ss + .ex, .ex + .ss { border-top: 1px solid #f2f3f6; }
+  .ex-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
   .ex-n { text-transform: capitalize; font-weight: 500; }
   .ex-n .part { text-transform: capitalize; color: #9aa0ae; font-weight: 400; font-size: 12px; margin-left: 8px; }
   .ex-s { color: #3d424e; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ex-note { color: #6a7080; font-size: 12px; margin-top: 2px; }
   .ex.empty, .none { color: #a2a8b6; }
 
   .ss { break-inside: avoid; page-break-inside: avoid; border-left: 3px solid #cfe08a; padding-left: 12px; margin: 4px 0; }

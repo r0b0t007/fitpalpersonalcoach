@@ -60,7 +60,9 @@ describe('accepting a coach’s program', () => {
 
     // The coach's week wins wholesale — that is what the toggle promises.
     expect(Object.keys(s.week)).toEqual(['2'])
-    const scheduled = s.routines.find(r => r.id === s.week[2])
+    // week[day] holds an array of routine ids since upstream's combine-routines change; a
+    // coach's bundle still schedules one routine per day, so this reads the only entry.
+    const scheduled = s.routines.find(r => r.id === s.week[2][0])
     expect(scheduled.name).toBe('Block A — Push')
     // Their routines are still there to re-schedule; only the assignments moved.
     expect(s.routines.filter(r => r.id.startsWith('own-'))).toHaveLength(2)
