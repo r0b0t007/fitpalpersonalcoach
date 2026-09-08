@@ -23,23 +23,42 @@ the other one, and turning it on here would mirror this app over `fitpal.ma`.
 2. **Node.js app** — Setup Node.js App → application root `~/fitpal-coach-api`, Node 22,
    startup file `server.js`, application URL `coach.fitpal.ma/api`.
 
-3. **`~/fitpal-coach-api/.env`** — created by hand and never deployed (rsync excludes it):
+3. **Environment variables** — set in the Node.js app's own *Environment variables* panel, not
+   a `.env` file. The API has no `dotenv` dependency, so a `.env` would be read by nothing;
+   under Passenger the panel *is* `process.env`. Mirrors how `app.fitpal.ma/api` is configured:
 
    ```
-   RP_ID=coach.fitpal.ma
-   ORIGIN=https://coach.fitpal.ma
-   PORT=3000
-   DATA_DIR=/home/<user>/fitpal-coach-api/data
+   RP_ID           coach.fitpal.ma
+   ORIGIN          https://coach.fitpal.ma
+   RP_NAME         FitPal Coach
+   DATA_DIR        /home/pawputif/fitpal-coach-data
+   INVITE_ONLY     1
+   ALLOW_GUEST     0
+   REQUEST_ACCESS  0
+   BOOTSTRAP_CODE  <32 hex chars, unique to this instance>
    ```
 
    `RP_ID` is load-bearing. WebAuthn passkeys are bound to an exact hostname, so a passkey
    created on `app.fitpal.ma` cannot sign in here and vice versa. That is correct — these are
-   separate products with separate accounts — but it means coaches and clients enrol here
-   fresh.
+   separate products with separate accounts — but it means everyone enrols here fresh.
+   `BOOTSTRAP_CODE` is what lets the very first account be created on an `INVITE_ONLY`
+   instance; it stops working once a user exists. Never reuse the other instance's.
 
-4. **`~/fitpal-coach-api/data/`** — create it, `chmod 700`. It holds users, passkey credentials,
-   the session secret and every client's training. It is excluded from rsync, so the deploy
-   never touches it. **This is the directory to back up.**
+4. **`~/fitpal-coach-data/`** — a **sibling** of the app root, not a directory inside it. That
+   is how `opengym-api` does it (`DATA_DIR=/home/pawputif/opengym-data`), and the reason is
+   `rsync --delete`: a data directory inside the deploy target is one exclude away from being
+   erased, whereas one outside it cannot be reached at all. It holds users, passkey
+   credentials, the session secret and every client's training. **This is the directory to
+   back up.**
+
+5. **DNS** — `fitpal.ma` is on Cloudflare (`braden`/`natasha.ns.cloudflare.com`), so cPanel's
+   own zone is not authoritative. Add the record in Cloudflare:
+
+   ```
+   A   coach   198.54.116.94   (proxied, matching how app.fitpal.ma is set up)
+   ```
+
+   Until that exists the subdomain is NXDOMAIN and AutoSSL cannot issue a certificate for it.
 
 ## One-time setup in GitHub
 
