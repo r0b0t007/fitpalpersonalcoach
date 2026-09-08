@@ -18,7 +18,11 @@ LABEL maintainer="Duarte Santos https://gitea.com/DuarteSantos" \
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev && npm cache clean --force
-COPY server.js ./
+# Every source file, not just server.js: server.js imports ./domain.mjs, which a named copy
+# silently left out of the image — the build succeeded and the container died at boot on
+# ERR_MODULE_NOT_FOUND. A glob means the next module split out of server.js ships with it.
+# Tests are excluded by .dockerignore rather than by naming files here, so that stays true.
+COPY *.js *.mjs ./
 
 ENV NODE_ENV=production
 ENV PORT=3000

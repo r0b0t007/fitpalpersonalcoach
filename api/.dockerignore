@@ -1,0 +1,6 @@
+# The Dockerfile copies *.js and *.mjs so a new module never gets left out of the image
+# by accident. These are the files that glob should not pick up.
+*.test.js
+*.test.mjs
+node_modules
+data
