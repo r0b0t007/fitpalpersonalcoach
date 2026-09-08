@@ -108,13 +108,43 @@ jobs:
             ssh-keyscan -p "${{ vars.SSH_PORT || '21098' }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
           fi
 
-      - name: Deploy via rsync over SSH
+      # rsync --delete removes everything at the target that is not in the source. Two repos
+      # deploy to this one cPanel account, so a target that resolves to the account home would
+      # take the other product's document root, its API and its ./data with it. The obvious
+      # wrong values are refused rather than trusted; the failure mode is a red build, not a
+      # restore from backup.
+      - name: Guard the deploy target
+        env:
+          TARGET: ${{ vars.API_SERVER_DIR || 'opengym-api/' }}
         run: |
-          rsync -rlptz --delete \
-            --exclude='.htaccess' --exclude='.env' --exclude='data/' \
-            --exclude='secret' --exclude='vapid.json' \
-            -e "ssh -i ~/.ssh/id_deploy -p ${{ vars.SSH_PORT || '21098' }}" \
-            deploy/ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ vars.API_SERVER_DIR || 'opengym-api/' }}"
+          case "${TARGET%/}" in
+            ""|"."|".."|"~"|"/"|'$HOME')
+              echo "::error::API_SERVER_DIR='$TARGET' resolves to the account home. rsync --delete there would wipe every other site on this account."
+              exit 1 ;;
+          esac
+          echo "deploy target: $TARGET"
+
+      # -K keeps cPanel's node_modules SYMLINK into the Node venv intact. Without it rsync
+      # unlinks the symlink and writes a real directory; Passenger keeps working until the
+      # next cPanel Restart or Run-NPM-Install recreates the venv link, and the app then
+      # boots against an empty dependency tree.
+      #
+      # The excludes are anchored with a leading slash. Unanchored, rsync matches them at
+      # every depth — so 'data/' and 'secret' would also skip any such path inside the
+      # bundled node_modules/, and --delete would protect the stale copy from repair. They
+      # are meant to protect the app root only.
+      - name: Deploy via rsync over SSH
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ vars.SSH_PORT || '21098' }}
+          TARGET: ${{ vars.API_SERVER_DIR || 'opengym-api/' }}
+        run: |
+          rsync -rlptzK --delete \
+            --exclude='/.htaccess' --exclude='/.env' --exclude='/data/' \
+            --exclude='/secret' --exclude='/vapid.json' \
+            -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
+            deploy/ "$SSH_USER@$SSH_HOST:$TARGET"
 
       - name: Health check
         if: vars.API_HEALTH_URL != ''

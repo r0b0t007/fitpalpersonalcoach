@@ -83,12 +83,33 @@ jobs:
             ssh-keyscan -p "${{ vars.SSH_PORT || '21098' }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
           fi
 
+      # rsync --delete removes everything at the target that is not in the source. Two repos
+      # deploy to this one cPanel account, so a target that resolves to the account home would
+      # take the other product's document root, its API and its ./data with it. The obvious
+      # wrong values are refused rather than trusted; the failure mode is a red build, not a
+      # restore from backup.
+      - name: Guard the deploy target
+        env:
+          TARGET: ${{ vars.WEB_SERVER_DIR || 'public_html/' }}
+        run: |
+          case "${TARGET%/}" in
+            ""|"."|".."|"~"|"/"|'$HOME')
+              echo "::error::WEB_SERVER_DIR='$TARGET' resolves to the account home. rsync --delete there would wipe every other site on this account."
+              exit 1 ;;
+          esac
+          echo "deploy target: $TARGET"
+
       - name: Deploy via rsync over SSH
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ vars.SSH_PORT || '21098' }}
+          TARGET: ${{ vars.WEB_SERVER_DIR || 'public_html/' }}
         run: |
           rsync -rlptz --delete \
-            --exclude='.htaccess' --exclude='.well-known/' --exclude='cgi-bin/' \
-            -e "ssh -i ~/.ssh/id_deploy -p ${{ vars.SSH_PORT || '21098' }}" \
-            frontend/dist/ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ vars.WEB_SERVER_DIR || 'public_html/' }}"
+            --exclude='/.htaccess' --exclude='/.well-known/' --exclude='/cgi-bin/' \
+            -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
+            frontend/dist/ "$SSH_USER@$SSH_HOST:$TARGET"
 
       - name: Health check
         if: vars.WEB_URL != ''
