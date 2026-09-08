@@ -1,0 +1,116 @@
+// @vitest-environment happy-dom
+//
+// The coach's member view renders the member's own Stats panels. Two shape differences between
+// GET /api/coach/member and the client's own store would produce a plausible-looking but wrong
+// chart rather than an error, so they are pinned here:
+//
+//   · the API returns workouts newest-first; S.workouts is oldest-first everywhere else
+//   · the API strips routines to { id, name, count } with no `ex`
+//
+// Both are silent failures — a reversed body-weight curve reads as a client losing weight when
+// they are gaining — which is exactly the kind of thing a coach would act on.
+import React, { act } from 'react'
+import { createRoot } from 'react-dom/client'
+import { MemoryRouter } from 'react-router-dom'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('../lib/api.js', () => ({
+  api: vi.fn(() => Promise.resolve({})),
+  IS_IOS: false, IS_ANDROID: false, IS_APPLE: false, webauthnOK: () => true,
+}))
+vi.mock('../lib/mobile.js', () => ({
+  MOBILE: false, nativeLoad: async () => null, nativeSave: () => {},
+  syncReminder: () => {}, initReminderSync: () => {}, writeAutoBackup: () => {},
+}))
+
+const { DEF } = await import('../store/useStore.js')
+const { StatsPanels } = await import('./Stats.jsx')
+
+// Mirrors memberState() in Coach.jsx. Kept as a local copy on purpose: the point of the test is
+// that the transform exists and stays correct, so importing the implementation would test nothing.
+const memberState = d => ({
+  ...DEF,
+  unit: d.unit, body: d.body, targetW: d.targetW, effort: d.effort, showRir: d.showRir,
+  bodyweight: d.bodyweight || [],
+  workouts: [...(d.workouts || [])].reverse(),
+  routines: []
+})
+
+const payload = {
+  user: { id: 'm1', name: 'Sam', created: '2026-01-01' },
+  unit: 'lb', lastSync: 123, body: 'female', targetW: 70, effort: 'rir', showRir: null,
+  bodyweight: [{ d: '2026-09-01', w: 80 }],
+  // newest-first, as the route returns it. Shaped like a real logged session: the panels walk
+  // w.entries[].sets[], so a stub of { id, d } would pass this test while telling us nothing.
+  workouts: [3, 2, 1].map(n => ({
+    id: 'w' + n, d: '2026-09-0' + n, name: 'Push',
+    start: Date.parse('2026-09-0' + n + 'T10:00:00Z'),
+    end: Date.parse('2026-09-0' + n + 'T11:00:00Z'),
+    vol: 4200,
+    entries: [{ id: '0025', sets: [{ w: 60, r: 8, done: true }, { w: 60, r: 8, done: true }] }]
+  })),
+  routines: [{ id: 'r1', name: 'Push', emoji: 'barbell', count: 5 }]
+}
+
+describe('coach member state', () => {
+  it('puts workouts back in oldest-first order for the panels', () => {
+    expect(memberState(payload).workouts.map(w => w.id)).toEqual(['w1', 'w2', 'w3'])
+  })
+
+  it('carries the display fields the panels read', () => {
+    const S = memberState(payload)
+    expect(S.unit).toBe('lb')
+    expect(S.body).toBe('female')
+    expect(S.targetW).toBe(70)
+    expect(S.effort).toBe('rir')
+    expect(S.bodyweight).toHaveLength(1)
+  })
+
+  it('withholds the stripped routines rather than passing ones with no exercises', () => {
+    // r.ex is absent in the coach payload; anything reading it would see undefined, not a routine.
+    expect(memberState(payload).routines).toEqual([])
+  })
+
+  it('fills every other field from DEF, so a panel reading one does not throw', () => {
+    const S = memberState(payload)
+    for (const k of Object.keys(DEF)) expect(S).toHaveProperty(k)
+  })
+
+  it('survives a member with no training at all', () => {
+    const S = memberState({ unit: 'kg', body: 'male', targetW: null, effort: null, showRir: null })
+    expect(S.workouts).toEqual([])
+    expect(S.bodyweight).toEqual([])
+  })
+})
+
+// The transform being right is only half of it: the panels have to actually render against a
+// member's state without reaching for something the coach payload does not carry.
+describe('StatsPanels against a member payload', () => {
+  const render = S => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    act(() => {
+      createRoot(host).render(
+        <MemoryRouter><StatsPanels S={S} readOnly /></MemoryRouter>
+      )
+    })
+    return host
+  }
+
+  it('renders a member with training without throwing', () => {
+    const host = render(memberState(payload))
+    expect(host.textContent).toBeTruthy()
+  })
+
+  it('renders a member with no training at all', () => {
+    const host = render(memberState({ unit: 'kg', body: 'male', targetW: null, effort: null, showRir: null }))
+    expect(host.textContent).toBeTruthy()
+  })
+
+  it("hides the controls that would write to the coach's own data", () => {
+    const text = render(memberState(payload)).textContent
+    // "Goal" and "Log" open sheets bound to the viewer's store, not the member's.
+    expect(text).not.toContain('Goal')
+    expect(text).not.toContain('Log')
+  })
+})

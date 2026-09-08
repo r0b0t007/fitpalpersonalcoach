@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStore } from '../store/useStore.js'
+import { useStore, DEF } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
 import { fmtDate, fmtVol, fmtDur } from '../lib/format.js'
@@ -9,6 +9,7 @@ import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
+import { StatsPanels } from './Stats.jsx'
 
 // Coach dashboard: the members assigned to you, and sending them a program.
 //
@@ -30,6 +31,21 @@ const rel = ts => {
   return Math.floor(s / 86400) + 'd ago'
 }
 const dur = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + (m % 60) + 'm' }
+
+// GET /api/coach/member returns a deliberately narrow subset of a member's state. Widen it back
+// to DEF's shape so a panel reaching for a field the coach payload omits degrades instead of
+// throwing, and fix the two shapes that differ from the client's own store:
+//   · workouts arrive newest-first from the API; S.workouts is oldest-first everywhere else, and
+//     every chart would read backwards without this.
+//   · routines are stripped to { id, name, count } with no `ex`, so they are withheld rather than
+//     handed to code that expects a real routine.
+const memberState = d => ({
+  ...DEF,
+  unit: d.unit, body: d.body, targetW: d.targetW, effort: d.effort, showRir: d.showRir,
+  bodyweight: d.bodyweight || [],
+  workouts: [...(d.workouts || [])].reverse(),
+  routines: []
+})
 
 function MemberDetail({ id, close, pending, onChanged }) {
   const [d, setD] = useState(null)
@@ -56,6 +72,11 @@ function MemberDetail({ id, close, pending, onChanged }) {
       <div className="tile"><div className="l">Routines</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.routines.length}</div></div>
       <div className="tile"><div className="l">Last sync</div><div className="v" style={{ fontSize: '.95rem' }}>{rel(d.lastSync)}</div></div>
     </div>
+    {/* The same panels the member sees on their own Stats screen, against their state. readOnly
+        hides the controls that write to or navigate the *coach's* data — logging a weigh-in, setting
+        a goal, opening a workout sheet that reads from the coach's own store. */}
+    <StatsPanels S={memberState(d)} readOnly />
+
     <h4 className="sec">Their routines</h4>
     {d.routines.length
       ? <div className="list" style={{ gap: 0 }}>
