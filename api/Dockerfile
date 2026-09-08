@@ -51,7 +51,10 @@ COPY package.json package-lock.json* ./
 # build host happened to be.
 RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 
-COPY server.js push-messages.js verify-error.js ./
+# domain.mjs is this fork's own module (roles, invites, sessions, coach assignments) and has
+# no counterpart upstream, so it is not in their list. server.js imports it at module scope:
+# leave it out and the image builds clean and the container dies on ERR_MODULE_NOT_FOUND.
+COPY server.js push-messages.js verify-error.js domain.mjs ./
 COPY coach ./coach
 ENV NODE_ENV=production
 ENV PORT=3000
