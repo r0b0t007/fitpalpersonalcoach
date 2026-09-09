@@ -143,14 +143,14 @@ describe('adherence in the coach view', () => {
   }
 
   it('renders a percentage from the roster wire shape, not from a scored result', () => {
-    const text = render(<RosterAdherence parts={parts()} />).textContent
+    const text = render(<RosterAdherence parts={parts()} todayIso={TODAY} />).textContent
     expect(text).toMatch(/%/)
     expect(text).toMatch(/28d/)
   })
 
   it('renders nothing in the roster for a member with no training week', () => {
-    expect(render(<RosterAdherence parts={parts({ week: {} })} />).textContent).toBe('')
-    expect(render(<RosterAdherence parts={undefined} />).textContent).toBe('')
+    expect(render(<RosterAdherence parts={parts({ week: {} })} todayIso={TODAY} />).textContent).toBe('')
+    expect(render(<RosterAdherence parts={undefined} todayIso={TODAY} />).textContent).toBe('')
   })
 
   it('says there is nothing to miss rather than 0% when no week is set', () => {
@@ -199,5 +199,42 @@ describe('adherence in the coach view', () => {
     }, TODAY)} />)
     const strip = [...host.querySelectorAll('div')].find(d => d.style.display === 'flex' && d.children.length > 1)
     expect(strip.children).toHaveLength(3)   // 7th, 8th, 9th
+  })
+})
+
+describe('a short window says so', () => {
+  const render = el => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    act(() => { createRoot(host).render(el) })
+    return host
+  }
+  const joinedRecently = {
+    week: { 1: ['r1'], 3: ['r1'], 5: ['r1'] }, dayPlan: {},
+    routines: [{ id: 'r1', count: 3 }],
+    workouts: [{ d: '2026-09-07' }],
+    user: { created: '2026-09-07T08:00:00.000Z' },
+  }
+
+  it('captions the roster with the days actually scored, not the window constant', () => {
+    // "28d" over a three-day score sells one Monday as a month of turning up.
+    const parts = {
+      week: joinedRecently.week, dayPlan: {}, routineIds: ['r1'],
+      trainedDays: ['2026-09-07'], created: '2026-09-07T08:00:00.000Z',
+    }
+    expect(render(<RosterAdherence parts={parts} todayIso="2026-09-09" />).textContent).toContain('3d')
+  })
+
+  it('heads the card with the days actually scored', () => {
+    const text = render(<AdherenceCard a={memberAdherence(joinedRecently, '2026-09-09')} />).textContent
+    expect(text).toContain('last 3 days')
+    expect(text).not.toContain('last 28 days')
+  })
+
+  it('does not stretch a three-day strip to the width of a month', () => {
+    const host = render(<AdherenceCard a={memberAdherence(joinedRecently, '2026-09-09')} />)
+    const strip = [...host.querySelectorAll('div')].find(d => d.style.display === 'flex' && d.children.length > 1)
+    expect(strip.children).toHaveLength(3)
+    expect(strip.children[0].style.maxWidth).toBe('14px')
   })
 })

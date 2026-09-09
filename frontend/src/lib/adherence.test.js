@@ -207,3 +207,38 @@ describe('a routine with no exercises', () => {
     expect(stateOn(r, '2026-09-07')).toBe('rest')
   })
 })
+
+describe('the near-end clamp does not become its own bug', () => {
+  it('never lands after today, however the clocks disagree', () => {
+    // `created` is a UTC instant; `todayIso` is the viewer's local date. A member who signed up
+    // at 21:00 EDT carries a join date of tomorrow for a coach in New York. Filtering on that
+    // emptied the window: no days, no rate, and a card saying "nothing to miss yet" about
+    // someone who had trained an hour earlier.
+    const r = adherenceOf(S({
+      created: '2026-09-09T01:00:00.000Z',   // 8 Sep, 21:00 EDT
+      trainedDays: ['2026-09-08'],
+    }), '2026-09-08')
+    expect(r.days.length).toBeGreaterThan(0)
+    expect(r.days[0].iso).toBe('2026-09-08')
+    expect(stateOn(r, '2026-09-08')).toBe('trained')
+  })
+
+  it('starts from imported training that predates the account', () => {
+    // import-hevy.js can bring in a year of history on the day someone signs up. The account
+    // date is not when they started training, and clamping to it would blank the coach's view of
+    // exactly the client who arrived with the most to look at.
+    const r = adherenceOf(S({
+      created: TODAY,
+      trainedDays: ['2026-08-24', '2026-08-26', '2026-09-07'],
+    }), TODAY)
+    expect(r.days[0].iso).toBe('2026-08-24')
+    expect(r.trained).toBe(3)
+    expect(r.rate).not.toBeNull()
+  })
+
+  it('still ignores imported training older than the window itself', () => {
+    const r = adherenceOf(S({ created: TODAY, trainedDays: ['2019-01-01'] }), TODAY)
+    expect(r.days[0].iso).toBe('2026-08-13')   // the window start, not 2019
+    expect(r.days).toHaveLength(ADHERENCE_WINDOW_DAYS)
+  })
+})

@@ -87,6 +87,11 @@ jobs:
       # that exercise" on somebody's instance.
       - run: node scripts/build-coach-assets.mjs --check
       - run: node api/scripts/check-core-loadable.mjs
+      # ADHERENCE_SEND_DAYS in the api and ADHERENCE_WINDOW_DAYS in the frontend sit either side
+      # of a boundary neither can import across. Breaking their relationship does not error --
+      # a trimmed date is indistinguishable from a day nobody trained, so every member's
+      # adherence just quietly drops.
+      - run: node api/scripts/check-adherence-window.mjs
 
   # The unit suite imports domain.mjs and nothing else, so until this job existed no HTTP route,
   # cookie check or permission boundary was covered by any automated run: canCoachMember was

@@ -46,6 +46,18 @@ function windowDays(toIso, days) {
 }
 
 /**
+ * Where the window's near end sits: the join date, pulled back to the first logged day when
+ * history predates the account, and never past today. `null` means "no clamp" — score the whole
+ * window. Both adjustments exist because the unclamped version was wrong in production-shaped
+ * ways; see the two bullets on `created` below.
+ */
+function windowStart(joined, firstTrained, todayIso) {
+  if (!joined) return null
+  const start = firstTrained && firstTrained < joined ? firstTrained : joined
+  return start > todayIso ? todayIso : start
+}
+
+/**
  * The metric, over the four facts it actually needs — not a whole client state.
  *
  * That is what lets the coach roster score every member without pulling each one's full state:
@@ -62,6 +74,17 @@ function windowDays(toIso, days) {
  * client added on Monday who sets a Mon/Wed/Fri week is scored against the three weeks before
  * they existed and lands on the roster in red — the same "red flag on someone who has done
  * nothing wrong" this module refuses to print for a member with no plan.
+ *
+ * Two things stop that clamp turning into its own bug, both learned the hard way:
+ *
+ *   · **It never lands after today.** `created` is a UTC instant and `todayIso` is the viewer's
+ *     local date, so for a coach west of UTC a member who signed up this evening carries a join
+ *     date of *tomorrow*. Filtering on that leaves an empty window: no days, no rate, and a card
+ *     reading "nothing to miss yet" about someone who trained an hour ago.
+ *   · **Training older than the account wins.** History can be imported (`import-hevy.js`), so a
+ *     member who signs up and pulls in a year of Hevy data has months of workouts predating
+ *     `created`. The account date is not when they started training, and using it would blank a
+ *     coach's view of exactly the client who arrived with the most to look at.
  *
  * `routineIds` must contain only routines that have exercises. A routine with none cannot be
  * started — `nextTrainingDay` skips it and the TabBar refuses it — so a day holding only empty
@@ -85,6 +108,9 @@ export function adherenceOf(parts, todayIso, days = ADHERENCE_WINDOW_DAYS) {
   const trainedOn = new Set(parts?.trainedDays || [])
   // Timestamps and plain dates both appear here — user.created is an ISO instant on the wire.
   const joined = parts?.created ? String(parts.created).slice(0, 10) : null
+  // Earliest logged day, which may predate the account when history was imported.
+  const firstTrained = trainedOn.size ? [...trainedOn].sort()[0] : null
+  const from = windowStart(joined, firstTrained, todayIso)
   // effectiveRoutineIds drops a weekday pointing at a routine that no longer exists, so it
   // needs the ids — a deleted routine leaves its id behind in `week`, and a day nobody can
   // train is not a day anyone missed.
@@ -98,7 +124,7 @@ export function adherenceOf(parts, todayIso, days = ADHERENCE_WINDOW_DAYS) {
   let trained = 0
   let extra = 0
 
-  const list = windowDays(todayIso, days).filter(iso => !joined || iso >= joined).map(iso => {
+  const list = windowDays(todayIso, days).filter(iso => !from || iso >= from).map(iso => {
     const isPlanned = effectiveRoutineIds(state, iso).length > 0
     const didTrain = trainedOn.has(iso)
     // Today is scored on neither side, but a session already logged today still shows as
