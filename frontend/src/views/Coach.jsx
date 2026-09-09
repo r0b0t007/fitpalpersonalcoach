@@ -5,7 +5,7 @@ import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
 import { fmtDate, fmtVol, fmtDur, isoOf } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
-import { ADHERENCE_WINDOW_DAYS, adherenceBand, adherenceOf } from '../lib/adherence.js'
+import { adherenceBand, adherenceOf } from '../lib/adherence.js'
 import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
@@ -65,13 +65,15 @@ export const memberAdherence = (d, todayIso = isoOf(new Date())) => adherenceOf(
 
 // `parts` is the raw four-field shape off the wire, not a scored result -- the roster scores it
 // here so the API never has to know what adherence means.
-export function RosterAdherence({ parts }) {
-  const res = parts && adherenceOf(parts, isoOf(new Date()))
+export function RosterAdherence({ parts, todayIso = isoOf(new Date()) }) {
+  const res = parts && adherenceOf(parts, todayIso)
   const pct = adhPct(res)
   if (pct == null) return null
+  // res.days.length, not the window constant: a member who joined three days ago is scored over
+  // three days, and captioning that "28d" would sell a single Monday as a month of turning up.
   return <div style={{ textAlign: 'right', marginRight: 6, lineHeight: 1.1 }}>
     <div style={{ fontWeight: 700, color: ADH_TONE[adherenceBand(res.rate)] }}>{pct}%</div>
-    <div className="dim" style={{ fontSize: '.66rem' }}>{ADHERENCE_WINDOW_DAYS}d</div>
+    <div className="dim" style={{ fontSize: '.66rem' }}>{res.days.length}d</div>
   </div>
 }
 
@@ -87,7 +89,7 @@ export function AdherenceCard({ a }) {
   </div>
   return <div className="card" style={{ marginBottom: 12 }}>
     <div className="row between">
-      <span className="small" style={{ fontWeight: 600 }}>Adherence · last {ADHERENCE_WINDOW_DAYS} days</span>
+      <span className="small" style={{ fontWeight: 600 }}>Adherence · last {a.days.length} days</span>
       <span style={{ fontWeight: 700, color: ADH_TONE[adherenceBand(a.rate)] }}>{pct}%</span>
     </div>
     <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>
@@ -96,10 +98,13 @@ export function AdherenceCard({ a }) {
       {a.pending && ' · today still to come'}
     </div>
     {/* One cell per day, oldest first, so a run of misses reads as a block rather than a number
-        that has quietly moved. Rest days stay visible but recede -- the gaps are the shape. */}
+        that has quietly moved. Rest days stay visible but recede -- the gaps are the shape.
+        maxWidth matters more than it looks: with flex alone a three-day window stretches to the
+        same full-width bar as a month, and three green cells then read as a month of green. It
+        never binds at a full window, so the usual case is unchanged. */}
     <div style={{ display: 'flex', gap: 2, marginTop: 8 }}>
       {a.days.map(d => <div key={d.iso} title={`${d.iso} · ${d.state}`} style={{
-        flex: 1, height: 14, borderRadius: 2,
+        flex: 1, maxWidth: 14, height: 14, borderRadius: 2,
         background: d.state === 'trained' ? 'var(--green)'
           : d.state === 'missed' ? 'var(--red)'
             : d.state === 'extra' ? 'var(--teal)'
