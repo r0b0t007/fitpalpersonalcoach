@@ -8,32 +8,43 @@
 // client had rated their whole week 1 out of 5.
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Segmented } from './ui.jsx'
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 const OPTIONS = [1, 2, 3, 4, 5].map(n => ({ value: n, label: String(n) }))
 
-const render = value => {
-  const host = document.createElement('div')
+let host, root
+beforeEach(() => {
+  host = document.createElement('div')
   document.body.appendChild(host)
-  act(() => {
-    createRoot(host).render(<Segmented options={OPTIONS} value={value} onChange={() => {}} />)
-  })
+  root = createRoot(host)
+})
+afterEach(() => {
+  act(() => root.unmount())
+  host.remove()
+})
+
+const render = value => {
+  act(() => root.render(<Segmented options={OPTIONS} value={value} onChange={() => {}} />))
   return host
 }
 
 describe('Segmented', () => {
-  it('draws no pill when the value matches no option', () => {
-    for (const v of [null, undefined, 0, 9]) {
-      const host = render(v)
+  // One case per value, not a loop: when this fails it has to say *which* value regressed, and
+  // four iterations of one assertion all report the same line.
+  for (const [name, value] of [['null', null], ['undefined', undefined], ['zero', 0], ['out of range', 9]]) {
+    it(`draws no pill for a value that matches no option (${name})`, () => {
+      render(value)
       expect(host.querySelector('.seg-sel')).toBeNull()
       expect(host.querySelectorAll('button.on')).toHaveLength(0)
       expect(host.querySelectorAll('[aria-pressed="true"]')).toHaveLength(0)
-    }
-  })
+    })
+  }
 
   it('draws the pill on the matching option', () => {
-    const host = render(3)
+    render(3)
     expect(host.querySelector('.seg-sel')).not.toBeNull()
     expect(host.querySelector('.seg').style.getPropertyValue('--i')).toBe('2')
     expect(host.querySelector('button.on').textContent).toBe('3')
@@ -41,8 +52,18 @@ describe('Segmented', () => {
 
   it('still positions the first option correctly', () => {
     // The clamp is what used to hide this: index 0 and "no match" produced identical markup.
-    const host = render(1)
+    render(1)
     expect(host.querySelector('.seg-sel')).not.toBeNull()
     expect(host.querySelector('.seg').style.getPropertyValue('--i')).toBe('0')
+  })
+
+  it('appears when a value is chosen, without remounting the buttons', () => {
+    // The pill is its own child slot ahead of the keyed options array, so toggling it must not
+    // remount them — otherwise the tap that makes the first selection loses focus under itself.
+    render(null)
+    const before = host.querySelector('button')
+    render(2)
+    expect(host.querySelector('button')).toBe(before)
+    expect(host.querySelector('.seg-sel')).not.toBeNull()
   })
 })
