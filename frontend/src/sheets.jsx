@@ -13,6 +13,7 @@ import { nav } from './lib/nav.js'
 import { buildStarterPlan, starterPlanDays, starterPlanOptions } from './lib/starter.js'
 import { SITES, SITE_LABEL, isValidValue, latestBySite, lengthUnit, removeMeasurement, upsertMeasurement } from './lib/measurements.js'
 import { NOTE_MAX as CHECKIN_NOTE_MAX, QUESTIONS, currentCheckin, periodStart, upsertCheckin } from './lib/checkins.js'
+import { PHOTOS_REACHABLE, POSES, photoSrc, posesFor, preparePhoto } from './lib/photo.js'
 import Media, { Thumb } from './components/Media.jsx'
 import LineChart from './components/LineChart.jsx'
 import Stepper from './components/Stepper.jsx'
@@ -32,7 +33,7 @@ import { normalizeRepRange } from './lib/rep-range.js'
 import { MOBILE, shareExport } from './lib/mobile.js'
 import { BRAND, FILE_PREFIX } from './lib/brand.js'
 import { buildCompletedWorkout } from './lib/finish-workout.js'
-import { api } from './lib/api.js'
+import { api, fetchMyPhotos, uploadProgressPhoto } from './lib/api.js'
 import { isWarmupRow } from './lib/workout-model.js'
 import { nextUnfinishedUnit } from './lib/supersetFlow.js'
 import { swapActiveExercise } from './lib/active-exercise-swap.js'
@@ -311,10 +312,12 @@ function CheckinSheet({ close }) {
   const [ans, setAns] = useState(() => ({ ...(existing?.answers || {}) }))
   const [note, setNote] = useState(existing?.note || '')
 
+  // The date is the period it belongs to, not the day they got round to it — so a Tuesday answer
+  // files under Sunday's week and the streak stays honest. Hoisted out of save() because the
+  // photos below are filed under the same value, and that shared key IS the join between them.
+  const d = existing ? existing.d : periodStart(st, today)
+
   const save = () => {
-    // The date is the period it belongs to, not the day they got round to it — so a Tuesday
-    // answer files under Sunday's week and the streak stays honest.
-    const d = existing ? existing.d : periodStart(st, today)
     update(s => { s.checkins = upsertCheckin(s.checkins, { d, answers: ans, note }) })
     close()
     toast(t('Check-in saved'))
@@ -335,11 +338,118 @@ function CheckinSheet({ close }) {
       <h4 className="sec">{t('Anything your coach should know?')}</h4>
       <TextArea rows={4} maxLength={CHECKIN_NOTE_MAX} value={note} onChange={e => setNote(e.target.value)}
         placeholder={t('Sleep, work, niggles, wins — whatever changed this week.')} />
+      {/* Absent rather than broken on the paired mobile build, which cannot render the bytes
+          back — lib/photo.js says why. VITE_MOBILE is build-time, so this folds away on the web. */}
+      {PHOTOS_REACHABLE && <CheckinPhotos d={d} />}
     </div>
     <div style={{ height: 14 }} />
     <Button variant="primary" onClick={save}>{t('Save')}</Button>
   </>
 }
+/* Progress photos, filed against the same period key as the answers above.
+ *
+ * They are NOT a field on the check-in row, and that is the design rather than an omission.
+ * upsertCheckin rebuilds its entry from the keys it knows and drops everything else, so a photo
+ * id parked there would vanish the first time someone edited their answers — silently, a week
+ * later, with the file still on the server and nothing pointing at it. The join is the date
+ * instead: the server files a photo under the period this sheet computed, and the coach's screen
+ * groups by that same value. Nothing had to change in lib/checkins.js for it to work.
+ *
+ * The upload happens ON PICK, never inside save(). save() is synchronous and calls close() on the
+ * next line, so awaiting a photo there would either hold the sheet open for the length of a phone
+ * uplink or close it before the bytes landed. A consequence worth stating rather than hiding: a
+ * photo sent and the form then abandoned is still that week's photo, under the date the check-in
+ * would have used. That is the right way round — the scales can be re-answered in ten seconds,
+ * the photo needs the person to be standing there again.
+ */
+const PHOTO_SLOT = {
+  width: '100%', aspectRatio: '3 / 4', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  border: '1px dashed var(--sep)', borderRadius: 10, background: 'var(--surface-2)',
+  overflow: 'hidden', padding: 0, position: 'relative', color: 'inherit', cursor: 'pointer'
+}
+
+function CheckinPhotos({ d }) {
+  const user = useStore(s => s.user)
+  const [rows, setRows] = useState(null)
+  const [busy, setBusy] = useState('')
+  const [err, setErr] = useState('')
+  const fileRef = useRef(null)
+  // One hidden input for all three slots: which one was tapped is a ref, not state, because the
+  // click that opens the picker must not re-render the sheet out from under the picker.
+  const slot = useRef(POSES[0].id)
+
+  // Server state, so it is fetched rather than read from the store. It cannot live in `S` for
+  // the reason lib/coach-media.js gives at length: `S` is pushed back with PUT /api/data, which
+  // replaces state-<uid>.json wholesale, and the client would be echoing the server's own table
+  // at it on every sync.
+  const load = () => fetchMyPhotos().then(setRows).catch(() => setRows([]))
+  useEffect(() => { if (user) load() }, [])
+
+  const onFile = async e => {
+    const file = e.target.files && e.target.files[0]
+    // Cleared before anything can throw, so picking the SAME file again still fires a change
+    // event — the most likely next thing after "that image could not be read".
+    e.target.value = ''
+    if (!file) return
+    const pose = slot.current
+    setErr(''); setBusy(pose)
+    try {
+      // Resized and re-encoded here, before a single byte leaves the phone. That is also what
+      // drops the EXIF the camera wrote — see lib/photo.js for what that does and does not mean.
+      const blob = await preparePhoto(file)
+      await uploadProgressPhoto(d, pose, blob)
+      await load()
+      toast(t('Photo added'))
+    } catch (e2) {
+      // The server's own wording, untranslated on purpose: it is the only thing that says what
+      // was wrong with the file ("HEIC photos do not display in most browsers — set the camera
+      // to Most Compatible"), and a generic translated line would throw that away.
+      setErr(e2.message)
+    } finally { setBusy('') }
+  }
+
+  const have = posesFor(rows, d)
+  return <>
+    <h4 className="sec">{t('Progress photos')}</h4>
+    {!user
+      ? <div className="dim small">{t('Sign in to add progress photos.')}</div>
+      : <>
+        <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+          {POSES.map(p => {
+            const row = have[p.id]
+            return <div key={p.id} style={{ flex: 1, textAlign: 'center' }}>
+              <button type="button" className="dim" style={PHOTO_SLOT} disabled={!!busy}
+                aria-label={t(p.label)} onClick={() => { slot.current = p.id; fileRef.current?.click() }}>
+                {row
+                  ? <img src={photoSrc(row)} alt="" loading="lazy"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  : <Icon name="camera" />}
+                {busy === p.id && <span style={{
+                  position: 'absolute', inset: 'auto 0 0 0', fontSize: '.66rem', padding: '2px 0',
+                  background: 'color-mix(in srgb, var(--bg) 70%, transparent)'
+                }}>{t('Sending…')}</span>}
+              </button>
+              <div className="dim" style={{ fontSize: '.68rem', marginTop: 3 }}>{t(p.label)}</div>
+              <div className="dim" style={{ fontSize: '.66rem', opacity: .7 }}>{row ? t('Retake') : t('Add')}</div>
+            </div>
+          })}
+        </div>
+        {/* A plain file input behind the app's own tiles: the native control renders differently
+            on every platform and is the loudest unfinished tell there is. */}
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
+        {/* Every claim here is true of the code above and no wider. The resize really does drop
+            the EXIF, because a canvas has no metadata to carry through; and "only you and your
+            coach" is exactly what GET /api/media/photo enforces, per request. What it does NOT
+            say is that the server strips anything — it does not, and cannot without a dependency
+            this repo will not take. */}
+        <div className="dim small" style={{ marginTop: 8, lineHeight: 1.45 }}>
+          {t('Resized on your phone before it is sent, which removes the location and camera details the original file carries. Only you and your coach can open them.')}
+        </div>
+        {err && <div className="small" style={{ marginTop: 8, lineHeight: 1.45, color: 'var(--red)' }}>{err}</div>}
+      </>}
+  </>
+}
+
 export function checkinSheet() { return ui().openSheet(close => <CheckinSheet close={close} />) }
 
 /* ============================ import from another app ============================ */

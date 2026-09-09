@@ -17,7 +17,7 @@ import {
   bootstrapMatches, BOOTSTRAP_MIN,
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
   pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
-  findSessionConflicts,
+  findSessionConflicts, isRealDate,
   validateUpload, MEDIA_SNIFF_BYTES
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
@@ -78,6 +78,16 @@ const MEDIA_DIR = path.join(DATA, 'media');
 // A flood guard, not a product rule: several angles of one lift is reasonable, an unbounded
 // upload endpoint on a shared-hosting quota is not.
 const MEDIA_MAX_PER_EX = 6;
+// Progress photos: a closed set of angles rather than a free-text label, because the entire
+// value of the feature is comparing like with like — this week's front against March's front.
+// A typo'd label does not fail, it quietly starts a fourth series nobody ever looks at.
+const PHOTO_POSES = ['front', 'side', 'back'];
+// One photo per pose per check-in period: a retake REPLACES the previous file rather than piling
+// up beside it. That is the retention rule, and something has to be, because there is no delete
+// route for any media in this file and weekly photos across a roster otherwise grow forever on a
+// shared-hosting quota nobody can reclaim. The total below is a backstop against a script rather
+// than a product limit — three angles a week for over three years.
+const MEDIA_MAX_PHOTOS = 500;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 
@@ -320,10 +330,35 @@ function serveMedia(req, res, file, mime) {
   send(206, { ...base, 'Content-Range': `bytes ${start}-${end}/${total}`, 'Content-Length': end - start + 1 }, { start, end });
 }
 
-const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
+const safeUid = uid => String(uid || '').replace(/[^a-zA-Z0-9_-]/g, '');
+const stateFile = uid => path.join(DATA, 'state-' + safeUid(uid) + '.json');
 function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
 }
+
+/* Per-user media the SERVER owns, in its own file beside the state one.
+ *
+ * The naming and the atomic write are deliberately identical to stateFile above; the separation
+ * is the whole point. PUT /api/data replaces state-<uid>.json wholesale with whatever the client
+ * last held, so a row this process writes into that file survives exactly until the next sync
+ * from any device the member owns — including a stale tab. Progress-photo metadata is written
+ * here, by the upload route, and the client never pushes this file at all.
+ *
+ * Bytes are not in it. This holds `{ photos: [ { id, d, pose, file, bytes, mime, created } ] }`
+ * and the files themselves live under MEDIA_DIR/photo/<uid>/.
+ */
+const mediaFile = uid => path.join(DATA, 'media-' + safeUid(uid) + '.json');
+const photoDir = uid => path.join(MEDIA_DIR, 'photo', safeUid(uid));
+function userPhotos(uid) {
+  try {
+    const m = JSON.parse(fs.readFileSync(mediaFile(uid), 'utf8'));
+    return Array.isArray(m && m.photos) ? m.photos : [];
+  } catch { return []; }
+}
+// What is allowed to leave the server. `file` never is: an unguessable filename stops being
+// unguessable the moment it is published, and nothing outside this module needs it — every
+// reader addresses a photo by row id.
+const publicPhoto = p => ({ id: p.id, d: p.d, pose: p.pose, bytes: p.bytes, mime: p.mime, created: p.created });
 
 /* ---------- push notifications (Web Push / VAPID) ---------- */
 const vapidFile = path.join(DATA, 'vapid.json');
@@ -1396,6 +1431,11 @@ const routes = {
       // writes into a client's state file, because their next whole-state push would erase it.
       checkins: S.checkins || [],
       checkinDay: S.checkinDay ?? null,
+      // Progress photos, and the one field here that does NOT come from readState. They are
+      // server-owned (media-<uid>.json), so they arrive from the sidecar instead — and metadata
+      // only. The bytes are one authenticated request each against GET /api/media/photo, which
+      // re-checks canCoachMember per image, so this payload stays the size it was.
+      photos: userPhotos(u.id).map(publicPhoto),
       workouts: (S.workouts || []).slice().reverse(),
       // The rest of what <StatsPanels> reads, so a coach sees the same charts their client does
       // rather than a count. Deliberately narrow: these are display preferences and training
@@ -1548,6 +1588,144 @@ const routes = {
   // this — and a HEAD that 404s while the GET beside it works is the kind of thing a player
   // probes with and then gives up on.
   'HEAD /api/media/ex': (req, res) => routes['GET /api/media/ex'](req, res),
+
+  /* ---------- progress photos ---------- */
+  /* The client's own photo of themselves, which is the opposite direction to every other media
+   * route in this file, and the reason it gets its own store rather than another db.media row.
+   *
+   * GET /api/media/exercises hands EVERY db.media row to any signed-in member, deliberately: one
+   * coach, no other tenant, and a demo of a barbell row is not a secret. Dropping progress photos
+   * into that array would publish the whole gym's photos to the whole gym, and the mistake would
+   * sit one field away from the correct code forever after. Separate array, separate route,
+   * separate predicate.
+   *
+   * Metadata in the query string and the file as the entire body, same as the demo route above
+   * and for the same reasons: no multipart parser, no base64 inflation, no regex route table.
+   */
+  'POST /api/media/photo': async (req, res) => {
+    // Every refusal before the body is read closes the socket, or node drains an arbitrarily
+    // large upload from someone who failed the check. See POST /api/media/exercise.
+    const shut = { Connection: 'close' };
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' }, shut);
+    const q = new URL(req.url, 'http://x').searchParams;
+    // The check-in period this belongs to, computed client-side by periodStart() in
+    // lib/checkins.js — the same value the check-in's own row is filed under. THAT is what joins
+    // a photo to a check-in: a shared, client-authored natural key, and no new field on either
+    // side. A reference stored on the check-in row instead would be silently dropped the next
+    // time the client edited it, because upsertCheckin rebuilds the entry from the keys it knows.
+    const d = String(q.get('d') || '').trim();
+    if (!isRealDate(d)) return json(res, 400, { error: 'bad date' }, shut);
+    const pose = String(q.get('pose') || '').trim();
+    if (!PHOTO_POSES.includes(pose)) return json(res, 400, { error: 'bad pose' }, shut);
+
+    const rows = userPhotos(user.id);
+    // A retake of a slot that already exists costs no row, so the cap can never stop someone
+    // correcting this week's photo — only opening a 501st slot.
+    const replacing = rows.some(p => p.d === d && p.pose === pose);
+    if (!replacing && rows.length >= MEDIA_MAX_PHOTOS)
+      return json(res, 429, { error: `that is ${MEDIA_MAX_PHOTOS} photos already stored` }, shut);
+
+    const dir = photoDir(user.id);
+    try { fs.mkdirSync(dir, { recursive: true }); }
+    catch { return json(res, 500, { error: 'media directory is not writable' }, shut); }
+    const tmp = path.join(dir, '.up-' + crypto.randomBytes(8).toString('hex'));
+
+    let up;
+    try { up = await streamToFile(req, tmp, MEDIA_MAX_PHOTO, head => validateUpload(head, 'photo')); }
+    catch (e) { return json(res, e.status || 400, { error: e.message }, { Connection: 'close' }); }
+
+    // Unguessable, NOT content-addressed — the exact inverse of the demo route, for the inverse
+    // reason. A demo's name may be derived from its bytes because every signed-in member is
+    // allowed to have it anyway. A progress photo's name must carry no information at all, so
+    // that if this directory is ever reachable by something other than the route below (a static
+    // handler somebody adds, a backup served over HTTP) the filenames are not an index of who
+    // photographed themselves and when. It costs the dedupe the other route gets; that dedupe
+    // would itself leak here, by making identical bytes collide across two people.
+    const file = crypto.randomBytes(16).toString('base64url') + '.' + up.meta.ext;
+    const stored = path.join(dir, file);
+    try { fs.renameSync(tmp, stored); }
+    catch { fs.rm(tmp, { force: true }, () => {}); return json(res, 500, { error: 'could not store the file' }); }
+
+    const row = {
+      id: crypto.randomBytes(12).toString('base64url'),
+      d, pose, file, bytes: up.bytes, mime: up.meta.mime,
+      created: new Date().toISOString()
+    };
+    // Re-read rather than reusing `rows`: that snapshot was taken before an await, and a photo
+    // for a different pose may have landed in between. Only the one (d, pose) slot this request
+    // owns is replaced, so two poses uploaded in parallel cannot erase each other.
+    //
+    // From here to atomicWrite there is no await, deliberately. readFileSync → filter → concat →
+    // writeFileSync → renameSync all run in one tick, so on a single node process the whole
+    // read-modify-write is atomic against every other request and a lost update is impossible.
+    // Put an await anywhere in this run and a second upload can interleave and drop a row while
+    // leaving its file behind, which nothing would ever notice.
+    const before = userPhotos(user.id);
+    const next = before.filter(p => !(p.d === d && p.pose === pose)).concat(row)
+      .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+    try { atomicWrite(mediaFile(user.id), JSON.stringify({ photos: next })); }
+    catch (e) {
+      // Nothing shared was mutated — unlike the demo route there is no in-memory table to roll
+      // back — so the whole unwind is the file that was just committed.
+      fs.rm(stored, { force: true }, () => {});
+      console.error('photo save failed', e);
+      return json(res, 507, { error: 'could not record the upload — is the disk full?' });
+    }
+    // The replaced file goes only AFTER the row pointing at it is gone. The other order leaves a
+    // row naming a file that no longer exists whenever that write fails — a permanently broken
+    // image on the coach's screen with nothing in the product able to repair it.
+    for (const old of before) {
+      if (old.d === d && old.pose === pose && typeof old.file === 'string' && old.file !== file)
+        fs.rm(path.join(dir, path.basename(old.file)), { force: true }, () => {});
+    }
+    json(res, 200, { ok: true, photo: publicPhoto(row) });
+  },
+
+  // The caller's OWN rows, so their check-in sheet can show which angles this week already has.
+  // No `u` parameter and no coach path: a coach reads their client's list through
+  // GET /api/coach/member, which is where the per-member predicate already lives.
+  'GET /api/media/photos': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    json(res, 200, { photos: userPhotos(user.id).map(publicPhoto) });
+  },
+
+  /* The bytes — the only private media in this file.
+   *
+   * Every refusal that depends on WHO is asking or WHICH photo they asked for is the same 403
+   * with the same body: not your client, no such member, no such photo. A 404 for the last of
+   * those would let a coach holding one valid id walk the space and learn who else trains here —
+   * the identical enumeration GET /api/coach/member refuses to allow, and the reasoning is
+   * copied from there. Only "not signed in" answers differently, and it can leak nothing,
+   * because it never looks at the parameters at all.
+   *
+   * The owner check comes FIRST, and that ordering is load-bearing rather than tidy:
+   * canCoachMember returns false when coach and member are the same person (coaching yourself is
+   * the ordinary Plan screen — domain.mjs), so a gate written the other way round would lock a
+   * coach who files their own check-ins out of their own photos.
+   */
+  'GET /api/media/photo': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const q = new URL(req.url, 'http://x').searchParams;
+    // Defaulting to the caller keeps a member's own thumbnails working without the client having
+    // to know its own uid, and keeps one code path for both readers.
+    const owner = db.users.find(x => x.id === String(q.get('u') || user.id));
+    const mayRead = !!owner &&
+      (owner.id === user.id || canCoachMember(user, owner, { isAdmin: isAdmin(user) }));
+    const row = mayRead ? userPhotos(owner.id).find(p => p.id === q.get('id')) : null;
+    // typeof before the pattern, for the same reason as GET /api/media/ex: RegExp.test coerces,
+    // so a hand-edited row with no `file` is tested as the string "undefined", matches, and then
+    // throws a 500 on .includes(). A damaged row must refuse, not crash.
+    if (!row || typeof row.file !== 'string' ||
+        !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(row.file) || row.file.includes('..'))
+      return json(res, 403, { error: 'forbidden' });
+    serveMedia(req, res, path.join(photoDir(owner.id), row.file), row.mime);
+  },
+  // Same reason as the demo route: the dispatcher keys on method + path, so serveMedia's HEAD
+  // branch is unreachable without an explicit alias.
+  'HEAD /api/media/photo': (req, res) => routes['GET /api/media/photo'](req, res),
 
   'POST /api/coach/assign': async (req, res) => {
     const coach = requireCoach(req, res); if (!coach) return;

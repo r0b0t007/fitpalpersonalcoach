@@ -1309,4 +1309,15 @@ export default {
   '5 = calm week, 1 = relentless': '5 = semaine calme, 1 = sans répit',
   'Nutrition': 'Nutrition',
   'How closely you ate the way you meant to': 'À quel point vous avez mangé comme prévu',
+  // Progress photos (lib/photo.js) — attached to the weekly check-in.
+  'Progress photos': 'Photos de progression',
+  'Front view': 'Vue de face',
+  'Side view': 'Vue de profil',
+  'Back view': 'Vue de dos',
+  'Add': 'Ajouter',
+  'Retake': 'Reprendre',
+  'Sending…': 'Envoi…',
+  'Photo added': 'Photo ajoutée',
+  'Sign in to add progress photos.': 'Connectez-vous pour ajouter des photos de progression.',
+  'Resized on your phone before it is sent, which removes the location and camera details the original file carries. Only you and your coach can open them.': 'Redimensionnée sur votre téléphone avant l’envoi, ce qui supprime la localisation et les données d’appareil photo que contient le fichier d’origine. Vous seul et votre coach pouvez les ouvrir.',
 }

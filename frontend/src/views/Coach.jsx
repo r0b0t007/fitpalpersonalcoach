@@ -9,6 +9,7 @@ import { fmtDate, fmtVol, fmtDur, isoOf } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
 import { adherenceBand, adherenceOf } from '../lib/adherence.js'
 import { QUESTIONS, scoreOf } from '../lib/checkins.js'
+import { photoSrc, photosByPeriod } from '../lib/photo.js'
 import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
@@ -113,6 +114,53 @@ export function CheckinsCard({ checkins }) {
   </div>
 }
 
+// Progress photos — the one thing on this screen that is neither a number nor a chart, and for
+// most clients the reason the numbers get looked at. Newest week first, the three angles in a
+// row, tap one to open it full width.
+//
+// Read-only by construction rather than by a flag. There is nothing here that writes anywhere:
+// no store, no PUT, not even a delete. That is the same property `readOnly` buys StatsPanels,
+// arrived at by having nothing to gate instead of by gating it — which is why this card is NOT
+// routed through memberState/StatsPanels. Those panels are shared with the member's own Stats
+// screen, DEF has no `photos` key, and widening a shared prop-driven component to carry one
+// member's private images is the wrong direction entirely.
+//
+// The metadata arrives with the rest of GET /api/coach/member; each image is then its own
+// request against GET /api/media/photo, which re-checks canCoachMember. So a coach who loses a
+// member loses the images at that moment, without this screen having to know anything about it.
+export function PhotosCard({ photos, memberId }) {
+  const [open, setOpen] = useState(null)
+  const weeks = photosByPeriod(photos)
+  if (!weeks.length) return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="small" style={{ fontWeight: 600 }}>Progress photos</div>
+    <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>None sent yet.</div>
+  </div>
+  return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="small" style={{ fontWeight: 600, marginBottom: 6 }}>Progress photos</div>
+    {weeks.slice(0, 8).map(wk => <div key={wk.d} style={{ padding: '6px 0', borderBottom: '1px solid var(--sep)' }}>
+      <div className="dim small">{fmtDate(wk.d, true)}</div>
+      <div className="row" style={{ gap: 6, marginTop: 4, alignItems: 'flex-start' }}>
+        {wk.photos.map(p => <div key={p.id} style={{ flex: 1, maxWidth: 110 }}>
+          {/* loading="lazy" is not decoration here: a year of check-ins is 150 authenticated
+              requests, and the coach is looking at the top two weeks. */}
+          <img src={photoSrc(p, memberId)} alt={p.pose} loading="lazy"
+            onClick={() => setOpen(open === p.id ? null : p.id)}
+            style={{
+              width: '100%', aspectRatio: '3 / 4', objectFit: 'cover', display: 'block',
+              borderRadius: 8, background: 'var(--surface-2)', cursor: 'pointer'
+            }} />
+          <div className="dim" style={{ fontSize: '.66rem', textAlign: 'center', marginTop: 2 }}>{p.pose}</div>
+        </div>)}
+      </div>
+      {/* Full width rather than a lightbox: the useful comparison is against the same angle in
+          an earlier week, which is one scroll away, not a modal that hides it. */}
+      {wk.photos.some(p => p.id === open) && <img src={photoSrc(wk.photos.find(p => p.id === open), memberId)}
+        alt="" onClick={() => setOpen(null)}
+        style={{ width: '100%', borderRadius: 10, margin: '8px 0', display: 'block', cursor: 'pointer' }} />}
+    </div>)}
+  </div>
+}
+
 export function AdherenceCard({ a }) {
   const pct = adhPct(a)
   // No plan means no adherence to report -- not 0%. Saying "0%" about someone who never set a
@@ -189,6 +237,9 @@ function MemberDetail({ id, close, pending, onChanged }) {
     </div>
     <AdherenceCard a={memberAdherence(d)} />
     <CheckinsCard checkins={d.checkins} />
+    {/* Server-owned, so it comes from the payload's own `photos` field rather than from
+        memberState() — readState never sees these, by design. */}
+    <PhotosCard photos={d.photos} memberId={d.user.id} />
     {/* The same panels the member sees on their own Stats screen, against their state. readOnly
         hides the controls that write to or navigate the *coach's* data — logging a weigh-in, setting
         a goal, opening a workout sheet that reads from the coach's own store. */}
