@@ -124,12 +124,54 @@ rsync would otherwise match at every depth including inside `node_modules/`), an
 passes `-K` so cPanel's `node_modules` symlink into the Node venv is written *through* rather
 than replaced with a real directory.
 
+## `~/coach.fitpal.ma/.htaccess` — the shell must not be cached
+
+**This file is on the server and not in the repo, so nothing will recreate it.** `deploy-web.yml`
+excludes `/.htaccess` from its `rsync --delete` (that exclude is what stops a deploy deleting
+server-owned config), which also means a copy under `frontend/dist/` would never reach the
+server. If the subdomain is ever rebuilt, write it again:
+
+```apache
+<IfModule mod_headers.c>
+  <FilesMatch "^(sw\.js|index\.html|manifest\.json|offline\.html)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+```
+
+`sw.js` is the one that matters. Without this it is served with Cloudflare's default
+`max-age=14400`, so for **four hours after every deploy** the edge hands out the previous service
+worker — which then serves the previous shell out of its own cache. Browsers honour that max-age
+too: a service worker is only force-revalidated when its `max-age` exceeds 86400, and 14400 is
+under it. The symptom is a deploy that reports success while the app in front of you, and in
+front of every client, is the old one. It cost an hour once already: the fix was live at the
+origin and invisible in the browser.
+
+Hashed files under `assets/` are deliberately untouched — their names change every build, so
+they should be cached hard.
+
+The Docker path gets the same rules from `web/nginx.conf.template`, which already sets
+`no-cache, must-revalidate` on `js|css|json|html`. This file is only needed because the cPanel
+deployment serves the static build through LiteSpeed instead, and never renders that template.
+
+**After a deploy, Cloudflare still holds the old `sw.js` until its TTL expires.** Purge it (or
+the whole zone) to make a release land immediately rather than within four hours.
+
 ## Checking it worked
 
 ```
 curl -fsS https://coach.fitpal.ma/api/health     # {"ok":true,...}
 curl -fsS https://coach.fitpal.ma | grep '<title'
+
+# Did the release actually reach the browser? Compare what the origin serves against what the
+# page loaded — a service worker will happily keep serving the previous bundle, and a plain
+# refresh does not tell you which one you are looking at.
+curl -s https://coach.fitpal.ma | grep -o 'assets/index-[^"]*\.js'
 ```
+
+A `525` immediately after a deploy is Cloudflare failing its TLS handshake to the origin while
+Passenger restarts. It clears within seconds — the deploy's own health check retries twelve
+times for exactly this reason, so trust that over a single `curl`.
 
 The frontend health check greps the served HTML for `<title>FitPal Coach`, which is set in
 `frontend/index.html` (not from `brand.js` — index.html cannot import ESM). It is deliberately
