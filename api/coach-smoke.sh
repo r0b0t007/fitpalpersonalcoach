@@ -343,7 +343,12 @@ chk "a start past EOF is 416"                  416 "$(code -H "Range: bytes=$((S
 chk "a multi-range request is 416"             416 "$(code -H "Range: bytes=0-9,20-29" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
 chk "a malformed range is 416"                 416 "$(code -H "Range: bytes=abc" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
 chk "HEAD works where GET does"                200 "$(code -I -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
-chk "...and sends no body"                       0 "$(curl -s -I -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | sed -n '/^.$/,$p' | wc -c | tr -d ' ')"
+# curl's own byte counter, not a sed that hunts for the blank line between headers and body:
+# that separator is CRLF, and how much of it survives the pipe differs between platforms — the
+# first version of this check passed on Windows and failed on CI's Linux for that reason alone.
+chk "...and sends no body"                       0 "$(curl -s -I -o /dev/null -w '%{size_download}' -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+# But it must still ANNOUNCE the length, which is what a player reads before deciding how to seek.
+chk "...while still declaring the length"    "$SZ" "$(curl -s -I -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | grep -i '^content-length' | tr -d '\r' | awk '{print $2}')"
 
 echo ""
 echo "passed $pass, failed $fail"
