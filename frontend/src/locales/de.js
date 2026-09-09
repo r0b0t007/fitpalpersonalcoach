@@ -381,6 +381,8 @@ export default {
   // --- media ---
   'tap to pause': 'Tippen zum Pausieren',
   'tap to play': 'Tippen zum Abspielen',
+  'Coach demo': 'Coach-Video',
+  'Coach demo — may not play here': 'Coach-Video — läuft evtl. nicht in diesem Browser',
   // --- data terms: body parts ---
   'back': 'Rücken', 'cardio': 'Cardio', 'chest': 'Brust', 'lower arms': 'Unterarme',
   'lower legs': 'Unterschenkel', 'neck': 'Nacken', 'shoulders': 'Schultern',

@@ -6,6 +6,8 @@ import { bindUI } from './components/ui.jsx'
 import { ACCENTS } from './lib/format.js'
 import { setLang, useLang, DEFAULT_LANG } from './lib/i18n.js'
 import { setNav } from './lib/nav.js'
+import { fetchExerciseMedia } from './lib/api.js'
+import { setCoachMedia } from './lib/coach-media.js'
 import { initBackButton } from './lib/back.js'
 import { useWakeLock } from './lib/wakelock.js'
 import { MOBILE } from './lib/mobile.js'
@@ -78,6 +80,17 @@ function Shell() {
     return () => mql.removeEventListener('change', onChange)
   }, [S.theme, S.accent])
   useEffect(() => { setLang(S.lang || DEFAULT_LANG) }, [S.lang])
+  // The coach's exercise demos. Server state, so it lives in a plain module registry rather than
+  // in `S` (lib/coach-media.js argues that at length) and this is its single load — one request
+  // per sign-in, after which every card resolves its demo synchronously. Signed-in only: the
+  // route needs a session, and a guest has no coach. A failure is deliberate silence — no demo
+  // just means the dataset animation, which is what every build did until now.
+  useEffect(() => {
+    if (!user) { setCoachMedia([]); return }
+    let live = true
+    fetchExerciseMedia().then(rows => { if (live) setCoachMedia(rows) }).catch(() => {})
+    return () => { live = false }
+  }, [user?.id])
   useEffect(() => { document.documentElement.lang = S.lang || DEFAULT_LANG }, [langV, S.lang])
   // Forward navigation starts at the top; going back lands where you left off.
   // The position is recorded from scroll events rather than read at route

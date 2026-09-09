@@ -1,6 +1,7 @@
 import { EXDB } from './exercises-data.js'
 import { USER_EXERCISE_MUSCLE_OVERRIDES, exerciseMuscleMetadataFor } from './exercise-muscle-batch-1.js'
 import { t, getVersion, exerciseNameSearchText } from './i18n-core.js'
+import { coachMediaFor, isPhotoRow, isVideoRow } from './coach-media.js'
 
 export { EXDB }
 
@@ -149,6 +150,56 @@ const IMG_BASE = ENV.VITE_IMG_BASE || 'img/'
 const GIF_BASE = ENV.VITE_GIF_BASE || 'gif/'
 export const imgSrc = ex => IMG_BASE + ex.img
 export const gifSrc = ex => GIF_BASE + ex.gif
+
+// A coach's own demo of an exercise, and the chain behind it.
+//
+// Deliberately NOT routed through imgSrc/gifSrc, because they are two different worlds that
+// happen to end up in the same <div>: IMG_BASE/GIF_BASE are frozen at BUILD time and on the
+// real deploy point at a CDN on another host, while a coach demo is a same-origin, session-gated
+// API path resolved at RUNTIME. Same exercise, two hosts, two auth models, two cache stories.
+//
+// Keying on the exercise id is also what finally gives CUSTOM exercises media: the stock dataset
+// has no row for "Ahmed's cable variation", so ex.gif is empty and always will be.
+//
+// KNOWN LIMIT, stated rather than papered over: this is a same-origin path carrying the session
+// cookie, which is right in a browser and does not work on the PAIRED mobile build, where auth is
+// a Bearer token against a remote base and a <video src> element cannot carry a header. There the
+// element fails to load and Media.jsx falls back to the dataset animation — the same outcome as
+// before demos existed. Blob-fetch-then-object-URL would fix it and would also throw away the
+// Range/206 streaming serveMedia exists to provide, on a 90 MB file, on a phone. Not worth it
+// until someone actually pairs a phone against an instance that has demos.
+const MEDIA_EX = '/api/media/ex?id='
+export const mediaRowSrc = row => MEDIA_EX + encodeURIComponent(row.id)
+
+// The whole fallback chain, pure, taking the coach rows rather than reaching for the registry —
+// so it is testable without a fetch, a cache or a DOM. The callers below bind it to the registry.
+//
+//   animation:  coach video → stock GIF → nothing
+//   still:      coach photo → stock JPG → nothing (the caller draws the dumbbell glyph)
+export function resolveMedia(ex, rows) {
+  const list = Array.isArray(rows) ? rows : []
+  const vid = list.find(isVideoRow)
+  const pic = list.find(isPhotoRow)
+  const gif = ex && ex.gif ? gifSrc(ex) : null
+  const poster = pic ? mediaRowSrc(pic) : (ex && ex.img ? imgSrc(ex) : null)
+  return {
+    video: vid ? mediaRowSrc(vid) : null,
+    // 'raw' does not mean broken. It means nothing has yet confirmed a browser can decode this
+    // — an iPhone's HEVC in a .mov is the case, and Chrome and Firefox are where it bites.
+    // Nothing in the API ever flips it, so it is shown and played, and marked, not hidden.
+    raw: !!vid && vid.status === 'raw',
+    label: vid ? String(vid.label || '') : '',
+    gif,
+    poster,
+    // Whether there is anything at all to draw. This is the gate Media.jsx opens on, and it is
+    // the reason a custom exercise can finally render something.
+    any: !!(vid || gif || pic)
+  }
+}
+
+export const videoSrc = ex => resolveMedia(ex, coachMediaFor(ex && ex.id)).video
+export const posterSrc = ex => resolveMedia(ex, coachMediaFor(ex && ex.id)).poster
+export const hasMedia = ex => resolveMedia(ex, coachMediaFor(ex && ex.id)).any
 
 // Cardio exercises log time + speed instead of weight × reps.
 export const isCardio = idOrEx => (typeof idOrEx === 'string' ? EXIDX[idOrEx] : idOrEx)?.bp === 'cardio'

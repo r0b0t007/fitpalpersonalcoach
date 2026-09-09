@@ -420,7 +420,7 @@ h4.sec{
 .thumb{width:50px;height:50px;border-radius:9px;object-fit:cover;background:#fff;flex:none}
 /* exercise pictures are decoration inside tappable rows/cards: no save-image callout on
    a long press and no drag ghost when a scroll starts on the picture */
-.thumb,.exmedia img{-webkit-touch-callout:none;-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
+.thumb,.exmedia img,.exmedia video{-webkit-touch-callout:none;-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
 .thumb-x{
   display:flex;align-items:center;justify-content:center;font-size:21px;
   background:var(--surface-2);color:var(--label-2);
@@ -644,7 +644,7 @@ h4.sec{
 .wprog{height:4px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-bottom:16px}
 .wprog i{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width var(--med) var(--ease)}
 .exmedia{position:relative;border-radius:var(--r-lg);overflow:hidden;background:#fff;margin-bottom:12px}
-.exmedia img{width:100%;height:320px;object-fit:contain;display:block}
+.exmedia img,.exmedia video{width:100%;height:320px;object-fit:contain;display:block}
 .exmedia .gifhint,.exmedia .giftoggle{
   position:absolute;bottom:9px;display:inline-flex;align-items:center;gap:4px;
   background:rgba(0,0,0,.45);color:#fff;border-radius:99px;padding:5px 11px;
@@ -654,10 +654,22 @@ h4.sec{
 .exmedia .gifhint{right:9px}
 .exmedia .giftoggle{left:9px}
 .exmedia .gifhint .icn,.exmedia .giftoggle .icn{font-size:13px}
+/* "this one is your coach's, not the stock animation" — the library is visibly mixed now.
+   Same pill as the hints so it reads as one family; top-left so it never collides with them. */
+.exmedia .exbadge{
+  position:absolute;top:9px;left:9px;display:inline-flex;align-items:center;gap:4px;
+  background:rgba(0,0,0,.45);color:#fff;border-radius:99px;padding:5px 11px;
+  font-size:12px;font-weight:500;pointer-events:none;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+}
+.exmedia .exbadge .icn{font-size:13px}
+/* an upload nothing has confirmed a browser can decode. Not an error state — it plays where it
+   plays — so it is tinted, not red, and it never hides the picture. */
+.exmedia .exbadge.warn{color:var(--yellow)}
 /* superset: both exercises are on screen together, so the animations have to give way —
    at 180px you had to scroll a full screen between two exercises done back-to-back */
-.exmedia.compact img{height:120px}
-.exmedia.mini img{height:84px}
+.exmedia.compact img,.exmedia.compact video{height:120px}
+.exmedia.mini img,.exmedia.mini video{height:84px}
 /* both the animation and the still failed to load: a neutral tile instead of the browser's
    broken-image glyph; same heights as the picture so the card does not jump. tap retries. */
 .exmedia.broken{background:var(--surface-2)}
@@ -1181,7 +1193,7 @@ h4.sec{
   /* 520px fits the clock, the bar and all three controls on one line again */
   #timer.rest{flex-direction:row;align-items:center;gap:14px}
   #timer.rest .head{flex:1;min-width:0}
-  .exmedia img{height:380px}
+  .exmedia img,.exmedia video{height:380px}
   .hm-wrap{display:flex;flex-direction:column;align-items:center}
 }
 

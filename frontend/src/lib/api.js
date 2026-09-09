@@ -39,6 +39,51 @@ export async function pairRedeem(serverBase, code) {
   return data
 }
 
+// Coach exercise demos. The list is ordinary JSON and goes through api() like everything else.
+export const fetchExerciseMedia = () => api('/api/media/exercises').then(d => d.media || [])
+
+/* The upload cannot. api() hard-sets Content-Type: application/json and unconditionally parses
+   the response, while this route wants the raw file as the ENTIRE body with its metadata in the
+   query string — there is no multipart parser on the server and there is not going to be one.
+
+   XMLHttpRequest rather than fetch for exactly one reason: fetch has no upload-progress event at
+   all, and 90 MB of video with no bar is indistinguishable from a hang. That means re-doing what
+   api() does — remoteBase, the Bearer token, the error unwrap — for the third time in this file,
+   which is the price of remoteBase/remoteToken being module-private. They have to be: a bare
+   fetch or XHR written in a view would silently hit the wrong origin and drop the token on the
+   paired mobile build. pairRedeem above is the same bargain for the same reason.
+
+   Returns a promise with .abort() on it, because cancelling a 90 MB upload is not a luxury. */
+export function uploadExerciseMedia(exId, label, file, onProgress) {
+  const xhr = new XMLHttpRequest()
+  const p = new Promise((resolve, reject) => {
+    const q = '?ex=' + encodeURIComponent(exId) + '&label=' + encodeURIComponent(label || '')
+    xhr.open('POST', remoteBase + '/api/media/exercise' + q)
+    if (remoteToken) xhr.setRequestHeader('Authorization', 'Bearer ' + remoteToken)
+    // Advisory only — the server sniffs the first 64 bytes and believes those, not this header.
+    if (file && file.type) xhr.setRequestHeader('Content-Type', file.type)
+    xhr.upload.onprogress = e => { if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total) }
+    xhr.onload = () => {
+      let data = {}
+      try { data = JSON.parse(xhr.responseText) } catch {}
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(data)
+      // The server's wording is the instruction — "use MP4 or MOV", "set the camera to Most
+      // Compatible". Pass it through untouched; a generic "upload failed" throws away the only
+      // thing that tells the coach what to change.
+      const e = new Error(data.error || ('HTTP ' + xhr.status)); e.status = xhr.status; reject(e)
+    }
+    // A refusal happens while the browser is still sending, and the server closes the socket to
+    // get its message out. Usually the response still lands (onload above); when it does not,
+    // the browser reports a bare network failure with no status. Name the two things that
+    // actually cause it rather than inventing a reason, and do not overwrite a real 413/415.
+    xhr.onerror = () => reject(new Error('The upload was cut off before the server answered — it may have refused the file for being too large or not a video.'))
+    xhr.onabort = () => reject(Object.assign(new Error('Upload cancelled'), { aborted: true }))
+    xhr.send(file)
+  })
+  p.abort = () => xhr.abort()
+  return p
+}
+
 const bufToB64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const b64uToBuf = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)).buffer
 
