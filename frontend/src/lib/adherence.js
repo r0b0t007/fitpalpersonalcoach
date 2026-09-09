@@ -58,7 +58,18 @@ function windowDays(toIso, days) {
  * payload without bound. That trim is safe because nothing outside the window can change the
  * answer, and there is a test below holding that property so the server can keep relying on it.
  *
- * @param {{week?:object, dayPlan?:object, routineIds?:string[], trainedDays?:string[]}} parts
+ * `created` is the member's join date and clamps the near end of the window. Without it a
+ * client added on Monday who sets a Mon/Wed/Fri week is scored against the three weeks before
+ * they existed and lands on the roster in red — the same "red flag on someone who has done
+ * nothing wrong" this module refuses to print for a member with no plan.
+ *
+ * `routineIds` must contain only routines that have exercises. A routine with none cannot be
+ * started — `nextTrainingDay` skips it and the TabBar refuses it — so a day holding only empty
+ * routines is not a day anybody could have trained, and scoring it as missed would mark someone
+ * absent from a session their own app would not let them begin.
+ *
+ * @param {{week?:object, dayPlan?:object, routineIds?:string[], trainedDays?:string[],
+ *          created?:string}} parts
  * @param {string} todayIso  taken as an argument, not read from the clock, so callers and
  *                           tests agree on "today" — the same contract as nextTrainingDay.
  * @param {number} days   window length, ending today. Today itself is pending (see above).
@@ -72,6 +83,8 @@ function windowDays(toIso, days) {
  */
 export function adherenceOf(parts, todayIso, days = ADHERENCE_WINDOW_DAYS) {
   const trainedOn = new Set(parts?.trainedDays || [])
+  // Timestamps and plain dates both appear here — user.created is an ISO instant on the wire.
+  const joined = parts?.created ? String(parts.created).slice(0, 10) : null
   // effectiveRoutineIds drops a weekday pointing at a routine that no longer exists, so it
   // needs the ids — a deleted routine leaves its id behind in `week`, and a day nobody can
   // train is not a day anyone missed.
@@ -85,13 +98,16 @@ export function adherenceOf(parts, todayIso, days = ADHERENCE_WINDOW_DAYS) {
   let trained = 0
   let extra = 0
 
-  const list = windowDays(todayIso, days).map(iso => {
+  const list = windowDays(todayIso, days).filter(iso => !joined || iso >= joined).map(iso => {
     const isPlanned = effectiveRoutineIds(state, iso).length > 0
     const didTrain = trainedOn.has(iso)
     // Today is scored on neither side, but a session already logged today still shows as
     // trained — hiding it would make the strip disagree with the workout they just finished.
+    // Only a *planned* today is pending: on a rest day there is nothing still to come, and
+    // saying so would put "today still to come" under a week that never asked for it.
     if (iso === todayIso) {
-      return { iso, planned: isPlanned, trained: didTrain, state: didTrain ? 'trained' : 'pending' }
+      const label = didTrain ? 'trained' : isPlanned ? 'pending' : 'rest'
+      return { iso, planned: isPlanned, trained: didTrain, state: label }
     }
     if (isPlanned) {
       planned++

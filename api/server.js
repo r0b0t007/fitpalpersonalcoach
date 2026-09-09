@@ -437,7 +437,7 @@ const memberCard = (u, viewerId = null) => {
     // What frontend/src/lib/adherence.js needs to score "are they showing up" without the roster
     // pulling every member's full state. The state is already read at the top of this function,
     // so it costs no extra I/O — only these four fields on the wire.
-    adherence: adherenceParts(S)
+    adherence: adherenceParts(S, u)
   };
 };
 
@@ -446,16 +446,29 @@ const memberCard = (u, viewerId = null) => {
 // `workouts` carries whole sessions where only the dates matter here. Nothing outside the window
 // can change the answer — adherence.test.js holds that property, which is what makes the trim
 // safe rather than merely smaller.
-const ADHERENCE_DAYS = 28;
-const adherenceParts = S => {
-  const since = addDaysISO(isoTodayUTC(), -(ADHERENCE_DAYS - 1));
+//
+// SEND_DAYS is deliberately "at least what the client needs", not "exactly": the client windows
+// on the browser's local date and this runs on the server's UTC date, which differ by up to a
+// day either way. Trimming to exactly 28 would, for any coach west of UTC between UTC midnight
+// and their own, drop the oldest day of the window they are about to score — silently, because
+// a stripped date reads as "did not train" rather than as missing data. The extra day costs one
+// more short string per member; the client still decides where the window starts.
+const ADHERENCE_SEND_DAYS = 30;   // >= frontend/src/lib/adherence.js ADHERENCE_WINDOW_DAYS + 1
+const adherenceParts = (S, u) => {
+  const since = addDaysISO(isoTodayUTC(), -(ADHERENCE_SEND_DAYS - 1));
   const dayPlan = {};
   for (const [iso, v] of Object.entries(S.dayPlan || {})) if (iso >= since) dayPlan[iso] = v;
   return {
     week: S.week || {},
     dayPlan,
-    routineIds: (S.routines || []).map(r => r.id),
-    trainedDays: [...new Set((S.workouts || []).map(w => w.d).filter(d => d && d >= since))]
+    // Only routines that can actually be trained. An empty one is skipped by nextTrainingDay
+    // and refused by the start button, so a day holding nothing else is not a day this member
+    // could have turned up for, and scoring it as missed would mark them absent from a session
+    // their own app would not let them begin.
+    routineIds: (S.routines || []).filter(r => (r.ex || []).length).map(r => r.id),
+    trainedDays: [...new Set((S.workouts || []).map(w => w.d).filter(d => d && d >= since))],
+    // Clamps the near end of the window: nobody misses sessions from before they joined.
+    created: u.created || null
   };
 };
 const expireCookie = name => `${name}=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;

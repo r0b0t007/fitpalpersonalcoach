@@ -151,3 +151,59 @@ describe('adherenceBand', () => {
     expect(adherenceBand(adherenceOf(S({ week: {} }), TODAY).rate)).toBeNull()
   })
 })
+
+describe('the window has a near end too', () => {
+  it('does not score days from before the member joined', () => {
+    // Added today, sets a Mon/Wed/Fri week, trains once. Without the clamp they are measured
+    // against three weeks that predate their account and land on the roster in red.
+    const fresh = adherenceOf(S({ created: '2026-09-07T09:12:44.000Z', trainedDays: ['2026-09-07'] }), TODAY)
+    expect(fresh.planned).toBe(1)          // Monday the 7th only
+    expect(fresh.trained).toBe(1)
+    expect(fresh.rate).toBe(1)
+    expect(fresh.days[0].iso).toBe('2026-09-07')
+  })
+
+  it('accepts a plain date as readily as an instant', () => {
+    expect(adherenceOf(S({ created: '2026-09-07' }), TODAY).days[0].iso).toBe('2026-09-07')
+  })
+
+  it(`leaves a long-standing member's window untouched`, () => {
+    const old = adherenceOf(S({ created: '2019-04-01T00:00:00.000Z' }), TODAY)
+    expect(old.days).toHaveLength(ADHERENCE_WINDOW_DAYS)
+  })
+
+  it('reports nothing to score for a member who joined today', () => {
+    // Their only day is today, which is pending — so there is no rate yet, not a 0%.
+    const r = adherenceOf(S({ created: TODAY }), TODAY)
+    expect(r.days).toHaveLength(1)
+    expect(r.planned).toBe(0)
+    expect(r.rate).toBeNull()
+  })
+})
+
+describe('today', () => {
+  it('is pending only when something was planned for it', () => {
+    // TODAY is a planned Wednesday.
+    expect(adherenceOf(S(), TODAY).pending).toBe(true)
+    // A Sunday, with a Mon/Wed/Fri week: nothing is still to come.
+    const sunday = adherenceOf(S(), '2026-09-13')
+    expect(stateOn(sunday, '2026-09-13')).toBe('rest')
+    expect(sunday.pending).toBe(false)
+  })
+
+  it('is never counted as extra, even when they trained on an unplanned one', () => {
+    const sunday = adherenceOf(S({ trainedDays: ['2026-09-13'] }), '2026-09-13')
+    expect(stateOn(sunday, '2026-09-13')).toBe('trained')
+    expect(sunday.extra).toBe(0)
+  })
+})
+
+describe('a routine with no exercises', () => {
+  it('is not a day anybody missed', () => {
+    // The caller sends only trainable routine ids; a week pointing at nothing else is rest.
+    const r = adherenceOf(S({ routineIds: [] }), TODAY)
+    expect(r.planned).toBe(0)
+    expect(r.rate).toBeNull()
+    expect(stateOn(r, '2026-09-07')).toBe('rest')
+  })
+})

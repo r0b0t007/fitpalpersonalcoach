@@ -123,6 +123,10 @@ describe('StatsPanels against a member payload', () => {
 const { AdherenceCard, RosterAdherence, memberAdherence } = await import('./Coach.jsx')
 
 describe('adherence in the coach view', () => {
+  // Fixed, never the clock. memberAdherence defaults `todayIso` to today, so a test that let it
+  // do that would pass now and start failing the day 2026-09-07 fell out of the 28-day window --
+  // unattended, in CI, weeks after the change that "caused" it.
+  const TODAY = '2026-09-09'
   // A Wednesday. Monday/Wednesday/Friday plan, trained the Monday just gone.
   const parts = (over = {}) => ({
     week: { 1: ['r1'], 3: ['r1'], 5: ['r1'] },
@@ -150,7 +154,7 @@ describe('adherence in the coach view', () => {
   })
 
   it('says there is nothing to miss rather than 0% when no week is set', () => {
-    const text = render(<AdherenceCard a={memberAdherence({ week: {}, dayPlan: {}, routines: [], workouts: [] })} />).textContent
+    const text = render(<AdherenceCard a={memberAdherence({ week: {}, dayPlan: {}, routines: [], workouts: [] }, TODAY)} />).textContent
     expect(text).toContain('nothing to miss')
     expect(text).not.toContain('0%')
   })
@@ -162,18 +166,38 @@ describe('adherence in the coach view', () => {
       week: parts().week, dayPlan: {},
       routines: [{ id: 'r1', name: 'Push', count: 5 }],
       workouts: [{ id: 'w1', d: '2026-09-07', entries: [] }],
-    })
+    }, TODAY)
     expect(detail.planned).toBeGreaterThan(0)
     expect(detail.trained).toBe(1)
   })
 
+  it('drops a routine with no exercises rather than scoring days nobody could train', () => {
+    // `count` is the exercise count in the detail payload. A skeleton routine assigned to the
+    // week is refused by the start button, so its days are not sessions anyone missed.
+    const skeleton = memberAdherence({
+      week: parts().week, dayPlan: {}, routines: [{ id: 'r1', count: 0 }], workouts: [],
+    }, TODAY)
+    expect(skeleton.planned).toBe(0)
+    expect(skeleton.rate).toBeNull()
+  })
+
   it('draws one cell per day in the window', () => {
     const host = render(<AdherenceCard a={memberAdherence({
-      week: parts().week, dayPlan: {}, routines: [{ id: 'r1' }],
+      week: parts().week, dayPlan: {}, routines: [{ id: 'r1', count: 3 }],
       workouts: [{ d: '2026-09-07' }],
-    })} />)
+    }, TODAY)} />)
     // The strip is the last flex row in the card.
     const strip = [...host.querySelectorAll('div')].find(d => d.style.display === 'flex' && d.children.length > 7)
     expect(strip.children).toHaveLength(28)
+  })
+
+  it('starts the strip at the join date for a member added mid-window', () => {
+    const host = render(<AdherenceCard a={memberAdherence({
+      week: parts().week, dayPlan: {}, routines: [{ id: 'r1', count: 3 }],
+      workouts: [{ d: '2026-09-07' }],
+      user: { created: '2026-09-07T08:00:00.000Z' },
+    }, TODAY)} />)
+    const strip = [...host.querySelectorAll('div')].find(d => d.style.display === 'flex' && d.children.length > 1)
+    expect(strip.children).toHaveLength(3)   // 7th, 8th, 9th
   })
 })

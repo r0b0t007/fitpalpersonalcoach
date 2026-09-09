@@ -52,12 +52,16 @@ const adhPct = a => (a && a.rate != null ? Math.round(a.rate * 100) : null)
 
 // The roster sends the four fields already; an opened member sends the plan plus full history,
 // so the same shape is rebuilt from the richer payload rather than scored differently.
-export const memberAdherence = d => adherenceOf({
+export const memberAdherence = (d, todayIso = isoOf(new Date())) => adherenceOf({
   week: d.week,
   dayPlan: d.dayPlan,
-  routineIds: (d.routines || []).map(r => r.id),
-  trainedDays: (d.workouts || []).map(w => w.d)
-}, isoOf(new Date()))
+  // `count` is the routine's exercise count in this payload. Empty routines are dropped for the
+  // same reason the roster drops them server-side: a day nobody could have started is not a day
+  // anybody missed.
+  routineIds: (d.routines || []).filter(r => r.count > 0).map(r => r.id),
+  trainedDays: (d.workouts || []).map(w => w.d),
+  created: d.user?.created || null
+}, todayIso)
 
 // `parts` is the raw four-field shape off the wire, not a scored result -- the roster scores it
 // here so the API never has to know what adherence means.
