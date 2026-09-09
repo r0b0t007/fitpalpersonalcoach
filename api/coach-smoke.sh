@@ -94,6 +94,21 @@ chk "coach cannot read disabled member"       403 "$(code -H "Cookie: $CA" "$B/a
 chk "unknown id is 403 not 404 (no enumeration)" 403 "$(code -H "Cookie: $CA" "$B/api/coach/member?id=nope")"
 chk "admin reads any member"                  200 "$(code -H "Cookie: $ADMIN" "$B/api/coach/member?id=mem2")"
 
+# The roster scores adherence client-side (frontend/src/lib/adherence.js) from four fields the
+# card carries. They are cheap -- the state is already read to build the card -- but they are
+# also easy to drop in a refactor, and the failure is silent: the column just stops rendering.
+chk "member card carries the adherence fields" "ok" "$(get -H "Cookie: $CA" "$B/api/coach/members" | node -pe "
+  const a = JSON.parse(require('fs').readFileSync(0,'utf8')).members[0].adherence || {};
+  ['week','dayPlan','routineIds','trainedDays','created'].every(k => k in a) ? 'ok' : 'missing: ' + JSON.stringify(a)")"
+# The join date clamps the near end of the window client-side. Drop it and every member added
+# this month is scored against the weeks before they existed and painted red on the roster.
+chk "member card carries the join date to clamp on" "ok" "$(get -H "Cookie: $CA" "$B/api/coach/members" | node -pe "
+  const m = JSON.parse(require('fs').readFileSync(0,'utf8')).members[0];
+  m.adherence.created === m.created ? 'ok' : 'got ' + JSON.stringify(m.adherence.created)")"
+chk "opened member carries the plan to score against" "ok" "$(get -H "Cookie: $CA" "$B/api/coach/member?id=mem1" | node -pe "
+  const d = JSON.parse(require('fs').readFileSync(0,'utf8'));
+  ('week' in d) && ('dayPlan' in d) ? 'ok' : 'missing'")"
+
 echo "== assigning =="
 chk "coach assigns to own member"             200 "$(send "$CA" '["mem1"]')"
 chk "coach cannot assign to another's member" 403 "$(send "$CA" '["mem2"]')"

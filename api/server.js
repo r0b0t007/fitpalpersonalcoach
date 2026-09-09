@@ -433,7 +433,42 @@ const memberCard = (u, viewerId = null) => {
     // program is not their business to see or cancel.
     pending: mine.filter(a => a.status === 'pending' && (!viewerId || a.coachId === viewerId))
       .map(a => ({ id: a.id, created: a.created, coachId: a.coachId })),
-    lastDecision: lastDecided ? { status: lastDecided.status, at: lastDecided.decidedAt } : null
+    lastDecision: lastDecided ? { status: lastDecided.status, at: lastDecided.decidedAt } : null,
+    // What frontend/src/lib/adherence.js needs to score "are they showing up" without the roster
+    // pulling every member's full state. The state is already read at the top of this function,
+    // so it costs no extra I/O — only these four fields on the wire.
+    adherence: adherenceParts(S, u)
+  };
+};
+
+// Trimmed to the adherence window on purpose. `dayPlan` holds an entry for every date a member
+// has ever rescheduled, so an untrimmed roster payload grows for the life of the account; and
+// `workouts` carries whole sessions where only the dates matter here. Nothing outside the window
+// can change the answer — adherence.test.js holds that property, which is what makes the trim
+// safe rather than merely smaller.
+//
+// SEND_DAYS is deliberately "at least what the client needs", not "exactly": the client windows
+// on the browser's local date and this runs on the server's UTC date, which differ by up to a
+// day either way. Trimming to exactly 28 would, for any coach west of UTC between UTC midnight
+// and their own, drop the oldest day of the window they are about to score — silently, because
+// a stripped date reads as "did not train" rather than as missing data. The extra day costs one
+// more short string per member; the client still decides where the window starts.
+const ADHERENCE_SEND_DAYS = 30;   // >= frontend/src/lib/adherence.js ADHERENCE_WINDOW_DAYS + 1
+const adherenceParts = (S, u) => {
+  const since = addDaysISO(isoTodayUTC(), -(ADHERENCE_SEND_DAYS - 1));
+  const dayPlan = {};
+  for (const [iso, v] of Object.entries(S.dayPlan || {})) if (iso >= since) dayPlan[iso] = v;
+  return {
+    week: S.week || {},
+    dayPlan,
+    // Only routines that can actually be trained. An empty one is skipped by nextTrainingDay
+    // and refused by the start button, so a day holding nothing else is not a day this member
+    // could have turned up for, and scoring it as missed would mark them absent from a session
+    // their own app would not let them begin.
+    routineIds: (S.routines || []).filter(r => (r.ex || []).length).map(r => r.id),
+    trainedDays: [...new Set((S.workouts || []).map(w => w.d).filter(d => d && d >= since))],
+    // Clamps the near end of the window: nobody misses sessions from before they joined.
+    created: u.created || null
   };
 };
 const expireCookie = name => `${name}=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
@@ -1150,7 +1185,20 @@ const routes = {
       lastSync: S._ts || null,
       routines: (S.routines || []).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: (r.ex || []).length })),
       bodyweight: S.bodyweight || [],
-      workouts: (S.workouts || []).slice().reverse()
+      workouts: (S.workouts || []).slice().reverse(),
+      // The rest of what <StatsPanels> reads, so a coach sees the same charts their client does
+      // rather than a count. Deliberately narrow: these are display preferences and training
+      // data, not the whole state blob — a coach has no business with someone's session
+      // secrets, reminders or device settings, and widening this to `...S` would hand them over.
+      body: S.body || 'male',
+      targetW: S.targetW ?? null,
+      effort: S.effort ?? null,
+      showRir: S.showRir ?? null,     // legacy field effortOf() still falls back to
+      // The plan itself, so the opened client's adherence is scored against every workout above
+      // rather than the roster's trimmed window. Untrimmed here because this is one member, and
+      // a coach looking at one person should see the whole picture.
+      week: S.week || {},
+      dayPlan: S.dayPlan || {}
     });
   },
 
@@ -1267,7 +1315,7 @@ const routes = {
     const body = await readBody(req);
     const invite = mintInvite(admin.id, body.note);
     saveDb();
-    audit(req, 'admin.invite.create', { user: admin, msg: code });
+    audit(req, 'admin.invite.create', { user: admin, msg: invite.code });
     json(res, 200, { invite });
   },
 
