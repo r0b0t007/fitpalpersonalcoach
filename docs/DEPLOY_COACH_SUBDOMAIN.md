@@ -139,13 +139,27 @@ server. If the subdomain is ever rebuilt, write it again:
 </IfModule>
 ```
 
-`sw.js` is the one that matters. Without this it is served with Cloudflare's default
-`max-age=14400`, so for **four hours after every deploy** the edge hands out the previous service
-worker — which then serves the previous shell out of its own cache. Browsers honour that max-age
-too: a service worker is only force-revalidated when its `max-age` exceeds 86400, and 14400 is
-under it. The symptom is a deploy that reports success while the app in front of you, and in
-front of every client, is the old one. It cost an hour once already: the fix was live at the
-origin and invisible in the browser.
+**The edge cache is the thing this fixes, not the browser cache.** Without these headers
+Cloudflare cached `sw.js` outright — `cf-cache-status: HIT`, `max-age=14400` — and handed out the
+*previous* service worker for four hours after a deploy, which then served the previous shell
+from its own cache. The symptom is a deploy that reports success while the app in front of you,
+and in front of every client, is the old one. It cost an hour once already: the fix was live at
+the origin and invisible in the browser.
+
+With the header set, `sw.js` returns `cf-cache-status: REVALIDATED` — the edge checks the origin
+on every request instead of serving a stored copy blind. That is the fix.
+
+Two things are worth knowing so nobody "fixes" this again in the wrong place:
+
+- **Cloudflare rewrites the browser-facing header on `.js`.** The zone's *Browser Cache TTL* is
+  4 hours, so `sw.js` still goes out as `max-age=14400, must-revalidate` however the origin
+  labels it. That is inert here: `main.jsx` registers with `navigator.serviceWorker.register('sw.js')`
+  and no `updateViaCache`, whose default (`'imports'`) makes the browser bypass its HTTP cache
+  for the worker script itself. Setting Browser Cache TTL to *Respect Existing Headers* would
+  tidy it, but it is zone-wide — it would also change `fitpal.ma` and `app.fitpal.ma`.
+- **`index.html` keeps `no-cache` intact**, because Cloudflare treats it as DYNAMIC and passes
+  the origin header through. That is the one that really matters: it names the hashed bundle, so
+  a cached copy pins a client to an old release no matter how fresh everything else is.
 
 Hashed files under `assets/` are deliberately untouched — their names change every build, so
 they should be cached hard.
@@ -154,8 +168,11 @@ The Docker path gets the same rules from `web/nginx.conf.template`, which alread
 `no-cache, must-revalidate` on `js|css|json|html`. This file is only needed because the cPanel
 deployment serves the static build through LiteSpeed instead, and never renders that template.
 
-**After a deploy, Cloudflare still holds the old `sw.js` until its TTL expires.** Purge it (or
-the whole zone) to make a release land immediately rather than within four hours.
+A one-off purge was needed when these headers were first added, because the edge was still
+holding the pre-fix copy: Caching → Configuration → Custom Purge → **URL**, one line,
+`https://coach.fitpal.ma/sw.js`. Purge by URL rather than *Purge Everything* — the zone also
+serves `fitpal.ma` and `app.fitpal.ma`. No purge is needed after later deploys; that is the whole
+point of `REVALIDATED`.
 
 ## Checking it worked
 
