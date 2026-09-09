@@ -17,7 +17,8 @@ import {
   bootstrapMatches, BOOTSTRAP_MIN,
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
   pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
-  findSessionConflicts
+  findSessionConflicts,
+  validateUpload, MEDIA_SNIFF_BYTES
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
@@ -61,6 +62,22 @@ if (BOOTSTRAP_CODE && !INVITE_ONLY)
 // baked into each cookie when it's issued, so lowering this never cuts an existing session short.
 const SESSION_DAYS = Math.max(1, +(process.env.SESSION_DAYS || 90) || 90);
 const MAX_BODY = 5 * 1024 * 1024;
+// Uploaded media has its own caps and never touches MAX_BODY — the upload routes stream straight
+// to disk instead of calling readBody, so a 90 MB video is never a 90 MB Buffer in the heap and
+// no JSON route inherits the larger number.
+//
+// The video default is chosen by the EDGE, not by what node could accept. coach.fitpal.ma is
+// proxied by Cloudflare, which refuses request bodies over 100 MB on the free and pro tiers, so
+// a cap above that is not a cap: the upload dies at the edge with an HTML error page the client's
+// api() helper cannot parse, and the app reports a limit it never actually enforced. 90 leaves
+// room for the request's own overhead. Self-hosters behind their own nginx can raise it.
+const mb = n => Math.round(n / (1024 * 1024));
+const MEDIA_MAX_VIDEO = Math.max(1, +(process.env.MEDIA_MAX_VIDEO_MB || 90) || 90) * 1024 * 1024;
+const MEDIA_MAX_PHOTO = Math.max(1, +(process.env.MEDIA_MAX_PHOTO_MB || 12) || 12) * 1024 * 1024;
+const MEDIA_DIR = path.join(DATA, 'media');
+// A flood guard, not a product rule: several angles of one lift is reasonable, an unbounded
+// upload endpoint on a shared-hosting quota is not.
+const MEDIA_MAX_PER_EX = 6;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 
@@ -92,6 +109,11 @@ db.invites = db.invites || [];
 db.requests = db.requests || [];   // access requests: pending → approved (mints an invite) | rejected
 db.sessions = db.sessions || [];   // group sessions (coached classes) — public read, admin write
 db.assignments = db.assignments || [];  // programs a coach pushed: pending → accepted | declined
+// Coach exercise demos. Coach-global rather than per-user — one coach, and a demo of a barbell
+// row is the same file for everyone — so db.json is the right home; ~400 rows is under 90 KB.
+// Keying on exId is also what finally gives CUSTOM exercises media, which the stock dataset
+// never could.
+db.media = db.media || [];
 const isAdmin = user => !!user && (user.admin === true || ADMIN_UIDS.includes(user.id));
 // A coach programs for the members assigned to them. Admins are coaches implicitly — they run the
 // gym — but the reverse is deliberately not true: the point of the role is handing a trainer
@@ -119,6 +141,94 @@ function atomicWrite(file, content, mode) {
   fs.writeFileSync(tmp, content, mode ? { mode } : undefined);
   fs.renameSync(tmp, file);
 }
+/* Stream a request body straight to disk. The same write-temp-then-rename split as atomicWrite,
+ * with a stream as the source instead of a string — but the rename is the CALLER's, because the
+ * final name is not known until the bytes are in: an exercise demo is content-addressed on the
+ * hash of what actually arrived, and the extension comes from sniffing rather than from anything
+ * the client said. So this resolves with the file sitting at `tmp`, validated and hashed, and the
+ * caller commits it.
+ *
+ * Three things it must get right, none of which are the happy path:
+ *
+ *  · **Refuse early.** The head is sniffed as soon as MEDIA_SNIFF_BYTES have arrived, not at the
+ *    end — otherwise a 90 MB HEIC is fully uploaded and fully written before anyone looks at it.
+ *  · **Leave nothing behind.** Every failure unlinks the temp file. On shared hosting a partial
+ *    upload that survives its own rejection is a disk quota filling up with files nothing
+ *    references and nothing will ever clean.
+ *  · **Do NOT destroy the request on refusal.** The obvious way to stop a sender mid-upload is
+ *    req.destroy(), and it silently defeats the entire point of this module: destroying the
+ *    request destroys the socket, so the JSON explaining the refusal never reaches the client,
+ *    which sees a dropped connection instead. Every carefully worded "convert to MP4 first"
+ *    became a connection reset. The caller answers with `Connection: close` instead and lets
+ *    node tear the socket down after the response has flushed.
+ *    Honest about how far that goes: because the request body was never drained, the close is a
+ *    TCP RST rather than a clean FIN. A client that reads the response while still uploading —
+ *    curl, and fetch() in the ordinary case — gets the message. A browser tens of MB into a
+ *    large upload when the RST lands may still surface a network error instead of the 413. That
+ *    is strictly better than losing the message every time, not a guarantee of delivering it.
+ *
+ * `check` is handed the head and returns validateUpload's shape: `{ error }` refuses, anything
+ * else is resolved back to the caller as `meta`.
+ */
+function streamToFile(req, tmp, maxBytes, check) {
+  return new Promise((resolve, reject) => {
+    const out = fs.createWriteStream(tmp);
+    const sha = crypto.createHash('sha256');
+    let size = 0, head = [], headLen = 0, meta = null, settled = false;
+
+    const fail = (status, message) => {
+      if (settled) return; settled = true;
+      req.pause();   // stop reading; the response, not a socket teardown, is what answers this
+      // Unlink only once the stream has really closed, and reject only once the unlink has run.
+      // createWriteStream opens its fd ASYNCHRONOUSLY, so removing the file the instant
+      // destroy() is called races that open: the unlink can land first and the pending open then
+      // re-creates the file, leaving an orphan nothing will ever clean. Sequencing it this way
+      // also means the rejection — and therefore the HTTP response — happens after the file is
+      // actually gone, which is what makes "every failure cleans up" a property a test can
+      // observe rather than one that is merely usually true.
+      out.on('close', () => fs.rm(tmp, { force: true },
+        () => reject(Object.assign(new Error(message), { status }))));
+      out.destroy();
+    };
+    // Deferred until the head is complete, so it runs once whether that took one chunk or five.
+    const sniff = () => {
+      const r = check(Buffer.concat(head, headLen));
+      head = null;
+      if (r && r.error) { fail(415, r.error); return false; }
+      meta = r;
+      return true;
+    };
+
+    req.on('data', chunk => {
+      if (settled) return;
+      size += chunk.length;
+      if (size > maxBytes) return fail(413, `file is larger than the ${mb(maxBytes)} MB limit`);
+      if (meta === null) {
+        head.push(chunk); headLen += chunk.length;
+        if (headLen >= MEDIA_SNIFF_BYTES && !sniff()) return;
+      }
+      sha.update(chunk);
+      if (!out.write(chunk)) { req.pause(); out.once('drain', () => req.resume()); }
+    });
+    req.on('end', () => {
+      if (settled) return;
+      // Emptiness is judged before format. Both are refusals, but "empty upload" tells the
+      // uploader something true and actionable, where sniffing nothing yields the generic
+      // "not a recognised image or video file" about a file they never actually sent.
+      if (!size) return fail(400, 'empty upload');
+      // A file shorter than the sniff window still has to be judged; sniffMedia's own length
+      // guard turns a genuinely tiny body into "not a recognised file" rather than a crash.
+      if (meta === null && !sniff()) return;
+      out.end(() => {
+        if (settled) return; settled = true;
+        resolve({ bytes: size, meta, sha: sha.digest('hex') });
+      });
+    });
+    req.on('error', () => fail(400, 'upload interrupted'));
+    out.on('error', () => fail(500, 'could not write the file'));
+  });
+}
+
 const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
 function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
@@ -380,10 +490,14 @@ function requireAdmin(req, res) {
 // Guard for /api/coach/* — being a coach only gets you through the door. Every one of these
 // routes must ALSO check canCoachMember for the specific member it touches, because the role
 // says "may coach someone", never "may coach this person".
-function requireCoach(req, res) {
+// `headers` is for callers that refuse WITHOUT reading the request body — the upload routes. Node
+// dumps an unread body on a keep-alive socket, so without a `Connection: close` there they would
+// drain an arbitrarily large upload from someone who failed the auth check. Every other caller
+// reads through readBody, which is bounded, and passes nothing.
+function requireCoach(req, res, headers) {
   const user = readSession(req);
-  if (!user) { json(res, 401, { error: 'not signed in' }); return null; }
-  if (!isCoach(user)) { json(res, 403, { error: 'forbidden' }); return null; }
+  if (!user) { json(res, 401, { error: 'not signed in' }, headers); return null; }
+  if (!isCoach(user)) { json(res, 403, { error: 'forbidden' }, headers); return null; }
   return user;
 }
 // A pending offer outlives the relationship it came from unless something retires it. Without
@@ -1221,6 +1335,103 @@ const routes = {
       .filter(s => s.coachId === coach.id && s.date >= from)
       .sort(sessionSort);
     json(res, 200, { sessions });
+  },
+
+  /* ---------- coach media: exercise demos ---------- */
+  // The file is the ENTIRE body and its metadata rides in the query string. There is no multipart
+  // parser and there will not be one: multipart exists so an HTML <form> can send several fields
+  // at once, we have our own client sending one file and two scalars, and a correct boundary
+  // state machine is ~150 lines of the most bug-prone code imaginable in a codebase that parses
+  // nothing else. Base64-in-JSON was the other option and is worse — 33% inflation, and the whole
+  // video buffered in the node heap.
+  //
+  // Query params also mean the exact-match route table needs no change; a path parameter would
+  // force it to become a regex table.
+  'POST /api/media/exercise': async (req, res) => {
+    // `Connection: close` on EVERY refusal here, not only the ones after streaming starts. These
+    // paths answer without reading the body, so node would otherwise dump it — draining an
+    // arbitrarily large upload from a caller who is not even signed in, with neither MAX_BODY nor
+    // MEDIA_MAX_VIDEO applying, because streamToFile never ran. Every other POST route is bounded
+    // by readBody; this one has to say so itself.
+    const shut = { Connection: 'close' };
+    const coach = requireCoach(req, res, shut); if (!coach) return;
+    const q = new URL(req.url, 'http://x').searchParams;
+    const exId = String(q.get('ex') || '').trim();
+    // Whitelisted, not escaped: this ends up in a filename, and the set of ids that are valid is
+    // far easier to state correctly than the set of traversal tricks that are not.
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(exId)) return json(res, 400, { error: 'bad exercise id' }, shut);
+    const label = String(q.get('label') || '').trim().slice(0, 40);
+    const atCap = () => db.media.filter(m => m.exId === exId).length >= MEDIA_MAX_PER_EX;
+    if (atCap()) return json(res, 429, { error: `that exercise already has ${MEDIA_MAX_PER_EX} videos` }, shut);
+
+    const dir = path.join(MEDIA_DIR, 'ex');
+    try { fs.mkdirSync(dir, { recursive: true }); }
+    catch { return json(res, 500, { error: 'media directory is not writable' }, shut); }
+    const tmp = path.join(dir, '.up-' + crypto.randomBytes(8).toString('hex'));
+
+    let up;
+    try { up = await streamToFile(req, tmp, MEDIA_MAX_VIDEO, head => validateUpload(head, 'video')); }
+    // `Connection: close` is load-bearing, not tidiness. A refusal happens with the client still
+    // sending, so the request body is never fully read and the connection cannot be reused. Node
+    // tears the socket down AFTER this response flushes, which is what gets the message out —
+    // destroying the request instead loses it, and the uploader sees a dead connection.
+    catch (e) { return json(res, e.status || 400, { error: e.message }, { Connection: 'close' }); }
+
+    // Re-checked AFTER the upload, because the first check is a promise about the past: it ran
+    // before an await, and db.media is only mutated after one. N concurrent uploads for the same
+    // exercise all saw the same pre-upload count and all passed it, so a retry loop could store
+    // ten files against a cap of six — and there is no delete route to undo that yet.
+    if (atCap()) {
+      fs.rm(tmp, { force: true }, () => {});
+      return json(res, 429, { error: `that exercise already has ${MEDIA_MAX_PER_EX} videos` });
+    }
+
+    // Content-addressed on what actually arrived, never on what the client called it. Two
+    // consequences worth having: the same file uploaded twice lands on the same name instead of
+    // accumulating, and a name can be cached forever because it cannot change meaning.
+    const file = `${exId}-${up.sha.slice(0, 16)}.${up.meta.ext}`;
+    const stored = path.join(dir, file);
+    try { fs.renameSync(tmp, stored); }
+    catch { fs.rm(tmp, { force: true }, () => {}); return json(res, 500, { error: 'could not store the file' }); }
+
+    const row = {
+      id: crypto.randomBytes(12).toString('base64url'),
+      exId, coachId: coach.id, file, label,
+      bytes: up.bytes, mime: up.meta.mime,
+      // 'raw' is not "broken" — it is "nothing has yet confirmed a client's browser can decode
+      // this". An iPhone's HEVC/.mov lands here, and whatever converts it flips this to 'ready'.
+      status: up.meta.needsTranscode ? 'raw' : 'ready',
+      created: new Date().toISOString()
+    };
+    const before = db.media;
+    db.media = db.media.filter(m => m.file !== file).concat(row);
+    // The file is committed before the row that references it, so a failing save leaves an
+    // orphan on disk that nothing lists and no route can delete — permanent, on exactly the
+    // shared-hosting quota this route is careful about elsewhere. atomicWrite can genuinely
+    // throw here (ENOSPC, EDQUOT), so unwind rather than letting the dispatcher's 500 hide it.
+    try { saveDb(); }
+    catch (e) {
+      db.media = before;
+      fs.rm(stored, { force: true }, () => {});
+      console.error('media save failed', e);
+      return json(res, 507, { error: 'could not record the upload — is the disk full?' });
+    }
+    json(res, 200, { ok: true, media: row });
+  },
+
+  // Signed-in, not coach-only, and deliberately so: the client needs this to know which exercises
+  // have a demo before it can render one. Videos are public by design (one coach, no other
+  // tenant, and the secret is a demo of a barbell row) — it is progress photos that are private,
+  // and they are a different route with a different predicate.
+  'GET /api/media/exercises': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    json(res, 200, {
+      media: db.media.map(m => ({
+        id: m.id, exId: m.exId, file: m.file, label: m.label,
+        mime: m.mime, bytes: m.bytes, status: m.status, created: m.created
+      }))
+    });
   },
 
   'POST /api/coach/assign': async (req, res) => {

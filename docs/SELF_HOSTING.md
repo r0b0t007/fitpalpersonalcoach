@@ -170,7 +170,29 @@ NGINX_PORT=80              # port the web container listens on, inside the conta
 BACKEND=api                # name of the API service that /api is proxied to
 PORT=3000                  # port the API listens on; web proxies to the same value
 SESSION_DAYS=90            # how long a sign-in lasts
+MEDIA_MAX_VIDEO_MB=90      # coach exercise demos (see below)
+MEDIA_MAX_PHOTO_MB=12      # progress photos (no route behind it yet)
+NGINX_MAX_BODY=128m        # the web container's own limit — keep it ABOVE the video cap
 ```
+
+The two media caps are separate from the 5 MB JSON body limit because uploads stream straight to
+disk rather than being buffered and parsed — a large video is never a large Buffer in the node
+heap, and no JSON route inherits the bigger number. Uploads land in `DATA_DIR/media/`, so the
+existing backup covers them.
+
+**Whatever sits in front of the app is the limit that actually fires.** nginx's
+`client_max_body_size` defaults to 1 MB, and Cloudflare refuses bodies over 100 MB on its free and
+pro plans. A node cap above the proxy's is not a cap: the upload dies out there, usually with an
+HTML error page the app cannot parse, and the app reports a limit it never enforced. `NGINX_MAX_BODY`
+exists so the shipped web container does not become that proxy — it must stay above
+`MEDIA_MAX_VIDEO_MB`, and node's is the limit meant to be hit, because node can answer it in JSON.
+
+One behavioural difference worth knowing between the two deployments: nginx buffers a request body
+to disk before passing it upstream (`proxy_request_buffering` is on by default), so behind the
+compose stack the API sees an upload only once it has fully arrived. The API's early rejection —
+it identifies a file from its first 64 bytes and refuses before writing the rest — therefore only
+takes effect on a deployment that streams to it directly. The refusal is identical either way; the
+bytes are simply already spent.
 
 The web image renders its nginx config from these when the container starts, so they take effect
 on a **prebuilt image** — no rebuild. `BACKEND` and `PORT` together are what `/api` is proxied to,

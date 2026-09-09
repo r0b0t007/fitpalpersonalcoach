@@ -27,7 +27,13 @@ server {
         # logged workout, so this is a cliff a long-standing user walks into, not a theoretical
         # one. Keep this value ABOVE whatever node enforces: node's limit is the one meant to be
         # hit, because node can answer it in JSON that the client understands.
-        client_max_body_size 16m;
+        #
+        # That invariant is why this is no longer 16m. Coach exercise demos stream through here
+        # and the API caps them at MEDIA_MAX_VIDEO_MB (90 by default), so 16m put nginx BACK
+        # below node -- every demo over 16 MB would have hit the HTML-413 cliff this comment was
+        # written about, on the stack the repo itself ships. Rendered from the environment so the
+        # two move together; raise NGINX_MAX_BODY whenever MEDIA_MAX_VIDEO_MB goes past it.
+        client_max_body_size ${NGINX_MAX_BODY};
         # Resolved per request through Docker's DNS, not once at start-up: nginx otherwise pins
         # the api container's IP when it boots, and a recreated api (new IP) means 502 on every
         # /api call until web is restarted too (issue #16). The variable is what makes nginx
