@@ -224,3 +224,38 @@ describe('Media recovery from a failed load', () => {
     expect(host.querySelector('video')).toBeFalsy()
   })
 })
+
+// Both of these mount with NO element in the DOM and gain one on a later render. That is the
+// whole case: an effect watching `onScreen` (or `kind`) cannot see a node that arrives without
+// any of its dependencies changing, so it never attaches an observer and the video sits paused
+// forever under a "tap to pause" hint, unrecoverable without a remount. A callback ref fires on
+// the arrival itself. Both assert the observer was attached AND that the video actually plays.
+describe('Media starts playing when the element arrives late', () => {
+  it('a custom exercise whose coach video lands after mount', async () => {
+    const seen = stubIO()
+    const play = vi.spyOn(mediaProto, 'play').mockResolvedValue(undefined)
+    mount({}, CUSTOM)                                   // nothing to render: returns null
+    expect(host.querySelector('video')).toBe(null)
+    expect(seen.length).toBe(0)
+    await act(async () => { setCoachMedia([{ ...ROW, exId: CUSTOM.id }]) })
+    expect(host.querySelector('video')).not.toBe(null)
+    expect(seen.length).toBe(1)                         // the observer was attached on arrival
+    expect(play).toHaveBeenCalled()                     // ...and it is actually playing
+  })
+
+  it('media switched back on in settings, with the same exercise and the same rung', async () => {
+    const seen = stubIO()
+    const play = vi.spyOn(mediaProto, 'play').mockResolvedValue(undefined)
+    setCoachMedia([ROW])
+    mocks.S = { gifSize: 'off' }
+    mount({ minimizable: true })                        // switched off: returns null
+    expect(host.querySelector('video')).toBe(null)
+    // Neither `onScreen` nor `kind` differs across this re-render — only the element's existence
+    // does, which is exactly what a dependency array cannot observe.
+    mocks.S = { gifSize: 'full' }
+    await act(async () => { root.render(<Media ex={EX} minimizable />) })
+    expect(host.querySelector('video')).not.toBe(null)
+    expect(seen.length).toBe(1)
+    expect(play).toHaveBeenCalled()
+  })
+})

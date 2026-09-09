@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { imgSrc, resolveMedia } from '../lib/exercises.js'
 import { coachMediaFor, coachMediaVersion, subscribeCoachMedia } from '../lib/coach-media.js'
 import { useStore } from '../store/useStore.js'
@@ -34,7 +34,6 @@ export default function Media({ ex, id, compact, minimizable }) {
   // registry is synchronous, so this only exists to repaint the one time it lands.
   useSyncExternalStore(subscribeCoachMedia, coachMediaVersion, coachMediaVersion)
   const vid = useRef(null)
-  const box = useRef(null)
   // Nothing plays until the card is on screen. The workout's list view mounts a Media for EVERY
   // exercise in the session at once (views/Workout.jsx), and play() overrides preload="metadata"
   // — it buffers the file. Six coach demos against the 90 MB the API accepts is half a gigabyte
@@ -45,16 +44,28 @@ export default function Media({ ex, id, compact, minimizable }) {
   // IntersectionObserver is a browser API, not a dependency; where it is missing, eager play is
   // the right fallback — the demo playing is the feature, the saved bytes are the optimisation.
   const [onScreen, setOnScreen] = useState(() => typeof IntersectionObserver === 'undefined')
-  useEffect(() => {
-    if (onScreen || typeof IntersectionObserver === 'undefined') return
-    const el = box.current
-    if (!el) return
-    const io = new IntersectionObserver(es => {
-      if (es.some(e => e.isIntersecting)) { setOnScreen(true); io.disconnect() }
+  // A CALLBACK ref, not useRef plus an effect, and the difference is a bug rather than a style.
+  // This component returns null before any DOM exists in two ordinary cases — a custom exercise
+  // whose coach video has not arrived yet (`!m.any`), and the workout view with media switched
+  // off (`gifSize === 'off'`). In both, the element appears on a LATER render. An effect cannot
+  // see that: the render that finally produces the node has the same `onScreen` as the one
+  // before it, and in the gifSize case the same `kind` too, so no dependency changes, the effect
+  // never re-runs, no observer is ever attached, and `onScreen` stays false forever. The video
+  // then sits paused under a "tap to pause" hint, and tapping only toggles `playing`, which the
+  // play effect ignores while `onScreen` is false — nothing but a remount recovers it.
+  // A callback ref fires when the node ARRIVES, which is precisely the event being waited on.
+  const io = useRef(null)
+  const box = useCallback(node => {
+    if (io.current) { io.current.disconnect(); io.current = null }
+    if (!node || typeof IntersectionObserver === 'undefined') return
+    io.current = new IntersectionObserver(es => {
+      if (es.some(e => e.isIntersecting)) {
+        setOnScreen(true)
+        if (io.current) { io.current.disconnect(); io.current = null }
+      }
     }, { rootMargin: '200px' })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [onScreen])
+    io.current.observe(node)
+  }, [])
 
   const m = resolveMedia(ex, coachMediaFor(ex && ex.id))
   // Whatever actually exists, in the order it should be tried.

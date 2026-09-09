@@ -5,7 +5,7 @@ import { fmtDate, fmtNum, todayISO, uid } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import {
   MACROS, addMeal, entriesOn, foodKey, isValidFood, isValidGrams, loggedFood,
-  rememberFood, removeMeal, searchFoods, targetOf, totalsFor
+  rememberFood, removeMeal, scaleFood, searchFoods, targetOf, totalsFor
 } from '../lib/nutrition.js'
 import { MacroRows, MACRO_LABEL, MACRO_UNIT } from '../components/MacroRows.jsx'
 import Icon from '../components/Icon.jsx'
@@ -44,7 +44,9 @@ export default function Nutrition() {
   const unknown = !!foodKey(query) && !matches.some(f => foodKey(f.n) === foodKey(query))
 
   const log = (food, id) => {
-    if (!isValidGrams(grams)) { toast(t('Check the numbers — calories are required, and all four are per 100 g.')); return }
+    // The only thing log() can reject is the grams box, so it must say so. It used to borrow the
+    // per-100 g form's message, which is advice about a form that is not on screen on this path.
+    if (!isValidGrams(grams)) { toast(t('Enter a weight in grams, up to 5000.')); return }
     update(s => {
       s.foods = rememberFood(s.foods, { ...food, id })
       s.meals = addMeal(s.meals, loggedFood({ ...food, id }, grams, { id: uid(), d: today }))
@@ -106,7 +108,10 @@ export default function Nutrition() {
           </span>
         </div>
         <div className="dim small" style={{ margin: '0 2px 10px' }}>
-          {MACROS.map(k => fmtNum(Math.round(picked[k] * grams) / 100) + ' ' + MACRO_UNIT(k)).join(' · ')}
+          {/* scaleFood, not a second rounding of the same numbers: it is what the stored entry
+              will hold, so the preview and the row that appears one tap later agree. Rounding
+              here independently read "125.4 kcal · 4.29 g" and then logged "125" and "4.3". */}
+          {(sc => MACROS.map(k => fmtNum(sc[k]) + ' ' + MACRO_UNIT(k)).join(' · '))(scaleFood(picked, grams))}
         </div>
         {/* Disabled rather than toasted: the only thing that can be wrong here is the grams box
             right above it, and a button that visibly cannot be pressed says that better than a

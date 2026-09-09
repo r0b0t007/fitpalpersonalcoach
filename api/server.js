@@ -219,7 +219,7 @@ function streamToFile(req, tmp, maxBytes, check) {
       // actually gone, which is what makes "every failure cleans up" a property a test can
       // observe rather than one that is merely usually true.
       out.on('close', () => fs.rm(tmp, { force: true },
-        () => reject(Object.assign(new Error(message), { status }))));
+        () => reject(Object.assign(new Error(message), { status, clientSafe: true }))));
       out.destroy();
     };
     // Deferred until the head is complete, so it runs once whether that took one chunk or five.
@@ -853,14 +853,14 @@ function readBody(req, limit = MAX_BODY, tooLargeMsg) {
         req.pause();   // stop reading; the response, not a socket teardown, is what answers this
         reject(Object.assign(
           new Error(tooLargeMsg || `request body is larger than the ${mb(limit)} MB limit`),
-          { status: 413 }));
+          { status: 413, clientSafe: true }));
         return;
       }
       chunks.push(d);
     });
     req.on('end', () => {
       try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
-      catch { reject(Object.assign(new Error('bad json'), { status: 400 })); }
+      catch { reject(Object.assign(new Error('bad json'), { status: 400, clientSafe: true })); }
     });
     req.on('error', reject);
   });
@@ -2235,14 +2235,17 @@ http.createServer(async (req, res) => {
     // a message written for whoever sent the request. Flattening those into "server error" is how
     // a client ends up retrying forever against a limit nobody told it about.
     //
-    // Narrow on purpose. `.status` is a field anyone can put on an Error, not a contract: an
-    // error thrown deeper — an HTTP client's, some future helper's — can carry one too, and
-    // returning ITS message verbatim would hand a caller an internal detail. A 4xx means "your
-    // request was wrong and here is what to change"; everything else is ours and takes the 500.
+    // Gated on `clientSafe`, NOT on `.status` alone, and the difference is the whole point of
+    // the comment that used to sit here. `.status` is a field anyone can put on an Error and is
+    // exactly what an HTTP client library sets: the day any helper here wraps `undici` or a
+    // provider SDK, a 400 from THAT would have relayed its provider-authored message straight to
+    // the requester, which is the internal detail this was written to withhold. Only the three
+    // places that mint a deliberate refusal — readBody's 413 and 400, streamToFile's — set
+    // clientSafe, so only sentences written to be read by a caller can reach one.
     // Logged as a warning either way, at the same volume as the cross-origin refusal above, so
     // an operator asked "why did my phone stop syncing" has a line to find. Not console.error:
     // a 400 from a scanner is not a fault in this server and must not read as one.
-    if (e && Number.isInteger(e.status) && e.status >= 400 && e.status < 500) {
+    if (e && e.clientSafe === true && Number.isInteger(e.status) && e.status >= 400 && e.status < 500) {
       console.warn('refused', key, e.status, e.message);
       // Connection: close for the same reason the upload routes send it: a refusal happens with
       // the client still sending, so the body was never fully read and the socket cannot be

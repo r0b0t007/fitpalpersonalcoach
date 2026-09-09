@@ -1338,6 +1338,7 @@ export default {
   'Nothing logged today.': 'Rien d’enregistré aujourd’hui.',
   'Nothing logged in this window.': 'Rien d’enregistré sur cette période.',
   'No targets yet — your coach sets them with your program.': 'Pas encore d’objectifs — votre coach les fixe avec votre programme.',
+  'Enter a weight in grams, up to 5000.': 'Saisissez un poids en grammes, jusqu’à 5000.',
   'Check the numbers — calories are required, and all four are per 100 g.': 'Vérifiez les chiffres — les calories sont obligatoires, et les quatre valeurs sont pour 100 g.',
   '{0} kcal on average': '{0} kcal en moyenne',
   'logged {0} of {1} days': 'enregistré {0} jours sur {1}',

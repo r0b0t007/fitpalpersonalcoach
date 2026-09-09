@@ -288,8 +288,13 @@ export const useStore = create((set, get) => {
         // nothing, and PUT /api/data's 413 sends back a sentence naming the limit and what to do
         // about it — swallowing it is how a profile stops syncing forever with nothing on screen.
         // Anything without a status is offline, which resolves itself and must never put a
-        // failure row in front of someone on the train.
-        set({ syncError: e && e.status >= 400 && e.status < 500 ? e.message : null })
+        // failure row in front of someone on the train — but it must not CLEAR one either. A
+        // refusal is a fact about the state, not about the last request: 413 over the limit,
+        // then a walk into a lift, and a bare "Failed to fetch" would wipe the only line saying
+        // why nothing is syncing, while the state is still over the cap. The row goes when a
+        // push actually succeeds, which is where it is cleared.
+        const refused = e && Number.isInteger(e.status) && e.status >= 400 && e.status < 500
+        if (refused) set({ syncError: e.message })
       }
     },
     async pullState() {
