@@ -82,6 +82,16 @@ jobs:
         working-directory: api
       - run: npm test
         working-directory: api
+      # The api's copy of the exercise catalogue is generated and committed. A dataset change
+      # that forgets to regenerate it would otherwise only surface as "the Coach can't find
+      # that exercise" on somebody's instance.
+      - run: node scripts/build-coach-assets.mjs --check
+      - run: node api/scripts/check-core-loadable.mjs
+      # ADHERENCE_SEND_DAYS in the api and ADHERENCE_WINDOW_DAYS in the frontend sit either side
+      # of a boundary neither can import across. Breaking their relationship does not error --
+      # a trimmed date is indistinguishable from a day nobody trained, so every member's
+      # adherence just quietly drops.
+      - run: node api/scripts/check-adherence-window.mjs
 
   # The unit suite imports domain.mjs and nothing else, so until this job existed no HTTP route,
   # cookie check or permission boundary was covered by any automated run: canCoachMember was
@@ -154,28 +164,41 @@ jobs:
       - run: npm run check:node-loadable
         working-directory: mcp
 
-  api:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      # Nothing to install: the Coach tests run on node:test and drive the in-repo fixture
-      # provider, so the whole job works without an AI account, a network, or a dependency.
-      - run: npm test
-        working-directory: api
-      # The api's copy of the exercise catalogue is generated and committed. A dataset change
-      # that forgets to regenerate it would otherwise only surface as "the Coach can't find
-      # that exercise" on somebody's instance.
-      - run: node scripts/build-coach-assets.mjs --check
-      - run: node api/scripts/check-core-loadable.mjs
-
   # Builds *and runs* both image targets. Building alone would not have caught the api image
   # shipping without coach/ — that image built perfectly and exited on boot. So each target has
   # to answer for itself: the default one starts and serves, and the coach one additionally
   # resolves the Agent SDK's per-platform runtime (musl on this base), which is the one thing
   # that cannot be checked from the source tree.
+  # web/nginx.conf.template had no check of any kind. It is rendered by envsubst at container
+  # start, so a typo in it is not a build failure -- it is nginx refusing to start, on every
+  # self-hoster's `docker compose up`, after a green pipeline. Booting the image is the check:
+  # nginx parses its config before it serves anything.
+  web-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Context is the repo root, matching docker-publish.yml and docker-compose.yml -- the
+      # image builds the frontend in an earlier stage, so web/ alone is not enough.
+      - run: docker build -f web/Dockerfile -t opengym-web:test .
+
+      - name: the web image boots, parses its rendered config, and serves the app
+        run: |
+          docker run -d --name web-test -p 8080:80 opengym-web:test
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8080/ >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8080/ | grep -q '<title'
+          # The rendered config, not the template: envsubst runs at start-up, so this is the
+          # only place the substituted result is ever parsed.
+          docker exec web-test nginx -t
+          # The API's own MAX_BODY is 5m and must be the limit that gets hit, because node can
+          # answer it in JSON. nginx's default of 1m would refuse a large sync first, with an
+          # HTML error page the client cannot parse.
+          docker exec web-test grep -q 'client_max_body_size 16m' /etc/nginx/conf.d/default.conf
+          docker rm -f web-test
+
   api-image:
     runs-on: ubuntu-latest
     steps:
