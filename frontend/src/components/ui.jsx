@@ -94,10 +94,14 @@ export function Switch({ checked, onChange, disabled }) {
 
 // options: [{ value, label, icon? }]  — the selected pill slides between cells.
 export function Segmented({ options, value, onChange, className = '' }) {
-  const i = Math.max(0, options.findIndex(o => o.value === value))
+  // No pill at all when nothing matches, rather than parking it on the first option. Every
+  // caller that always holds a valid value is unaffected; the one that can hold none — the
+  // weekly check-in, where a scale left blank must stay blank — was showing five untouched
+  // scales as if the client had rated their week 1 out of 5 across the board.
+  const i = options.findIndex(o => o.value === value)
   return (
-    <div className={'seg ' + className} style={{ '--n': options.length, '--i': i }}>
-      <span className="seg-sel" aria-hidden="true" />
+    <div className={'seg ' + className} style={{ '--n': options.length, '--i': Math.max(0, i) }}>
+      {i >= 0 && <span className="seg-sel" aria-hidden="true" />}
       {options.map(o => (
         <button
           key={o.value}
