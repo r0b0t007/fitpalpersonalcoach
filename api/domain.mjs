@@ -293,22 +293,37 @@ export function decideAssignment(assignment, accept, now = Date.now()) {
 // The playback problem is real and does not go away by accepting the file — it moves to whoever
 // consumes `needsTranscode`. That is the right place for it: refusing here does not get the demo
 // filmed, and a coach who cannot upload from the phone they filmed on has no workflow at all.
-export const MEDIA_SNIFF_BYTES = 32   // ftyp brand ends at 12; RIFF/WEBP needs 12. Headroom.
+// 64 rather than 32. The major brand does end at 12, but the classification below turns on the
+// COMPATIBLE list, which starts at offset 16 — so a 32-byte window held only four of them, and
+// the brand that decides the answer is routinely not in the first four. An `hvc1` past the
+// window reads as an ordinary MP4 and comes back `needsTranscode: false`, which is the one flag
+// this module exists to set. 64 carries a major brand plus twelve compatible ones, past anything
+// Apple or ffmpeg writes.
+export const MEDIA_SNIFF_BYTES = 64
 
 const BRAND_MP4 = new Set(['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'mp4v', 'avc1', 'M4V ', 'dash', 'cmfc'])
-const BRAND_HEVC = new Set(['hvc1', 'hev1', 'hvcC'])
+const BRAND_HEVC = new Set(['hvc1', 'hev1'])
 const BRAND_HEIF = new Set(['heic', 'heix', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1'])
 const BRAND_AVIF = new Set(['avif', 'avis'])
 
 const ascii = (buf, from, to) => Buffer.from(buf.subarray(from, to)).toString('latin1')
 
-// Every brand the box declares: the major one at 8, then the compatible list from 16 up to the
-// box length at 0. The length is clamped to what was actually read — a truncated first chunk
-// must not send this walking off the end of the buffer.
+// Every brand the box declares: the major one at 8, then the compatible list from 16.
+//
+// Three separate things have to be clamped, and the buffer length alone covers only the first:
+//   · a first chunk is a PREFIX, so the declared box length routinely exceeds the bytes in hand;
+//   · a declared length of 0 means "to the end of the file" in ISO-BMFF — it is not a length;
+//   · a caller handing over the WHOLE file would otherwise have every 4-byte-aligned window in
+//     it tested against the brand sets. That is not theoretical: a 20 MB MP4 with a size-0 ftyp
+//     took 1.5s of blocked event loop on a single-threaded server, allocated a ~5M-entry array,
+//     and came back `image/heic` because four payload bytes somewhere spelled `mif1` — so the
+//     coach's valid video was refused with "expected a video, got image/heic".
+// The sniff window is therefore the contract, not a suggestion: nothing past MEDIA_SNIFF_BYTES
+// is ever consulted, however much the caller passes in.
 function isoBrands(buf) {
   const brands = [ascii(buf, 8, 12)]
   const declared = buf.readUInt32BE(0)
-  const end = Math.min(declared > 0 ? declared : buf.length, buf.length)
+  const end = Math.min(declared || buf.length, buf.length, MEDIA_SNIFF_BYTES)
   for (let i = 16; i + 4 <= end; i += 4) brands.push(ascii(buf, i, i + 4))
   return brands
 }
@@ -325,17 +340,21 @@ export function sniffMedia(buf) {
   if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { kind: 'photo', ext: 'jpg', mime: 'image/jpeg' }
   if (ascii(b, 0, 8) === '\x89PNG\r\n\x1a\n') return { kind: 'photo', ext: 'png', mime: 'image/png' }
   if (ascii(b, 0, 4) === 'RIFF' && ascii(b, 8, 12) === 'WEBP') return { kind: 'photo', ext: 'webp', mime: 'image/webp' }
-  // Recognised so it can be refused by name rather than as "unknown file": a GIF would sail past
-  // the client-side canvas downscale that every other photo goes through.
   if (ascii(b, 0, 4) === 'GIF8') return { kind: 'photo', ext: 'gif', mime: 'image/gif' }
 
   if (ascii(b, 4, 8) !== 'ftyp') return null
   const brands = isoBrands(b)
   const has = set => brands.some(x => set.has(x))
-  // Order matters: an iPhone HEIC lists `mif1` alongside brands that look like nothing in
-  // particular, and a `.mov` is a video whatever else it claims to be compatible with.
-  if (has(BRAND_HEIF)) return { kind: 'photo', ext: 'heic', mime: 'image/heic', brand: brands[0] }
+  // Order matters, and AVIF has to come first: MIAF conformance REQUIRES an AVIF to carry `mif1`
+  // in its compatible list, and `mif1` is a HEIF brand — so testing HEIF first swallows every
+  // real AVIF ever written and hands the uploader camera-setting advice about a file that never
+  // came from a camera. `avif`/`avis` are unambiguous, so the specific test goes before the
+  // general one. (An earlier revision had this backwards, and its test passed only because the
+  // fixture had an empty compatible list, which no encoder produces.)
   if (has(BRAND_AVIF)) return { kind: 'photo', ext: 'avif', mime: 'image/avif', brand: brands[0] }
+  // An iPhone HEIC lists `mif1` alongside brands that look like nothing in particular, and a
+  // `.mov` is a video whatever else it claims to be compatible with.
+  if (has(BRAND_HEIF)) return { kind: 'photo', ext: 'heic', mime: 'image/heic', brand: brands[0] }
   if (brands[0] === 'qt  ') return { kind: 'video', ext: 'mov', mime: 'video/quicktime', brand: brands[0] }
   if (has(BRAND_HEVC)) return { kind: 'video', ext: 'mp4', mime: 'video/mp4', brand: brands.find(x => BRAND_HEVC.has(x)) }
   if (has(BRAND_MP4)) return { kind: 'video', ext: 'mp4', mime: 'video/mp4', brand: brands[0] }
@@ -343,7 +362,14 @@ export function sniffMedia(buf) {
 }
 
 const ACCEPT_VIDEO = new Set(['mp4', 'mov'])
-const ACCEPT_PHOTO = new Set(['jpg', 'png', 'webp'])
+// The criterion is "every browser a client might open the app in can decode this", and GIF meets
+// it as squarely as the other three. An earlier revision refused it on the grounds that it would
+// bypass the client-side canvas downscale — which does not hold up: the canvas is a convenience
+// on the way out of the phone, not a boundary anything server-side can rely on, and animated
+// WebP bypasses it identically while sitting on this list. Refusing the one animated format it
+// happened to name and passing the other was an inconsistency, not a rule. Size is the size
+// cap's job.
+const ACCEPT_PHOTO = new Set(['jpg', 'png', 'webp', 'gif'])
 
 /**
  * The upload gate. Mirrors validateAssignmentBundle: `{ error }` or the accepted descriptor.
@@ -375,6 +401,6 @@ export function validateUpload(buf, want) {
   // no equivalently cheap client-side step for video, which is the whole reason video needs the
   // flag above and photos do not.
   if (m.ext === 'heic') return { error: 'HEIC photos do not display in most browsers — set the camera to “Most Compatible”, or export as JPEG' }
-  if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG or WebP` }
+  if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG, WebP or GIF` }
   return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: false }
 }

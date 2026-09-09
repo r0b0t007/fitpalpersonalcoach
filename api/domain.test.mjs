@@ -390,7 +390,16 @@ test('sniffMedia separates mp4 / mov / heic / avif by brand, not by ftyp', () =>
   assert.equal(sniffMedia(ftyp('isom', ['iso2', 'avc1', 'mp41'])).ext, 'mp4')
   assert.equal(sniffMedia(ftyp('qt  ')).ext, 'mov')
   assert.equal(sniffMedia(ftyp('heic', ['mif1'])).kind, 'photo')
-  assert.equal(sniffMedia(ftyp('avif')).ext, 'avif')
+})
+
+// MIAF conformance requires an AVIF to carry `mif1`, which is also a HEIF brand — so a HEIF-first
+// test swallows every AVIF that exists. The fixture MUST carry the real compatible list: with an
+// empty one this passes against the broken ordering too, which is exactly how it got shipped.
+test('sniffMedia does not read a real AVIF as HEIC', () => {
+  const avif = ftyp('avif', ['avif', 'mif1', 'miaf', 'MA1B'])
+  assert.equal(sniffMedia(avif).ext, 'avif')
+  assert.equal(sniffMedia(avif).mime, 'image/avif')
+  assert.match(validateUpload(avif, 'photo').error, /not a supported image format/)   // not camera advice
 })
 
 // An iPhone HEIC's major brand is not always the telling one, so the compatible list is walked.
@@ -407,6 +416,33 @@ test('sniffMedia clamps the brand walk to the bytes actually read', () => {
   assert.doesNotThrow(() => sniffMedia(truncated))
   assert.equal(sniffMedia(truncated).ext, 'mp4')
   assert.equal(sniffMedia(ftyp('mp42', ['isom'], 0)).ext, 'mp4')   // a size of 0 is not a length
+})
+
+// The window is the contract, not a suggestion. A caller that hands over the whole file must not
+// have every 4-byte-aligned window in a 20 MB video tested against the brand sets: that blocked
+// the event loop for 1.5s AND classified a valid MP4 as `image/heic`, because four payload bytes
+// somewhere spelled `mif1`. The coach's video was then refused as "expected a video, got
+// image/heic". Both halves are asserted, since either alone would pass a broken fix.
+test('sniffMedia never reads past the sniff window, however much it is handed', () => {
+  const whole = Buffer.alloc(4 * 1024 * 1024)
+  whole.writeUInt32BE(0, 0)                    // "to end of file" — ordinary input, not malice
+  whole.write('ftyp', 4, 'latin1')
+  whole.write('mp42', 8, 'latin1')
+  whole.write('isom', 16, 'latin1')
+  whole.write('mif1', 2_000_000, 'latin1')     // payload bytes that happen to spell a HEIF brand
+  const started = Date.now()
+  assert.equal(sniffMedia(whole).ext, 'mp4')   // still a video, not image/heic
+  assert.ok(Date.now() - started < 50, 'must not scan the whole buffer')
+  assert.equal(validateUpload(whole, 'video').error, undefined)
+})
+
+// The constant is sized for this: the brand that decides the answer is routinely not among the
+// first few, and at 32 bytes an `hvc1` past the window read as a plain MP4 — silently clearing
+// the one flag this module exists to set.
+test('sniffMedia sees a decisive brand late in the compatible list', () => {
+  const late = ftyp('mp42', ['isom', 'iso2', 'mp41', 'avc1', 'hvc1'])
+  assert.equal(sniffMedia(late).brand, 'hvc1')
+  assert.equal(validateUpload(late, 'video').needsTranscode, true)
 })
 
 test('validateUpload accepts what every browser can decode, unflagged', () => {
@@ -440,8 +476,16 @@ test('validateUpload cannot see a codec the container does not declare', () => {
 test('validateUpload still refuses what it cannot store at all', () => {
   assert.match(validateUpload(ftyp('heic', ['mif1']), 'photo').error, /HEIC/)
   assert.match(validateUpload(ftyp('heic', ['mif1']), 'photo').error, /Most Compatible|JPEG/)  // says what to do
-  assert.match(validateUpload(GIF, 'photo').error, /JPEG, PNG or WebP/)
-  assert.match(validateUpload(ftyp('avif'), 'photo').error, /not a supported image format/)
+  assert.match(validateUpload(ftyp('avif', ['mif1']), 'photo').error, /not a supported image format/)
+})
+
+// GIF decodes in every browser, which is the only criterion this list has. It was refused for
+// bypassing the client-side canvas downscale — a rule that let animated WebP through untouched,
+// so it was an inconsistency rather than a rule.
+test('validateUpload takes a GIF, as it already took an animated WebP', () => {
+  assert.equal(validateUpload(GIF, 'photo').error, undefined)
+  assert.equal(validateUpload(GIF, 'photo').ext, 'gif')
+  assert.equal(validateUpload(GIF, 'photo').needsTranscode, false)
 })
 
 test('validateUpload refuses a file in the wrong slot', () => {
