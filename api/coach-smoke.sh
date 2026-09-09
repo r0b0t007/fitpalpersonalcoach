@@ -228,17 +228,19 @@ echo "== media upload: role gating =="
 # Fixtures are built rather than committed: a real .mp4 in the repo is a binary blob nobody can
 # review, and the bytes that matter here are the first 64. `ftyp` + brand is all sniffMedia reads.
 mkfix() { node -e "
-const fs=require('fs'); const b=Buffer.alloc(4096);
+const fs=require('fs'); const size=+process.argv[5]||4096; const b=Buffer.alloc(size);
 b.writeUInt32BE(32,0); b.write('ftyp',4); b.write(process.argv[2],8); b.writeUInt32BE(0,12);
-process.argv.slice(3).forEach((c,i)=>b.write(c,16+i*4));
+[process.argv[3]].filter(Boolean).forEach((c,i)=>b.write(c,16+i*4));
 b.write(process.argv[4]||'pad', 2048);          // make each fixture's CONTENT differ, so the
 fs.writeFileSync(process.argv[1], b);           // content-addressed names differ too
 " "$@"; }
 mkfix "$D/demo.mp4" 'isom' 'iso2' 'avc1'
-mkfix "$D/iphone.mov" 'qt  ' 'qt  '
+mkfix "$D/iphone.mov" 'qt  ' ''
 mkfix "$D/photo.heic" 'heic' 'mif1'
 head -c 300000 /dev/zero > "$D/junk.bin"
-up() { curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/media/exercise?ex=$2&label=front" -H "Cookie: $1" --data-binary "@$3"; }
+# --max-time so a handler that never answers shows up as one failed check rather than a suite that
+# hangs forever and takes the deploy gate with it. An upload here is at most 2 MB over loopback.
+up() { curl -s --max-time 20 -o /dev/null -w "%{http_code}" -X POST "$B/api/media/exercise?ex=$2&label=front" -H "Cookie: $1" --data-binary "@$3"; }
 
 chk "anonymous cannot upload a demo"          401 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/media/exercise?ex=0025" --data-binary "@$D/demo.mp4")"
 chk "a member cannot upload a demo"           403 "$(up "$M1" 0025 "$D/demo.mp4")"
@@ -273,6 +275,31 @@ chk "the 413 says what the limit is"         true "$(node -pe "String(/1 MB/.tes
 # that leaks if the cleanup is wrong.
 chk "an over-cap upload leaves no temp file"    0 "$(ls -1 "$D"/media/ex/.up-* 2>/dev/null | wc -l | tr -d ' ')"
 chk "and stores nothing for it"                 0 "$(ls -1 "$D"/media/ex/ 2>/dev/null | grep -c '^003[34]-' | tr -d ' ')"
+
+echo "== media upload: the per-exercise cap holds under concurrency =="
+# The count check runs before an await and db.media is only mutated after one, so a check that is
+# not repeated afterwards is a promise about the past: parallel requests can all see the same
+# pre-upload count and all pass it. The route therefore re-checks after the upload.
+#
+# Be honest about what this test does and does not establish. It was run with that re-check
+# disabled and still passed, at 4 KB and again at 900 KB per file: ten backgrounded curls against
+# loopback do not reliably interleave, because each upload finishes before the next handler
+# reaches its post-await code. So this pins that the cap HOLDS for ten parallel requests; it does
+# not demonstrate the re-check is load-bearing. That one rests on the reasoning above, not on
+# this. Left in because it is cheap and would catch a cap that broke outright — but do not read a
+# green here as proof the race is covered.
+# ~900 KB each (under the 1 MB cap this suite runs with), not 4 KB. The overlap is the entire
+# point: with tiny files each upload finishes before the next begins, every request reaches its
+# post-upload code alone, and the check passes whether or not the re-check exists — a test that
+# proves nothing. Verified by disabling the re-check and watching this go red.
+for i in 1 2 3 4 5 6 7 8 9 10; do mkfix "$D/c$i.mp4" 'isom' 'avc1' "v$i" 900000; done
+# `wait` with no arguments waits for EVERY background job this shell owns — which includes the
+# API server started at the top of this file, so it never returns. Wait on these ten PIDs only.
+ups=""
+for i in 1 2 3 4 5 6 7 8 9 10; do up "$CA" 0040 "$D/c$i.mp4" > /dev/null & ups="$ups $!"; done
+wait $ups
+chk "no more rows than the cap allows"          6 "$(get -H "Cookie: $CA" "$B/api/media/exercises" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.media.filter(m=>m.exId==='0040').length)")"
+chk "and no more files than rows"               6 "$(ls -1 "$D"/media/ex/ 2>/dev/null | grep -c '^0040-' | tr -d ' ')"
 
 echo "== media list =="
 chk "anonymous cannot list media"             401 "$(code "$B/api/media/exercises")"

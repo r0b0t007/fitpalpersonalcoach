@@ -53,6 +53,12 @@ ENV PORT=3000
 # front. Defined here too, not just in compose, so the template always renders for anyone
 # running the prebuilt image from their own compose file.
 ENV CF_CONNECTING_IP=""
+# The proxy's body limit, and a backstop rather than the real cap: node enforces the actual
+# MEDIA_MAX_VIDEO_MB (90) and can answer a 413 in JSON the client understands, where nginx
+# answers with an HTML page the client's api() helper cannot parse. So this must stay ABOVE
+# whatever node enforces -- if MEDIA_MAX_VIDEO_MB is raised past 128, raise this too, or nginx
+# silently becomes the limit and the error stops making sense.
+ENV NGINX_MAX_BODY=128m
 
 # Probe the port nginx was actually told to listen on (NGINX_PORT is configurable, so a
 # hardcoded http://localhost/ breaks on any instance that changed it), and address it as

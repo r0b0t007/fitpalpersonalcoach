@@ -161,6 +161,11 @@ function atomicWrite(file, content, mode) {
  *    which sees a dropped connection instead. Every carefully worded "convert to MP4 first"
  *    became a connection reset. The caller answers with `Connection: close` instead and lets
  *    node tear the socket down after the response has flushed.
+ *    Honest about how far that goes: because the request body was never drained, the close is a
+ *    TCP RST rather than a clean FIN. A client that reads the response while still uploading —
+ *    curl, and fetch() in the ordinary case — gets the message. A browser tens of MB into a
+ *    large upload when the RST lands may still surface a network error instead of the 413. That
+ *    is strictly better than losing the message every time, not a guarantee of delivering it.
  *
  * `check` is handed the head and returns validateUpload's shape: `{ error }` refuses, anything
  * else is resolved back to the caller as `meta`.
@@ -173,10 +178,17 @@ function streamToFile(req, tmp, maxBytes, check) {
 
     const fail = (status, message) => {
       if (settled) return; settled = true;
-      out.destroy();
-      fs.rm(tmp, { force: true }, () => {});
       req.pause();   // stop reading; the response, not a socket teardown, is what answers this
-      reject(Object.assign(new Error(message), { status }));
+      // Unlink only once the stream has really closed, and reject only once the unlink has run.
+      // createWriteStream opens its fd ASYNCHRONOUSLY, so removing the file the instant
+      // destroy() is called races that open: the unlink can land first and the pending open then
+      // re-creates the file, leaving an orphan nothing will ever clean. Sequencing it this way
+      // also means the rejection — and therefore the HTTP response — happens after the file is
+      // actually gone, which is what makes "every failure cleans up" a property a test can
+      // observe rather than one that is merely usually true.
+      out.on('close', () => fs.rm(tmp, { force: true },
+        () => reject(Object.assign(new Error(message), { status }))));
+      out.destroy();
     };
     // Deferred until the head is complete, so it runs once whether that took one chunk or five.
     const sniff = () => {
@@ -478,10 +490,14 @@ function requireAdmin(req, res) {
 // Guard for /api/coach/* — being a coach only gets you through the door. Every one of these
 // routes must ALSO check canCoachMember for the specific member it touches, because the role
 // says "may coach someone", never "may coach this person".
-function requireCoach(req, res) {
+// `headers` is for callers that refuse WITHOUT reading the request body — the upload routes. Node
+// dumps an unread body on a keep-alive socket, so without a `Connection: close` there they would
+// drain an arbitrarily large upload from someone who failed the auth check. Every other caller
+// reads through readBody, which is bounded, and passes nothing.
+function requireCoach(req, res, headers) {
   const user = readSession(req);
-  if (!user) { json(res, 401, { error: 'not signed in' }); return null; }
-  if (!isCoach(user)) { json(res, 403, { error: 'forbidden' }); return null; }
+  if (!user) { json(res, 401, { error: 'not signed in' }, headers); return null; }
+  if (!isCoach(user)) { json(res, 403, { error: 'forbidden' }, headers); return null; }
   return user;
 }
 // A pending offer outlives the relationship it came from unless something retires it. Without
@@ -1332,19 +1348,25 @@ const routes = {
   // Query params also mean the exact-match route table needs no change; a path parameter would
   // force it to become a regex table.
   'POST /api/media/exercise': async (req, res) => {
-    const coach = requireCoach(req, res); if (!coach) return;
+    // `Connection: close` on EVERY refusal here, not only the ones after streaming starts. These
+    // paths answer without reading the body, so node would otherwise dump it — draining an
+    // arbitrarily large upload from a caller who is not even signed in, with neither MAX_BODY nor
+    // MEDIA_MAX_VIDEO applying, because streamToFile never ran. Every other POST route is bounded
+    // by readBody; this one has to say so itself.
+    const shut = { Connection: 'close' };
+    const coach = requireCoach(req, res, shut); if (!coach) return;
     const q = new URL(req.url, 'http://x').searchParams;
     const exId = String(q.get('ex') || '').trim();
     // Whitelisted, not escaped: this ends up in a filename, and the set of ids that are valid is
     // far easier to state correctly than the set of traversal tricks that are not.
-    if (!/^[A-Za-z0-9_-]{1,40}$/.test(exId)) return json(res, 400, { error: 'bad exercise id' });
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(exId)) return json(res, 400, { error: 'bad exercise id' }, shut);
     const label = String(q.get('label') || '').trim().slice(0, 40);
-    if (db.media.filter(m => m.exId === exId).length >= MEDIA_MAX_PER_EX)
-      return json(res, 429, { error: `that exercise already has ${MEDIA_MAX_PER_EX} videos` });
+    const atCap = () => db.media.filter(m => m.exId === exId).length >= MEDIA_MAX_PER_EX;
+    if (atCap()) return json(res, 429, { error: `that exercise already has ${MEDIA_MAX_PER_EX} videos` }, shut);
 
     const dir = path.join(MEDIA_DIR, 'ex');
     try { fs.mkdirSync(dir, { recursive: true }); }
-    catch { return json(res, 500, { error: 'media directory is not writable' }); }
+    catch { return json(res, 500, { error: 'media directory is not writable' }, shut); }
     const tmp = path.join(dir, '.up-' + crypto.randomBytes(8).toString('hex'));
 
     let up;
@@ -1355,11 +1377,21 @@ const routes = {
     // destroying the request instead loses it, and the uploader sees a dead connection.
     catch (e) { return json(res, e.status || 400, { error: e.message }, { Connection: 'close' }); }
 
+    // Re-checked AFTER the upload, because the first check is a promise about the past: it ran
+    // before an await, and db.media is only mutated after one. N concurrent uploads for the same
+    // exercise all saw the same pre-upload count and all passed it, so a retry loop could store
+    // ten files against a cap of six — and there is no delete route to undo that yet.
+    if (atCap()) {
+      fs.rm(tmp, { force: true }, () => {});
+      return json(res, 429, { error: `that exercise already has ${MEDIA_MAX_PER_EX} videos` });
+    }
+
     // Content-addressed on what actually arrived, never on what the client called it. Two
     // consequences worth having: the same file uploaded twice lands on the same name instead of
     // accumulating, and a name can be cached forever because it cannot change meaning.
     const file = `${exId}-${up.sha.slice(0, 16)}.${up.meta.ext}`;
-    try { fs.renameSync(tmp, path.join(dir, file)); }
+    const stored = path.join(dir, file);
+    try { fs.renameSync(tmp, stored); }
     catch { fs.rm(tmp, { force: true }, () => {}); return json(res, 500, { error: 'could not store the file' }); }
 
     const row = {
@@ -1371,8 +1403,19 @@ const routes = {
       status: up.meta.needsTranscode ? 'raw' : 'ready',
       created: new Date().toISOString()
     };
+    const before = db.media;
     db.media = db.media.filter(m => m.file !== file).concat(row);
-    saveDb();
+    // The file is committed before the row that references it, so a failing save leaves an
+    // orphan on disk that nothing lists and no route can delete — permanent, on exactly the
+    // shared-hosting quota this route is careful about elsewhere. atomicWrite can genuinely
+    // throw here (ENOSPC, EDQUOT), so unwind rather than letting the dispatcher's 500 hide it.
+    try { saveDb(); }
+    catch (e) {
+      db.media = before;
+      fs.rm(stored, { force: true }, () => {});
+      console.error('media save failed', e);
+      return json(res, 507, { error: 'could not record the upload — is the disk full?' });
+    }
     json(res, 200, { ok: true, media: row });
   },
 
