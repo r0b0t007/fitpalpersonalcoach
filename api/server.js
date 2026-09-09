@@ -17,8 +17,8 @@ import {
   bootstrapMatches, BOOTSTRAP_MIN,
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
   pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
-  findSessionConflicts,
-  validateUpload, MEDIA_SNIFF_BYTES
+  findSessionConflicts, isRealDate,
+  validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
@@ -62,6 +62,21 @@ if (BOOTSTRAP_CODE && !INVITE_ONLY)
 // baked into each cookie when it's issued, so lowering this never cuts an existing session short.
 const SESSION_DAYS = Math.max(1, +(process.env.SESSION_DAYS || 90) || 90);
 const MAX_BODY = 5 * 1024 * 1024;
+// PUT /api/data alone gets a bigger one. It is the only route whose body is not a request but a
+// person's entire history — every workout, every set, every weigh-in and now every meal — and it
+// is the only one that grows on its own with no user action that looks like "uploading". 5 MB is
+// years for a lifter and it is NOT years for someone logging four foods a day: meals are the
+// first thing in the blob written several times daily, and hitting the cap does not degrade, it
+// stops the profile syncing altogether. 16 MB buys the same decade back.
+//
+// Deliberately not a wider MAX_BODY. Every other route takes a request someone typed, and a
+// video-sized JSON body must not become bufferable in the heap on all forty of them just because
+// one of them legitimately grew.
+//
+// NGINX_MAX_BODY (128m by default, sized for the video cap) already sits above this, so the
+// invariant in web/nginx.conf.template still holds: node's limit is the one meant to fire,
+// because node answers it in JSON the client can read.
+const STATE_MAX_BODY = 16 * 1024 * 1024;
 // Uploaded media has its own caps and never touches MAX_BODY — the upload routes stream straight
 // to disk instead of calling readBody, so a 90 MB video is never a 90 MB Buffer in the heap and
 // no JSON route inherits the larger number.
@@ -78,6 +93,23 @@ const MEDIA_DIR = path.join(DATA, 'media');
 // A flood guard, not a product rule: several angles of one lift is reasonable, an unbounded
 // upload endpoint on a shared-hosting quota is not.
 const MEDIA_MAX_PER_EX = 6;
+// Progress photos: a closed set of angles rather than a free-text label, because the entire
+// value of the feature is comparing like with like — this week's front against March's front.
+// A typo'd label does not fail, it quietly starts a fourth series nobody ever looks at.
+const PHOTO_POSES = ['front', 'side', 'back'];
+// One photo per pose per check-in period: a retake REPLACES the previous file rather than piling
+// up beside it. That is the retention rule, and something has to be, because there is no delete
+// route for any media in this file and weekly photos across a roster otherwise grow forever on a
+// shared-hosting quota nobody can reclaim. The total below is a backstop against a script rather
+// than a product limit — three angles a week for over three years.
+const MEDIA_MAX_PHOTOS = 500;
+// And a byte budget beside it, because a count is only a bound if a row is small. The client
+// resizes to ~400 KB before sending (lib/photo.js), but this is a raw-bytes route open to every
+// signed-in member and curl does not run lib/photo.js — the row cap ALONE permits 500 ×
+// MEDIA_MAX_PHOTO, six gigabytes per member, on a cPanel quota this product shares with a
+// sibling deployment. 300 MB is ~750 photos at the size the app actually sends, so it never
+// reaches a real client; it is what stops someone posting full-size originals in a loop.
+const MEDIA_MAX_PHOTO_TOTAL = 300 * 1024 * 1024;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 
@@ -187,7 +219,7 @@ function streamToFile(req, tmp, maxBytes, check) {
       // actually gone, which is what makes "every failure cleans up" a property a test can
       // observe rather than one that is merely usually true.
       out.on('close', () => fs.rm(tmp, { force: true },
-        () => reject(Object.assign(new Error(message), { status }))));
+        () => reject(Object.assign(new Error(message), { status, clientSafe: true }))));
       out.destroy();
     };
     // Deferred until the head is complete, so it runs once whether that took one chunk or five.
@@ -320,9 +352,51 @@ function serveMedia(req, res, file, mime) {
   send(206, { ...base, 'Content-Range': `bytes ${start}-${end}/${total}`, 'Content-Length': end - start + 1 }, { start, end });
 }
 
-const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
+const safeUid = uid => String(uid || '').replace(/[^a-zA-Z0-9_-]/g, '');
+const stateFile = uid => path.join(DATA, 'state-' + safeUid(uid) + '.json');
 function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
+}
+
+/* Per-user media the SERVER owns, in its own file beside the state one.
+ *
+ * The naming and the atomic write are deliberately identical to stateFile above; the separation
+ * is the whole point. PUT /api/data replaces state-<uid>.json wholesale with whatever the client
+ * last held, so a row this process writes into that file survives exactly until the next sync
+ * from any device the member owns — including a stale tab. Progress-photo metadata is written
+ * here, by the upload route, and the client never pushes this file at all.
+ *
+ * Bytes are not in it. This holds `{ photos: [ { id, d, pose, file, bytes, mime, created } ] }`
+ * and the files themselves live under MEDIA_DIR/photo/<uid>/.
+ */
+const mediaFile = uid => path.join(DATA, 'media-' + safeUid(uid) + '.json');
+const photoDir = uid => path.join(MEDIA_DIR, 'photo', safeUid(uid));
+function userPhotos(uid) {
+  try {
+    const m = JSON.parse(fs.readFileSync(mediaFile(uid), 'utf8'));
+    return Array.isArray(m && m.photos) ? m.photos : [];
+  } catch { return []; }
+}
+// What is allowed to leave the server. `file` never is: an unguessable filename stops being
+// unguessable the moment it is published, and nothing outside this module needs it — every
+// reader addresses a photo by row id.
+const publicPhoto = p => ({ id: p.id, d: p.d, pose: p.pose, bytes: p.bytes, mime: p.mime, created: p.created });
+/* Both caps in one predicate, because the upload route has to ask twice: once before it reads
+ * the body, to refuse a doomed upload without draining it, and once after — where it is the ask
+ * that actually binds. `incoming` is 0 on the first call, since nothing is known about the file
+ * yet.
+ *
+ * A retake of a slot that already exists is measured against the rows WITHOUT that slot: it
+ * replaces a file rather than adding one, so neither cap can ever stop someone correcting this
+ * week's photo — only opening a new slot.
+ */
+const photoBytes = rows => rows.reduce((n, p) => n + (Number(p.bytes) || 0), 0);
+function photoCapError(rows, d, pose, incoming = 0) {
+  const rest = rows.filter(p => !(p.d === d && p.pose === pose));
+  if (rest.length >= MEDIA_MAX_PHOTOS) return `that is ${MEDIA_MAX_PHOTOS} photos already stored`;
+  if (photoBytes(rest) + incoming > MEDIA_MAX_PHOTO_TOTAL)
+    return `that is ${mb(MEDIA_MAX_PHOTO_TOTAL)} MB of photos already stored`;
+  return null;
 }
 
 /* ---------- push notifications (Web Push / VAPID) ---------- */
@@ -763,17 +837,30 @@ function json(res, code, obj, extraHeaders) {
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...(extraHeaders || {}) });
   res.end(body);
 }
-function readBody(req) {
+// Both refusals below carry a `.status`, which the dispatcher's catch turns into that status and
+// this exact message. Before, an over-size body rejected with a bare Error and the request was
+// DESTROYED in the same breath: the 500 the dispatcher then wrote went to an already-dead socket,
+// so the client saw a connection reset and never read a word of it — and pushState swallows that,
+// sets gym_dirty, and the profile silently stops syncing forever. streamToFile above documents
+// exactly this trap for the upload routes; readBody never got the same treatment. It does now:
+// pause, answer, and let node tear the socket down after the response has flushed.
+function readBody(req, limit = MAX_BODY, tooLargeMsg) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
     req.on('data', d => {
       size += d.length;
-      if (size > MAX_BODY) { reject(new Error('body too large')); req.destroy(); return; }
+      if (size > limit) {
+        req.pause();   // stop reading; the response, not a socket teardown, is what answers this
+        reject(Object.assign(
+          new Error(tooLargeMsg || `request body is larger than the ${mb(limit)} MB limit`),
+          { status: 413, clientSafe: true }));
+        return;
+      }
       chunks.push(d);
     });
     req.on('end', () => {
       try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
-      catch { reject(new Error('bad json')); }
+      catch { reject(Object.assign(new Error('bad json'), { status: 400, clientSafe: true })); }
     });
     req.on('error', reject);
   });
@@ -1172,7 +1259,10 @@ const routes = {
   'PUT /api/data': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    const body = await readBody(req);
+    // Named, not generic: the client shows whatever this says, and "body too large" tells someone
+    // whose phone has quietly stopped syncing nothing they can act on.
+    const body = await readBody(req, STATE_MAX_BODY,
+      `your training data is over the ${mb(STATE_MAX_BODY)} MB limit for one sync, so this device could not save to the server. Delete some old workouts, or export a backup and start a fresh profile.`);
     if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'state required' });
     delete body.state.active;              // in-progress workouts stay device-local
     atomicWrite(stateFile(user.id), JSON.stringify(body.state));
@@ -1396,6 +1486,19 @@ const routes = {
       // writes into a client's state file, because their next whole-state push would erase it.
       checkins: S.checkins || [],
       checkinDay: S.checkinDay ?? null,
+      // What they ate, and what they were told to eat. Same rule as the check-ins above: the
+      // client authors all three of these and the server only reads them back, because the
+      // target itself reached them through an assignment they accepted, not through this file.
+      // Without these three keys the whole feature is invisible on the coach dashboard, and the
+      // omission is silent — this allow-list is hand-written on purpose (see below).
+      meals: S.meals || [],
+      mealDays: S.mealDays && typeof S.mealDays === 'object' && !Array.isArray(S.mealDays) ? S.mealDays : {},
+      nutriTarget: S.nutriTarget ?? null,
+      // Progress photos, and the one field here that does NOT come from readState. They are
+      // server-owned (media-<uid>.json), so they arrive from the sidecar instead — and metadata
+      // only. The bytes are one authenticated request each against GET /api/media/photo, which
+      // re-checks canCoachMember per image, so this payload stays the size it was.
+      photos: userPhotos(u.id).map(publicPhoto),
       workouts: (S.workouts || []).slice().reverse(),
       // The rest of what <StatsPanels> reads, so a coach sees the same charts their client does
       // rather than a count. Deliberately narrow: these are display preferences and training
@@ -1535,19 +1638,168 @@ const routes = {
     if (!user) return json(res, 401, { error: 'not signed in' });
     const id = new URL(req.url, 'http://x').searchParams.get('id');
     const row = db.media.find(m => m.id === id);
-    // typeof first, and not for tidiness: RegExp.test coerces, so a row with no `file` at all is
-    // tested as the string "undefined" — which MATCHES this pattern — and then .includes() throws
-    // on the real undefined, giving a 500. A hand-edited or truncated row is exactly the input
-    // the comment above says this guard is for, so it must 404 rather than crash on it.
-    if (!row || typeof row.file !== 'string' ||
-        !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(row.file) || row.file.includes('..'))
-      return json(res, 404, { error: 'not found' });
+    // safeMediaFile rather than a regex inlined here, because the identical guard sits on the
+    // progress-photo route and the two drifted apart once already — the copy there rejected a
+    // leading '-' or '_' that its own upload route generates. One predicate, one test, both
+    // callers. It also absorbs the typeof, which is load-bearing: RegExp.test coerces, so a row
+    // with no `file` matches as the string "undefined" and then throws a 500 on .includes().
+    if (!row || !safeMediaFile(row.file)) return json(res, 404, { error: 'not found' });
     serveMedia(req, res, path.join(MEDIA_DIR, 'ex', row.file), row.mime);
   },
   // The dispatcher keys on method + path, so serveMedia's HEAD branch is unreachable without
   // this — and a HEAD that 404s while the GET beside it works is the kind of thing a player
   // probes with and then gives up on.
   'HEAD /api/media/ex': (req, res) => routes['GET /api/media/ex'](req, res),
+
+  /* ---------- progress photos ---------- */
+  /* The client's own photo of themselves, which is the opposite direction to every other media
+   * route in this file, and the reason it gets its own store rather than another db.media row.
+   *
+   * GET /api/media/exercises hands EVERY db.media row to any signed-in member, deliberately: one
+   * coach, no other tenant, and a demo of a barbell row is not a secret. Dropping progress photos
+   * into that array would publish the whole gym's photos to the whole gym, and the mistake would
+   * sit one field away from the correct code forever after. Separate array, separate route,
+   * separate predicate.
+   *
+   * Metadata in the query string and the file as the entire body, same as the demo route above
+   * and for the same reasons: no multipart parser, no base64 inflation, no regex route table.
+   */
+  'POST /api/media/photo': async (req, res) => {
+    // Every refusal before the body is read closes the socket, or node drains an arbitrarily
+    // large upload from someone who failed the check. See POST /api/media/exercise.
+    const shut = { Connection: 'close' };
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' }, shut);
+    const q = new URL(req.url, 'http://x').searchParams;
+    // The check-in period this belongs to, computed client-side by periodStart() in
+    // lib/checkins.js — the same value the check-in's own row is filed under. THAT is what joins
+    // a photo to a check-in: a shared, client-authored natural key, and no new field on either
+    // side. A reference stored on the check-in row instead would be silently dropped the next
+    // time the client edited it, because upsertCheckin rebuilds the entry from the keys it knows.
+    const d = String(q.get('d') || '').trim();
+    if (!isRealDate(d)) return json(res, 400, { error: 'bad date' }, shut);
+    const pose = String(q.get('pose') || '').trim();
+    if (!PHOTO_POSES.includes(pose)) return json(res, 400, { error: 'bad pose' }, shut);
+
+    // Cheap refusal before the body is read, so an upload that cannot be kept is not carried
+    // across the wire first. It is not the check that binds — see the second call below.
+    const early = photoCapError(userPhotos(user.id), d, pose);
+    if (early) return json(res, 429, { error: early }, shut);
+
+    const dir = photoDir(user.id);
+    try { fs.mkdirSync(dir, { recursive: true }); }
+    catch { return json(res, 500, { error: 'media directory is not writable' }, shut); }
+    const tmp = path.join(dir, '.up-' + crypto.randomBytes(8).toString('hex'));
+
+    let up;
+    try { up = await streamToFile(req, tmp, MEDIA_MAX_PHOTO, head => validateUpload(head, 'photo')); }
+    catch (e) { return json(res, e.status || 400, { error: e.message }, { Connection: 'close' }); }
+
+    // Unguessable, NOT content-addressed — the exact inverse of the demo route, for the inverse
+    // reason. A demo's name may be derived from its bytes because every signed-in member is
+    // allowed to have it anyway. A progress photo's name must carry no information at all, so
+    // that if this directory is ever reachable by something other than the route below (a static
+    // handler somebody adds, a backup served over HTTP) the filenames are not an index of who
+    // photographed themselves and when. It costs the dedupe the other route gets; that dedupe
+    // would itself leak here, by making identical bytes collide across two people.
+    //
+    // base64url's alphabet includes '-' and '_', so 2 names in 64 begin with one. Whatever reads
+    // these back has to accept that — safeMediaFile does, deliberately and with a test; a guard
+    // that did not stored one photo in thirty-two and then refused to serve it.
+    const file = crypto.randomBytes(16).toString('base64url') + '.' + up.meta.ext;
+    const stored = path.join(dir, file);
+    try { fs.renameSync(tmp, stored); }
+    catch { fs.rm(tmp, { force: true }, () => {}); return json(res, 500, { error: 'could not store the file' }); }
+
+    const row = {
+      id: crypto.randomBytes(12).toString('base64url'),
+      d, pose, file, bytes: up.bytes, mime: up.meta.mime,
+      created: new Date().toISOString()
+    };
+    // Re-read rather than reusing the pre-upload snapshot: that one was taken before an await,
+    // and a photo for a different pose may have landed in between. Only the one (d, pose) slot this request
+    // owns is replaced, so two poses uploaded in parallel cannot erase each other.
+    //
+    // From here to atomicWrite there is no await, deliberately. readFileSync → filter → concat →
+    // writeFileSync → renameSync all run in one tick, so on a single node process the whole
+    // read-modify-write is atomic against every other request and a lost update is impossible.
+    // Put an await anywhere in this run and a second upload can interleave and drop a row while
+    // leaving its file behind, which nothing would ever notice.
+    const before = userPhotos(user.id);
+    // The caps, re-asked AFTER the upload, for the reason the demo route states in the same
+    // place: the first ask ran before an await and is a promise about the past. N parallel
+    // uploads with distinct (d, pose) all read the same pre-upload count and all passed it, and
+    // there is no delete route to reclaim what that stores. This ask is a fact — `before` is the
+    // post-await read and nothing awaits between here and the write.
+    const capped = photoCapError(before, d, pose, up.bytes);
+    if (capped) {
+      fs.rm(stored, { force: true }, () => {});
+      return json(res, 429, { error: capped });
+    }
+    const next = before.filter(p => !(p.d === d && p.pose === pose)).concat(row)
+      .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
+    try { atomicWrite(mediaFile(user.id), JSON.stringify({ photos: next })); }
+    catch (e) {
+      // Nothing shared was mutated — unlike the demo route there is no in-memory table to roll
+      // back — so the whole unwind is the file that was just committed.
+      fs.rm(stored, { force: true }, () => {});
+      console.error('photo save failed', e);
+      return json(res, 507, { error: 'could not record the upload — is the disk full?' });
+    }
+    // The replaced file goes only AFTER the row pointing at it is gone. The other order leaves a
+    // row naming a file that no longer exists whenever that write fails — a permanently broken
+    // image on the coach's screen with nothing in the product able to repair it.
+    for (const old of before) {
+      if (old.d === d && old.pose === pose && typeof old.file === 'string' && old.file !== file)
+        fs.rm(path.join(dir, path.basename(old.file)), { force: true }, () => {});
+    }
+    json(res, 200, { ok: true, photo: publicPhoto(row) });
+  },
+
+  // The caller's OWN rows, so their check-in sheet can show which angles this week already has.
+  // No `u` parameter and no coach path: a coach reads their client's list through
+  // GET /api/coach/member, which is where the per-member predicate already lives.
+  'GET /api/media/photos': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    json(res, 200, { photos: userPhotos(user.id).map(publicPhoto) });
+  },
+
+  /* The bytes — the only private media in this file.
+   *
+   * Every refusal that depends on WHO is asking or WHICH photo they asked for is the same 403
+   * with the same body: not your client, no such member, no such photo. A 404 for the last of
+   * those would let a coach holding one valid id walk the space and learn who else trains here —
+   * the identical enumeration GET /api/coach/member refuses to allow, and the reasoning is
+   * copied from there. Only "not signed in" answers differently, and it can leak nothing,
+   * because it never looks at the parameters at all.
+   *
+   * The owner check comes FIRST, and that ordering is load-bearing rather than tidy:
+   * canCoachMember returns false when coach and member are the same person (coaching yourself is
+   * the ordinary Plan screen — domain.mjs), so a gate written the other way round would lock a
+   * coach who files their own check-ins out of their own photos.
+   */
+  'GET /api/media/photo': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const q = new URL(req.url, 'http://x').searchParams;
+    // Defaulting to the caller keeps a member's own thumbnails working without the client having
+    // to know its own uid, and keeps one code path for both readers.
+    const owner = db.users.find(x => x.id === String(q.get('u') || user.id));
+    const mayRead = !!owner &&
+      (owner.id === user.id || canCoachMember(user, owner, { isAdmin: isAdmin(user) }));
+    const row = mayRead ? userPhotos(owner.id).find(p => p.id === q.get('id')) : null;
+    // Shared with GET /api/media/ex, and shared BECAUSE of what happened when it was not: the
+    // copy that used to sit here refused a leading '-' or '_', which base64url produces for 2
+    // names in 64 — so one photo in thirty-two uploaded fine and then 403'd forever, a broken
+    // tile on both screens with no delete route to clear it. domain.mjs argues the character
+    // classes; safeMediaFile also does the typeof that keeps a damaged row from 500ing.
+    if (!row || !safeMediaFile(row.file)) return json(res, 403, { error: 'forbidden' });
+    serveMedia(req, res, path.join(photoDir(owner.id), row.file), row.mime);
+  },
+  // Same reason as the demo route: the dispatcher keys on method + path, so serveMedia's HEAD
+  // branch is unreachable without an explicit alias.
+  'HEAD /api/media/photo': (req, res) => routes['GET /api/media/photo'](req, res),
 
   'POST /api/coach/assign': async (req, res) => {
     const coach = requireCoach(req, res); if (!coach) return;
@@ -1979,6 +2231,29 @@ http.createServer(async (req, res) => {
   }
   try { await handler(req, res); }
   catch (e) {
+    // A refusal that named its own 4xx is an ANSWER, not a crash — readBody's 413 and 400 carry
+    // a message written for whoever sent the request. Flattening those into "server error" is how
+    // a client ends up retrying forever against a limit nobody told it about.
+    //
+    // Gated on `clientSafe`, NOT on `.status` alone, and the difference is the whole point of
+    // the comment that used to sit here. `.status` is a field anyone can put on an Error and is
+    // exactly what an HTTP client library sets: the day any helper here wraps `undici` or a
+    // provider SDK, a 400 from THAT would have relayed its provider-authored message straight to
+    // the requester, which is the internal detail this was written to withhold. Only the three
+    // places that mint a deliberate refusal — readBody's 413 and 400, streamToFile's — set
+    // clientSafe, so only sentences written to be read by a caller can reach one.
+    // Logged as a warning either way, at the same volume as the cross-origin refusal above, so
+    // an operator asked "why did my phone stop syncing" has a line to find. Not console.error:
+    // a 400 from a scanner is not a fault in this server and must not read as one.
+    if (e && e.clientSafe === true && Number.isInteger(e.status) && e.status >= 400 && e.status < 500) {
+      console.warn('refused', key, e.status, e.message);
+      // Connection: close for the same reason the upload routes send it: a refusal happens with
+      // the client still sending, so the body was never fully read and the socket cannot be
+      // reused. Node tears it down AFTER this response flushes, which is what gets the message
+      // out — destroying the request instead is what loses it.
+      if (!res.headersSent) json(res, e.status, { error: e.message }, { Connection: 'close' });
+      return;
+    }
     console.error(key, e);
     if (!res.headersSent) json(res, 500, { error: 'server error' });
   }

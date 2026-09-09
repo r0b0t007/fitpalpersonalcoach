@@ -124,6 +124,31 @@ chk "mixed batch is refused wholesale"        403 "$(send "$CA" '["mem1","mem2"]
 chk "empty member list refused"               400 "$(send "$CA" '[]')"
 chk "junk bundle refused" 400 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/coach/assign" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"memberIds":["mem1"],"bundle":{"nope":1}}')"
 
+echo "== nutrition targets on the bundle =="
+# The targets ride on the plan bundle rather than a route of their own: anything the SERVER writes
+# into state-<uid>.json is destroyed by that member's next whole-state push, so the accept flow is
+# the only channel a target survives. These checks are here because that reuse is easy to break by
+# adding the "obvious" endpoint later.
+nsend() { curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/coach/assign" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "{\"memberIds\":[\"mem1\"],\"bundle\":$(node -pe "
+  const b = JSON.parse(process.argv[1]); b.nutrition = JSON.parse(process.argv[2]); JSON.stringify(b)" "$BUNDLE" "$1")}"; }
+chk "a bundle with targets is accepted"       200 "$(nsend '{"kcal":2200,"p":170,"note":"rest days"}')"
+chk "targets that are not numbers are refused" 400 "$(nsend '{"kcal":"lots"}')"
+chk "an absurd target is refused"             400 "$(nsend '{"kcal":999999}')"
+chk "the member is offered exactly what was set" '{"kcal":2200,"p":170,"note":"rest days"}' "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "
+  const a = JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.find(x => x.bundle.nutrition);
+  JSON.stringify(a.bundle.nutrition)")"
+# Carbs and fat were never set, so they must not come back as 0 — a target nobody wrote is worse
+# on a client's screen than no target at all.
+chk "unset macros are absent, not zero"      true "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "
+  const n = JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.find(x => x.bundle.nutrition).bundle.nutrition;
+  String(!('c' in n) && !('f' in n))")"
+# Withdraw them again so the inbox checks below start from the one offer they expect.
+for W in $(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.map(a=>a.id).join(' ')"); do
+  curl -s -o /dev/null -X POST "$B/api/coach/assignments/withdraw" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "{\"id\":\"$W\"}"
+done
+chk "inbox is clear again before the next block" 0 "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+chk "coach assigns to own member (again)"     200 "$(send "$CA" '["mem1"]')"
+
 echo "== the member's inbox =="
 chk "member sees their offer"                   1 "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
 chk "another member sees nothing"               0 "$(get -H "Cookie: $M2" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
@@ -137,6 +162,37 @@ chk "inbox is empty once decided"               0 "$(get -H "Cookie: $M1" "$B/ap
 
 echo "== the server must NOT have touched member state =="
 chk "no state file written for the member"   none "$([ -f "$D/state-mem1.json" ] && echo written || echo none)"
+
+echo "== the state sync cap answers in JSON, not by hanging up =="
+# Over MAX_BODY, readBody used to reject with a bare Error AND destroy the request in the same
+# breath: the 500 went to a dead socket, the client saw a connection reset, pushState swallowed
+# it and the profile stopped syncing forever with nothing on screen. It must be a readable 413.
+node -e "
+const fs=require('fs');
+fs.writeFileSync(process.argv[1], JSON.stringify({state:{pad:'x'.repeat(17*1024*1024)}}));
+" "$D/fat.json"
+chk "a state push past the cap is a 413"      413 "$(code -X PUT "$B/api/data" -H 'Content-Type: application/json' -H "Cookie: $M1" --data-binary @"$D/fat.json")"
+chk "...and the client can read why"         true "$(curl -s -X PUT "$B/api/data" -H 'Content-Type: application/json' -H "Cookie: $M1" --data-binary @"$D/fat.json" | node -pe "
+  let d; try { d = JSON.parse(require('fs').readFileSync(0,'utf8')) } catch { d = {} }
+  String(typeof d.error === 'string' && /MB/.test(d.error))")"
+# 5 MB was the old ceiling for every route and it is not a ceiling for a food log. A body between
+# the general limit and the state limit has to go through.
+node -e "
+const fs=require('fs');
+fs.writeFileSync(process.argv[1], JSON.stringify({state:{_ts:1,pad:'x'.repeat(8*1024*1024)}}));
+" "$D/big.json"
+chk "a state push above the general limit still saves" 200 "$(code -X PUT "$B/api/data" -H 'Content-Type: application/json' -H "Cookie: $M2" --data-binary @"$D/big.json")"
+# ...and the wider cap is for PUT /api/data ALONE. A video-sized JSON body must not become
+# bufferable in the heap on every other route just because one of them legitimately grew.
+chk "no other route inherited the wider cap"  413 "$(code -X POST "$B/api/coach/assign" -H 'Content-Type: application/json' -H "Cookie: $CA" --data-binary @"$D/big.json")"
+chk "bad json is a 400, not a 500"            400 "$(code -X PUT "$B/api/data" -H 'Content-Type: application/json' -H "Cookie: $M1" -d 'not json')"
+
+echo "== nutrition reaches the coach =="
+# GET /api/coach/member is a hand-written allow-list. A client-side feature that is invisible on
+# the coach dashboard fails silently — no test, no error, just a panel that never appears.
+chk "the opened member carries meals, rollups and the target" ok "$(get -H "Cookie: $ADMIN" "$B/api/coach/member?id=mem2" | node -pe "
+  const d = JSON.parse(require('fs').readFileSync(0,'utf8'));
+  ['meals','mealDays','nutriTarget'].every(k => k in d) ? 'ok' : 'missing'")"
 
 echo "== pending cap =="
 for i in 1 2 3 4 5 6; do R=$(send "$CA" '["mem1"]'); done
@@ -362,6 +418,110 @@ chk "HEAD works where GET does"                200 "$(code -I -H "Cookie: $M1" "
 chk "...and sends no body"                       0 "$(curl -s -I -o /dev/null -w '%{size_download}' -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
 # But it must still ANNOUNCE the length, which is what a player reads before deciding how to seek.
 chk "...while still declaring the length"    "$SZ" "$(curl -s -I -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | grep -i '^content-length' | tr -d '\r' | awk '{print $2}')"
+
+echo "== progress photos: uploading =="
+# A JPEG, sniffed from its first three bytes exactly like the mp4 fixtures above. Two of them,
+# with different content, so a retake can be told apart from the file it replaced.
+mkjpg() { node -e "
+const fs=require('fs'); const b=Buffer.alloc(+process.argv[3]||4096);
+b[0]=0xff; b[1]=0xd8; b[2]=0xff; b[3]=0xe0; b.write(process.argv[2]||'pad', 2048);
+fs.writeFileSync(process.argv[1], b);
+" "$@"; }
+mkjpg "$D/front.jpg" 'one'
+mkjpg "$D/front2.jpg" 'two'
+PD=$(node -pe "const d=new Date(); d.setUTCDate(d.getUTCDate()-d.getUTCDay()); d.toISOString().slice(0,10)")
+ph() { curl -s --max-time 20 -o /dev/null -w "%{http_code}" -X POST "$B/api/media/photo?d=$3&pose=$4" -H "Cookie: $1" --data-binary "@$2"; }
+
+chk "anonymous cannot send a photo"            401 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/media/photo?d=$PD&pose=front" --data-binary "@$D/front.jpg")"
+chk "a member sends their own photo"           200 "$(ph "$M1" "$D/front.jpg" "$PD" front)"
+chk "another member sends theirs too"          200 "$(ph "$M2" "$D/front.jpg" "$PD" front)"
+chk "a video in the photo slot is refused"     415 "$(ph "$M1" "$D/demo.mp4" "$PD" side)"
+chk "a HEIC is refused with camera advice"    true "$(node -pe "String(/Compatible|JPEG/i.test(process.argv[1]))" "$(curl -s -X POST "$B/api/media/photo?d=$PD&pose=side" -H "Cookie: $M1" --data-binary "@$D/photo.heic" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).error||'')")")"
+chk "a date that is not a date is refused"     400 "$(ph "$M1" "$D/front.jpg" 'not-a-date' front)"
+chk "a traversing date is refused"             400 "$(ph "$M1" "$D/front.jpg" '../../etc' front)"
+chk "a pose outside the three is refused"      400 "$(ph "$M1" "$D/front.jpg" "$PD" 'moon')"
+# Same property the demo route has: nothing a refusal touched may survive it.
+chk "a refused photo leaves no temp file"        0 "$(ls -1 "$D"/media/photo/*/.up-* 2>/dev/null | wc -l | tr -d ' ')"
+
+echo "== progress photos: the slot is (week, pose), and a retake replaces =="
+chk "the member's own list has one row"          1 "$(get -H "Cookie: $M1" "$B/api/media/photos" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).photos.length)")"
+chk "...and it never carries the filename"    true "$(get -H "Cookie: $M1" "$B/api/media/photos" | node -pe "String(!('file' in JSON.parse(require('fs').readFileSync(0,'utf8')).photos[0]))")"
+PID1=$(get -H "Cookie: $M1" "$B/api/media/photos" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).photos[0].id")
+chk "a retake of the same slot is accepted"    200 "$(ph "$M1" "$D/front2.jpg" "$PD" front)"
+chk "...and still leaves exactly one row"        1 "$(get -H "Cookie: $M1" "$B/api/media/photos" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).photos.length)")"
+# Weekly photos with no retention rule and no delete route fill a shared-hosting quota forever.
+# The replaced FILE has to go, not just the row that pointed at it.
+chk "...and exactly one file on disk"            1 "$(ls -1 "$D"/media/photo/mem1/ 2>/dev/null | wc -l | tr -d ' ')"
+chk "the old row id stops resolving"           403 "$(code -H "Cookie: $M1" "$B/api/media/photo?id=$PID1")"
+chk "a second pose is a second slot"           200 "$(ph "$M1" "$D/front.jpg" "$PD" back)"
+chk "...so now there are two rows"               2 "$(get -H "Cookie: $M1" "$B/api/media/photos" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).photos.length)")"
+# The sidecar, not the state file. PUT /api/data replaces state-<uid>.json wholesale from
+# whatever the client last held, so a row written there is destroyed by the next sync.
+chk "metadata lands in the sidecar, not state"   1 "$(ls -1 "$D"/media-mem1.json 2>/dev/null | wc -l | tr -d ' ')"
+chk "...and never into the state file"         true "$(node -pe "
+  const fs=require('fs'); const f=process.argv[1];
+  const s = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f,'utf8')) : {};
+  String(!('photos' in s))" "$D/state-mem1.json")"
+# Unguessable names, not content-addressed ones: the demo route may derive a name from its bytes
+# because every signed-in member may have the file anyway. These filenames must be an index of
+# nothing, in case the directory is ever reachable by something other than the route below.
+chk "stored filenames are unguessable"        true "$(ls -1 "$D"/media/photo/mem1/ | node -pe "
+  const n=require('fs').readFileSync(0,'utf8').trim().split(/\s+/);
+  String(n.every(f => /^[A-Za-z0-9_-]{22}\.(jpg|png|webp|gif)$/.test(f)))")"
+# Forced, not waited for: base64url puts '-' or '_' first in 2 names out of 64, and the serving
+# guard used to reject exactly those — stored 200, read back 403, forever. A 3% bug is one this
+# smoke passes 94% of the time by luck, so rename a stored file onto the awkward case and ask.
+LEAD=$(node -e "
+  const fs=require('fs'), path=require('path');
+  const m=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));
+  const row=m.photos.find(p=>p.pose==='front');
+  const next='-'+row.file.slice(1);
+  fs.renameSync(path.join(process.argv[2],row.file), path.join(process.argv[2],next));
+  row.file=next; fs.writeFileSync(process.argv[1], JSON.stringify(m));
+  process.stdout.write(row.id)" "$D/media-mem1.json" "$D/media/photo/mem1")
+chk "a name beginning '-' is served, not 403'd" 200 "$(code -H "Cookie: $M1" "$B/api/media/photo?id=$LEAD")"
+
+# The sections above demote and re-promote coachA, and demoting runs detachCoach — which
+# unlinks their whole roster on purpose. Re-link mem1 explicitly so what follows depends on
+# the relationship it is actually testing rather than on wherever the earlier checks left it.
+curl -s -o /dev/null -X POST "$B/api/admin/user/assign-coach" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"mem1","coachId":"coachA"}'
+chk "mem1 is coachA's again, for what follows"  200 "$(code -H "Cookie: $CA" "$B/api/coach/member?id=mem1")"
+
+echo "== progress photos: who may read the bytes =="
+MPID=$(get -H "Cookie: $M1" "$B/api/media/photos" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).photos.find(p=>p.pose==='front').id")
+SZP=$(node -pe "require('fs').statSync(process.argv[1]).size" "$D/front2.jpg")
+chk "signed out gets no photo"                 401 "$(code "$B/api/media/photo?u=mem1&id=$MPID")"
+chk "the owner reads their own"                200 "$(code -H "Cookie: $M1" "$B/api/media/photo?u=mem1&id=$MPID")"
+chk "...and without naming themselves"         200 "$(code -H "Cookie: $M1" "$B/api/media/photo?id=$MPID")"
+chk "their coach reads it"                     200 "$(code -H "Cookie: $CA" "$B/api/media/photo?u=mem1&id=$MPID")"
+chk "an admin reads it"                        200 "$(code -H "Cookie: $ADMIN" "$B/api/media/photo?u=mem1&id=$MPID")"
+chk "another coach cannot"                     403 "$(code -H "Cookie: $CB" "$B/api/media/photo?u=mem1&id=$MPID")"
+chk "another CLIENT cannot"                    403 "$(code -H "Cookie: $M2" "$B/api/media/photo?u=mem1&id=$MPID")"
+# The whole point of the 403. A coach who is told 404 for "no such photo" and 403 for "not your
+# client" can walk the id space and learn who else trains here — the same enumeration
+# GET /api/coach/member refuses to allow. Status AND body have to match, or the body leaks it.
+chk "a missing id is the SAME 403, not a 404"  403 "$(code -H "Cookie: $M2" "$B/api/media/photo?u=mem1&id=nope")"
+chk "an unknown member is the same 403 too"    403 "$(code -H "Cookie: $M2" "$B/api/media/photo?u=ghost&id=$MPID")"
+chk "...and all three say exactly the same thing" true "$(node -pe "
+  const a=process.argv[1], b=process.argv[2], c=process.argv[3];
+  String(a===b && b===c && a.length>0)" \
+  "$(get -H "Cookie: $M2" "$B/api/media/photo?u=mem1&id=$MPID")" \
+  "$(get -H "Cookie: $M2" "$B/api/media/photo?u=mem1&id=nope")" \
+  "$(get -H "Cookie: $M2" "$B/api/media/photo?u=ghost&id=$MPID")")"
+# canCoachMember refuses when coach and member are the same person, so a gate that asked it
+# FIRST would lock a coach who files their own check-ins out of their own photos.
+chk "a coach may file a check-in photo too"     200 "$(ph "$CA" "$D/front.jpg" "$PD" front)"
+CPID=$(get -H "Cookie: $CA" "$B/api/media/photos" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).photos[0].id")
+chk "...and read their OWN back"               200 "$(code -H "Cookie: $CA" "$B/api/media/photo?id=$CPID")"
+chk "...naming themselves, which self-coaching forbids" 200 "$(code -H "Cookie: $CA" "$B/api/media/photo?u=coachA&id=$CPID")"
+chk "the bytes come back intact"            "$SZP" "$(curl -s -H "Cookie: $CA" "$B/api/media/photo?u=mem1&id=$MPID" | wc -c | tr -d ' ')"
+chk "HEAD works where GET does"                200 "$(code -I -H "Cookie: $CA" "$B/api/media/photo?u=mem1&id=$MPID")"
+
+echo "== progress photos: reaching the coach =="
+chk "the opened member carries their photos"     2 "$(get -H "Cookie: $CA" "$B/api/coach/member?id=mem1" | node -pe "String((JSON.parse(require('fs').readFileSync(0,'utf8')).photos||[]).length)")"
+chk "...as metadata only, never a path"       true "$(get -H "Cookie: $CA" "$B/api/coach/member?id=mem1" | node -pe "
+  const p=JSON.parse(require('fs').readFileSync(0,'utf8')).photos;
+  String(p.every(x => !('file' in x) && x.id && x.d && x.pose))")"
 
 echo ""
 echo "passed $pass, failed $fail"

@@ -203,6 +203,40 @@ export const ASSIGN_NOTE_MAX = 280
 export const ASSIGN_PENDING_DAYS = 30      // an offer nobody answered expires by itself
 export const ASSIGN_DECIDED_DAYS = 30      // decided history kept this long, then dropped
 
+// Daily nutrition targets ride on the plan bundle instead of getting a channel of their own.
+// There is exactly one reason: a target the SERVER writes into a member's state file is destroyed
+// by that member's next whole-state push (see POST /api/coach/assign). Something the member
+// accepts is the only kind that survives, and that mechanism already exists, already has an
+// inbox, a withdraw, an expiry and a decide. A second push mechanism would be a second auth
+// surface for one object with four numbers on it.
+//
+// Ceilings are slipped-decimal guards, not dietary advice: 20,000 kcal is far past any real
+// prescription and 2,000 g of a single macro is not a number anyone means to type.
+export const NUTRI_MAX_KCAL = 20000
+export const NUTRI_MAX_MACRO = 2000
+export const NUTRI_KEYS = ['kcal', 'p', 'c', 'f']
+
+// null for "no targets on this bundle" — every field is optional, including all of them. A coach
+// who sets calories and protein and leaves carbs and fat alone means exactly that, so an absent
+// macro stays absent rather than becoming a 0 the member's screen would render as a target.
+// Present-but-unusable is an ERROR rather than a silent drop: a coach who typed 2,200 into the
+// wrong box has to hear about it here, not discover it never arrived a week later.
+function cleanNutrition(raw) {
+  if (raw == null) return { nutrition: null }
+  if (typeof raw !== 'object' || Array.isArray(raw)) return { error: 'nutrition targets are malformed' }
+  const out = {}
+  for (const k of NUTRI_KEYS) {
+    const v = raw[k]
+    if (v == null || v === '') continue
+    const max = k === 'kcal' ? NUTRI_MAX_KCAL : NUTRI_MAX_MACRO
+    if (!Number.isFinite(+v) || +v < 0 || +v > max) return { error: `nutrition target for ${k} is not a number between 0 and ${max}` }
+    if (+v > 0) out[k] = Math.round(+v)
+  }
+  const note = String(raw.note || '').trim().slice(0, ASSIGN_NOTE_MAX)
+  if (!Object.keys(out).length) return { nutrition: null }   // a note with no numbers is not a target
+  return { nutrition: { ...out, ...(note ? { note } : {}) } }
+}
+
 // One place for "may this coach act on this member", because it guards five routes and getting
 // it wrong in any one of them exposes another member's training history. Admins pass regardless
 // (they own the gym); isAdmin is passed in rather than read here so this stays pure — the server's
@@ -230,6 +264,8 @@ export function validateAssignmentBundle(raw) {
   }
   const customEx = Array.isArray(raw.customEx) ? raw.customEx.filter(c => c && c.id) : []
   if (customEx.length > ASSIGN_MAX_CUSTOM) return { error: 'too many custom exercises' }
+  const { nutrition, error: nutriError } = cleanNutrition(raw.nutrition)
+  if (nutriError) return { error: nutriError }
   // Size last: cheap checks first, and this one serialises the whole thing.
   let bytes
   try { bytes = Buffer.byteLength(JSON.stringify(raw)) } catch { return { error: 'plan is not serialisable' } }
@@ -241,7 +277,10 @@ export function validateAssignmentBundle(raw) {
       name: String(raw.name || '').slice(0, 80),
       week: raw.week && typeof raw.week === 'object' && !Array.isArray(raw.week) ? raw.week : {},
       routines: raw.routines,
-      customEx
+      customEx,
+      // Omitted rather than stored as null, so a bundle without targets is byte-identical to the
+      // ones written before this existed and the member's client can test for the key.
+      ...(nutrition ? { nutrition } : {})
     }
   }
 }
@@ -403,4 +442,27 @@ export function validateUpload(buf, want) {
   if (m.ext === 'heic') return { error: 'HEIC photos do not display in most browsers — set the camera to “Most Compatible”, or export as JPEG' }
   if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG, WebP or GIF` }
   return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: false }
+}
+
+/**
+ * May this server open a filename it read out of its own metadata? A whitelist, never a
+ * blacklist of traversal tricks: the set of names that are fine is trivial to state, and the set
+ * of tricks that are not is famously open-ended. Nothing a caller types reaches here — both media
+ * routes address a row by id — so this is the guard against a hand-edited or truncated db.json,
+ * which is a plain file an operator can and does edit.
+ *
+ * The first character has its own class for exactly ONE reason: to keep a dot out of it. A
+ * leading dot is the shape that means something to a filesystem, and it is what the upload
+ * routes' own temp files ('.up-…') are named. '-' and '_' are ordinary characters here and must
+ * be allowed — a progress photo's name is base64url, whose alphabet includes both, so 2 in 64
+ * names start with one. A first class of [A-Za-z0-9] accepted those uploads and then refused to
+ * serve them back: one photo in thirty-two a permanent broken tile, on both the client's sheet
+ * and the coach's screen, with no delete route to clear it and a retake carrying the same odds.
+ *
+ * typeof before the pattern, and not for tidiness: RegExp.test coerces, so a row with no `file`
+ * at all is tested as the string "undefined" — which MATCHES — and then throws on the real
+ * undefined. A damaged row must refuse, not 500.
+ */
+export function safeMediaFile(name) {
+  return typeof name === 'string' && /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(name) && !name.includes('..')
 }

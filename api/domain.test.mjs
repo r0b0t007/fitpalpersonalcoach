@@ -8,8 +8,9 @@ import {
   bootstrapMatches, BOOTSTRAP_MIN,
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
   pendingAssignmentsFor, ASSIGN_MAX_ROUTINES, ASSIGN_MAX_EX, ASSIGN_PENDING_DAYS,
+  ASSIGN_NOTE_MAX, NUTRI_MAX_KCAL, NUTRI_MAX_MACRO,
   sessionsOverlap, findSessionConflicts,
-  sniffMedia, validateUpload, MEDIA_SNIFF_BYTES
+  sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile
 } from './domain.mjs'
 
 const DAY = 86400000
@@ -239,6 +240,36 @@ test('validateAssignmentBundle enforces the size caps', () => {
   assert.ok(validateAssignmentBundle(bundle({ routines: fat })).error)
   // A plan that is small in shape but huge in bytes still has to bounce.
   assert.ok(validateAssignmentBundle(bundle({ name: 'x'.repeat(200_000) })).error)
+})
+
+test('validateAssignmentBundle carries optional nutrition targets, and only the ones that were set', () => {
+  const { bundle: out, error } = validateAssignmentBundle(bundle({ nutrition: { kcal: 2200, p: 170, note: '  rest days  ' } }))
+  assert.equal(error, undefined)
+  // c and f are absent, not 0: a coach who left them alone meant to, and the member's screen
+  // must not render a target nobody wrote.
+  assert.deepEqual(out.nutrition, { kcal: 2200, p: 170, note: 'rest days' })
+  // Rounded like everything else here, and the note is capped with the assignment note.
+  assert.equal(validateAssignmentBundle(bundle({ nutrition: { kcal: 2200.6 } })).bundle.nutrition.kcal, 2201)
+  assert.equal(
+    validateAssignmentBundle(bundle({ nutrition: { kcal: 2200, note: 'x'.repeat(500) } })).bundle.nutrition.note.length,
+    ASSIGN_NOTE_MAX)
+})
+
+test('validateAssignmentBundle omits the nutrition key entirely when there is nothing to send', () => {
+  // Byte-identical to a bundle written before targets existed, which is what lets the member's
+  // client test for the key rather than for a null.
+  for (const none of [undefined, null, {}, { note: 'eat well' }, { kcal: 0, p: 0 }]) {
+    const { bundle: out } = validateAssignmentBundle(bundle({ nutrition: none }))
+    assert.equal('nutrition' in out, false, `should omit for ${JSON.stringify(none)}`)
+  }
+})
+
+test('validateAssignmentBundle refuses nutrition it cannot use, rather than dropping it quietly', () => {
+  // A coach who typed 2200 into the protein box has to hear about it now, not find out a week
+  // later that the target never arrived.
+  for (const bad of [[], 'nope', { kcal: 'lots' }, { kcal: -1 }, { kcal: NUTRI_MAX_KCAL + 1 }, { p: NUTRI_MAX_MACRO + 1 }]) {
+    assert.ok(validateAssignmentBundle(bundle({ nutrition: bad })).error, `should reject ${JSON.stringify(bad)}`)
+  }
 })
 
 test('validateAssignmentBundle survives a circular object instead of throwing', () => {
@@ -492,4 +523,32 @@ test('validateUpload refuses a file in the wrong slot', () => {
   assert.match(validateUpload(JPEG, 'video').error, /expected a video/)
   assert.match(validateUpload(ftyp('isom', ['avc1']), 'photo').error, /expected an image/)
   assert.match(validateUpload(Buffer.alloc(MEDIA_SNIFF_BYTES), 'video').error, /not a recognised/)
+})
+
+/* ---------- the media filename guard ---------- */
+
+test('safeMediaFile takes every name the upload routes actually generate', () => {
+  // The exact failure this guard shipped with: base64url includes '-' and '_', so 2 in 64
+  // photo filenames begin with one. Enumerated rather than sampled, because a 3% bug is a bug
+  // that passes CI most of the time.
+  const B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+  for (const c of B64URL)
+    assert.equal(safeMediaFile(c + 'Xk3pQ7rTb2Ls9Nv1Zw.jpg'), true, `rejected a name starting ${c}`)
+  // And the demo route's shape, whose exercise id is whitelisted as [A-Za-z0-9_-]{1,40} and so
+  // may lead with the same two characters.
+  assert.equal(safeMediaFile('_custom1-9f8e7d6c5b4a3210.mp4'), true)
+  assert.equal(safeMediaFile('bench-press-9f8e7d6c5b4a3210.mp4'), true)
+})
+
+test('safeMediaFile refuses everything that is not a plain stored file', () => {
+  assert.equal(safeMediaFile('.up-9f8e7d6c'), false)          // an upload in flight
+  assert.equal(safeMediaFile('../../db.json'), false)
+  assert.equal(safeMediaFile('a/../../secret'), false)
+  assert.equal(safeMediaFile('a/b.jpg'), false)
+  assert.equal(safeMediaFile('a\b.jpg'), false)
+  assert.equal(safeMediaFile(''), false)
+  // The coercion trap: RegExp.test would stringify these and 'undefined' matches the pattern.
+  assert.equal(safeMediaFile(undefined), false)
+  assert.equal(safeMediaFile(null), false)
+  assert.equal(safeMediaFile(123), false)
 })

@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, DEF } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { api } from '../lib/api.js'
+import { api, fetchExerciseMedia, uploadExerciseMedia } from '../lib/api.js'
+import { setCoachMedia } from '../lib/coach-media.js'
+import { EXIDX, allExercises, matchesExerciseSearch, mediaRowSrc } from '../lib/exercises.js'
 import { fmtDate, fmtVol, fmtDur, isoOf } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
 import { adherenceBand, adherenceOf } from '../lib/adherence.js'
 import { QUESTIONS, scoreOf } from '../lib/checkins.js'
+import { photoSrc, photosByPeriod, PHOTOS_REACHABLE } from '../lib/photo.js'
 import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
@@ -111,6 +114,66 @@ export function CheckinsCard({ checkins }) {
   </div>
 }
 
+// Progress photos — the one thing on this screen that is neither a number nor a chart, and for
+// most clients the reason the numbers get looked at. Newest week first, the three angles in a
+// row, tap one to open it full width.
+//
+// Read-only by construction rather than by a flag. There is nothing here that writes anywhere:
+// no store, no PUT, not even a delete. That is the same property `readOnly` buys StatsPanels,
+// arrived at by having nothing to gate instead of by gating it — which is why this card is NOT
+// routed through memberState/StatsPanels. Those panels are shared with the member's own Stats
+// screen, DEF has no `photos` key, and widening a shared prop-driven component to carry one
+// member's private images is the wrong direction entirely.
+//
+// The metadata arrives with the rest of GET /api/coach/member; each image is then its own
+// request against GET /api/media/photo, which re-checks canCoachMember. So a coach who loses a
+// member loses the images at that moment, without this screen having to know anything about it.
+export function PhotosCard({ photos, memberId }) {
+  const [open, setOpen] = useState(null)
+  const weeks = photosByPeriod(photos)
+  // The paired mobile build cannot render these — an <img> resolves its src against the Capacitor
+  // WebView's own origin and carries no Authorization header, so every tile would be a permanent
+  // grey box. lib/photo.js argues it at length; sheets.jsx hides the member's half for the same
+  // reason. Said out loud rather than hidden, because the coach's half is not a feature they can
+  // do without knowing about: silence here is indistinguishable from "she sent none", and that
+  // is a wrong answer to the one question this card exists to answer.
+  if (!PHOTOS_REACHABLE) return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="small" style={{ fontWeight: 600 }}>Progress photos</div>
+    <div className="dim" style={{ fontSize: '.72rem', marginTop: 2, lineHeight: 1.45 }}>
+      {weeks.length ? `${weeks.length} week${weeks.length === 1 ? '' : 's'} filed. ` : ''}
+      Photos only open in the browser dashboard, not in the app build.
+    </div>
+  </div>
+  if (!weeks.length) return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="small" style={{ fontWeight: 600 }}>Progress photos</div>
+    <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>None sent yet.</div>
+  </div>
+  return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="small" style={{ fontWeight: 600, marginBottom: 6 }}>Progress photos</div>
+    {weeks.slice(0, 8).map(wk => <div key={wk.d} style={{ padding: '6px 0', borderBottom: '1px solid var(--sep)' }}>
+      <div className="dim small">{fmtDate(wk.d, true)}</div>
+      <div className="row" style={{ gap: 6, marginTop: 4, alignItems: 'flex-start' }}>
+        {wk.photos.map(p => <div key={p.id} style={{ flex: 1, maxWidth: 110 }}>
+          {/* loading="lazy" is not decoration here: a year of check-ins is 150 authenticated
+              requests, and the coach is looking at the top two weeks. */}
+          <img src={photoSrc(p, memberId)} alt={p.pose} loading="lazy"
+            onClick={() => setOpen(open === p.id ? null : p.id)}
+            style={{
+              width: '100%', aspectRatio: '3 / 4', objectFit: 'cover', display: 'block',
+              borderRadius: 8, background: 'var(--surface-2)', cursor: 'pointer'
+            }} />
+          <div className="dim" style={{ fontSize: '.66rem', textAlign: 'center', marginTop: 2 }}>{p.pose}</div>
+        </div>)}
+      </div>
+      {/* Full width rather than a lightbox: the useful comparison is against the same angle in
+          an earlier week, which is one scroll away, not a modal that hides it. */}
+      {wk.photos.some(p => p.id === open) && <img src={photoSrc(wk.photos.find(p => p.id === open), memberId)}
+        alt="" onClick={() => setOpen(null)}
+        style={{ width: '100%', borderRadius: 10, margin: '8px 0', display: 'block', cursor: 'pointer' }} />}
+    </div>)}
+  </div>
+}
+
 export function AdherenceCard({ a }) {
   const pct = adhPct(a)
   // No plan means no adherence to report -- not 0%. Saying "0%" about someone who never set a
@@ -156,6 +219,11 @@ const memberState = d => ({
   measurements: d.measurements || [],
   checkins: d.checkins || [],
   checkinDay: d.checkinDay ?? null,
+  // Intake and the targets this coach set. Nothing else was needed: the Stats panel that draws
+  // them is prop-driven, so widening the payload is the whole coach-side implementation.
+  meals: d.meals || [],
+  mealDays: d.mealDays || {},
+  nutriTarget: d.nutriTarget ?? null,
   workouts: [...(d.workouts || [])].reverse(),
   routines: []
 })
@@ -187,6 +255,9 @@ function MemberDetail({ id, close, pending, onChanged }) {
     </div>
     <AdherenceCard a={memberAdherence(d)} />
     <CheckinsCard checkins={d.checkins} />
+    {/* Server-owned, so it comes from the payload's own `photos` field rather than from
+        memberState() — readState never sees these, by design. */}
+    <PhotosCard photos={d.photos} memberId={d.user.id} />
     {/* The same panels the member sees on their own Stats screen, against their state. readOnly
         hides the controls that write to or navigate the *coach's* data — logging a weigh-in, setting
         a goal, opening a workout sheet that reads from the coach's own store. */}
@@ -212,6 +283,10 @@ function MemberDetail({ id, close, pending, onChanged }) {
   </>
 }
 
+// Labels and units for the four numbers, in the order a coach reads them. English, like the rest
+// of this screen; the member's side of the same four numbers is translated (components/MacroRows).
+const MACRO_FIELDS = [['kcal', 'Calories', 'kcal'], ['p', 'Protein', 'g'], ['c', 'Carbs', 'g'], ['f', 'Fat', 'g']]
+
 function SendSheet({ members, close, program }) {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
@@ -220,6 +295,20 @@ function SendSheet({ members, close, program }) {
   const [note, setNote] = useState('')
   const [schedule, setSchedule] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Daily nutrition targets ride on this bundle rather than getting a channel of their own. A
+  // target the server wrote into a member's state file would be destroyed by their next
+  // whole-state push, so something they ACCEPT is the only kind that survives — and the accept
+  // flow already exists, with an inbox, a withdraw and an expiry. Blank means "not this time",
+  // and a bundle without the key leaves whatever they already have alone.
+  const [macros, setMacros] = useState({ kcal: '', p: '', c: '', f: '' })
+  const [macroNote, setMacroNote] = useState('')
+  const macro = (k, v) => setMacros(m => ({ ...m, [k]: v.replace(/[^\d]/g, '').slice(0, 5) }))
+  const nutrition = MACRO_FIELDS.some(([k]) => +macros[k] > 0)
+    ? Object.fromEntries([
+      ...MACRO_FIELDS.filter(([k]) => +macros[k] > 0).map(([k]) => [k, +macros[k]]),
+      ...(macroNote.trim() ? [['note', macroNote.trim()]] : [])
+    ])
+    : null
 
   // A saved program when one was chosen; otherwise the coach's current plan, which is what the
   // very first version always sent.
@@ -232,7 +321,7 @@ function SendSheet({ members, close, program }) {
     setBusy(true)
     api('/api/coach/assign', {
       method: 'POST',
-      body: JSON.stringify({ memberIds: picked, bundle, note, schedule })
+      body: JSON.stringify({ memberIds: picked, bundle: nutrition ? { ...bundle, nutrition } : bundle, note, schedule })
     })
       .then(({ sent }) => { toast('Sent to ' + sent + (sent === 1 ? ' member' : ' members')); close() })
       .catch(e => { toast(e.message); setBusy(false) })
@@ -265,6 +354,25 @@ function SendSheet({ members, close, program }) {
     {schedule && <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.4 }}>
       This replaces which routine sits on each weekday for them. Leave it off to add the routines and let them slot them in.
     </div>}
+
+    <h4 className="sec">Daily nutrition targets (optional)</h4>
+    <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.4 }}>
+      Leave these blank to send the program alone. Filling any of them replaces their current targets when
+      they accept — a half-set target, this block's calories against the last block's protein, is a number
+      nobody could explain. Blank fields are not sent, so setting calories and protein means exactly that.
+    </div>
+    <div className="list" style={{ gap: 0, marginBottom: 10 }}>
+      {MACRO_FIELDS.map(([k, label, unit]) => <label key={k} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <span className="small" style={{ fontWeight: 600 }}>{label}</span>
+        <span className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <input className="input" inputMode="numeric" placeholder="—" style={{ width: 90, textAlign: 'end' }}
+            value={macros[k]} onChange={e => macro(k, e.target.value)} />
+          <span className="dim small" style={{ width: 34 }}>{unit}</span>
+        </span>
+      </label>)}
+    </div>
+    <input className="input" placeholder="Note on the diet (optional)" maxLength={280}
+      value={macroNote} onChange={e => setMacroNote(e.target.value)} style={{ marginBottom: 6 }} />
 
     <h4 className="sec">Send to</h4>
     {members.length ? <div className="list" style={{ gap: 0 }}>
@@ -327,6 +435,161 @@ function SaveProgramSheet({ close }) {
     <Button variant="primary" style={{ marginTop: 14 }} disabled={!picked.length} onClick={save}>
       {picked.length ? 'Save ' + picked.length + (picked.length === 1 ? ' routine' : ' routines') + ' as a program' : 'Pick at least one routine'}
     </Button>
+  </>
+}
+
+/* ---------------------------------------------------- exercise demos -- */
+/* Videos the coach shoots themselves, keyed on the EXERCISE ID rather than on a dataset row —
+   which is what finally gives custom exercises media, since the stock catalogue has no entry for
+   a variation you invented last week.
+
+   One sheet, three jobs: pick the exercise, send the file, see what is already up there.
+
+   Every refusal from POST /api/media/exercise is worded FOR THE COACH — "use MP4 or MOV", "set
+   the camera to Most Compatible, or export as JPEG", "file is larger than the 90 MB limit". Those
+   strings are the instruction; they are printed verbatim and never collapsed into "upload
+   failed", which would throw away the only thing that says what to change. */
+
+const MB = b => (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB'
+// EXIDX carries the custom exercises too (the store registers them on load), so one lookup
+// covers both. Falling back to the raw id keeps a demo for a deleted exercise visible and
+// counted against the cap instead of vanishing from a list it still occupies.
+const exName = id => (EXIDX[id] && EXIDX[id].n) || id
+
+function MediaSheet() {
+  const S = useStore(s => s.S)
+  const toast = useUI(s => s.toast)
+  const [rows, setRows] = useState(null)
+  const [ex, setEx] = useState(null)
+  const [q, setQ] = useState('')
+  const [label, setLabel] = useState('')
+  const [pct, setPct] = useState(null)
+  const [err, setErr] = useState('')
+  const [preview, setPreview] = useState(null)
+  const fileRef = useRef(null)
+  const job = useRef(null)
+
+  // The same list the members' app reads, so pushing it into the registry here means a demo the
+  // coach just uploaded shows up on their OWN exercise cards without a reload.
+  const load = () => fetchExerciseMedia()
+    .then(m => { setRows(m); setCoachMedia(m) })
+    .catch(e => { setRows([]); toast(e.message) })
+  useEffect(() => { load(); return () => job.current?.abort() }, [])
+
+  const mine = ex ? (rows || []).filter(m => m.exId === ex.id) : []
+  const atCap = mine.length >= 6
+  const hits = q.trim().length < 2 ? [] : allExercises(S).filter(e => matchesExerciseSearch(e, q)).slice(0, 8)
+
+  const onFile = e => {
+    const file = e.target.files && e.target.files[0]
+    // Cleared immediately so picking the SAME file again after a refusal still fires a change
+    // event — which is the most likely next thing to happen after "use MP4 or MOV".
+    e.target.value = ''
+    if (!file || !ex) return
+    setErr(''); setPct(0)
+    const p = uploadExerciseMedia(ex.id, label.trim(), file, f => setPct(Math.round(f * 100)))
+    job.current = p
+    p.then(({ media }) => {
+      setPct(null); setLabel(''); job.current = null
+      toast(media && media.status === 'raw' ? 'Uploaded — read the warning below' : 'Uploaded')
+      load()
+    }).catch(e2 => { setPct(null); job.current = null; if (!e2.aborted) setErr(e2.message) })
+  }
+
+  const byEx = {}
+  for (const m of rows || []) (byEx[m.exId] = byEx[m.exId] || []).push(m)
+  const anyRaw = (rows || []).some(m => m.status === 'raw')
+
+  return <>
+    <h3>Exercise demos</h3>
+    <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
+      Your own video of an exercise, shown to every member in place of the stock animation.
+      Works for exercises you created yourself, which have never had one. MP4 or MOV, up to 90 MB,
+      six per exercise.
+    </div>
+
+    <h4 className="sec">1 &middot; Pick the exercise</h4>
+    {ex
+      ? <div className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <div><div className="small capitalize" style={{ fontWeight: 600 }}>{ex.n}</div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>
+            {mine.length} of 6 uploaded{ex.custom ? ' \u00b7 your own exercise' : ''}</div></div>
+        <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} disabled={pct != null}
+          onClick={() => { setEx(null); setErr('') }}>Change</button>
+      </div>
+      : <>
+        <input className="input" placeholder="Search the exercise library" value={q}
+          onChange={e => setQ(e.target.value)} style={{ marginBottom: 6 }} />
+        {hits.map(e => <div key={e.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}
+          onClick={() => { setEx(e); setQ('') }}>
+          <div><div className="small capitalize" style={{ fontWeight: 600 }}>{e.n}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>
+              {e.custom ? 'your own exercise' : e.bp}{(byEx[e.id] || []).length ? ' \u00b7 ' + byEx[e.id].length + ' uploaded' : ''}</div></div>
+          <Icon name="chevronRight" className="chev" />
+        </div>)}
+        {q.trim().length >= 2 && !hits.length && <div className="empty small">Nothing matches that.</div>}
+      </>}
+
+    {ex && <>
+      <h4 className="sec">2 &middot; Send the video</h4>
+      <input className="input" placeholder="Label (optional) — e.g. side on, 60kg" maxLength={40}
+        value={label} onChange={e => setLabel(e.target.value)} style={{ marginBottom: 10 }} />
+      {/* A plain file input behind the app's own button: the native control renders differently
+          on every platform and is the loudest unfinished tell there is. */}
+      <input ref={fileRef} type="file" accept="video/*" hidden onChange={onFile} />
+      {pct == null
+        ? <Button variant="primary" icon="upload" disabled={atCap} onClick={() => fileRef.current?.click()}>
+          {atCap ? 'This exercise is full (6 videos)' : 'Choose a video'}
+        </Button>
+        : <>
+          {/* 90 MB over a phone connection is minutes, and fetch has no progress event at all —
+              which is the whole reason lib/api.js reaches for XHR for this one call. */}
+          <div className="wprog" style={{ marginBottom: 8 }}><i style={{ width: pct + '%' }} /></div>
+          <div className="row between">
+            <span className="dim small">{pct < 100 ? 'Uploading ' + pct + '%' : 'Checking the file…'}</span>
+            <button className="btn" style={{ width: 'auto', padding: '4px 10px' }}
+              onClick={() => job.current?.abort()}>Cancel</button>
+          </div>
+        </>}
+      {atCap && <div className="dim small" style={{ marginTop: 8, lineHeight: 1.4 }}>
+        The cap is per exercise and nothing can remove a video yet — the next one has to go on a
+        different exercise.
+      </div>}
+      {/* The server's own words. It knows what was wrong with the file; this screen does not. */}
+      {err && <div className="small" style={{ marginTop: 10, lineHeight: 1.45, color: 'var(--red)' }}>{err}</div>}
+    </>}
+
+    <h4 className="sec">Already uploaded</h4>
+    {rows == null ? <div className="dim small">Loading…</div>
+      : !rows.length ? <div className="empty small">Nothing yet. Members see the stock animation until you upload one.</div>
+        : <>
+          {Object.keys(byEx).sort((a, b) => exName(a).localeCompare(exName(b))).map(exId => <div key={exId} style={{ marginBottom: 10 }}>
+            <div className="small capitalize" style={{ fontWeight: 600, marginBottom: 2 }}>{exName(exId)}</div>
+            {byEx[exId].map(m => <div key={m.id}>
+              <div className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}
+                onClick={() => setPreview(preview === m.id ? null : m.id)}>
+                <div><div className="small">{m.label || 'no label'}</div>
+                  <div className="dim" style={{ fontSize: '.72rem' }}>
+                    {MB(m.bytes)} &middot; {fmtDate(String(m.created).slice(0, 10))}</div></div>
+                {m.status === 'raw'
+                  ? <span className="tag" style={{ color: 'var(--yellow)' }}>needs conversion</span>
+                  : <Icon name={preview === m.id ? 'chevronDown' : 'play'} />}
+              </div>
+              {/* Playable whatever the status says. "raw" is not "broken", it is "nothing has
+                  confirmed every browser can decode this" — and the one way to find out is to
+                  watch it, which is why the preview is here rather than a download link. */}
+              {preview === m.id && <video src={mediaRowSrc(m)} controls playsInline preload="metadata"
+                style={{ width: '100%', maxHeight: 260, background: '#000', borderRadius: 10, margin: '8px 0' }} />}
+            </div>)}
+          </div>)}
+          {anyRaw && <div className="dim small" style={{ marginTop: 6, lineHeight: 1.45 }}>
+            “Needs conversion” means HEVC inside a .mov — what an iPhone records unless you tell it
+            otherwise. It is stored, listed and played like any other file, and Safari handles it;
+            Chrome and Firefox usually do not, and a member on one of those quietly sees the stock
+            animation instead. Nothing converts it for you. Either set the camera to “Most
+            Compatible”, or re-export as H.264 MP4 and upload that.
+          </div>}
+        </>}
   </>
 }
 
@@ -403,6 +666,18 @@ export default function Coach() {
       <div style={{ height: 10 }} />
       <Button variant="ghost" className="dim" disabled={!members?.length}
         onClick={() => openSheet(close => <SendSheet members={members || []} close={close} />)}>Send my current plan instead</Button>
+    </div>
+
+    {/* Below programming, above the live roster: a demo is something you set up once and then
+        forget, not something you check on. */}
+    <div className="card">
+      <div className="row between"><h2 style={{ margin: 0 }}>Exercise demos</h2>
+        <Button variant="primary" size="sm" icon="camera"
+          onClick={() => openSheet(() => <MediaSheet />)}>Upload a video</Button></div>
+      <div className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.4 }}>
+        Your own footage of a lift, shown to members in place of the stock animation — including on
+        the exercises you invented, which have never had one.
+      </div>
     </div>
 
     {live.length > 0 && <div className="card" style={{ borderColor: 'var(--acc)' }}>

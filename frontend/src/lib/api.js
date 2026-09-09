@@ -39,6 +39,75 @@ export async function pairRedeem(serverBase, code) {
   return data
 }
 
+// Coach exercise demos. The list is ordinary JSON and goes through api() like everything else.
+export const fetchExerciseMedia = () => api('/api/media/exercises').then(d => d.media || [])
+// A member's own progress photos. Ordinary JSON, so it goes through api(); the bytes do not.
+export const fetchMyPhotos = () => api('/api/media/photos').then(d => d.photos || [])
+
+/* The uploads cannot. api() hard-sets Content-Type: application/json and unconditionally parses
+   the response, while both media routes want the raw file as the ENTIRE body with its metadata
+   in the query string — there is no multipart parser on the server and there is not going to be
+   one.
+
+   XMLHttpRequest rather than fetch for exactly one reason: fetch has no upload-progress event at
+   all, and 90 MB of video with no bar is indistinguishable from a hang. That means re-doing what
+   api() does — remoteBase, the Bearer token, the error unwrap — for the third time in this file,
+   which is the price of remoteBase/remoteToken being module-private. They have to be: a bare
+   fetch or XHR written in a view would silently hit the wrong origin and drop the token on the
+   paired mobile build. pairRedeem above is the same bargain for the same reason.
+
+   Written once and shared by both callers below rather than copied. `noun` is only ever read on
+   the one path where nothing else is known — a network failure with no response at all — and is
+   there because "too large or not a video" is wrong advice to give someone sending a photo.
+
+   Returns a promise with .abort() on it, because cancelling a 90 MB upload is not a luxury. */
+function rawUpload(path, body, onProgress, noun) {
+  const xhr = new XMLHttpRequest()
+  const p = new Promise((resolve, reject) => {
+    xhr.open('POST', remoteBase + path)
+    if (remoteToken) xhr.setRequestHeader('Authorization', 'Bearer ' + remoteToken)
+    // Advisory only — the server sniffs the first 64 bytes and believes those, not this header.
+    // It is still set, because an edge in front of node (Cloudflare, LiteSpeed) reads it, and
+    // because a body sent as application/json when it is a JPEG is a lie either way.
+    if (body && body.type) xhr.setRequestHeader('Content-Type', body.type)
+    xhr.upload.onprogress = e => { if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total) }
+    xhr.onload = () => {
+      let data = {}
+      try { data = JSON.parse(xhr.responseText) } catch {}
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(data)
+      // The server's wording is the instruction — "use MP4 or MOV", "set the camera to Most
+      // Compatible". Pass it through untouched; a generic "upload failed" throws away the only
+      // thing that tells the person what to change.
+      const e = new Error(data.error || ('HTTP ' + xhr.status)); e.status = xhr.status; reject(e)
+    }
+    // A refusal happens while the browser is still sending, and the server closes the socket to
+    // get its message out. Usually the response still lands (onload above); when it does not,
+    // the browser reports a bare network failure with no status. Name the two things that
+    // actually cause it rather than inventing a reason, and do not overwrite a real 413/415.
+    xhr.onerror = () => reject(new Error('The upload was cut off before the server answered — it may have refused the file for being too large or not a ' + noun + '.'))
+    xhr.onabort = () => reject(Object.assign(new Error('Upload cancelled'), { aborted: true }))
+    xhr.send(body)
+  })
+  p.abort = () => xhr.abort()
+  return p
+}
+
+export const uploadExerciseMedia = (exId, label, file, onProgress) => rawUpload(
+  '/api/media/exercise?ex=' + encodeURIComponent(exId) + '&label=' + encodeURIComponent(label || ''),
+  file, onProgress, 'video')
+
+/* A progress photo. `d` is the check-in period it belongs to (periodStart in lib/checkins.js) and
+   `pose` one of POSES in lib/photo.js — together they are the slot, and re-sending replaces it
+   rather than adding a second photo of the same angle in the same week.
+
+   `blob` is what preparePhoto() returned, not the picked File: 1600 px, JPEG, and stripped of the
+   EXIF the camera wrote. Handing the original File here instead would upload the GPS with it and
+   still be accepted, which is exactly why the resize lives in a function the caller has to
+   await rather than in an option on this one. */
+export const uploadProgressPhoto = (d, pose, blob, onProgress) => rawUpload(
+  '/api/media/photo?d=' + encodeURIComponent(d) + '&pose=' + encodeURIComponent(pose),
+  blob, onProgress, 'photo')
+
 const bufToB64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const b64uToBuf = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)).buffer
 

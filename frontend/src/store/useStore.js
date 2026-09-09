@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { api, setRemoteAuth } from '../lib/api.js'
-import { localTZ } from '../lib/format.js'
+import { localTZ, todayISO } from '../lib/format.js'
+import { compactMeals } from '../lib/nutrition.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
@@ -26,6 +27,27 @@ export const DEF = {
   // Which weekday check-ins fall on (0 = Sunday). null means the default, so a profile written
   // before this existed is not pinned to a day nobody chose.
   checkinDay: null,
+  // Food logged today and for the last four months: [{ id, d, n, g, kcal, p, c, f, s, t }]. The
+  // macros are DENORMALISED onto each entry — already scaled for the grams — and `s` is
+  // provenance, never a key anything resolves. That is what lets a meal be logged in a kitchen
+  // with no signal and read back years later after the food it came from was renamed or deleted.
+  // Here in the blob rather than behind endpoints of its own so it rides the sync, the dirty flag
+  // and the retry that workouts already have. See lib/nutrition.js.
+  meals: [],
+  // Entries past 120 days, rolled to four numbers a day: { '2026-01-04': [kcal, p, c, f] }.
+  // Meals are the first thing in this blob written several times a DAY, and the whole state is
+  // re-serialised to localStorage and pushed on every change — unrolled, a year of them is the
+  // largest single thing here (compactMeals, lib/nutrition.js).
+  mealDays: {},
+  // The ~200 foods this person actually eats, per 100 g, most recently used first: there is no
+  // food database behind this and v1 does not pretend otherwise. Kept in use order so searching
+  // it needs no ranking pass.
+  foods: [],
+  // Daily targets: { kcal, p, c, f, note?, t }, any subset. Written by the CLIENT when it accepts
+  // a coach's program — the bundle carries an optional `nutrition` key (api/domain.mjs). It
+  // cannot arrive any other way: the server writing it into state-<uid>.json would be destroyed
+  // by this client's next whole-state push.
+  nutriTarget: null,
   // Coaches only: named programs written for clients, kept out of `routines` so that progressing
   // a client never changes what the coach themselves trains tomorrow. Each one is a frozen
   // snapshot of chosen routines (see Coach.jsx), which is why editing your own Plan afterwards
@@ -93,7 +115,18 @@ function loadState() {
   return clone(DEF)
 }
 
-const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length)
+// Everything on this device a pull is allowed to destroy. It has to list every kind of record the
+// client authors, because that is the only question restoredStateFor asks before letting a remote
+// state win outright: a profile this returns false for is treated as empty, so the dirty flag and
+// a newer local `_ts` are both skipped and the server's copy replaces it wholesale.
+//
+// Meals forced the widening. A meal is the first thing in this blob written several times a DAY,
+// and lib/nutrition.js's whole premise is that one logged in a kitchen with no signal survives —
+// a client who has signed in, logged breakfast offline and not yet made a routine or a weigh-in
+// was exactly the profile the old three-key check called empty. Measurements, check-ins, foods,
+// gym cards and a coach's programs had the same hole and are the same class of loss.
+const DATA_KEYS = ['workouts', 'routines', 'bodyweight', 'measurements', 'checkins', 'meals', 'foods', 'customEx', 'gymCards', 'programs']
+const hasData = st => DATA_KEYS.some(k => (st?.[k] || []).length) || !!Object.keys(st?.mealDays || {}).length
 
 // Decide whether a pulled account state may replace the local saved state. A local active workout
 // is deliberately carried forward: the server stores completed/saved state, while the in-progress
@@ -152,6 +185,7 @@ export const useStore = create((set, get) => {
   // Everything a sign-out leaves behind on this device, whichever way it was triggered.
   const clearLocalSession = () => {
     get().setUser(null)
+    set({ syncError: null })   // whatever the server refused belonged to the profile leaving
     localStorage.removeItem('gym_guest')
     localStorage.removeItem('gym_dirty')
     localStorage.removeItem(KEY)
@@ -166,6 +200,11 @@ export const useStore = create((set, get) => {
     // persisted locally — the source of truth is the inbox, so a decision made on one device
     // doesn't leave a stale offer sitting on another.
     assignments: [],
+    // The server's own words for why this device's last save was refused, or null. Only ever set
+    // from a 4xx (see pushState) — a push that fails offline is not an error anyone should be
+    // shown. Not persisted: the next push retries and either clears it or sets it again, so what
+    // is on screen is always about the state the device is holding right now.
+    syncError: null,
 
     async loadAssignments() {
       if (!get().user) return set({ assignments: [] })
@@ -190,6 +229,17 @@ export const useStore = create((set, get) => {
       persist(S, push)
     },
     replaceState(S, push = false) { persist(clone(S), push) },
+
+    // Fold meal entries past the keep window into one row a day (lib/nutrition.js). Called from
+    // the Nutrition screen on open rather than from boot(), for the reason that makes it cheap:
+    // the only profiles this matters for are the ones that log food, and those are exactly the
+    // ones that open that screen. compactMeals returns null when there is nothing to roll, which
+    // is the overwhelmingly common case, and skipping update() there also skips a whole-state
+    // clone and a push nobody asked for.
+    compactNutrition() {
+      const rolled = compactMeals(get().S, todayISO())
+      if (rolled) get().update(s => { s.meals = rolled.meals; s.mealDays = rolled.mealDays })
+    },
 
     // Fires after the moments where losing local data would actually hurt — a workout just
     // logged, a routine just edited — not on every keystroke. No-op off mobile or with the
@@ -228,8 +278,24 @@ export const useStore = create((set, get) => {
     async pushState() {
       if (!get().user) return
       clearTimeout(pushTm)
-      try { await api('/api/data', { method: 'PUT', body: JSON.stringify({ state: get().S }) }); localStorage.removeItem('gym_dirty') }
-      catch (e) { localStorage.setItem('gym_dirty', '1') }
+      try {
+        await api('/api/data', { method: 'PUT', body: JSON.stringify({ state: get().S }) })
+        localStorage.removeItem('gym_dirty')
+        if (get().syncError) set({ syncError: null })
+      } catch (e) {
+        localStorage.setItem('gym_dirty', '1')
+        // A 4xx is the server REFUSING this state, not a phone in a lift. Retrying changes
+        // nothing, and PUT /api/data's 413 sends back a sentence naming the limit and what to do
+        // about it — swallowing it is how a profile stops syncing forever with nothing on screen.
+        // Anything without a status is offline, which resolves itself and must never put a
+        // failure row in front of someone on the train — but it must not CLEAR one either. A
+        // refusal is a fact about the state, not about the last request: 413 over the limit,
+        // then a walk into a lift, and a bare "Failed to fetch" would wipe the only line saying
+        // why nothing is syncing, while the state is still over the cap. The row goes when a
+        // push actually succeeds, which is where it is cleared.
+        const refused = e && Number.isInteger(e.status) && e.status >= 400 && e.status < 500
+        if (refused) set({ syncError: e.message })
+      }
     },
     async pullState() {
       try {

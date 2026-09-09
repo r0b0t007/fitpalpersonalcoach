@@ -8,6 +8,8 @@ import { t, exerciseNameFor, getLang } from '../lib/i18n.js'
 import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, measureSheet, WorkoutRow, bwDeltaColor } from '../sheets.jsx'
 import LineChart from '../components/LineChart.jsx'
 import { SITE_LABEL, deltasOver, latestBySite, lengthUnit, seriesFor, sitesUsed } from '../lib/measurements.js'
+import { averageOver, hasNutrition, kcalPoints, targetOf, totalsFor } from '../lib/nutrition.js'
+import { MacroRows } from '../components/MacroRows.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
@@ -349,6 +351,43 @@ function MeasurementsCard({ S, readOnly }) {
   </div>
 }
 
+// What they ate, against what they were told to eat. Same prop-driven shape as every other panel
+// here, so the coach reads their client's intake through this exact component — the coach payload
+// carries `meals`, `mealDays` and `nutriTarget` and nothing else had to be written.
+//
+// Rendered only for a profile that actually uses nutrition. Someone who has never logged a meal
+// should not grow an empty card on a screen they open every week, and the You hub is where the
+// feature is discovered instead.
+function NutritionCard({ S, readOnly }) {
+  const nav = useNavigate()
+  const [range, setRange] = useState(30)
+  const today = todayISO()
+  const target = targetOf(S)
+  const avg = averageOver(S, range, today)
+  const pts = kcalPoints(S, range, today)
+
+  return <div className="card">
+    <div className="row between" style={{ marginBottom: 8 }}>
+      <h2 style={{ margin: 0 }}>{t('Nutrition')}</h2>
+      {!readOnly && <Button size="sm" icon="plus" onClick={() => nav('/nutrition')}>{t('Log')}</Button>}
+    </div>
+    <MacroRows totals={totalsFor(S, today)} target={target} compact />
+    <Segmented className="seg-range" value={range} onChange={setRange}
+      options={[{ value: 7, label: '1W' }, { value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 0, label: t('All') }]} />
+    {pts.length
+      ? <>
+        <div className="chart"><LineChart points={pts} h={150} unit="kcal" color="var(--teal)" goal={target?.kcal || null} /></div>
+        {/* Averaged over the days actually logged, and the count is right beside it — dividing by
+            the window instead would report a client eating 600 kcal a day because they logged
+            four days in a month, which is the most misleading number this card could show. */}
+        <div className="small dim" style={{ marginTop: 8 }}>
+          {t('{0} kcal on average', fmtNum(avg.kcal))} · {t('logged {0} of {1} days', avg.logged, avg.days || pts.length)}
+        </div>
+      </>
+      : <div className="empty small">{t('Nothing logged in this window.')}</div>}
+  </div>
+}
+
 export function StatsPanels({ S, readOnly = false }) {
   const nav = useNavigate()
   const [range, setRange] = useState(90)
@@ -528,6 +567,8 @@ export function StatsPanels({ S, readOnly = false }) {
       </div>
 
       <MeasurementsCard S={S} readOnly={readOnly} />
+
+      {hasNutrition(S) && <NutritionCard S={S} readOnly={readOnly} />}
 
       <div className="card">
         <h2>{t('Exercise progress')}</h2>

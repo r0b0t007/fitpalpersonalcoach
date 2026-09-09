@@ -171,7 +171,7 @@ BACKEND=api                # name of the API service that /api is proxied to
 PORT=3000                  # port the API listens on; web proxies to the same value
 SESSION_DAYS=90            # how long a sign-in lasts
 MEDIA_MAX_VIDEO_MB=90      # coach exercise demos (see below)
-MEDIA_MAX_PHOTO_MB=12      # progress photos (no route behind it yet)
+MEDIA_MAX_PHOTO_MB=12      # a client's own progress photos (see below)
 NGINX_MAX_BODY=128m        # the web container's own limit — keep it ABOVE the video cap
 ```
 
@@ -179,6 +179,21 @@ The two media caps are separate from the 5 MB JSON body limit because uploads st
 disk rather than being buffered and parsed — a large video is never a large Buffer in the node
 heap, and no JSON route inherits the bigger number. Uploads land in `DATA_DIR/media/`, so the
 existing backup covers them.
+
+The two caps sit on two different routes with two different audiences. `MEDIA_MAX_VIDEO_MB` bounds
+`POST /api/media/exercise`, which only a coach may call and whose files every signed-in member can
+then watch. `MEDIA_MAX_PHOTO_MB` bounds `POST /api/media/photo`, which any member calls for
+themselves and whose files only they and their coach can open — the metadata lives in
+`DATA_DIR/media-<uid>.json`, deliberately beside `state-<uid>.json` rather than inside it, because
+`PUT /api/data` replaces that file wholesale on every sync. 12 MB is generous and is not the number
+that normally applies: the app re-draws each photo on a canvas at 1600 px before sending, which
+lands around 300-500 KB. The cap exists for the raw-bytes path — the route takes a file, not a
+form — and for a phone the resize failed on.
+
+That client-side resize also strips the photo's EXIF, GPS included, because a canvas holds decoded
+pixels and no metadata. It is a property of the app, **not** a guarantee this server enforces:
+nothing in `api/` parses EXIF, and anything can post raw bytes at the route. Do not describe it to
+clients as a server-side promise.
 
 **Whatever sits in front of the app is the limit that actually fires.** nginx's
 `client_max_body_size` defaults to 1 MB, and Cloudflare refuses bodies over 100 MB on its free and
