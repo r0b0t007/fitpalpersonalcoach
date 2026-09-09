@@ -41,7 +41,7 @@
   --yellow:#ffd60a; --teal:#40c8e0; --indigo:#5e5ce6; --pink:#ff375f;
   --purple:#bf5af2; --mint:#63e6e2; --brown:#ac8e68; --grey:#8e8e93;
 
-  /* accent (per-account, synced) — FIT'ONE gold is the default before any choice applies */
+  /* accent (per-account, synced) — the FitPal gold is the default before any choice applies */
   --acc:  #D4AF37;
   --acc-2:#a5821f;
   --on-acc:#000000;
@@ -91,7 +91,7 @@
 :root[data-accent="pink"]  { --acc:var(--pink);   --acc-2:#d70036; --on-acc:#fff }
 :root[data-accent="red"]   { --acc:var(--red);    --acc-2:#d70015; --on-acc:#fff }
 :root[data-accent="teal"]  { --acc:var(--teal);   --acc-2:#0071a4; --on-acc:#000 }
-/* gold = the FIT'ONE brand metallic (#D4AF37), same value in both themes — not the iOS
+/* gold = the FitPal brand metallic (#D4AF37), same value in both themes — not the iOS
    yellow the other seven map to. It is also the DEFAULT accent (useStore DEF). */
 :root[data-accent="gold"]  { --acc:#D4AF37; --acc-2:#a5821f; --on-acc:#000 }
 /* Label colour on a filled accent button is picked per accent by measured contrast,

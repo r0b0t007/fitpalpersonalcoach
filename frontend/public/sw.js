@@ -1,6 +1,6 @@
-/* FIT'ONE service worker (built on openGym) — runtime caching (works with Vite's hashed asset names).
+/* FitPal Coach service worker (built on openGym) — runtime caching (works with Vite's hashed asset names).
    Media (img/gif) cache-first; everything else network-first with offline fallback. */
-const CACHE = 'fitone-rt-v1'
+const CACHE = 'fitpal-coach-rt-v1'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', e => {
@@ -10,11 +10,11 @@ self.addEventListener('activate', e => {
 })
 self.addEventListener('push', e => {
   const data = e.data ? e.data.json() : {}
-  e.waitUntil(self.registration.showNotification(data.title || "FIT'ONE", {
+  e.waitUntil(self.registration.showNotification(data.title || 'FitPal Coach', {
     body: data.body || '',
     icon: 'icon-512.png',
     badge: 'icon-180.png',
-    tag: data.tag || 'fitone',
+    tag: data.tag || 'fitpal-coach',
     renotify: true
   }))
 })
