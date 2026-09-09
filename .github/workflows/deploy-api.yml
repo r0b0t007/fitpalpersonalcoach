@@ -88,8 +88,25 @@ jobs:
           cd api
           npm ci --omit=dev
           mkdir -p ../deploy/tmp
-          cp -r node_modules server.js domain.mjs package.json package-lock.json ../deploy/
+          cp -r node_modules package.json package-lock.json ../deploy/
+          # Every top-level runtime module, not a hand-maintained list. Twice a new module was
+          # added to the repo and not to that list: the container crashed on domain.mjs and the
+          # subdomain served a 503 for coach/config.js, both with CI green.
+          for f in *.js *.mjs; do
+            # An unmatched glob arrives as its own literal, and `cp '*.mjs'` under `bash -e`
+            # would kill the deploy with an error that points nowhere near the cause.
+            [ -e "$f" ] || continue
+            case "$f" in *.test.js|*.test.mjs) continue ;; esac
+            cp "$f" ../deploy/
+          done
+          cp -r coach ../deploy/
           date -u +'%Y-%m-%dT%H:%M:%SZ' > ../deploy/tmp/restart.txt
+
+      # The bundle is the only place a missing module exists, so it is the only place worth
+      # checking. Walks the import graph from server.js and fails if anything it needs is not
+      # in the bundle — before rsync replaces a working app root with a broken one.
+      - name: Check the bundle is complete
+        run: node api/scripts/check-bundle-complete.mjs deploy server.js
 
       # rsync over SSH (Namecheap shared: port 21098, enable Shell Access first).
       # --delete keeps the app root exactly in sync with the bundle, EXCEPT what the

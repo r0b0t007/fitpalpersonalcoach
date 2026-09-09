@@ -23,6 +23,16 @@ the other one, and turning it on here would mirror this app over `fitpal.ma`.
 2. **Node.js app** — Setup Node.js App → application root `~/fitpal-coach-api`, Node 22,
    startup file `server.js`, application URL `coach.fitpal.ma/api`.
 
+   What that last field actually does is create **`~/coach.fitpal.ma/api/`** holding a single
+   `.htaccess` with the Passenger directives and every environment variable. The directory *is*
+   the mount. The frontend build has nothing to put there, so `deploy-web.yml` excludes `/api/`
+   from its `rsync --delete` — without that exclude the first frontend deploy silently unmounts
+   the API and `/api/health` starts answering **404**, which reads like DNS or a dead app rather
+   than a frontend deploy that reached too far. If it ever goes missing, `cloudlinux-selector`
+   will not rebuild it (it reports `No such application` precisely because the file is gone);
+   copy the block from `~/app.fitpal.ma/api/.htaccess`, swap in this app's root, node path and
+   env vars, then `cloudlinux-selector restart --interpreter nodejs --app-root fitpal-coach-api`.
+
 3. **Environment variables** — set in the Node.js app's own *Environment variables* panel, not
    a `.env` file. The API has no `dotenv` dependency, so a `.env` would be read by nothing;
    under Passenger the panel *is* `process.env`. Mirrors how `app.fitpal.ma/api` is configured:
@@ -73,22 +83,34 @@ SSH_PORT          21098
 SSH_KNOWN_HOSTS   (copied from opengym-fitone)
 ```
 
-Still needed — **secrets**, which have to be pasted by a human:
+Set as environment secrets on `production`:
 
 ```
 SSH_HOST    server215.web-hosting.com
 SSH_USER    <cPanel username>
-SSH_KEY     private half of a key whose public half is in ~/.ssh/authorized_keys
+SSH_KEY     private half of a key whose public half is authorized in cPanel → SSH Access
 ```
 
-Then, once cPanel is ready and only then, turn the deploys on:
+The key is `fitpal_coach_ci`, an ed25519 pair generated locally with an **empty passphrase** and
+imported to cPanel as a public key only. A passphrase-protected key cannot work here: the deploy
+runs `ssh` non-interactively with no agent, so it fails with a bare
+`Permission denied (publickey)` that says nothing about the passphrase being the cause. Set the
+secret straight from the file so the private half never passes through a clipboard or a shell
+history:
+
+```
+gh secret set SSH_KEY --repo r0b0t007/fitpalpersonalcoach --env production < ~/.ssh/fitpal_coach_ci
+```
+
+`gh secret set` reports success even when its input was empty, and an empty `SSH_KEY` fails later
+and obscurely — if a deploy dies at "Set up SSH", suspect that before anything else.
+
+Deploys are on:
 
 ```
 DEPLOY_WEB=true
 DEPLOY_API=true
 ```
-
-They are unset today, which is why nothing in this repo can deploy yet.
 
 ## The guard
 
