@@ -9,7 +9,7 @@ import { fmtDate, fmtVol, fmtDur, isoOf } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
 import { adherenceBand, adherenceOf } from '../lib/adherence.js'
 import { QUESTIONS, scoreOf } from '../lib/checkins.js'
-import { photoSrc, photosByPeriod } from '../lib/photo.js'
+import { photoSrc, photosByPeriod, PHOTOS_REACHABLE } from '../lib/photo.js'
 import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
@@ -131,6 +131,19 @@ export function CheckinsCard({ checkins }) {
 export function PhotosCard({ photos, memberId }) {
   const [open, setOpen] = useState(null)
   const weeks = photosByPeriod(photos)
+  // The paired mobile build cannot render these — an <img> resolves its src against the Capacitor
+  // WebView's own origin and carries no Authorization header, so every tile would be a permanent
+  // grey box. lib/photo.js argues it at length; sheets.jsx hides the member's half for the same
+  // reason. Said out loud rather than hidden, because the coach's half is not a feature they can
+  // do without knowing about: silence here is indistinguishable from "she sent none", and that
+  // is a wrong answer to the one question this card exists to answer.
+  if (!PHOTOS_REACHABLE) return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="small" style={{ fontWeight: 600 }}>Progress photos</div>
+    <div className="dim" style={{ fontSize: '.72rem', marginTop: 2, lineHeight: 1.45 }}>
+      {weeks.length ? `${weeks.length} week${weeks.length === 1 ? '' : 's'} filed. ` : ''}
+      Photos only open in the browser dashboard, not in the app build.
+    </div>
+  </div>
   if (!weeks.length) return <div className="card" style={{ marginBottom: 12 }}>
     <div className="small" style={{ fontWeight: 600 }}>Progress photos</div>
     <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>None sent yet.</div>

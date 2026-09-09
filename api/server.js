@@ -18,7 +18,7 @@ import {
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
   pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
   findSessionConflicts, isRealDate,
-  validateUpload, MEDIA_SNIFF_BYTES
+  validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
@@ -88,6 +88,13 @@ const PHOTO_POSES = ['front', 'side', 'back'];
 // shared-hosting quota nobody can reclaim. The total below is a backstop against a script rather
 // than a product limit — three angles a week for over three years.
 const MEDIA_MAX_PHOTOS = 500;
+// And a byte budget beside it, because a count is only a bound if a row is small. The client
+// resizes to ~400 KB before sending (lib/photo.js), but this is a raw-bytes route open to every
+// signed-in member and curl does not run lib/photo.js — the row cap ALONE permits 500 ×
+// MEDIA_MAX_PHOTO, six gigabytes per member, on a cPanel quota this product shares with a
+// sibling deployment. 300 MB is ~750 photos at the size the app actually sends, so it never
+// reaches a real client; it is what stops someone posting full-size originals in a loop.
+const MEDIA_MAX_PHOTO_TOTAL = 300 * 1024 * 1024;
 // Secure cookies require HTTPS; over plain http://localhost the flag would drop the cookie
 const SECURE = /^https:/i.test(ORIGIN) ? ' Secure;' : '';
 
@@ -359,6 +366,23 @@ function userPhotos(uid) {
 // unguessable the moment it is published, and nothing outside this module needs it — every
 // reader addresses a photo by row id.
 const publicPhoto = p => ({ id: p.id, d: p.d, pose: p.pose, bytes: p.bytes, mime: p.mime, created: p.created });
+/* Both caps in one predicate, because the upload route has to ask twice: once before it reads
+ * the body, to refuse a doomed upload without draining it, and once after — where it is the ask
+ * that actually binds. `incoming` is 0 on the first call, since nothing is known about the file
+ * yet.
+ *
+ * A retake of a slot that already exists is measured against the rows WITHOUT that slot: it
+ * replaces a file rather than adding one, so neither cap can ever stop someone correcting this
+ * week's photo — only opening a new slot.
+ */
+const photoBytes = rows => rows.reduce((n, p) => n + (Number(p.bytes) || 0), 0);
+function photoCapError(rows, d, pose, incoming = 0) {
+  const rest = rows.filter(p => !(p.d === d && p.pose === pose));
+  if (rest.length >= MEDIA_MAX_PHOTOS) return `that is ${MEDIA_MAX_PHOTOS} photos already stored`;
+  if (photoBytes(rest) + incoming > MEDIA_MAX_PHOTO_TOTAL)
+    return `that is ${mb(MEDIA_MAX_PHOTO_TOTAL)} MB of photos already stored`;
+  return null;
+}
 
 /* ---------- push notifications (Web Push / VAPID) ---------- */
 const vapidFile = path.join(DATA, 'vapid.json');
@@ -1575,13 +1599,12 @@ const routes = {
     if (!user) return json(res, 401, { error: 'not signed in' });
     const id = new URL(req.url, 'http://x').searchParams.get('id');
     const row = db.media.find(m => m.id === id);
-    // typeof first, and not for tidiness: RegExp.test coerces, so a row with no `file` at all is
-    // tested as the string "undefined" — which MATCHES this pattern — and then .includes() throws
-    // on the real undefined, giving a 500. A hand-edited or truncated row is exactly the input
-    // the comment above says this guard is for, so it must 404 rather than crash on it.
-    if (!row || typeof row.file !== 'string' ||
-        !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(row.file) || row.file.includes('..'))
-      return json(res, 404, { error: 'not found' });
+    // safeMediaFile rather than a regex inlined here, because the identical guard sits on the
+    // progress-photo route and the two drifted apart once already — the copy there rejected a
+    // leading '-' or '_' that its own upload route generates. One predicate, one test, both
+    // callers. It also absorbs the typeof, which is load-bearing: RegExp.test coerces, so a row
+    // with no `file` matches as the string "undefined" and then throws a 500 on .includes().
+    if (!row || !safeMediaFile(row.file)) return json(res, 404, { error: 'not found' });
     serveMedia(req, res, path.join(MEDIA_DIR, 'ex', row.file), row.mime);
   },
   // The dispatcher keys on method + path, so serveMedia's HEAD branch is unreachable without
@@ -1619,12 +1642,10 @@ const routes = {
     const pose = String(q.get('pose') || '').trim();
     if (!PHOTO_POSES.includes(pose)) return json(res, 400, { error: 'bad pose' }, shut);
 
-    const rows = userPhotos(user.id);
-    // A retake of a slot that already exists costs no row, so the cap can never stop someone
-    // correcting this week's photo — only opening a 501st slot.
-    const replacing = rows.some(p => p.d === d && p.pose === pose);
-    if (!replacing && rows.length >= MEDIA_MAX_PHOTOS)
-      return json(res, 429, { error: `that is ${MEDIA_MAX_PHOTOS} photos already stored` }, shut);
+    // Cheap refusal before the body is read, so an upload that cannot be kept is not carried
+    // across the wire first. It is not the check that binds — see the second call below.
+    const early = photoCapError(userPhotos(user.id), d, pose);
+    if (early) return json(res, 429, { error: early }, shut);
 
     const dir = photoDir(user.id);
     try { fs.mkdirSync(dir, { recursive: true }); }
@@ -1642,6 +1663,10 @@ const routes = {
     // handler somebody adds, a backup served over HTTP) the filenames are not an index of who
     // photographed themselves and when. It costs the dedupe the other route gets; that dedupe
     // would itself leak here, by making identical bytes collide across two people.
+    //
+    // base64url's alphabet includes '-' and '_', so 2 names in 64 begin with one. Whatever reads
+    // these back has to accept that — safeMediaFile does, deliberately and with a test; a guard
+    // that did not stored one photo in thirty-two and then refused to serve it.
     const file = crypto.randomBytes(16).toString('base64url') + '.' + up.meta.ext;
     const stored = path.join(dir, file);
     try { fs.renameSync(tmp, stored); }
@@ -1652,8 +1677,8 @@ const routes = {
       d, pose, file, bytes: up.bytes, mime: up.meta.mime,
       created: new Date().toISOString()
     };
-    // Re-read rather than reusing `rows`: that snapshot was taken before an await, and a photo
-    // for a different pose may have landed in between. Only the one (d, pose) slot this request
+    // Re-read rather than reusing the pre-upload snapshot: that one was taken before an await,
+    // and a photo for a different pose may have landed in between. Only the one (d, pose) slot this request
     // owns is replaced, so two poses uploaded in parallel cannot erase each other.
     //
     // From here to atomicWrite there is no await, deliberately. readFileSync → filter → concat →
@@ -1662,6 +1687,16 @@ const routes = {
     // Put an await anywhere in this run and a second upload can interleave and drop a row while
     // leaving its file behind, which nothing would ever notice.
     const before = userPhotos(user.id);
+    // The caps, re-asked AFTER the upload, for the reason the demo route states in the same
+    // place: the first ask ran before an await and is a promise about the past. N parallel
+    // uploads with distinct (d, pose) all read the same pre-upload count and all passed it, and
+    // there is no delete route to reclaim what that stores. This ask is a fact — `before` is the
+    // post-await read and nothing awaits between here and the write.
+    const capped = photoCapError(before, d, pose, up.bytes);
+    if (capped) {
+      fs.rm(stored, { force: true }, () => {});
+      return json(res, 429, { error: capped });
+    }
     const next = before.filter(p => !(p.d === d && p.pose === pose)).concat(row)
       .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
     try { atomicWrite(mediaFile(user.id), JSON.stringify({ photos: next })); }
@@ -1715,12 +1750,12 @@ const routes = {
     const mayRead = !!owner &&
       (owner.id === user.id || canCoachMember(user, owner, { isAdmin: isAdmin(user) }));
     const row = mayRead ? userPhotos(owner.id).find(p => p.id === q.get('id')) : null;
-    // typeof before the pattern, for the same reason as GET /api/media/ex: RegExp.test coerces,
-    // so a hand-edited row with no `file` is tested as the string "undefined", matches, and then
-    // throws a 500 on .includes(). A damaged row must refuse, not crash.
-    if (!row || typeof row.file !== 'string' ||
-        !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(row.file) || row.file.includes('..'))
-      return json(res, 403, { error: 'forbidden' });
+    // Shared with GET /api/media/ex, and shared BECAUSE of what happened when it was not: the
+    // copy that used to sit here refused a leading '-' or '_', which base64url produces for 2
+    // names in 64 — so one photo in thirty-two uploaded fine and then 403'd forever, a broken
+    // tile on both screens with no delete route to clear it. domain.mjs argues the character
+    // classes; safeMediaFile also does the typeof that keeps a damaged row from 500ing.
+    if (!row || !safeMediaFile(row.file)) return json(res, 403, { error: 'forbidden' });
     serveMedia(req, res, path.join(photoDir(owner.id), row.file), row.mime);
   },
   // Same reason as the demo route: the dispatcher keys on method + path, so serveMedia's HEAD

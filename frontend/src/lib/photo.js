@@ -60,7 +60,11 @@ export const POSES = [
  * drops coach demo rows on that build. The upload itself would work, since it goes through
  * lib/api.js and its remote base; a feature that can send a photo and can never show it back is
  * worse than one that is honestly absent. VITE_MOBILE is a build-time constant, so this whole
- * branch folds away in the web bundle. */
+ * branch folds away in the web bundle.
+ *
+ * The coach's half (Coach.jsx PhotosCard) reads the same flag but does NOT hide: a coach seeing
+ * no card cannot tell it apart from a client who sent nothing, so that side says out loud that
+ * the photos are there and open in the browser. */
 export const PHOTOS_REACHABLE = (import.meta.env || {}).VITE_MOBILE !== '1'
 
 /**

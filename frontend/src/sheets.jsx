@@ -438,12 +438,16 @@ function CheckinPhotos({ d }) {
             on every platform and is the loudest unfinished tell there is. */}
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
         {/* Every claim here is true of the code above and no wider. The resize really does drop
-            the EXIF, because a canvas has no metadata to carry through; and "only you and your
-            coach" is exactly what GET /api/media/photo enforces, per request. What it does NOT
-            say is that the server strips anything — it does not, and cannot without a dependency
-            this repo will not take. */}
+            the EXIF, because a canvas has no metadata to carry through. What it does NOT say is
+            that the server strips anything — it does not, and cannot without a dependency this
+            repo will not take.
+            The audience is named as three, not two, because that is what the route admits: GET
+            /api/media/photo gates on canCoachMember, which passes an admin regardless of whose
+            coach they are (api/domain.mjs — admins own the gym, and the same rule guards every
+            other coach route). "Only you and your coach" read better and was false wherever the
+            gym owner is not the coach, which is the shape this product is sold into. */}
         <div className="dim small" style={{ marginTop: 8, lineHeight: 1.45 }}>
-          {t('Resized on your phone before it is sent, which removes the location and camera details the original file carries. Only you and your coach can open them.')}
+          {t('Resized on your phone before it is sent, which removes the location and camera details the original file carries. Only you, your coach and the gym admin can open them.')}
         </div>
         {err && <div className="small" style={{ marginTop: 8, lineHeight: 1.45, color: 'var(--red)' }}>{err}</div>}
       </>}

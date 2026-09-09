@@ -412,6 +412,18 @@ chk "...and never into the state file"         true "$(node -pe "
 chk "stored filenames are unguessable"        true "$(ls -1 "$D"/media/photo/mem1/ | node -pe "
   const n=require('fs').readFileSync(0,'utf8').trim().split(/\s+/);
   String(n.every(f => /^[A-Za-z0-9_-]{22}\.(jpg|png|webp|gif)$/.test(f)))")"
+# Forced, not waited for: base64url puts '-' or '_' first in 2 names out of 64, and the serving
+# guard used to reject exactly those — stored 200, read back 403, forever. A 3% bug is one this
+# smoke passes 94% of the time by luck, so rename a stored file onto the awkward case and ask.
+LEAD=$(node -e "
+  const fs=require('fs'), path=require('path');
+  const m=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));
+  const row=m.photos.find(p=>p.pose==='front');
+  const next='-'+row.file.slice(1);
+  fs.renameSync(path.join(process.argv[2],row.file), path.join(process.argv[2],next));
+  row.file=next; fs.writeFileSync(process.argv[1], JSON.stringify(m));
+  process.stdout.write(row.id)" "$D/media-mem1.json" "$D/media/photo/mem1")
+chk "a name beginning '-' is served, not 403'd" 200 "$(code -H "Cookie: $M1" "$B/api/media/photo?id=$LEAD")"
 
 # The sections above demote and re-promote coachA, and demoting runs detachCoach — which
 # unlinks their whole roster on purpose. Re-link mem1 explicitly so what follows depends on

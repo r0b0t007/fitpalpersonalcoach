@@ -404,3 +404,26 @@ export function validateUpload(buf, want) {
   if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG, WebP or GIF` }
   return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: false }
 }
+
+/**
+ * May this server open a filename it read out of its own metadata? A whitelist, never a
+ * blacklist of traversal tricks: the set of names that are fine is trivial to state, and the set
+ * of tricks that are not is famously open-ended. Nothing a caller types reaches here — both media
+ * routes address a row by id — so this is the guard against a hand-edited or truncated db.json,
+ * which is a plain file an operator can and does edit.
+ *
+ * The first character has its own class for exactly ONE reason: to keep a dot out of it. A
+ * leading dot is the shape that means something to a filesystem, and it is what the upload
+ * routes' own temp files ('.up-…') are named. '-' and '_' are ordinary characters here and must
+ * be allowed — a progress photo's name is base64url, whose alphabet includes both, so 2 in 64
+ * names start with one. A first class of [A-Za-z0-9] accepted those uploads and then refused to
+ * serve them back: one photo in thirty-two a permanent broken tile, on both the client's sheet
+ * and the coach's screen, with no delete route to clear it and a retake carrying the same odds.
+ *
+ * typeof before the pattern, and not for tidiness: RegExp.test coerces, so a row with no `file`
+ * at all is tested as the string "undefined" — which MATCHES — and then throws on the real
+ * undefined. A damaged row must refuse, not 500.
+ */
+export function safeMediaFile(name) {
+  return typeof name === 'string' && /^[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(name) && !name.includes('..')
+}

@@ -1339,5 +1339,5 @@ export default {
   'Sending…': 'Wird gesendet…',
   'Photo added': 'Foto hinzugefügt',
   'Sign in to add progress photos.': 'Melde dich an, um Fortschrittsfotos hinzuzufügen.',
-  'Resized on your phone before it is sent, which removes the location and camera details the original file carries. Only you and your coach can open them.': 'Wird vor dem Senden auf deinem Handy verkleinert — dabei verschwinden Standort- und Kameradaten, die die Originaldatei enthält. Öffnen können sie nur du und dein Coach.',
+  'Resized on your phone before it is sent, which removes the location and camera details the original file carries. Only you, your coach and the gym admin can open them.': 'Wird vor dem Senden auf deinem Handy verkleinert — dabei verschwinden Standort- und Kameradaten, die die Originaldatei enthält. Öffnen können sie nur du, dein Coach und die Studio-Administration.',
 }
