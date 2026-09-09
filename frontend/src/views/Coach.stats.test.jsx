@@ -114,3 +114,66 @@ describe('StatsPanels against a member payload', () => {
     expect(text).not.toContain('Log')
   })
 })
+
+// Adherence is scored from two differently-shaped payloads — the roster's four trimmed fields
+// and the opened member's full plan + history — and the two are easy to confuse, because a
+// scored result and the parts it was scored from are both plausible-looking objects. Reading
+// `.rate` off the parts yields undefined and renders nothing at all: no error, just a column
+// that quietly stops appearing. That is what these pin.
+const { AdherenceCard, RosterAdherence, memberAdherence } = await import('./Coach.jsx')
+
+describe('adherence in the coach view', () => {
+  // A Wednesday. Monday/Wednesday/Friday plan, trained the Monday just gone.
+  const parts = (over = {}) => ({
+    week: { 1: ['r1'], 3: ['r1'], 5: ['r1'] },
+    dayPlan: {},
+    routineIds: ['r1'],
+    trainedDays: ['2026-09-07'],
+    ...over,
+  })
+  const render = el => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    act(() => { createRoot(host).render(el) })
+    return host
+  }
+
+  it('renders a percentage from the roster wire shape, not from a scored result', () => {
+    const text = render(<RosterAdherence parts={parts()} />).textContent
+    expect(text).toMatch(/%/)
+    expect(text).toMatch(/28d/)
+  })
+
+  it('renders nothing in the roster for a member with no training week', () => {
+    expect(render(<RosterAdherence parts={parts({ week: {} })} />).textContent).toBe('')
+    expect(render(<RosterAdherence parts={undefined} />).textContent).toBe('')
+  })
+
+  it('says there is nothing to miss rather than 0% when no week is set', () => {
+    const text = render(<AdherenceCard a={memberAdherence({ week: {}, dayPlan: {}, routines: [], workouts: [] })} />).textContent
+    expect(text).toContain('nothing to miss')
+    expect(text).not.toContain('0%')
+  })
+
+  it('builds the same score from the opened member payload as from the roster fields', () => {
+    // The detail route sends routines as objects and workouts as whole sessions; the roster
+    // sends ids and dates. Same person, same number.
+    const detail = memberAdherence({
+      week: parts().week, dayPlan: {},
+      routines: [{ id: 'r1', name: 'Push', count: 5 }],
+      workouts: [{ id: 'w1', d: '2026-09-07', entries: [] }],
+    })
+    expect(detail.planned).toBeGreaterThan(0)
+    expect(detail.trained).toBe(1)
+  })
+
+  it('draws one cell per day in the window', () => {
+    const host = render(<AdherenceCard a={memberAdherence({
+      week: parts().week, dayPlan: {}, routines: [{ id: 'r1' }],
+      workouts: [{ d: '2026-09-07' }],
+    })} />)
+    // The strip is the last flex row in the card.
+    const strip = [...host.querySelectorAll('div')].find(d => d.style.display === 'flex' && d.children.length > 7)
+    expect(strip.children).toHaveLength(28)
+  })
+})
