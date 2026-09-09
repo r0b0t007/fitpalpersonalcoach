@@ -265,7 +265,7 @@ function MemberDetail({ id, close, pending, onChanged }) {
 
     <h4 className="sec">Their routines</h4>
     {d.routines.length
-      ? <div className="list" style={{ gap: 0 }}>
+      ? <div className="list" style={{ rowGap: 0 }}>
         {d.routines.map(r => <div key={r.id} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)' }}>
           <span className="small" style={{ fontWeight: 600 }}>{r.name}</span>
           <span className="dim small">{r.count} exercises</span>
@@ -273,7 +273,7 @@ function MemberDetail({ id, close, pending, onChanged }) {
       </div>
       : <div className="empty small">No routines yet.</div>}
     <h4 className="sec">Workout history</h4>
-    {d.workouts.length ? <div className="list" style={{ gap: 0 }}>
+    {d.workouts.length ? <div className="list" style={{ rowGap: 0 }}>
       {d.workouts.slice(0, 60).map(w => <div key={w.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
         <div><div className="small" style={{ fontWeight: 600 }}>{w.name}</div>
           <div className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(w.d, true)} · {fmtDur((w.end || w.start) - w.start)} · {setsDone(w)} sets{w.prs?.length ? ' · ' + w.prs.length + ' PR' : ''}</div></div>
@@ -361,7 +361,7 @@ function SendSheet({ members, close, program }) {
       they accept — a half-set target, this block's calories against the last block's protein, is a number
       nobody could explain. Blank fields are not sent, so setting calories and protein means exactly that.
     </div>
-    <div className="list" style={{ gap: 0, marginBottom: 10 }}>
+    <div className="list" style={{ rowGap: 0, marginBottom: 10 }}>
       {MACRO_FIELDS.map(([k, label, unit]) => <label key={k} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
         <span className="small" style={{ fontWeight: 600 }}>{label}</span>
         <span className="row" style={{ gap: 8, alignItems: 'center' }}>
@@ -375,7 +375,7 @@ function SendSheet({ members, close, program }) {
       value={macroNote} onChange={e => setMacroNote(e.target.value)} style={{ marginBottom: 6 }} />
 
     <h4 className="sec">Send to</h4>
-    {members.length ? <div className="list" style={{ gap: 0 }}>
+    {members.length ? <div className="list" style={{ rowGap: 0 }}>
       {members.map(m => <label key={m.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
         <div><div className="small" style={{ fontWeight: 600 }}>{m.name}</div>
           <div className="dim" style={{ fontSize: '.72rem' }}>{m.workouts} workouts · synced {rel(m.lastSync)}</div></div>
@@ -425,7 +425,7 @@ function SaveProgramSheet({ close }) {
     <input className="input" placeholder="Program name (e.g. Beginner Block A)" maxLength={40}
       value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: 10 }} />
     <h4 className="sec">Routines to include</h4>
-    <div className="list" style={{ gap: 0 }}>
+    <div className="list" style={{ rowGap: 0 }}>
       {usable.map(r => <label key={r.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
         <div><div className="small" style={{ fontWeight: 600 }}>{r.name}</div>
           <div className="dim" style={{ fontSize: '.72rem' }}>{r.ex.length} exercises</div></div>

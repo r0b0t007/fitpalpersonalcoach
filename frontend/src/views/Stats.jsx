@@ -326,7 +326,7 @@ function MeasurementsCard({ S, readOnly }) {
         ? t('No measurements logged yet.')
         : t('Nothing measured yet. A tape catches what the scale misses.')}</div>
       : <>
-        <div className="list" style={{ gap: 0, marginBottom: 10 }}>
+        <div className="list" style={{ rowGap: 0, marginBottom: 10 }}>
           {used.map(k => {
             const d = deltas[k]
             return <div key={k} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
