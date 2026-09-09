@@ -82,6 +82,11 @@ jobs:
         working-directory: api
       - run: npm test
         working-directory: api
+      # The api's copy of the exercise catalogue is generated and committed. A dataset change
+      # that forgets to regenerate it would otherwise only surface as "the Coach can't find
+      # that exercise" on somebody's instance.
+      - run: node scripts/build-coach-assets.mjs --check
+      - run: node api/scripts/check-core-loadable.mjs
 
   # The unit suite imports domain.mjs and nothing else, so until this job existed no HTTP route,
   # cookie check or permission boundary was covered by any automated run: canCoachMember was
@@ -153,23 +158,6 @@ jobs:
       # module with 33 green tests standing over a server that died on startup.
       - run: npm run check:node-loadable
         working-directory: mcp
-
-  api:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      # Nothing to install: the Coach tests run on node:test and drive the in-repo fixture
-      # provider, so the whole job works without an AI account, a network, or a dependency.
-      - run: npm test
-        working-directory: api
-      # The api's copy of the exercise catalogue is generated and committed. A dataset change
-      # that forgets to regenerate it would otherwise only surface as "the Coach can't find
-      # that exercise" on somebody's instance.
-      - run: node scripts/build-coach-assets.mjs --check
-      - run: node api/scripts/check-core-loadable.mjs
 
   # Builds *and runs* both image targets. Building alone would not have caught the api image
   # shipping without coach/ — that image built perfectly and exited on boot. So each target has
