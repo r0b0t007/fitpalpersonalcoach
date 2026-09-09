@@ -433,7 +433,29 @@ const memberCard = (u, viewerId = null) => {
     // program is not their business to see or cancel.
     pending: mine.filter(a => a.status === 'pending' && (!viewerId || a.coachId === viewerId))
       .map(a => ({ id: a.id, created: a.created, coachId: a.coachId })),
-    lastDecision: lastDecided ? { status: lastDecided.status, at: lastDecided.decidedAt } : null
+    lastDecision: lastDecided ? { status: lastDecided.status, at: lastDecided.decidedAt } : null,
+    // What frontend/src/lib/adherence.js needs to score "are they showing up" without the roster
+    // pulling every member's full state. The state is already read at the top of this function,
+    // so it costs no extra I/O — only these four fields on the wire.
+    adherence: adherenceParts(S)
+  };
+};
+
+// Trimmed to the adherence window on purpose. `dayPlan` holds an entry for every date a member
+// has ever rescheduled, so an untrimmed roster payload grows for the life of the account; and
+// `workouts` carries whole sessions where only the dates matter here. Nothing outside the window
+// can change the answer — adherence.test.js holds that property, which is what makes the trim
+// safe rather than merely smaller.
+const ADHERENCE_DAYS = 28;
+const adherenceParts = S => {
+  const since = addDaysISO(isoTodayUTC(), -(ADHERENCE_DAYS - 1));
+  const dayPlan = {};
+  for (const [iso, v] of Object.entries(S.dayPlan || {})) if (iso >= since) dayPlan[iso] = v;
+  return {
+    week: S.week || {},
+    dayPlan,
+    routineIds: (S.routines || []).map(r => r.id),
+    trainedDays: [...new Set((S.workouts || []).map(w => w.d).filter(d => d && d >= since))]
   };
 };
 const expireCookie = name => `${name}=; Path=/; Max-Age=0; HttpOnly;${SECURE} SameSite=Lax`;
@@ -1158,7 +1180,12 @@ const routes = {
       body: S.body || 'male',
       targetW: S.targetW ?? null,
       effort: S.effort ?? null,
-      showRir: S.showRir ?? null      // legacy field effortOf() still falls back to
+      showRir: S.showRir ?? null,     // legacy field effortOf() still falls back to
+      // The plan itself, so the opened client's adherence is scored against every workout above
+      // rather than the roster's trimmed window. Untrimmed here because this is one member, and
+      // a coach looking at one person should see the whole picture.
+      week: S.week || {},
+      dayPlan: S.dayPlan || {}
     });
   },
 
