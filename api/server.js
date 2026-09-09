@@ -1187,6 +1187,10 @@ const routes = {
       bodyweight: S.bodyweight || [],
       // The tape, same shape and same panel as the client's own screen (lib/measurements.js).
       measurements: S.measurements || [],
+      // Weekly check-ins the client authored. Read-only here by construction: the server never
+      // writes into a client's state file, because their next whole-state push would erase it.
+      checkins: S.checkins || [],
+      checkinDay: S.checkinDay ?? null,
       workouts: (S.workouts || []).slice().reverse(),
       // The rest of what <StatsPanels> reads, so a coach sees the same charts their client does
       // rather than a count. Deliberately narrow: these are display preferences and training

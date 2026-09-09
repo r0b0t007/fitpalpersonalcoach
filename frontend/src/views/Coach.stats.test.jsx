@@ -125,7 +125,7 @@ describe('StatsPanels against a member payload', () => {
 // scored result and the parts it was scored from are both plausible-looking objects. Reading
 // `.rate` off the parts yields undefined and renders nothing at all: no error, just a column
 // that quietly stops appearing. That is what these pin.
-const { AdherenceCard, RosterAdherence, memberAdherence } = await import('./Coach.jsx')
+const { AdherenceCard, CheckinsCard, RosterAdherence, memberAdherence } = await import('./Coach.jsx')
 
 describe('adherence in the coach view', () => {
   // Fixed, never the clock. memberAdherence defaults `todayIso` to today, so a test that let it
@@ -281,5 +281,48 @@ describe('measurements in the coach view', () => {
   it('says nothing is logged for a member who has never measured', () => {
     const text = render(memberState({ ...payload, measurements: [] })).textContent
     expect(text).toContain('No measurements logged yet.')
+  })
+})
+
+// The note is the point of a check-in; the scales are context for it. A coach reads this to find
+// out what the training data cannot tell them, so the note must survive the trip intact and an
+// unanswered form must not masquerade as a terrible week.
+describe('check-ins in the coach view', () => {
+  const render = el => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    act(() => { createRoot(host).render(el) })
+    return host
+  }
+
+  it('shows the note, the answered scales and the mean', () => {
+    const text = render(<CheckinsCard checkins={[
+      { d: '2026-09-06', answers: { energy: 4, sleep: 2 }, note: 'Knee grumbling on squats.', t: 1 },
+    ]} />).textContent
+    expect(text).toContain('Knee grumbling on squats.')
+    expect(text).toContain('Energy')
+    expect(text).toContain('3')          // mean of 4 and 2
+  })
+
+  it('shows no score at all for a form with no scales answered', () => {
+    // A zero here would read as the worst week possible from someone who only left a note.
+    const text = render(<CheckinsCard checkins={[
+      { d: '2026-09-06', answers: {}, note: 'Away all week.', t: 1 },
+    ]} />).textContent
+    expect(text).toContain('Away all week.')
+    expect(text).not.toContain('/5')
+  })
+
+  it('lists newest first', () => {
+    const text = render(<CheckinsCard checkins={[
+      { d: '2026-08-30', answers: { energy: 1 }, note: 'older', t: 1 },
+      { d: '2026-09-06', answers: { energy: 5 }, note: 'newer', t: 2 },
+    ]} />).textContent
+    expect(text.indexOf('newer')).toBeLessThan(text.indexOf('older'))
+  })
+
+  it('says none are filed rather than rendering an empty card', () => {
+    expect(render(<CheckinsCard checkins={[]} />).textContent).toContain('None filed yet.')
+    expect(render(<CheckinsCard checkins={undefined} />).textContent).toContain('None filed yet.')
   })
 })

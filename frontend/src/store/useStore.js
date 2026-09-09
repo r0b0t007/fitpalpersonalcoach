@@ -19,6 +19,13 @@ export const DEF = {
   // Tape measurements, shaped like bodyweight so they ride the same sync and chart with the
   // same component: [{ d, site, v, t }], one per site per day. See lib/measurements.js.
   measurements: [],
+  // Weekly check-ins: [{ d, answers: { energy: 4, … }, note?, t }], one per period. The client
+  // authors them and the coach reads them out of the same synced blob — anything the server
+  // wrote here would be destroyed by the client's next push. See lib/checkins.js.
+  checkins: [],
+  // Which weekday check-ins fall on (0 = Sunday). null means the default, so a profile written
+  // before this existed is not pinned to a day nobody chose.
+  checkinDay: null,
   // Coaches only: named programs written for clients, kept out of `routines` so that progressing
   // a client never changes what the coach themselves trains tomorrow. Each one is a frozen
   // snapshot of chosen routines (see Coach.jsx), which is why editing your own Plan afterwards

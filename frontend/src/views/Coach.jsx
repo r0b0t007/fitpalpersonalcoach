@@ -6,6 +6,7 @@ import { api } from '../lib/api.js'
 import { fmtDate, fmtVol, fmtDur, isoOf } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
 import { adherenceBand, adherenceOf } from '../lib/adherence.js'
+import { QUESTIONS, scoreOf } from '../lib/checkins.js'
 import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
@@ -77,6 +78,39 @@ export function RosterAdherence({ parts, todayIso = isoOf(new Date()) }) {
   </div>
 }
 
+// What the training data cannot say. Adherence says whether they turned up and the tape says
+// what changed; only this says they have been sleeping five hours and work is brutal — which is
+// what a coach actually changes the plan for.
+//
+// Newest first and the note given room, because the note is the point. The scales are context
+// for it, not a dashboard: five numbers a week is not a dataset, it is a conversation opener.
+export function CheckinsCard({ checkins }) {
+  const list = [...(checkins || [])].reverse().slice(0, 8)
+  if (!list.length) return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="small" style={{ fontWeight: 600 }}>Check-ins</div>
+    <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>None filed yet.</div>
+  </div>
+  return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="small" style={{ fontWeight: 600, marginBottom: 6 }}>Check-ins</div>
+    {list.map(c => {
+      const score = scoreOf(c)
+      return <div key={c.d} style={{ padding: '8px 0', borderBottom: '1px solid var(--sep)' }}>
+        <div className="row between">
+          <span className="dim small">{fmtDate(c.d, true)}</span>
+          {/* null, not 0 — a form with no scales answered is empty, not a terrible week. */}
+          {score != null && <span className="small" style={{ fontWeight: 700 }}>{score}<span className="dim">/5</span></span>}
+        </div>
+        <div className="row" style={{ gap: 10, flexWrap: 'wrap', marginTop: 3 }}>
+          {QUESTIONS.filter(q => c.answers?.[q.id]).map(q => <span key={q.id} className="dim" style={{ fontSize: '.7rem' }}>
+            {q.label} <b style={{ color: 'var(--label)' }}>{c.answers[q.id]}</b>
+          </span>)}
+        </div>
+        {c.note && <div className="small" style={{ marginTop: 5, whiteSpace: 'pre-wrap' }}>{c.note}</div>}
+      </div>
+    })}
+  </div>
+}
+
 export function AdherenceCard({ a }) {
   const pct = adhPct(a)
   // No plan means no adherence to report -- not 0%. Saying "0%" about someone who never set a
@@ -120,6 +154,8 @@ const memberState = d => ({
   unit: d.unit, body: d.body, targetW: d.targetW, effort: d.effort, showRir: d.showRir,
   bodyweight: d.bodyweight || [],
   measurements: d.measurements || [],
+  checkins: d.checkins || [],
+  checkinDay: d.checkinDay ?? null,
   workouts: [...(d.workouts || [])].reverse(),
   routines: []
 })
@@ -150,6 +186,7 @@ function MemberDetail({ id, close, pending, onChanged }) {
       <div className="tile"><div className="l">Last sync</div><div className="v" style={{ fontSize: '.95rem' }}>{rel(d.lastSync)}</div></div>
     </div>
     <AdherenceCard a={memberAdherence(d)} />
+    <CheckinsCard checkins={d.checkins} />
     {/* The same panels the member sees on their own Stats screen, against their state. readOnly
         hides the controls that write to or navigate the *coach's* data — logging a weigh-in, setting
         a goal, opening a workout sheet that reads from the coach's own store. */}

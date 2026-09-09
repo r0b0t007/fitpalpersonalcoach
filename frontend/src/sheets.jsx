@@ -12,11 +12,12 @@ import { t, dateLocale, instrFor, exerciseNameFor, getLang, INSTR_LANGS } from '
 import { nav } from './lib/nav.js'
 import { buildStarterPlan, starterPlanDays, starterPlanOptions } from './lib/starter.js'
 import { SITES, SITE_LABEL, isValidValue, latestBySite, lengthUnit, removeMeasurement, upsertMeasurement } from './lib/measurements.js'
+import { NOTE_MAX as CHECKIN_NOTE_MAX, QUESTIONS, currentCheckin, periodStart, upsertCheckin } from './lib/checkins.js'
 import Media, { Thumb } from './components/Media.jsx'
 import LineChart from './components/LineChart.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
-import { Button, Slider, Switch, Segmented, SelectRow, Row, TextField, NumberField, MultiSelectRow } from './components/ui.jsx'
+import { Button, Slider, Switch, Segmented, SelectRow, Row, TextField, TextArea, NumberField, MultiSelectRow } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import MuscleExplorer from './components/MuscleExplorer.jsx'
@@ -294,6 +295,52 @@ function MeasureSheet({ close }) {
   </>
 }
 export function measureSheet() { return ui().openSheet(close => <MeasureSheet close={close} />) }
+
+/* ============================ weekly check-in ============================ */
+// Five scales and a note. Deliberately short: a check-in someone dreads is a check-in that stops
+// happening around week three, and the training data already answers everything a longer form
+// would ask about the sessions themselves.
+//
+// Every scale reads 5 = good, including the two that are naturally negative — "Recovery" rather
+// than soreness, "Life stress" scored calm-high. Mixing directions inside one form is the survey
+// mistake that produces data nobody can read down a column.
+function CheckinSheet({ close }) {
+  const st = useStore(s => s.S)
+  const today = todayISO()
+  const existing = currentCheckin(st, today)
+  const [ans, setAns] = useState(() => ({ ...(existing?.answers || {}) }))
+  const [note, setNote] = useState(existing?.note || '')
+
+  const save = () => {
+    // The date is the period it belongs to, not the day they got round to it — so a Tuesday
+    // answer files under Sunday's week and the streak stays honest.
+    const d = existing ? existing.d : periodStart(st, today)
+    update(s => { s.checkins = upsertCheckin(s.checkins, { d, answers: ans, note }) })
+    close()
+    toast(t('Check-in saved'))
+  }
+
+  return <>
+    <h3>{existing ? t('Edit check-in') : t('Weekly check-in')}</h3>
+    <div className="muted small">{t('Week of {0}', fmtDate(periodStart(st, today), true))}</div>
+    <div style={{ marginTop: 10 }}>
+      {QUESTIONS.map(q => <div key={q.id} style={{ marginBottom: 12 }}>
+        <div className="row between" style={{ marginBottom: 4 }}>
+          <span className="small" style={{ fontWeight: 600 }}>{t(q.label)}</span>
+          <span className="dim" style={{ fontSize: '.7rem' }}>{t(q.hint)}</span>
+        </div>
+        <Segmented value={ans[q.id] ?? null} onChange={v => setAns(a => ({ ...a, [q.id]: v }))}
+          options={[1, 2, 3, 4, 5].map(n => ({ value: n, label: String(n) }))} />
+      </div>)}
+      <h4 className="sec">{t('Anything your coach should know?')}</h4>
+      <TextArea rows={4} maxLength={CHECKIN_NOTE_MAX} value={note} onChange={e => setNote(e.target.value)}
+        placeholder={t('Sleep, work, niggles, wins — whatever changed this week.')} />
+    </div>
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+  </>
+}
+export function checkinSheet() { return ui().openSheet(close => <CheckinSheet close={close} />) }
 
 /* ============================ import from another app ============================ */
 // Shows what a parsed export would actually do before anything is written. An import is
