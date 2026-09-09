@@ -1185,6 +1185,8 @@ const routes = {
       lastSync: S._ts || null,
       routines: (S.routines || []).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: (r.ex || []).length })),
       bodyweight: S.bodyweight || [],
+      // The tape, same shape and same panel as the client's own screen (lib/measurements.js).
+      measurements: S.measurements || [],
       workouts: (S.workouts || []).slice().reverse(),
       // The rest of what <StatsPanels> reads, so a coach sees the same charts their client does
       // rather than a count. Deliberately narrow: these are display preferences and training

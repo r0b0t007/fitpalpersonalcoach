@@ -11,6 +11,7 @@ import { beep, vibrate } from './lib/sound.js'
 import { t, dateLocale, instrFor, exerciseNameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
 import { buildStarterPlan, starterPlanDays, starterPlanOptions } from './lib/starter.js'
+import { SITES, SITE_LABEL, isValidValue, latestBySite, lengthUnit, removeMeasurement, upsertMeasurement } from './lib/measurements.js'
 import Media, { Thumb } from './components/Media.jsx'
 import LineChart from './components/LineChart.jsx'
 import Stepper from './components/Stepper.jsx'
@@ -238,6 +239,61 @@ export function bwSheet(opts = {}) {
   const h = ui().openSheet(close => <BwSheet {...opts} close={close} />, { locked: !!opts.required })
   return h
 }
+
+/* ============================ body measurements ============================ */
+// The tape, alongside the scale. One sheet for the whole check-in rather than one per site:
+// a client measures everything in one sitting, and seven separate sheets is six more chances
+// to give up half way. Sites they have never used start blank and are simply left blank.
+function MeasureSheet({ close }) {
+  const st = useStore(s => s.S)
+  const unit = lengthUnit(st)
+  const last = latestBySite(st)
+  // Seeded from the previous reading, because the interesting edit is "84 -> 83.5", not
+  // re-typing a number that has barely moved. An untouched field saves nothing.
+  const [vals, setVals] = useState(() => Object.fromEntries(
+    SITES.map(k => [k, last[k] ? String(last[k].v) : ''])))
+  const dirty = k => (vals[k] || '') !== (last[k] ? String(last[k].v) : '')
+
+  const save = () => {
+    const changed = SITES.filter(dirty)
+    const bad = changed.find(k => vals[k] !== '' && !isValidValue(st, parseFloat(vals[k])))
+    if (bad) { toast(t('Check the {0} measurement', t(SITE_LABEL[bad]).toLowerCase())); return }
+    if (!changed.length) { close(); return }
+    const iso = todayISO()
+    update(s => {
+      for (const k of changed) {
+        s.measurements = vals[k] === ''
+          ? removeMeasurement(s.measurements, iso, k)
+          : upsertMeasurement(s.measurements, { d: iso, site: k, v: parseFloat(vals[k]) })
+      }
+    })
+    close()
+    toast(t('Measurements saved'))
+  }
+
+  return <>
+    <h3>{t('Log measurements')}</h3>
+    <div className="muted small">{t('Today') + ', ' + fmtDate(todayISO(), true)}</div>
+    <div className="list" style={{ gap: 0, marginTop: 10 }}>
+      {SITES.map(k => <div key={k} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <span className="small" style={{ fontWeight: 600 }}>{t(SITE_LABEL[k])}</span>
+        <span className="row" style={{ gap: 8, alignItems: 'center' }}>
+          {last[k] && <span className="dim" style={{ fontSize: '.72rem' }}>{fmtDate(last[k].d)}</span>}
+          <input className="input" inputMode="decimal" style={{ width: 90, textAlign: 'end' }}
+            value={vals[k]} placeholder="—"
+            onChange={e => setVals(v => ({ ...v, [k]: e.target.value.replace(/[^\d.,]/g, '').replace(',', '.') }))} />
+          <span className="dim small" style={{ width: 22 }}>{unit}</span>
+        </span>
+      </div>)}
+    </div>
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+    <div className="dim small" style={{ marginTop: 8 }}>
+      {t('Measure at the same time of day, before eating, without pulling the tape tight.')}
+    </div>
+  </>
+}
+export function measureSheet() { return ui().openSheet(close => <MeasureSheet close={close} />) }
 
 /* ============================ import from another app ============================ */
 // Shows what a parsed export would actually do before anything is written. An import is

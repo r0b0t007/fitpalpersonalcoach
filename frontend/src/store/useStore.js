@@ -16,6 +16,9 @@ export const DEF = {
   unit: 'kg', restSec: 90, restPauseSec: 15, sound: true, timerFlash: false, keepAwake: true, lang: DEFAULT_LANG,
   theme: 'dark', accent: 'gold', body: 'male', targetW: null,
   bodyweight: [], routines: [], week: {}, dayPlan: {},
+  // Tape measurements, shaped like bodyweight so they ride the same sync and chart with the
+  // same component: [{ d, site, v, t }], one per site per day. See lib/measurements.js.
+  measurements: [],
   // Coaches only: named programs written for clients, kept out of `routines` so that progressing
   // a client never changes what the coach themselves trains tomorrow. Each one is a frozen
   // snapshot of chosen routines (see Coach.jsx), which is why editing your own Plan afterwards
