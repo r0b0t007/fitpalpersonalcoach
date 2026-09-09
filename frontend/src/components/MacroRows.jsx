@@ -38,3 +38,23 @@ export function MacroRows({ totals, target, compact = false }) {
     })}
   </div>
 }
+
+/**
+ * The targets on their own, for the sheet where a member decides whether to accept them.
+ *
+ * MacroRows above is an INTAKE component: "0 / 2,200" and "2,200 left" answer "how much have I
+ * eaten today", and on an accept sheet nothing has been eaten and nothing has been agreed to yet.
+ * Worse, a macro the coach left unset falls through there to "0 g" — which under a heading
+ * reading "Daily targets" is a zero-carb, zero-fat prescription nobody wrote, the exact
+ * misreading cleanNutrition (api/domain.mjs) and targetOf go out of their way to make
+ * impossible by keeping an absent macro absent. A row with no target is left out entirely.
+ */
+export function TargetRows({ target }) {
+  return <div className="list" style={{ gap: 0 }}>
+    {MACROS.filter(k => target?.[k] != null).map(k =>
+      <div key={k} className="row between" style={{ padding: '5px 2px', alignItems: 'baseline', gap: 10, borderBottom: 'var(--hair) solid var(--sep)' }}>
+        <span className="small" style={{ fontWeight: 600 }}>{t(MACRO_LABEL[k])}</span>
+        <b>{fmtNum(target[k])} <span className="dim" style={{ fontWeight: 400 }}>{MACRO_UNIT(k)}</span></b>
+      </div>)}
+  </div>
+}

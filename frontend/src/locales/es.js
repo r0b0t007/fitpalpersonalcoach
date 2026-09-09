@@ -1341,4 +1341,7 @@ export default {
   'Check the numbers — calories are required, and all four are per 100 g.': 'Revisa los números — las calorías son obligatorias y los cuatro valores son por 100 g.',
   '{0} kcal on average': '{0} kcal de media',
   'logged {0} of {1} days': 'registrado {0} de {1} días',
+  // A save the server refused (Settings → account). The server's own sentence is the subtitle
+  // and stays English; this is the line that says whose problem it is.
+  'This device could not save to the server': 'Este dispositivo no pudo guardar en el servidor',
 }

@@ -2231,10 +2231,19 @@ http.createServer(async (req, res) => {
   }
   try { await handler(req, res); }
   catch (e) {
-    // A refusal that named its own status is an ANSWER, not a crash — readBody's 413 and 400
-    // carry a message written for whoever sent the request. Flattening those into "server error"
-    // is how a client ends up retrying forever against a limit nobody told it about.
-    if (e && e.status) {
+    // A refusal that named its own 4xx is an ANSWER, not a crash — readBody's 413 and 400 carry
+    // a message written for whoever sent the request. Flattening those into "server error" is how
+    // a client ends up retrying forever against a limit nobody told it about.
+    //
+    // Narrow on purpose. `.status` is a field anyone can put on an Error, not a contract: an
+    // error thrown deeper — an HTTP client's, some future helper's — can carry one too, and
+    // returning ITS message verbatim would hand a caller an internal detail. A 4xx means "your
+    // request was wrong and here is what to change"; everything else is ours and takes the 500.
+    // Logged as a warning either way, at the same volume as the cross-origin refusal above, so
+    // an operator asked "why did my phone stop syncing" has a line to find. Not console.error:
+    // a 400 from a scanner is not a fault in this server and must not read as one.
+    if (e && Number.isInteger(e.status) && e.status >= 400 && e.status < 500) {
+      console.warn('refused', key, e.status, e.message);
       // Connection: close for the same reason the upload routes send it: a refusal happens with
       // the client still sending, so the body was never fully read and the socket cannot be
       // reused. Node tears it down AFTER this response flushes, which is what gets the message

@@ -33,6 +33,7 @@ export default function Settings() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const coachLocal = useStore(s => s.coachLocal)
+  const syncError = useStore(s => s.syncError)
   const { update, replaceState, setUser, pullState, pushState, signOut, signOutAll, resetDemo, disconnectServer } = useStore()
   const toast = useUI(s => s.toast)
   const fileRef = useRef(null)
@@ -182,6 +183,13 @@ export default function Settings() {
 
     {/* ---------- account (demo and mobile builds have nothing to sign in to) ---------- */}
     <Section title={MOBILE ? (user ? t('Your server') : t('Your data')) : DEMO ? t('Demo') : t('Account')}>
+      {/* The one place a refused save becomes visible. The server writes this sentence for the
+          person, not for the log (PUT /api/data's 413 names the limit and what to do about it),
+          so it is passed through untouched the way an upload's refusal is — a generic "sync
+          failed" throws away the only part that says what to change. Here rather than in a toast
+          because the push runs on a debounce: the failure lands while they are looking at
+          something else, and this is the screen someone opens when the app feels wrong. */}
+      {user && syncError && <Row icon="warning" iconTint="var(--red)" title={t('This device could not save to the server')} subtitle={syncError} />}
       {MOBILE ? (user ? <>
         <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Synced with your openGym server.')} />
         {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}

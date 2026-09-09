@@ -16,7 +16,7 @@ import { NOTE_MAX as CHECKIN_NOTE_MAX, QUESTIONS, currentCheckin, periodStart, u
 import { PHOTOS_REACHABLE, POSES, photoSrc, posesFor, preparePhoto } from './lib/photo.js'
 import Media, { Thumb } from './components/Media.jsx'
 import LineChart from './components/LineChart.jsx'
-import { MacroRows } from './components/MacroRows.jsx'
+import { TargetRows } from './components/MacroRows.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
 import { Button, Slider, Switch, Segmented, SelectRow, Row, TextField, TextArea, NumberField, MultiSelectRow } from './components/ui.jsx'
@@ -1772,7 +1772,7 @@ function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAcce
         has, so agreeing to it has to be a decision rather than a surprise. */}
     {bundle.nutrition && <div style={{ padding: '10px 2px', borderTop: '1px solid var(--sep)', borderBottom: '1px solid var(--sep)', marginBottom: 14 }}>
       <div className="tt" style={{ fontSize: 15, marginBottom: 6 }}>{t('Daily targets')}</div>
-      <MacroRows totals={{}} target={bundle.nutrition} compact />
+      <TargetRows target={bundle.nutrition} />
       {bundle.nutrition.note && <div className="small" style={{ marginTop: 8, lineHeight: 1.4 }}>“{bundle.nutrition.note}”</div>}
     </div>}
     {bundle.dropped > 0 && <div className="small" style={{ color: 'var(--yellow)', marginBottom: 14, lineHeight: 1.4 }}>

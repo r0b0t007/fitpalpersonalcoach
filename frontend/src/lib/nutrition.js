@@ -271,7 +271,9 @@ export function targetOf(S) {
   return { ...out, ...(note ? { note } : {}), t: num(raw.t) }
 }
 
-/** `eaten - target` per macro, positive meaning over. Macros with no target are absent, not 0. */
+/** `target - eaten` per macro: positive is how much is still LEFT, negative is how far over.
+ *  Macros with no target are absent, not 0. The sign is stated here because this is the only
+ *  place it is stated in words — MacroRows reads `>= 0` as "left" and every caller must. */
 export function remainingOf(totals, target) {
   const out = {}
   if (!target) return out
