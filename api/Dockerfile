@@ -51,10 +51,11 @@ COPY package.json package-lock.json* ./
 # build host happened to be.
 RUN npm ci --omit=dev --omit=optional && npm cache clean --force
 
-# domain.mjs is this fork's own module (roles, invites, sessions, coach assignments) and has
-# no counterpart upstream, so it is not in their list. server.js imports it at module scope:
-# leave it out and the image builds clean and the container dies on ERR_MODULE_NOT_FOUND.
-COPY server.js push-messages.js verify-error.js domain.mjs ./
+# Every top-level runtime module, not a hand-maintained list. This file carried such a list and
+# a module was left out of it twice — the image builds clean and the container dies at boot on
+# ERR_MODULE_NOT_FOUND, with CI green, because CI runs from the repo where the file is present.
+# api/.dockerignore is what keeps the wildcard from dragging tests and scripts in with it.
+COPY *.js *.mjs ./
 COPY coach ./coach
 ENV NODE_ENV=production
 ENV PORT=3000
