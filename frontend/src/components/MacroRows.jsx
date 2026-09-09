@@ -16,7 +16,7 @@ export const MACRO_UNIT = k => (k === 'kcal' ? 'kcal' : 'g')
 // the same reason the tape's deltas are left uncoloured in MeasurementsCard.
 export function MacroRows({ totals, target, compact = false }) {
   const left = remainingOf(totals, target)
-  return <div className="list" style={{ gap: 0 }}>
+  return <div className="list" style={{ rowGap: 0 }}>
     {MACROS.map(k => {
       const goal = target?.[k]
       const eaten = totals?.[k] || 0
@@ -50,7 +50,7 @@ export function MacroRows({ totals, target, compact = false }) {
  * impossible by keeping an absent macro absent. A row with no target is left out entirely.
  */
 export function TargetRows({ target }) {
-  return <div className="list" style={{ gap: 0 }}>
+  return <div className="list" style={{ rowGap: 0 }}>
     {MACROS.filter(k => target?.[k] != null).map(k =>
       <div key={k} className="row between" style={{ padding: '5px 2px', alignItems: 'baseline', gap: 10, borderBottom: 'var(--hair) solid var(--sep)' }}>
         <span className="small" style={{ fontWeight: 600 }}>{t(MACRO_LABEL[k])}</span>

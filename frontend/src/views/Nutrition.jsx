@@ -89,7 +89,7 @@ export default function Nutrition() {
 
       {/* The personal list is the whole search. There is no food database behind this and v1 is
           honest about that — the ten things someone eats every week are the case that matters. */}
-      {!picked && !fresh && <div className="list" style={{ gap: 0, marginTop: 6 }}>
+      {!picked && !fresh && <div className="list" style={{ rowGap: 0, marginTop: 6 }}>
         {matches.map(f => <div key={f.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)', cursor: 'pointer' }}
           onClick={() => setPicked(f)}>
           <span className="small" style={{ fontWeight: 600 }}>{f.n}</span>
@@ -103,7 +103,7 @@ export default function Nutrition() {
         <div className="row between" style={{ padding: '10px 2px', marginTop: 4 }}>
           <span className="small" style={{ fontWeight: 600, cursor: 'pointer' }} onClick={() => setPicked(null)}>{picked.n}</span>
           <span className="row" style={{ gap: 8, alignItems: 'center' }}>
-            <NumberField value={grams} onChange={setGrams} decimal style={{ width: 90, textAlign: 'end' }} />
+            <NumberField value={grams} onChange={setGrams} decimal className="field" style={{ width: 90, textAlign: 'end', background: 'var(--surface-2)' }} />
             <span className="dim small" style={{ width: 18 }}>g</span>
           </span>
         </div>
@@ -129,19 +129,19 @@ export default function Nutrition() {
         <TextField value={fresh.n} placeholder={t('Food name')} maxLength={60}
           onChange={e => setFresh(v => ({ ...v, n: e.target.value }))} />
         <div className="dim small" style={{ margin: '10px 2px 4px' }}>{t('Per 100 g')}</div>
-        <div className="list" style={{ gap: 0 }}>
+        <div className="list" style={{ rowGap: 0 }}>
           {MACROS.map(k => <div key={k} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
             <span className="small" style={{ fontWeight: 600 }}>{t(MACRO_LABEL[k])}</span>
             <span className="row" style={{ gap: 8, alignItems: 'center' }}>
-              <NumberField value={fresh[k]} nullable onChange={v => setFresh(x => ({ ...x, [k]: v }))}
-                style={{ width: 90, textAlign: 'end' }} />
+              <NumberField value={fresh[k]} nullable className="field" onChange={v => setFresh(x => ({ ...x, [k]: v }))}
+                style={{ width: 90, textAlign: 'end', background: 'var(--surface-2)' }} />
               <span className="dim small" style={{ width: 32 }}>{MACRO_UNIT(k)}</span>
             </span>
           </div>)}
           <div className="row between" style={{ padding: '7px 2px' }}>
             <span className="small" style={{ fontWeight: 600 }}>{t('Grams')}</span>
             <span className="row" style={{ gap: 8, alignItems: 'center' }}>
-              <NumberField value={grams} onChange={setGrams} style={{ width: 90, textAlign: 'end' }} />
+              <NumberField value={grams} onChange={setGrams} className="field" style={{ width: 90, textAlign: 'end', background: 'var(--surface-2)' }} />
               <span className="dim small" style={{ width: 32 }}>g</span>
             </span>
           </div>
@@ -154,7 +154,7 @@ export default function Nutrition() {
     <div className="card">
       <h2>{t('Today')}</h2>
       {entries.length
-        ? <div className="list" style={{ gap: 0 }}>
+        ? <div className="list" style={{ rowGap: 0 }}>
           {entries.map(m => <div key={m.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
             <div className="grow" style={{ minWidth: 0 }}>
               <div className="small" style={{ fontWeight: 600 }}>{m.n}</div>

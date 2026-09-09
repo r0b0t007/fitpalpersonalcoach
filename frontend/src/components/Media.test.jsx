@@ -259,3 +259,38 @@ describe('Media starts playing when the element arrives late', () => {
     expect(play).toHaveBeenCalled()
   })
 })
+
+// The failure this covers was seen in a real browser, not imagined: a header-only file left the
+// <video> at readyState 0 with networkState 2 and error null, indefinitely, under a "tap to pause"
+// hint. `error` never fires for that, so nothing in the chain reacted.
+describe('Media gives up on a video that never loads', () => {
+  const stallable = () => {
+    // happy-dom reports readyState 0 and fires nothing, which is exactly the stalled case.
+    stubIO()
+    vi.spyOn(mediaProto, 'play').mockResolvedValue(undefined)
+  }
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('falls back to the gif once the deadline passes', async () => {
+    stallable()
+    setCoachMedia([ROW])
+    mount({})                                      // EX has gif + img beneath the video
+    expect(host.querySelector('video')).not.toBe(null)
+    await act(async () => { vi.advanceTimersByTime(15000) })
+    expect(host.querySelector('video')).toBe(null)
+    expect(host.querySelector('img')).not.toBe(null)
+  })
+
+  // The guard, and the reason it exists: an iPhone .mov carries its moov atom at the end, so a
+  // slow metadata read is NORMAL. Demoting a good-but-slow demo to a dumbbell glyph would be a
+  // worse bug than the blank rectangle, so with nothing underneath it waits instead.
+  it('but waits forever when there is nothing underneath', async () => {
+    stallable()
+    setCoachMedia([{ ...ROW, exId: CUSTOM.id }])
+    mount({}, CUSTOM)                              // custom exercise: no gif, no still
+    expect(host.querySelector('video')).not.toBe(null)
+    await act(async () => { vi.advanceTimersByTime(60000) })
+    expect(host.querySelector('video')).not.toBe(null)
+  })
+})
