@@ -20,6 +20,14 @@ server {
     # as /api/anything.json would be matched by the \.(js|css|json|html)$ block instead and be
     # looked for on disk rather than proxied.
     location ^~ /api/ {
+        # nginx's default is 1m, which sits BELOW the API's own MAX_BODY of 5m. A sync payload
+        # between the two is refused here and never reaches node -- and nginx answers a 413 with
+        # an HTML error page, so the client's api() helper fails trying to parse it as JSON and
+        # reports something that has nothing to do with the size. The app state grows with every
+        # logged workout, so this is a cliff a long-standing user walks into, not a theoretical
+        # one. Keep this value ABOVE whatever node enforces: node's limit is the one meant to be
+        # hit, because node can answer it in JSON that the client understands.
+        client_max_body_size 16m;
         # Resolved per request through Docker's DNS, not once at start-up: nginx otherwise pins
         # the api container's IP when it boots, and a recreated api (new IP) means 502 on every
         # /api call until web is restarted too (issue #16). The variable is what makes nginx
