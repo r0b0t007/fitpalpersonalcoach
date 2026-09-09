@@ -309,6 +309,42 @@ up "$CA" 0025 "$D/demo.mp4" > /dev/null
 chk "re-uploading identical bytes dedupes"      1 "$(get -H "Cookie: $CA" "$B/api/media/exercises" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.media.filter(m=>m.exId==='0025').length)")"
 chk "and leaves one file on disk"               1 "$(ls -1 "$D"/media/ex/ 2>/dev/null | grep -c '^0025-' | tr -d ' ')"
 
+echo "== serving the bytes back =="
+MID=$(get -H "Cookie: $CA" "$B/api/media/exercises" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));(d.media.find(m=>m.exId==='0025')||{}).id||''")
+SZ=$(node -pe "require('fs').statSync(process.argv[1]).size" "$D/demo.mp4")
+chk "anonymous cannot fetch a demo"            401 "$(code "$B/api/media/ex?id=$MID")"
+chk "a member can watch a demo"                200 "$(code -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "an unknown id is 404"                     404 "$(code -H "Cookie: $M1" "$B/api/media/ex?id=nope")"
+chk "the whole file comes back intact"       "$SZ" "$(curl -s -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | wc -c | tr -d ' ')"
+curl -s -H "Cookie: $M1" "$B/api/media/ex?id=$MID" > "$D/full.got"
+chk "...byte for byte, not just in length"    true "$(node -pe "
+  const fs=require('fs');
+  String(Buffer.compare(fs.readFileSync(process.argv[1]), fs.readFileSync(process.argv[2]))===0)" "$D/demo.mp4" "$D/full.got")"
+chk "and advertises range support"         "bytes" "$(curl -s -D - -o /dev/null -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | grep -i '^accept-ranges' | tr -d '\r' | awk '{print $2}')"
+
+# <video> seeks by issuing range requests. A server that answers each one with the whole file
+# from byte zero makes scrubbing unusable, and Safari will not begin playback at all without a
+# 206 for its opening probe — so these are playback working, not protocol trivia.
+chk "a range request is answered 206"          206 "$(code -r 0-99 -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "...with the right Content-Range"  "bytes 0-99/$SZ" "$(curl -s -D - -o /dev/null -r 0-99 -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | grep -i '^content-range' | tr -d '\r' | cut -d' ' -f2-)"
+chk "...and exactly that many bytes"           100 "$(curl -s -r 0-99 -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | wc -c | tr -d ' ')"
+chk "an open-ended range runs to the end"      206 "$(code -r 100- -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "a suffix range returns the last bytes"     50 "$(curl -s -r -50 -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | wc -c | tr -d ' ')"
+# Length alone would pass on an off-by-one that served the wrong 50 bytes, which is exactly the
+# mistake a suffix range invites. Compare the CONTENT against the tail of the source.
+curl -s -r -50 -H "Cookie: $M1" "$B/api/media/ex?id=$MID" > "$D/tail.got"
+chk "...and they are the right last bytes"    true "$(node -pe "
+  const fs=require('fs'); const src=fs.readFileSync(process.argv[1]); const got=fs.readFileSync(process.argv[2]);
+  String(Buffer.compare(src.subarray(src.length-50), got)===0)" "$D/demo.mp4" "$D/tail.got")"
+chk "an end past EOF is clamped, not refused"  206 "$(code -r "0-$((SZ + 5000))" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+# Refused rather than guessed at: a partial multipart/byteranges implementation is worse than an
+# honest 416, and no media element asks for several ranges anyway.
+chk "a start past EOF is 416"                  416 "$(code -H "Range: bytes=$((SZ + 10))-" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "a multi-range request is 416"             416 "$(code -H "Range: bytes=0-9,20-29" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "a malformed range is 416"                 416 "$(code -H "Range: bytes=abc" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "HEAD works where GET does"                200 "$(code -I -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "...and sends no body"                       0 "$(curl -s -I -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | sed -n '/^.$/,$p' | wc -c | tr -d ' ')"
+
 echo ""
 echo "passed $pass, failed $fail"
 [ "$fail" = "0" ] || { echo "--- server log ---"; tail -20 "$D/log"; }

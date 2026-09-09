@@ -229,6 +229,78 @@ function streamToFile(req, tmp, maxBytes, check) {
   });
 }
 
+/* Serve a stored media file, honouring HTTP range requests.
+ *
+ * This is the first byte-level READ in the API, and it exists because the deployment that takes
+ * real clients has no nginx to hand it off to: coach.fitpal.ma is cPanel + LiteSpeed + Passenger,
+ * which never renders web/nginx.conf.template. The original design leaned on X-Accel-Redirect and
+ * let nginx do the sendfile; that is a Docker-only optimisation here, not the mechanism, so the
+ * fallback is the path and node does the work.
+ *
+ * Range handling is not optional decoration. <video> seeks by issuing range requests, and a
+ * server that answers every one of them with the whole file from byte zero makes scrubbing
+ * unusable on anything longer than a few seconds — and Safari will refuse to start playback at
+ * all unless it gets a 206 for its opening probe.
+ *
+ * Deliberately narrow: ONE range, not the multipart/byteranges reply a comma-separated list
+ * calls for. No browser's media element asks for several, and a partial multipart implementation
+ * is worse than an honest refusal, so anything with a comma is answered 416 rather than guessed
+ * at. Everything else — open ranges, suffix ranges, over-long ends — is clamped the way the spec
+ * says rather than rejected.
+ */
+function serveMedia(req, res, file, mime) {
+  let st;
+  try { st = fs.statSync(file); }
+  catch { return json(res, 404, { error: 'not found' }); }
+  if (!st.isFile()) return json(res, 404, { error: 'not found' });
+
+  const total = st.size;
+  // Names are content-addressed, so a URL cannot change meaning and may be cached forever.
+  // `private`, not `public`: the route is behind a session, and a shared cache holding a copy
+  // would serve it to whoever asked next, which would quietly undo that check.
+  const base = {
+    'Content-Type': mime || 'application/octet-stream',
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'private, max-age=31536000, immutable'
+  };
+  const unsatisfiable = () => {
+    res.writeHead(416, { ...base, 'Content-Range': `bytes */${total}` });
+    res.end();
+  };
+  const send = (code, headers, opts) => {
+    res.writeHead(code, headers);
+    if (req.method === 'HEAD') return res.end();
+    const s = fs.createReadStream(file, opts);
+    // The client going away mid-stream is ordinary (a seek aborts the previous request), so it
+    // must not reach the dispatcher's 500 path or fill the log with stack traces.
+    s.on('error', () => res.destroy());
+    res.on('close', () => s.destroy());
+    s.pipe(res);
+  };
+
+  const raw = req.headers.range;
+  if (!raw) return send(200, { ...base, 'Content-Length': total });
+
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(raw).trim());
+  if (!m || (m[1] === '' && m[2] === '')) return unsatisfiable();
+  let start, end;
+  if (m[1] === '') {
+    // A suffix range ("give me the last N bytes"), which is how some players read a trailing
+    // index. N larger than the file is the whole file, not an error.
+    const n = parseInt(m[2], 10);
+    if (!n) return unsatisfiable();
+    start = Math.max(0, total - n);
+    end = total - 1;
+  } else {
+    start = parseInt(m[1], 10);
+    end = m[2] === '' ? total - 1 : Math.min(parseInt(m[2], 10), total - 1);
+  }
+  // Covers the empty file too: total 0 makes every range unsatisfiable, which is correct and is
+  // otherwise an off-by-one that serves a 206 promising bytes that do not exist.
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= total) return unsatisfiable();
+  send(206, { ...base, 'Content-Range': `bytes ${start}-${end}/${total}`, 'Content-Length': end - start + 1 }, { start, end });
+}
+
 const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
 function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
@@ -1433,6 +1505,25 @@ const routes = {
       }))
     });
   },
+
+  // The bytes. Addressed by ROW ID rather than by filename, which is what makes traversal
+  // structurally impossible instead of merely filtered: the only paths reachable here are the
+  // ones the upload route wrote into db.media, and nothing a caller types becomes part of a path.
+  // The filename is still pattern-checked before use, because db.json is a plain file an operator
+  // can edit and this is the one place a bad value in it would become a file read.
+  'GET /api/media/ex': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const id = new URL(req.url, 'http://x').searchParams.get('id');
+    const row = db.media.find(m => m.id === id);
+    if (!row || !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(row.file) || row.file.includes('..'))
+      return json(res, 404, { error: 'not found' });
+    serveMedia(req, res, path.join(MEDIA_DIR, 'ex', row.file), row.mime);
+  },
+  // The dispatcher keys on method + path, so serveMedia's HEAD branch is unreachable without
+  // this — and a HEAD that 404s while the GET beside it works is the kind of thing a player
+  // probes with and then gives up on.
+  'HEAD /api/media/ex': (req, res) => routes['GET /api/media/ex'](req, res),
 
   'POST /api/coach/assign': async (req, res) => {
     const coach = requireCoach(req, res); if (!coach) return;

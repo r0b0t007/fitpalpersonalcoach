@@ -57,6 +57,45 @@ server {
         proxy_set_header CF-Connecting-IP "${CF_CONNECTING_IP}";
     }
 
+    # Media uploads and playback. Identical proxying to /api/ above except for two directives,
+    # and it is those two that need a location of their own.
+    #
+    # `^~` and the longer prefix make this win over /api/ for these paths; nginx picks the
+    # longest matching prefix location, so ordering in this file is not what decides it.
+    #
+    # DUPLICATION IS DELIBERATE. proxy_set_header is inherited from the enclosing level only by a
+    # location that sets NONE of its own -- set one and every inherited header disappears. So the
+    # choice is to repeat the block or to hoist all of them to server level, and hoisting changes
+    # what every other location receives. Repeating it is the change whose blast radius is one
+    # location. Anything edited above must be edited here too; CI checks that the two agree.
+    location ^~ /api/media/ {
+        client_max_body_size ${NGINX_MAX_BODY};
+        # The reason this location exists. With buffering on -- nginx's default -- nginx reads the
+        # ENTIRE upload to a temp file before opening a connection upstream, so the API cannot see
+        # the first bytes until the last ones have arrived. That silently defeats rejecting a file
+        # on its header: a 200 MB HEIC would be spooled to the web container's disk in full before
+        # the API is told it exists, and the refusal it eventually sends is one the user waited
+        # for the whole upload to receive.
+        proxy_request_buffering off;
+        # Playback is a stream, not a document. Buffering the response makes nginx read ahead into
+        # its own buffers before answering a range request, which is wasted work when a <video>
+        # seek will abandon the response a moment later.
+        proxy_buffering off;
+        resolver 127.0.0.11 valid=10s ipv6=off;
+        set $media_upstream http://${BACKEND}:${PORT};
+        proxy_pass $media_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header CF-Connecting-IP "${CF_CONNECTING_IP}";
+        # An upload is slow by nature and a large one on a domestic uplink outlasts the 60s
+        # default, which would surface as a 504 halfway through with nothing written.
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
     # SPA fallback
     location / {
         try_files $uri $uri/ /index.html;
