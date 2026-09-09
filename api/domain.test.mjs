@@ -8,7 +8,8 @@ import {
   bootstrapMatches, BOOTSTRAP_MIN,
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
   pendingAssignmentsFor, ASSIGN_MAX_ROUTINES, ASSIGN_MAX_EX, ASSIGN_PENDING_DAYS,
-  sessionsOverlap, findSessionConflicts
+  sessionsOverlap, findSessionConflicts,
+  sniffMedia, validateUpload, MEDIA_SNIFF_BYTES
 } from './domain.mjs'
 
 const DAY = 86400000
@@ -345,4 +346,89 @@ test('conflicts: tolerates junk input rather than throwing', () => {
   assert.deepEqual(findSessionConflicts(null, cls()), [])
   assert.deepEqual(findSessionConflicts([null, undefined], cls()), [])
   assert.deepEqual(findSessionConflicts([cls()], null), [])
+})
+
+/* ---------- uploaded media ---------- */
+
+// An ISO base-media header: [size][ftyp][major][minor][compatible…]. `declared` overrides the
+// size field so the truncation case can be built — a real first chunk off the wire routinely
+// claims a box longer than the bytes in hand.
+function ftyp(major, compat = [], declared) {
+  const total = 16 + 4 * compat.length
+  const b = Buffer.alloc(Math.max(total, MEDIA_SNIFF_BYTES))
+  b.writeUInt32BE(declared ?? total, 0)
+  b.write('ftyp', 4, 'latin1')
+  b.write(major, 8, 'latin1')
+  b.writeUInt32BE(0x200, 12)
+  compat.forEach((c, i) => b.write(c, 16 + i * 4, 'latin1'))
+  return b
+}
+const bytes = (...n) => Buffer.concat([Buffer.from(n), Buffer.alloc(MEDIA_SNIFF_BYTES)])
+const JPEG = bytes(0xff, 0xd8, 0xff, 0xe0)
+const PNG = bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBPVP8 '), Buffer.alloc(16)])
+const GIF = Buffer.concat([Buffer.from('GIF89a'), Buffer.alloc(MEDIA_SNIFF_BYTES)])
+
+test('sniffMedia identifies the plain image formats', () => {
+  assert.deepEqual(sniffMedia(JPEG), { kind: 'photo', ext: 'jpg', mime: 'image/jpeg' })
+  assert.deepEqual(sniffMedia(PNG), { kind: 'photo', ext: 'png', mime: 'image/png' })
+  assert.deepEqual(sniffMedia(WEBP), { kind: 'photo', ext: 'webp', mime: 'image/webp' })
+  assert.equal(sniffMedia(GIF).ext, 'gif')
+})
+
+test('sniffMedia returns null rather than guessing', () => {
+  assert.equal(sniffMedia(null), null)
+  assert.equal(sniffMedia(Buffer.alloc(0)), null)
+  assert.equal(sniffMedia(Buffer.from('too short')), null)          // under 12 bytes
+  assert.equal(sniffMedia(Buffer.alloc(MEDIA_SNIFF_BYTES)), null)   // zeros: no ftyp, no signature
+  assert.equal(sniffMedia(Buffer.from('{"not":"media","but":"json"}')), null)
+})
+
+// The whole point of reading the brand: these four are one container and differ only here.
+test('sniffMedia separates mp4 / mov / heic / avif by brand, not by ftyp', () => {
+  assert.equal(sniffMedia(ftyp('isom', ['iso2', 'avc1', 'mp41'])).kind, 'video')
+  assert.equal(sniffMedia(ftyp('isom', ['iso2', 'avc1', 'mp41'])).ext, 'mp4')
+  assert.equal(sniffMedia(ftyp('qt  ')).ext, 'mov')
+  assert.equal(sniffMedia(ftyp('heic', ['mif1'])).kind, 'photo')
+  assert.equal(sniffMedia(ftyp('avif')).ext, 'avif')
+})
+
+// An iPhone HEIC's major brand is not always the telling one, so the compatible list is walked.
+// Without that, this file reads as a plain MP4 and a photo gets stored as an exercise demo.
+test('sniffMedia reads the compatible-brand list, not only the major brand', () => {
+  assert.equal(sniffMedia(ftyp('mp42', ['mif1', 'heic'])).kind, 'photo')
+  assert.equal(sniffMedia(ftyp('mp42', ['isom', 'hvc1'])).brand, 'hvc1')
+})
+
+// A first chunk is a prefix of the file, so the declared box size routinely exceeds what was
+// read. Trusting it walks off the end of the buffer.
+test('sniffMedia clamps the brand walk to the bytes actually read', () => {
+  const truncated = ftyp('mp42', ['isom'], 0xfffffff0)
+  assert.doesNotThrow(() => sniffMedia(truncated))
+  assert.equal(sniffMedia(truncated).ext, 'mp4')
+  assert.equal(sniffMedia(ftyp('mp42', ['isom'], 0)).ext, 'mp4')   // a size of 0 is not a length
+})
+
+test('validateUpload accepts what every browser can decode', () => {
+  assert.deepEqual(validateUpload(ftyp('isom', ['avc1']), 'video'), { kind: 'video', ext: 'mp4', mime: 'video/mp4' })
+  assert.deepEqual(validateUpload(JPEG, 'photo'), { kind: 'photo', ext: 'jpg', mime: 'image/jpeg' })
+  assert.equal(validateUpload(PNG, 'photo').error, undefined)
+  assert.equal(validateUpload(WEBP, 'photo').error, undefined)
+})
+
+// The case that actually happens, and the one the whole sniff exists for: filmed on an iPhone,
+// perfect on the coach's phone, a black box on a client's Android. It has to fail here, loudly.
+test('validateUpload refuses the formats that would fail silently at playback', () => {
+  const mov = validateUpload(ftyp('qt  '), 'video')
+  assert.match(mov.error, /mov/)
+  assert.match(mov.error, /MP4/)                                  // says what to do, not just what is wrong
+  assert.match(validateUpload(ftyp('mp42', ['hvc1']), 'video').error, /HEVC/)
+  assert.match(validateUpload(ftyp('heic', ['mif1']), 'photo').error, /HEIC/)
+  assert.match(validateUpload(GIF, 'photo').error, /JPEG, PNG or WebP/)
+})
+
+test('validateUpload refuses a file in the wrong slot', () => {
+  assert.match(validateUpload(JPEG, 'video').error, /expected a video/)
+  assert.match(validateUpload(ftyp('isom', ['avc1']), 'photo').error, /expected an image/)
+  assert.match(validateUpload(Buffer.alloc(MEDIA_SNIFF_BYTES), 'video').error, /not a recognised/)
 })

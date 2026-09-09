@@ -265,3 +265,96 @@ export function decideAssignment(assignment, accept, now = Date.now()) {
   assignment.decidedAt = new Date(now).toISOString()
   return { assignment }
 }
+
+/* ---------- coaching: uploaded media ---------- */
+// Coach exercise demos and client progress photos are the first bytes this API accepts that are
+// not JSON. `Content-Type` is whatever the uploader chose to send and is not evidence of
+// anything, so the file is identified by its own leading bytes instead.
+//
+// The awkward part is that MP4, QuickTime .mov, HEIC and AVIF are all the SAME container
+// (ISO base media, a leading `ftyp` box) and differ only by the four-character brand inside it.
+// A sniff that stops at "there is an ftyp here" accepts an iPhone photo as a video. So the brand
+// is read, and the compatible-brand list after it too, because Apple writes the interesting one
+// there as often as in the major slot.
+//
+// **Honest limit, and the reason this rejects by container rather than promising a codec:** the
+// brand names the container, not the video track. An `isom` MP4 can legally carry HEVC, which
+// Chrome and Firefox will not play. Knowing the codec for certain means walking moov → trak →
+// stsd, which is a real parser and exactly the kind of thing §5 refuses to add. What this does
+// catch is the case that actually happens — an iPhone on default settings records HEVC in a
+// `.mov` with the `qt  ` brand — and it catches it at upload, with a message, instead of at
+// playback on a client's Android phone with a black box.
+export const MEDIA_SNIFF_BYTES = 32   // ftyp brand ends at 12; RIFF/WEBP needs 12. Headroom.
+
+const BRAND_MP4 = new Set(['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'mp4v', 'avc1', 'M4V ', 'dash', 'cmfc'])
+const BRAND_HEVC = new Set(['hvc1', 'hev1', 'hvcC'])
+const BRAND_HEIF = new Set(['heic', 'heix', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1'])
+const BRAND_AVIF = new Set(['avif', 'avis'])
+
+const ascii = (buf, from, to) => Buffer.from(buf.subarray(from, to)).toString('latin1')
+
+// Every brand the box declares: the major one at 8, then the compatible list from 16 up to the
+// box length at 0. The length is clamped to what was actually read — a truncated first chunk
+// must not send this walking off the end of the buffer.
+function isoBrands(buf) {
+  const brands = [ascii(buf, 8, 12)]
+  const declared = buf.readUInt32BE(0)
+  const end = Math.min(declared > 0 ? declared : buf.length, buf.length)
+  for (let i = 16; i + 4 <= end; i += 4) brands.push(ascii(buf, i, i + 4))
+  return brands
+}
+
+/**
+ * Identify an upload from its leading bytes. Descriptive only — it says what the file is, never
+ * whether it is wanted; validateUpload() decides that.
+ * @returns {{kind:'video'|'photo', ext:string, mime:string, brand?:string}|null} null if unknown.
+ */
+export function sniffMedia(buf) {
+  if (!buf || buf.length < 12) return null
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf)
+
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { kind: 'photo', ext: 'jpg', mime: 'image/jpeg' }
+  if (ascii(b, 0, 8) === '\x89PNG\r\n\x1a\n') return { kind: 'photo', ext: 'png', mime: 'image/png' }
+  if (ascii(b, 0, 4) === 'RIFF' && ascii(b, 8, 12) === 'WEBP') return { kind: 'photo', ext: 'webp', mime: 'image/webp' }
+  // Recognised so it can be refused by name rather than as "unknown file": a GIF would sail past
+  // the client-side canvas downscale that every other photo goes through.
+  if (ascii(b, 0, 4) === 'GIF8') return { kind: 'photo', ext: 'gif', mime: 'image/gif' }
+
+  if (ascii(b, 4, 8) !== 'ftyp') return null
+  const brands = isoBrands(b)
+  const has = set => brands.some(x => set.has(x))
+  // Order matters: an iPhone HEIC lists `mif1` alongside brands that look like nothing in
+  // particular, and a `.mov` is a video whatever else it claims to be compatible with.
+  if (has(BRAND_HEIF)) return { kind: 'photo', ext: 'heic', mime: 'image/heic', brand: brands[0] }
+  if (has(BRAND_AVIF)) return { kind: 'photo', ext: 'avif', mime: 'image/avif', brand: brands[0] }
+  if (brands[0] === 'qt  ') return { kind: 'video', ext: 'mov', mime: 'video/quicktime', brand: brands[0] }
+  if (has(BRAND_HEVC)) return { kind: 'video', ext: 'mp4', mime: 'video/mp4', brand: brands.find(x => BRAND_HEVC.has(x)) }
+  if (has(BRAND_MP4)) return { kind: 'video', ext: 'mp4', mime: 'video/mp4', brand: brands[0] }
+  return null
+}
+
+// What each slot will store. Deliberately narrow: these are the formats every browser a client
+// might open the app in can decode without help, which is the only property that matters here.
+const ACCEPT_VIDEO = new Set(['mp4'])
+const ACCEPT_PHOTO = new Set(['jpg', 'png', 'webp'])
+
+/**
+ * The upload gate. Mirrors validateAssignmentBundle: `{ error }` or the accepted descriptor.
+ * Messages say what to do, because the person reading them is the coach who just filmed the
+ * thing — "unsupported format" would send them back to the camera roll with no idea what to change.
+ */
+export function validateUpload(buf, want) {
+  const m = sniffMedia(buf)
+  if (!m) return { error: 'not a recognised image or video file' }
+  if (m.kind !== want) return { error: `expected ${want === 'video' ? 'a video' : 'an image'}, got ${m.mime}` }
+
+  if (want === 'video') {
+    if (m.ext === 'mov') return { error: 'QuickTime .mov does not play in Chrome or Firefox — export or convert to MP4 (H.264) first' }
+    if (BRAND_HEVC.has(m.brand)) return { error: 'this MP4 is HEVC, which does not play in Chrome or Firefox — re-encode as H.264' }
+    if (!ACCEPT_VIDEO.has(m.ext)) return { error: `${m.mime} is not a supported video format — use MP4 (H.264)` }
+  } else {
+    if (m.ext === 'heic') return { error: 'HEIC photos do not display in most browsers — set the camera to “Most Compatible”, or export as JPEG' }
+    if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG or WebP` }
+  }
+  return { kind: m.kind, ext: m.ext, mime: m.mime }
+}
