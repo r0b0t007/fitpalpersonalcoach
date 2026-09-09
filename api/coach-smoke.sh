@@ -19,8 +19,12 @@ cat > "$D/db.json" <<'JSON'
   {"id":"mem2","name":"Theirs","coachId":"coachB","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem3","name":"Unassigned","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem4","name":"Disabled","coachId":"coachA","disabled":true,"created":"2026-01-01T00:00:00.000Z"}
-],"creds":[],"subs":[],"invites":[],"requests":[],"sessions":[],"assignments":[]}
+],"creds":[],"subs":[],"invites":[],"requests":[],"sessions":[],"assignments":[],
+"media":[{"id":"brokenrow","exId":"0099","coachId":"coachA","mime":"video/mp4","status":"ready"}]}
 JSON
+# That media row has no `file`, on purpose, and is seeded here rather than injected later because
+# the server holds db.json in memory — a row written to the file after boot is never seen. It is
+# the hand-edited/truncated row the serving route's guard exists for.
 
 # MEDIA_MAX_VIDEO_MB=1 so the over-the-cap path can be exercised with a 2 MB fixture instead of a
 # 91 MB one. The cap being env-driven is what makes that possible, and testing it matters: it is
@@ -337,11 +341,20 @@ chk "...and they are the right last bytes"    true "$(node -pe "
   const fs=require('fs'); const src=fs.readFileSync(process.argv[1]); const got=fs.readFileSync(process.argv[2]);
   String(Buffer.compare(src.subarray(src.length-50), got)===0)" "$D/demo.mp4" "$D/tail.got")"
 chk "an end past EOF is clamped, not refused"  206 "$(code -r "0-$((SZ + 5000))" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
-# Refused rather than guessed at: a partial multipart/byteranges implementation is worse than an
-# honest 416, and no media element asks for several ranges anyway.
+# 416 means "that range does not exist in this file", so it is only ever the answer to a range
+# that parsed and cannot be met. A multi-range or an unknown unit is something this server cannot
+# ACT on, which the spec says to ignore — answer 200 with everything. Saying 416 to those (which
+# an earlier revision did) fails a download manager or a coalescing proxy that a 200 would serve.
 chk "a start past EOF is 416"                  416 "$(code -H "Range: bytes=$((SZ + 10))-" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
-chk "a multi-range request is 416"             416 "$(code -H "Range: bytes=0-9,20-29" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
-chk "a malformed range is 416"                 416 "$(code -H "Range: bytes=abc" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "...and that 416 is never cached"     "no-store" "$(curl -s -D - -o /dev/null -H "Range: bytes=$((SZ + 10))-" -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | grep -i '^cache-control' | tr -d '\r' | awk '{print $2}')"
+chk "a multi-range falls back to the whole file" 200 "$(code -H "Range: bytes=0-9,20-29" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "...and really is the whole file"        "$SZ" "$(curl -s -H "Range: bytes=0-9,20-29" -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | wc -c | tr -d ' ')"
+chk "an unknown range unit is ignored"         200 "$(code -H "Range: seconds=0-10" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "a malformed range is ignored"             200 "$(code -H "Range: bytes=abc" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+# A row an operator truncated by hand must 404, not 500. RegExp.test coerces, so a missing `file`
+# is tested as the string "undefined" — which matches the safe-name pattern — and the traversal
+# check then throws on the real undefined.
+chk "a row with no filename 404s, not 500s"    404 "$(code -H "Cookie: $M1" "$B/api/media/ex?id=brokenrow")"
 chk "HEAD works where GET does"                200 "$(code -I -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
 # curl's own byte counter, not a sed that hunts for the blank line between headers and body:
 # that separator is CRLF, and how much of it survives the pipe differs between platforms — the

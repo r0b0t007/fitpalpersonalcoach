@@ -242,11 +242,12 @@ function streamToFile(req, tmp, maxBytes, check) {
  * unusable on anything longer than a few seconds — and Safari will refuse to start playback at
  * all unless it gets a 206 for its opening probe.
  *
- * Deliberately narrow: ONE range, not the multipart/byteranges reply a comma-separated list
- * calls for. No browser's media element asks for several, and a partial multipart implementation
- * is worse than an honest refusal, so anything with a comma is answered 416 rather than guessed
- * at. Everything else — open ranges, suffix ranges, over-long ends — is clamped the way the spec
- * says rather than rejected.
+ * Deliberately narrow: ONE range, not the multipart/byteranges reply a comma-separated list calls
+ * for. No browser's media element asks for several. What a request this cannot serve gets is the
+ * WHOLE file with a 200 — never a 416 — because 416 means "that range does not exist in this
+ * file" and is a lie about a multi-range or an unknown unit, which the spec says to ignore.
+ * Everything else — open ranges, suffix ranges, over-long ends — is clamped the way the spec says
+ * rather than rejected.
  */
 function serveMedia(req, res, file, mime) {
   let st;
@@ -263,9 +264,16 @@ function serveMedia(req, res, file, mime) {
     'Accept-Ranges': 'bytes',
     'Cache-Control': 'private, max-age=31536000, immutable'
   };
+  // `base` is deliberately NOT spread here. A 416 carrying `max-age=31536000, immutable` is a
+  // year-long, unrevalidatable cache entry saying "this file cannot be read" — and the URL has no
+  // Vary: Range, so a browser can serve that stored 416 back for an ordinary GET and the demo
+  // never plays again for that viewer, with no way to recover. Errors are no-store, like json().
   const unsatisfiable = () => {
-    res.writeHead(416, { ...base, 'Content-Range': `bytes */${total}` });
-    res.end();
+    res.writeHead(416, {
+      'Content-Type': 'application/json', 'Cache-Control': 'no-store',
+      'Accept-Ranges': 'bytes', 'Content-Range': `bytes */${total}`
+    });
+    res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ error: 'range not satisfiable' }));
   };
   const send = (code, headers, opts) => {
     res.writeHead(code, headers);
@@ -279,10 +287,21 @@ function serveMedia(req, res, file, mime) {
   };
 
   const raw = req.headers.range;
-  if (!raw) return send(200, { ...base, 'Content-Length': total });
+  const whole = () => send(200, { ...base, 'Content-Length': total });
+  if (!raw) return whole();
 
   const m = /^bytes=(\d*)-(\d*)$/.exec(String(raw).trim());
-  if (!m || (m[1] === '' && m[2] === '')) return unsatisfiable();
+  // A Range this server cannot act on is IGNORED, and the whole entity is sent — RFC 9110 §14.2
+  // for an unknown unit, and the same answer is the right one for a comma-separated multi-range:
+  // the reply that asks for would be multipart/byteranges, a partial version of which is worse
+  // than not implementing it, and every client copes with a 200 carrying everything.
+  //
+  // An earlier revision answered 416 here, reasoning that an honest refusal beats a half
+  // implementation. The first half of that is right and the second does not follow: 416 means
+  // "the range you asked for does not exist in this file", so saying it to a download manager
+  // sending `bytes=0-9,20-29`, or to a proxy sending a unit we do not know, fails a request that
+  // a 200 would have served. 416 is now only for a range that parsed and cannot be met.
+  if (!m || (m[1] === '' && m[2] === '')) return whole();
   let start, end;
   if (m[1] === '') {
     // A suffix range ("give me the last N bytes"), which is how some players read a trailing
@@ -1516,7 +1535,12 @@ const routes = {
     if (!user) return json(res, 401, { error: 'not signed in' });
     const id = new URL(req.url, 'http://x').searchParams.get('id');
     const row = db.media.find(m => m.id === id);
-    if (!row || !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(row.file) || row.file.includes('..'))
+    // typeof first, and not for tidiness: RegExp.test coerces, so a row with no `file` at all is
+    // tested as the string "undefined" — which MATCHES this pattern — and then .includes() throws
+    // on the real undefined, giving a 500. A hand-edited or truncated row is exactly the input
+    // the comment above says this guard is for, so it must 404 rather than crash on it.
+    if (!row || typeof row.file !== 'string' ||
+        !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(row.file) || row.file.includes('..'))
       return json(res, 404, { error: 'not found' });
     serveMedia(req, res, path.join(MEDIA_DIR, 'ex', row.file), row.mime);
   },
@@ -1923,8 +1947,16 @@ http.createServer(async (req, res) => {
   if (origin) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin'); }
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      // HEAD and Range are here for media playback from the paired mobile app, the one client
+      // that is genuinely cross-origin. Range is not a CORS-safelisted request header, so a
+      // ranged fetch preflights — and without both of these that preflight fails, which reads as
+      // "the video does not load" with nothing in any log to say why.
+      'Access-Control-Allow-Methods': 'GET,HEAD,POST,PUT,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range',
+      // A cross-origin reader sees no response headers beyond the safelist unless they are named
+      // here, so without this the client gets its 206 and cannot read how much of what it asked
+      // for it actually received.
+      'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
       'Access-Control-Max-Age': '86400'
     });
     return res.end();

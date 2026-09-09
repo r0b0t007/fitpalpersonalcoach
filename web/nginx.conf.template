@@ -94,6 +94,13 @@ server {
         # default, which would surface as a 504 halfway through with nothing written.
         proxy_read_timeout 300s;
         proxy_send_timeout 300s;
+        # The two above govern nginx<->API. This one governs nginx->BROWSER, and it matters here
+        # only because this location also streams downloads: with proxy_buffering off, nginx
+        # blocks on the write to the client as soon as the browser stops draining, and a viewer
+        # who pauses a buffered demo for over a minute would have the response cut off underneath
+        # them. Players usually recover by re-issuing a range request, which is precisely why this
+        # would be reported as "it stutters sometimes" and never traced back to here.
+        send_timeout 300s;
     }
 
     # SPA fallback

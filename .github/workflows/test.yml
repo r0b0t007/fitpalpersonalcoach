@@ -115,7 +115,7 @@ jobs:
       - run: npm ci
         working-directory: api
       # Separate steps, not `npm run smoke`, so a failure is attributable at a glance.
-      - name: Coach role smoke (61 checks)
+      - name: Coach role smoke
         run: npm run smoke:coach
         working-directory: api
       - name: Timetable smoke (29 checks)
