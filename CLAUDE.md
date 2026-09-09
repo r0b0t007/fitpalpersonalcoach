@@ -2,6 +2,29 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## What this fork is
+
+**FitPal Coach** — openGym forked (via FIT'ONE) into the tool one coaching business runs on.
+Deployed to **coach.fitpal.ma**, a cPanel subdomain sharing an account with FIT'ONE, which
+deploys from a *different* repo to the same server. Both use `rsync --delete`, so a wrong target
+directory does not fail, it deletes the other product — read `docs/DEPLOY_COACH_SUBDOMAIN.md`
+before touching anything under `.github/workflows/deploy-*`.
+
+What this fork adds on top of upstream, none of which upstream's notes below describe:
+
+- **A human coach role.** The coach dashboard is `/trainer`, not `/coach` — upstream took
+  `/coach` for its AI Coach during the 401-commit merge. `views/Coach.jsx` is an operator
+  surface and is deliberately **English-only**, like `Admin.jsx`; it uses raw strings, not `t()`.
+- **`StatsPanels`** (`views/Stats.jsx`) is exported and prop-driven so the coach sees a client's
+  own charts by passing a different `S`. Keeping panels prop-driven is what makes every new
+  client-side metric free on the coach side — do not reach for `useStore` inside one.
+- **`lib/adherence.js`** — are they training on the days their plan says? `lib/measurements.js` —
+  the tape, shaped like `S.bodyweight` so it rides the same sync and the same chart.
+- Languages trimmed to **en/de/es/fr** (`lib/i18n-core.js`). English has no pack; the others must
+  stay in sync or `check-locales.mjs` fails. `check-source-strings.mjs` is report-only.
+
+Upstream's description of the product follows, and still holds for the shared parts.
+
 ## What this is
 
 openGym is a self-hosted gym & body-weight tracker PWA. Two containers (`api` + `web`) plus a
@@ -51,11 +74,29 @@ cd frontend && npm run build:mobile   # + cap sync, points media at the CDN data
 There is no linter/formatter configured (no ESLint/Prettier config in the repo) and no
 TypeScript — match the existing style by hand.
 
-The CI gate is `.gitlab-ci.yml` on GitLab, the canonical remote (see README): it runs the
-`frontend/` tests on Node 22 — the same version as `web/Dockerfile` / `api/Dockerfile`
-(`node:22-alpine`) — and additionally builds and publishes the Docker images, packages the
-signed Android APK, and deploys the demo/docs site. The Gitea and GitHub workflow copies
-(`.gitea/workflows/`, `.github/workflows/`) are dormant mirrors; neither host runs them.
+**The CI gate is `.github/workflows/test.yml` on GitHub.** This is a fork: `origin` is
+`r0b0t007/fitpalpersonalcoach`, and the GitLab and Gitea remotes are fetch-only upstreams to
+merge from. The paragraph upstream has here — that GitLab is canonical and the GitHub workflows
+are dormant mirrors — is false for this repo and inverted: nothing runs on GitLab, and GitHub is
+both the test gate and the deploy path.
+
+Seven jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
+(`coach-smoke.sh`, 64 checks), `mcp`, `api-image` and `web-image` — the last two build *and boot*
+the containers, which is the only place a broken image or an unparseable rendered nginx config is
+caught. **`test.yml` has path filters**; anything outside `frontend/`, `api/`, `mcp/`, `web/` and
+those two scripts runs no checks at all, and GitHub reports "no checks" rather than failing.
+
+Several `check-*.mjs` scripts guard things a test cannot see, and are wired into CI:
+
+- `api/scripts/check-bundle-complete.mjs` — walks the import graph *inside the built deploy
+  bundle*. A module missing from the bundle exists in the repo, so CI running from the repo can
+  never see it; this has taken the API down twice.
+- `api/scripts/check-adherence-window.mjs` — ties `ADHERENCE_SEND_DAYS` (api) to
+  `ADHERENCE_WINDOW_DAYS` (frontend) across a boundary neither side can import across.
+- `api/scripts/check-core-loadable.mjs`, `scripts/build-coach-assets.mjs --check`.
+
+Node in the images is **26** (`node:26-alpine`), but the live cPanel deployment runs Node 22 —
+they are separate paths and do not have to match.
 
 ## Architecture
 
@@ -130,7 +171,8 @@ output), `api`, `web` (multi-stage build of `frontend/` served by nginx, which a
 ## Guidelines from CONTRIBUTING.md worth knowing before changing code
 
 - **Dependency-light is a hard constraint, not a preference.** Frontend: React + Router + Zustand
-  and nothing else. `api/`: two dependencies total. New dependencies are a hard sell either side.
+  and nothing else. `api/`: three dependencies total (`@simplewebauthn/server`, `web-push`,
+  `undici`). New dependencies are a hard sell either side.
 - Don't commit `media/` or `data/` (gitignored).
 - Training-logic changes (progression, 1RM, session read-back) need a unit test in `src/lib`
   beside the code, not just manual clicking-through.
