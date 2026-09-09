@@ -5,6 +5,12 @@ import { useStore } from '../store/useStore.js'
 import { t, exerciseNameFor } from '../lib/i18n.js'
 import Icon from './Icon.jsx'
 
+// How long a <video> may sit at readyState 0 before the chain gives up on it and shows whatever
+// is underneath. Generous on purpose: preload="metadata" on a .mov whose moov atom sits at the end
+// of the file is a real read, not an instant one, and this only ever fires where a fallback exists
+// (see the effect below), so the cost of being wrong is the stock animation rather than nothing.
+const STALL_MS = 15000
+
 // Big autoplaying demo; tap toggles to the still frame. `compact` shrinks it (superset cards).
 // `minimizable` (workout view) adds a persistent minimize/expand control so the animation stops
 // eating the screen; the chosen size is saved to settings and carries across exercises and
@@ -88,6 +94,30 @@ export default function Media({ ex, id, compact, minimizable }) {
     const p = el.play()
     if (p && p.catch) p.catch(() => setPlaying(false))
   }, [playing, kind, onScreen])
+
+  // A video the browser cannot DECODE fires `error`, and the chain steps down a rung. A video
+  // that never finishes LOADING fires nothing at all — a truncated upload, a moov atom that never
+  // arrives — and the element sits at readyState 0 indefinitely under a "tap to pause" hint, with
+  // no event to react to. Observed in a browser on a header-only file: networkState 2, error null,
+  // forever. So loading gets a deadline and missing it is treated exactly like an error.
+  //
+  // Guarded on there being somewhere to GO, and that guard is the whole design. An iPhone .mov
+  // usually carries its moov atom at the END, so `preload="metadata"` on a large one over a bad
+  // connection legitimately takes a long time — and demoting a good-but-slow demo to the stock
+  // animation would be a worse bug than the one this fixes. Where a lower rung exists, showing it
+  // beats a blank rectangle; where it does not, waiting beats a dumbbell glyph, so it waits.
+  const canDegrade = chain.length > gone + 1
+  useEffect(() => {
+    if (kind !== 'video' || !onScreen || !canDegrade) return
+    const el = vid.current
+    if (!el || el.readyState >= 1) return          // metadata already in: nothing to wait for
+    const timer = setTimeout(() => {
+      if (vid.current && vid.current.readyState < 1) setGone(g => g + 1)
+    }, STALL_MS)
+    const settled = () => clearTimeout(timer)
+    el.addEventListener('loadedmetadata', settled)
+    return () => { clearTimeout(timer); el.removeEventListener('loadedmetadata', settled) }
+  }, [kind, onScreen, canDegrade, m.video])
 
   if (!m.any) return null
   if (minimizable && gifSize === 'off') return null
