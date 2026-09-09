@@ -31,14 +31,20 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || url.origin !== location.origin) return
   if (url.pathname.startsWith('/api/')) return    // never cache auth/data
 
+  // status === 200, not res.ok: `ok` is true for the whole 2xx range, and cache.put() REJECTS on
+  // a 206 Partial Content. GIFs and JS never produced a 206, so this never fired; a <video> does,
+  // on every seek, and the rejection is unhandled -- the put is fire-and-forget in the else
+  // branch and not returned in the media branch.
+  const cacheable = res => res.status === 200
+
   const isMedia = url.pathname.includes('/img/') || url.pathname.includes('/gif/')
   if (isMedia) {
     e.respondWith(caches.open(CACHE).then(c => c.match(e.request).then(hit =>
-      hit || fetch(e.request).then(res => { if (res.ok) c.put(e.request, res.clone()); return res })
+      hit || fetch(e.request).then(res => { if (cacheable(res)) c.put(e.request, res.clone()); return res })
     )))
   } else {
     e.respondWith(fetch(e.request).then(res => {
-      if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
+      if (cacheable(res)) caches.open(CACHE).then(c => c.put(e.request, res.clone()))
       return res
     }).catch(() => caches.match(e.request).then(hit => hit || caches.match('index.html'))))
   }
