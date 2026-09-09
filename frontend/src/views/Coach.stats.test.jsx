@@ -32,6 +32,7 @@ const memberState = d => ({
   ...DEF,
   unit: d.unit, body: d.body, targetW: d.targetW, effort: d.effort, showRir: d.showRir,
   bodyweight: d.bodyweight || [],
+  measurements: d.measurements || [],
   workouts: [...(d.workouts || [])].reverse(),
   routines: []
 })
@@ -49,7 +50,11 @@ const payload = {
     vol: 4200,
     entries: [{ id: '0025', sets: [{ w: 60, r: 8, done: true }, { w: 60, r: 8, done: true }] }]
   })),
-  routines: [{ id: 'r1', name: 'Push', emoji: 'barbell', count: 5 }]
+  routines: [{ id: 'r1', name: 'Push', emoji: 'barbell', count: 5 }],
+  measurements: [
+    { d: '2026-07-01', site: 'waist', v: 88, t: Date.parse('2026-07-01') },
+    { d: '2026-09-01', site: 'waist', v: 84, t: Date.parse('2026-09-01') },
+  ]
 }
 
 describe('coach member state', () => {
@@ -236,5 +241,45 @@ describe('a short window says so', () => {
     const strip = [...host.querySelectorAll('div')].find(d => d.style.display === 'flex' && d.children.length > 1)
     expect(strip.children).toHaveLength(3)
     expect(strip.children[0].style.maxWidth).toBe('14px')
+  })
+})
+
+// The tape rides the same prop-driven panel as everything else, which is the whole reason it
+// cost one field on the wire. That only holds while the transform actually carries it — and a
+// missing array renders as "nothing logged yet" rather than as an error, so it would look like
+// a client who has never measured instead of a bug.
+describe('measurements in the coach view', () => {
+  const render = S => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    act(() => {
+      createRoot(host).render(<MemoryRouter><StatsPanels S={S} readOnly /></MemoryRouter>)
+    })
+    return host
+  }
+
+  it('carries the measurements through to the panels', () => {
+    expect(memberState(payload).measurements).toHaveLength(2)
+    const text = render(memberState(payload)).textContent
+    expect(text).toContain('Waist')
+    expect(text).toContain('84')
+  })
+
+  it('shows the 90-day move rather than only the latest number', () => {
+    // 88 -> 84 is the reading a coach acts on; the current value alone hides it.
+    const text = render(memberState(payload)).textContent
+    expect(text).toMatch(/-4/)
+  })
+
+  it('offers no way to log from the coach view', () => {
+    // The sheet writes to the *viewer's* store, so a coach pressing Log would measure themselves.
+    const host = render(memberState(payload))
+    const logs = [...host.querySelectorAll('button')].filter(b => /^Log$/.test(b.textContent.trim()))
+    expect(logs).toHaveLength(0)
+  })
+
+  it('says nothing is logged for a member who has never measured', () => {
+    const text = render(memberState({ ...payload, measurements: [] })).textContent
+    expect(text).toContain('No measurements logged yet.')
   })
 })

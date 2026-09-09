@@ -119,6 +119,7 @@ const memberState = d => ({
   ...DEF,
   unit: d.unit, body: d.body, targetW: d.targetW, effort: d.effort, showRir: d.showRir,
   bodyweight: d.bodyweight || [],
+  measurements: d.measurements || [],
   workouts: [...(d.workouts || [])].reverse(),
   routines: []
 })

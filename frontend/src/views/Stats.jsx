@@ -5,8 +5,9 @@ import { EXIDX, matchExercise } from '../lib/exercises.js'
 import { lastBW, streakWeeks, setLabel, modeOf, effortOf, metricModeForEntry, metricRowsForEntry, bestWeightForEntry } from '../lib/history.js'
 import { fmtNum, fmtDate, fmtVol, todayISO, weekStartOf } from '../lib/format.js'
 import { t, exerciseNameFor, getLang } from '../lib/i18n.js'
-import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, WorkoutRow, bwDeltaColor } from '../sheets.jsx'
+import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, measureSheet, WorkoutRow, bwDeltaColor } from '../sheets.jsx'
 import LineChart from '../components/LineChart.jsx'
+import { SITE_LABEL, deltasOver, latestBySite, lengthUnit, seriesFor, sitesUsed } from '../lib/measurements.js'
 import Heatmap from '../components/Heatmap.jsx'
 import Icon from '../components/Icon.jsx'
 import BodyMap, { BodyMapLegend } from '../components/BodyMap.jsx'
@@ -298,6 +299,56 @@ export default function Stats() {
 // to point at someone else: the controls it hides (log a weigh-in, set a goal, open the
 // viewer's own history) all write to or navigate the *viewer's* data, which is the coach's,
 // not the client's they are looking at.
+// The tape. Weight alone is a poor read on a recomposition -- someone eating at maintenance and
+// training hard holds the same number for months while their waist drops -- and that is the most
+// common reason a client concludes the plan is not working. Prop-driven like every other panel,
+// so the coach sees their client's tape with no second implementation.
+function MeasurementsCard({ S, readOnly }) {
+  const used = sitesUsed(S)
+  const [site, setSite] = useState(null)
+  const unit = lengthUnit(S)
+  const latest = latestBySite(S)
+  const deltas = deltasOver(S, 90)
+  // Default to the first site they use, but only once they use one -- picking a site up front
+  // would show an empty chart for a profile that has never measured anything.
+  const shown = site && used.includes(site) ? site : used[0]
+  const pts = shown ? seriesFor(S, shown) : []
+
+  return <div className="card">
+    <div className="row between" style={{ marginBottom: 8 }}>
+      <h2 style={{ margin: 0 }}>{t('Measurements')}</h2>
+      {!readOnly && <Button size="sm" icon="plus" onClick={() => measureSheet()}>{t('Log')}</Button>}
+    </div>
+    {!used.length
+      ? <div className="empty small">{readOnly
+        ? t('No measurements logged yet.')
+        : t('Nothing measured yet. A tape catches what the scale misses.')}</div>
+      : <>
+        <div className="list" style={{ gap: 0, marginBottom: 10 }}>
+          {used.map(k => {
+            const d = deltas[k]
+            return <div key={k} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
+              <span className="small" style={{ fontWeight: 600 }}>{t(SITE_LABEL[k])}</span>
+              <span className="row" style={{ gap: 10, alignItems: 'baseline' }}>
+                {/* Down is the wanted direction at the waist and the unwanted one at the arm, so
+                    the delta is never coloured -- only the client and their coach know which. */}
+                {d && <span className="dim" style={{ fontSize: '.72rem' }}>
+                  <span className="signed">{(d.delta > 0 ? '+' : '') + fmtNum(d.delta)}</span> {t('in {0} days', d.days)}
+                </span>}
+                <b>{fmtNum(latest[k].v)} {unit}</b>
+              </span>
+            </div>
+          })}
+        </div>
+        {used.length > 1 && <Segmented className="seg-range" value={shown} onChange={setSite}
+          options={used.map(k => ({ value: k, label: t(SITE_LABEL[k]) }))} />}
+        {pts.length > 1
+          ? <div className="chart"><LineChart points={pts} h={150} unit={unit} color="var(--teal)" /></div>
+          : <div className="empty small">{t('One more reading and this becomes a trend.')}</div>}
+      </>}
+  </div>
+}
+
 export function StatsPanels({ S, readOnly = false }) {
   const nav = useNavigate()
   const [range, setRange] = useState(90)
@@ -475,6 +526,8 @@ export function StatsPanels({ S, readOnly = false }) {
           options={[{ value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
         <div className="chart"><LineChart points={bwPts} h={160} unit={S.unit} goal={S.targetW} /></div>
       </div>
+
+      <MeasurementsCard S={S} readOnly={readOnly} />
 
       <div className="card">
         <h2>{t('Exercise progress')}</h2>
