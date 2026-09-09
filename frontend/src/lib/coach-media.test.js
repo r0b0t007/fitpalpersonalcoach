@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { indexMedia, setCoachMedia, coachMediaFor, coachMediaVersion, subscribeCoachMedia } from './coach-media.js'
 import { resolveMedia, videoSrc, posterSrc, hasMedia } from './exercises.js'
 
@@ -109,5 +109,27 @@ describe('videoSrc / posterSrc / hasMedia read the registry', () => {
     setCoachMedia([vid()])
     expect(hasMedia(STOCK)).toBe(hasMedia(STOCK))
     expect(videoSrc({ id: 'bench' })).toBe('/api/media/ex?id=r1')
+  })
+})
+
+describe('the paired mobile build', () => {
+  // /api/media/ex is same-origin and cookie-gated. Inside the Capacitor WebView that path
+  // resolves against the app's own origin, not the paired server, and a <video src> cannot carry
+  // the Bearer token either — so it fails every time, on every card. Handing the rows out anyway
+  // is not a graceful degrade: a stock exercise burns a failed request to reach the gif it would
+  // have shown regardless, and a custom exercise (nothing under the video, ever) ends on a
+  // permanent broken tile where the build before demos existed drew nothing at all.
+  it('offers no coach media, leaving every card exactly as it was before demos existed', async () => {
+    vi.stubEnv('VITE_MOBILE', '1')
+    vi.resetModules()
+    const mob = await import('./exercises.js')
+    expect(mob.resolveMedia(STOCK, [vid()]).video).toBe(null)
+    expect(mob.resolveMedia(STOCK, [vid()]).gif).toBe('gif/bench.gif')
+    expect(mob.resolveMedia(STOCK, [pic()]).poster).toBe('img/bench.jpg')
+    expect(mob.resolveMedia(CUSTOM, [vid({ exId: CUSTOM.id })]).any).toBe(false)
+    vi.unstubAllEnvs()
+    vi.resetModules()
+    // and the web build is untouched by the flag being gone again
+    expect(resolveMedia(STOCK, [vid()]).video).toBe('/api/media/ex?id=r1')
   })
 })

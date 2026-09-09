@@ -162,13 +162,21 @@ export const gifSrc = ex => GIF_BASE + ex.gif
 // has no row for "Ahmed's cable variation", so ex.gif is empty and always will be.
 //
 // KNOWN LIMIT, stated rather than papered over: this is a same-origin path carrying the session
-// cookie, which is right in a browser and does not work on the PAIRED mobile build, where auth is
-// a Bearer token against a remote base and a <video src> element cannot carry a header. There the
-// element fails to load and Media.jsx falls back to the dataset animation — the same outcome as
-// before demos existed. Blob-fetch-then-object-URL would fix it and would also throw away the
+// cookie, which is right in a browser and cannot work at all on the PAIRED mobile build, where
+// auth is a Bearer token against a remote base and a <video src> element cannot carry a header —
+// the path is not even resolved against that base, so it lands on the Capacitor WebView's own
+// origin and 404s. Blob-fetch-then-object-URL would fix it and would also throw away the
 // Range/206 streaming serveMedia exists to provide, on a 90 MB file, on a phone. Not worth it
 // until someone actually pairs a phone against an instance that has demos.
+//
+// So on that build the rows are dropped here instead of being handed out as URLs that are known
+// to fail. Letting them through is not a graceful degrade: a dataset exercise burns a failed
+// request per card to arrive at the gif it would have shown anyway, and a CUSTOM exercise — which
+// has no gif and no jpg beneath the video, ever — degrades to a permanent grey broken tile where
+// the build before demos existed simply drew nothing. VITE_MOBILE is a build-time constant, so
+// this whole branch folds away in the web bundle, exactly like VITE_IMG_BASE above.
 const MEDIA_EX = '/api/media/ex?id='
+const COACH_MEDIA_REACHABLE = ENV.VITE_MOBILE !== '1'
 export const mediaRowSrc = row => MEDIA_EX + encodeURIComponent(row.id)
 
 // The whole fallback chain, pure, taking the coach rows rather than reaching for the registry —
@@ -177,7 +185,7 @@ export const mediaRowSrc = row => MEDIA_EX + encodeURIComponent(row.id)
 //   animation:  coach video → stock GIF → nothing
 //   still:      coach photo → stock JPG → nothing (the caller draws the dumbbell glyph)
 export function resolveMedia(ex, rows) {
-  const list = Array.isArray(rows) ? rows : []
+  const list = COACH_MEDIA_REACHABLE && Array.isArray(rows) ? rows : []
   const vid = list.find(isVideoRow)
   const pic = list.find(isPhotoRow)
   const gif = ex && ex.gif ? gifSrc(ex) : null

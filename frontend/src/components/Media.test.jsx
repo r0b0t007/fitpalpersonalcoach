@@ -30,6 +30,27 @@ const EX = { id: 'bench', n: 'bench press', gif: 'bench.gif', img: 'bench.jpg' }
 const CUSTOM = { id: 'mk9x2', n: 'cable thing', custom: true }
 const ROW = { id: 'r1', exId: 'bench', file: 'b.mp4', label: '', mime: 'video/mp4', bytes: 9, status: 'ready', created: '2026-01-01T00:00:00.000Z' }
 
+// happy-dom ships an IntersectionObserver whose observe() does nothing, so on its own nothing
+// would ever come on screen and no video would ever start. These tests say when it does.
+const REAL_IO = globalThis.IntersectionObserver
+const stubIO = (visibleOnObserve = true) => {
+  const seen = []
+  globalThis.IntersectionObserver = class {
+    constructor(cb) { this.cb = cb; seen.push(this) }
+    observe() { if (visibleOnObserve) this.cb([{ isIntersecting: true }]) }
+    unobserve() {}
+    disconnect() {}
+  }
+  return seen
+}
+// play() on happy-dom always resolves. A browser refusing autoplay rejects instead, which is the
+// case the hint has to survive, so that one is mocked onto the prototype that owns play().
+const mediaProto = (() => {
+  let p = Object.getPrototypeOf(document.createElement('video'))
+  while (p && !Object.prototype.hasOwnProperty.call(p, 'play')) p = Object.getPrototypeOf(p)
+  return p
+})()
+
 let host, root
 beforeEach(() => {
   mocks.S = { gifSize: 'full' }
@@ -41,6 +62,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount())
   host.remove()
+  globalThis.IntersectionObserver = REAL_IO
+  vi.restoreAllMocks()
 })
 
 const mount = (props, ex = EX) => act(() => root.render(<Media ex={ex} {...props} />))
@@ -125,6 +148,35 @@ describe('Media coach demos', () => {
     expect(host.innerHTML).toBe('')
   })
 
+  it('does not start buffering the video until the card is on screen', () => {
+    const observers = stubIO(false)
+    setCoachMedia([ROW])
+    mount({})
+    // The whole workout is mounted at once in list view; a 90 MB demo per exercise must not
+    // start downloading because the member opened the session.
+    expect(host.querySelector('video').paused).toBe(true)
+    act(() => { observers[0].cb([{ isIntersecting: true }]) })
+    expect(host.querySelector('video').paused).toBe(false)
+  })
+
+  it('believes the element over itself when the browser refuses to autoplay', async () => {
+    stubIO()
+    vi.spyOn(mediaProto, 'play').mockImplementation(() => Promise.reject(new Error('NotAllowedError')))
+    setCoachMedia([ROW])
+    await act(async () => { root.render(<Media ex={EX} />) })
+    // Not "tap to pause" over a video that never moved — and so the FIRST tap starts it.
+    expect(host.querySelector('.gifhint').textContent).toContain('tap to play')
+  })
+
+  it('follows the element when the browser stops the video on its own', () => {
+    stubIO()
+    setCoachMedia([ROW])
+    mount({})
+    expect(host.querySelector('.gifhint').textContent).toContain('tap to pause')
+    act(() => { host.querySelector('video').pause() })
+    expect(host.querySelector('.gifhint').textContent).toContain('tap to play')
+  })
+
   it('keeps tap-to-pause working over the video', () => {
     setCoachMedia([ROW])
     mount({})
@@ -135,5 +187,40 @@ describe('Media coach demos', () => {
     mount({ minimizable: true })
     act(() => { host.querySelector('.giftoggle').click() })
     expect(mocks.S.gifSize).toBe('mini')
+  })
+})
+
+// One dropped request — a CDN hiccup, an expired session on a gated instance — is what puts a
+// card on a fallback rung, and it is exactly the case a tap has always recovered from.
+describe('Media recovery from a failed load', () => {
+  it('retries the chain from a still that stood in for an animation that would not load', () => {
+    mount({})
+    act(() => { host.querySelector('img').dispatchEvent(new Event('error', { bubbles: true })) })
+    expect(host.querySelector('.exmedia img').getAttribute('src')).toBe('img/bench.jpg')
+    expect(host.querySelector('.gifhint').textContent).toContain('tap to retry')
+    act(() => { host.querySelector('.exmedia').click() })
+    expect(host.querySelector('.exmedia img').getAttribute('src')).toBe('gif/bench.gif')
+  })
+
+  it('retries from the dead tile as well', () => {
+    mount({})
+    act(() => { host.querySelector('img').dispatchEvent(new Event('error', { bubbles: true })) })
+    act(() => { host.querySelector('img').dispatchEvent(new Event('error', { bubbles: true })) })
+    expect(host.querySelector('.exmedia.broken .exmedia-x')).toBeTruthy()
+    act(() => { host.querySelector('.exmedia').click() })
+    expect(host.querySelector('.exmedia img').getAttribute('src')).toBe('gif/bench.gif')
+  })
+
+  it('does NOT retry from a working gif a broken coach video fell back to — that tap pauses', () => {
+    stubIO()
+    setCoachMedia([ROW])
+    mount({})
+    act(() => { host.querySelector('video').dispatchEvent(new Event('error', { bubbles: true })) })
+    expect(host.querySelector('.exmedia img').getAttribute('src')).toBe('gif/bench.gif')
+    expect(host.querySelector('.gifhint').textContent).toContain('tap to pause')
+    act(() => { host.querySelector('.exmedia').click() })
+    // paused on the still, not thrown back onto the video the browser could not decode
+    expect(host.querySelector('.exmedia img').getAttribute('src')).toBe('img/bench.jpg')
+    expect(host.querySelector('video')).toBeFalsy()
   })
 })

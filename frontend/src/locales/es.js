@@ -365,6 +365,7 @@ export default {
   'Could not change notification settings': 'No se pudo cambiar la configuración de notificaciones',
   'tap to pause': 'toca para pausar',
   'tap to play': 'toca para reproducir',
+  'tap to retry': 'toca para reintentar',
   'Coach demo': 'Vídeo del entrenador',
   'Coach demo — may not play here': 'Vídeo del entrenador — puede no reproducirse en este navegador',
   'back': 'espalda', 'cardio': 'cardio', 'chest': 'pecho', 'lower arms': 'antebrazos',

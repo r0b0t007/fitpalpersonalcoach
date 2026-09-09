@@ -381,6 +381,7 @@ export default {
   // --- media ---
   'tap to pause': 'Tippen zum Pausieren',
   'tap to play': 'Tippen zum Abspielen',
+  'tap to retry': 'Tippen zum erneuten Laden',
   'Coach demo': 'Coach-Video',
   'Coach demo — may not play here': 'Coach-Video — läuft evtl. nicht in diesem Browser',
   // --- data terms: body parts ---
