@@ -13,6 +13,7 @@ import { modeOf, fmtSec, isBw, isPerSide, sideReps, MAX_PLANNED_WARMUPS } from '
 import { deriveSessionName } from './session-merge.js'
 import { uid, todayISO, DAYN, weekOrder, weekStartOf, fmtNum, exCount } from './format.js'
 import { t, exerciseNameFor } from './i18n-core.js'
+import { targetOf } from './nutrition.js'
 import { BRAND, BRAND_DOMAIN } from './brand.js'
 
 const PLAN_FMT = 1
@@ -151,6 +152,11 @@ export function parsePlan(raw) {
     routines,
     week: data.week || {},
     customEx,
+    // Daily nutrition targets, when a coach attached them (api/domain.mjs validated the numbers
+    // before they were ever stored). Re-read through targetOf rather than trusted, for the same
+    // reason exercise ids are re-checked above: this file also reads plans from a friend's disk.
+    // null when there are none, which is every plan file the app itself writes.
+    nutrition: targetOf({ nutriTarget: data.nutrition }),
     dropped,
     routineCount: routines.length,
     exerciseCount: routines.reduce((n, r) => n + r.ex.length, 0),
@@ -202,6 +208,11 @@ export function mergePlan(s, bundle, { schedule } = {}) {
     WEEK_DAYS.forEach(d => { delete s.week[d] })
     incomingWeek.forEach(([d, ids]) => { s.week[d] = ids })
   }
+  // Daily targets REPLACE rather than merge, and unconditionally when the bundle has them: half
+  // a target — this block's calories against the last block's protein — is a number nobody set
+  // and nobody could explain. A bundle without them leaves whatever is there alone, so accepting
+  // an ordinary program does not silently clear the targets from the one before it.
+  if (bundle.nutrition) s.nutriTarget = { ...bundle.nutrition, t: Date.now() }
   return { routines: bundle.routines.length }
 }
 

@@ -219,6 +219,11 @@ const memberState = d => ({
   measurements: d.measurements || [],
   checkins: d.checkins || [],
   checkinDay: d.checkinDay ?? null,
+  // Intake and the targets this coach set. Nothing else was needed: the Stats panel that draws
+  // them is prop-driven, so widening the payload is the whole coach-side implementation.
+  meals: d.meals || [],
+  mealDays: d.mealDays || {},
+  nutriTarget: d.nutriTarget ?? null,
   workouts: [...(d.workouts || [])].reverse(),
   routines: []
 })
@@ -278,6 +283,10 @@ function MemberDetail({ id, close, pending, onChanged }) {
   </>
 }
 
+// Labels and units for the four numbers, in the order a coach reads them. English, like the rest
+// of this screen; the member's side of the same four numbers is translated (components/MacroRows).
+const MACRO_FIELDS = [['kcal', 'Calories', 'kcal'], ['p', 'Protein', 'g'], ['c', 'Carbs', 'g'], ['f', 'Fat', 'g']]
+
 function SendSheet({ members, close, program }) {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
@@ -286,6 +295,20 @@ function SendSheet({ members, close, program }) {
   const [note, setNote] = useState('')
   const [schedule, setSchedule] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Daily nutrition targets ride on this bundle rather than getting a channel of their own. A
+  // target the server wrote into a member's state file would be destroyed by their next
+  // whole-state push, so something they ACCEPT is the only kind that survives — and the accept
+  // flow already exists, with an inbox, a withdraw and an expiry. Blank means "not this time",
+  // and a bundle without the key leaves whatever they already have alone.
+  const [macros, setMacros] = useState({ kcal: '', p: '', c: '', f: '' })
+  const [macroNote, setMacroNote] = useState('')
+  const macro = (k, v) => setMacros(m => ({ ...m, [k]: v.replace(/[^\d]/g, '').slice(0, 5) }))
+  const nutrition = MACRO_FIELDS.some(([k]) => +macros[k] > 0)
+    ? Object.fromEntries([
+      ...MACRO_FIELDS.filter(([k]) => +macros[k] > 0).map(([k]) => [k, +macros[k]]),
+      ...(macroNote.trim() ? [['note', macroNote.trim()]] : [])
+    ])
+    : null
 
   // A saved program when one was chosen; otherwise the coach's current plan, which is what the
   // very first version always sent.
@@ -298,7 +321,7 @@ function SendSheet({ members, close, program }) {
     setBusy(true)
     api('/api/coach/assign', {
       method: 'POST',
-      body: JSON.stringify({ memberIds: picked, bundle, note, schedule })
+      body: JSON.stringify({ memberIds: picked, bundle: nutrition ? { ...bundle, nutrition } : bundle, note, schedule })
     })
       .then(({ sent }) => { toast('Sent to ' + sent + (sent === 1 ? ' member' : ' members')); close() })
       .catch(e => { toast(e.message); setBusy(false) })
@@ -331,6 +354,25 @@ function SendSheet({ members, close, program }) {
     {schedule && <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.4 }}>
       This replaces which routine sits on each weekday for them. Leave it off to add the routines and let them slot them in.
     </div>}
+
+    <h4 className="sec">Daily nutrition targets (optional)</h4>
+    <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.4 }}>
+      Leave these blank to send the program alone. Filling any of them replaces their current targets when
+      they accept — a half-set target, this block's calories against the last block's protein, is a number
+      nobody could explain. Blank fields are not sent, so setting calories and protein means exactly that.
+    </div>
+    <div className="list" style={{ gap: 0, marginBottom: 10 }}>
+      {MACRO_FIELDS.map(([k, label, unit]) => <label key={k} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <span className="small" style={{ fontWeight: 600 }}>{label}</span>
+        <span className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <input className="input" inputMode="numeric" placeholder="—" style={{ width: 90, textAlign: 'end' }}
+            value={macros[k]} onChange={e => macro(k, e.target.value)} />
+          <span className="dim small" style={{ width: 34 }}>{unit}</span>
+        </span>
+      </label>)}
+    </div>
+    <input className="input" placeholder="Note on the diet (optional)" maxLength={280}
+      value={macroNote} onChange={e => setMacroNote(e.target.value)} style={{ marginBottom: 6 }} />
 
     <h4 className="sec">Send to</h4>
     {members.length ? <div className="list" style={{ gap: 0 }}>

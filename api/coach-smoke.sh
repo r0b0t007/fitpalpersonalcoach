@@ -124,6 +124,31 @@ chk "mixed batch is refused wholesale"        403 "$(send "$CA" '["mem1","mem2"]
 chk "empty member list refused"               400 "$(send "$CA" '[]')"
 chk "junk bundle refused" 400 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/coach/assign" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"memberIds":["mem1"],"bundle":{"nope":1}}')"
 
+echo "== nutrition targets on the bundle =="
+# The targets ride on the plan bundle rather than a route of their own: anything the SERVER writes
+# into state-<uid>.json is destroyed by that member's next whole-state push, so the accept flow is
+# the only channel a target survives. These checks are here because that reuse is easy to break by
+# adding the "obvious" endpoint later.
+nsend() { curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/coach/assign" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "{\"memberIds\":[\"mem1\"],\"bundle\":$(node -pe "
+  const b = JSON.parse(process.argv[1]); b.nutrition = JSON.parse(process.argv[2]); JSON.stringify(b)" "$BUNDLE" "$1")}"; }
+chk "a bundle with targets is accepted"       200 "$(nsend '{"kcal":2200,"p":170,"note":"rest days"}')"
+chk "targets that are not numbers are refused" 400 "$(nsend '{"kcal":"lots"}')"
+chk "an absurd target is refused"             400 "$(nsend '{"kcal":999999}')"
+chk "the member is offered exactly what was set" '{"kcal":2200,"p":170,"note":"rest days"}' "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "
+  const a = JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.find(x => x.bundle.nutrition);
+  JSON.stringify(a.bundle.nutrition)")"
+# Carbs and fat were never set, so they must not come back as 0 — a target nobody wrote is worse
+# on a client's screen than no target at all.
+chk "unset macros are absent, not zero"      true "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "
+  const n = JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.find(x => x.bundle.nutrition).bundle.nutrition;
+  String(!('c' in n) && !('f' in n))")"
+# Withdraw them again so the inbox checks below start from the one offer they expect.
+for W in $(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.map(a=>a.id).join(' ')"); do
+  curl -s -o /dev/null -X POST "$B/api/coach/assignments/withdraw" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "{\"id\":\"$W\"}"
+done
+chk "inbox is clear again before the next block" 0 "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+chk "coach assigns to own member (again)"     200 "$(send "$CA" '["mem1"]')"
+
 echo "== the member's inbox =="
 chk "member sees their offer"                   1 "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
 chk "another member sees nothing"               0 "$(get -H "Cookie: $M2" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
@@ -137,6 +162,37 @@ chk "inbox is empty once decided"               0 "$(get -H "Cookie: $M1" "$B/ap
 
 echo "== the server must NOT have touched member state =="
 chk "no state file written for the member"   none "$([ -f "$D/state-mem1.json" ] && echo written || echo none)"
+
+echo "== the state sync cap answers in JSON, not by hanging up =="
+# Over MAX_BODY, readBody used to reject with a bare Error AND destroy the request in the same
+# breath: the 500 went to a dead socket, the client saw a connection reset, pushState swallowed
+# it and the profile stopped syncing forever with nothing on screen. It must be a readable 413.
+node -e "
+const fs=require('fs');
+fs.writeFileSync(process.argv[1], JSON.stringify({state:{pad:'x'.repeat(17*1024*1024)}}));
+" "$D/fat.json"
+chk "a state push past the cap is a 413"      413 "$(code -X PUT "$B/api/data" -H 'Content-Type: application/json' -H "Cookie: $M1" --data-binary @"$D/fat.json")"
+chk "...and the client can read why"         true "$(curl -s -X PUT "$B/api/data" -H 'Content-Type: application/json' -H "Cookie: $M1" --data-binary @"$D/fat.json" | node -pe "
+  let d; try { d = JSON.parse(require('fs').readFileSync(0,'utf8')) } catch { d = {} }
+  String(typeof d.error === 'string' && /MB/.test(d.error))")"
+# 5 MB was the old ceiling for every route and it is not a ceiling for a food log. A body between
+# the general limit and the state limit has to go through.
+node -e "
+const fs=require('fs');
+fs.writeFileSync(process.argv[1], JSON.stringify({state:{_ts:1,pad:'x'.repeat(8*1024*1024)}}));
+" "$D/big.json"
+chk "a state push above the general limit still saves" 200 "$(code -X PUT "$B/api/data" -H 'Content-Type: application/json' -H "Cookie: $M2" --data-binary @"$D/big.json")"
+# ...and the wider cap is for PUT /api/data ALONE. A video-sized JSON body must not become
+# bufferable in the heap on every other route just because one of them legitimately grew.
+chk "no other route inherited the wider cap"  413 "$(code -X POST "$B/api/coach/assign" -H 'Content-Type: application/json' -H "Cookie: $CA" --data-binary @"$D/big.json")"
+chk "bad json is a 400, not a 500"            400 "$(code -X PUT "$B/api/data" -H 'Content-Type: application/json' -H "Cookie: $M1" -d 'not json')"
+
+echo "== nutrition reaches the coach =="
+# GET /api/coach/member is a hand-written allow-list. A client-side feature that is invisible on
+# the coach dashboard fails silently — no test, no error, just a panel that never appears.
+chk "the opened member carries meals, rollups and the target" ok "$(get -H "Cookie: $ADMIN" "$B/api/coach/member?id=mem2" | node -pe "
+  const d = JSON.parse(require('fs').readFileSync(0,'utf8'));
+  ['meals','mealDays','nutriTarget'].every(k => k in d) ? 'ok' : 'missing'")"
 
 echo "== pending cap =="
 for i in 1 2 3 4 5 6; do R=$(send "$CA" '["mem1"]'); done

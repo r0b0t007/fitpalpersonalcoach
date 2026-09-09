@@ -8,6 +8,7 @@ import {
   bootstrapMatches, BOOTSTRAP_MIN,
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
   pendingAssignmentsFor, ASSIGN_MAX_ROUTINES, ASSIGN_MAX_EX, ASSIGN_PENDING_DAYS,
+  ASSIGN_NOTE_MAX, NUTRI_MAX_KCAL, NUTRI_MAX_MACRO,
   sessionsOverlap, findSessionConflicts,
   sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile
 } from './domain.mjs'
@@ -239,6 +240,36 @@ test('validateAssignmentBundle enforces the size caps', () => {
   assert.ok(validateAssignmentBundle(bundle({ routines: fat })).error)
   // A plan that is small in shape but huge in bytes still has to bounce.
   assert.ok(validateAssignmentBundle(bundle({ name: 'x'.repeat(200_000) })).error)
+})
+
+test('validateAssignmentBundle carries optional nutrition targets, and only the ones that were set', () => {
+  const { bundle: out, error } = validateAssignmentBundle(bundle({ nutrition: { kcal: 2200, p: 170, note: '  rest days  ' } }))
+  assert.equal(error, undefined)
+  // c and f are absent, not 0: a coach who left them alone meant to, and the member's screen
+  // must not render a target nobody wrote.
+  assert.deepEqual(out.nutrition, { kcal: 2200, p: 170, note: 'rest days' })
+  // Rounded like everything else here, and the note is capped with the assignment note.
+  assert.equal(validateAssignmentBundle(bundle({ nutrition: { kcal: 2200.6 } })).bundle.nutrition.kcal, 2201)
+  assert.equal(
+    validateAssignmentBundle(bundle({ nutrition: { kcal: 2200, note: 'x'.repeat(500) } })).bundle.nutrition.note.length,
+    ASSIGN_NOTE_MAX)
+})
+
+test('validateAssignmentBundle omits the nutrition key entirely when there is nothing to send', () => {
+  // Byte-identical to a bundle written before targets existed, which is what lets the member's
+  // client test for the key rather than for a null.
+  for (const none of [undefined, null, {}, { note: 'eat well' }, { kcal: 0, p: 0 }]) {
+    const { bundle: out } = validateAssignmentBundle(bundle({ nutrition: none }))
+    assert.equal('nutrition' in out, false, `should omit for ${JSON.stringify(none)}`)
+  }
+})
+
+test('validateAssignmentBundle refuses nutrition it cannot use, rather than dropping it quietly', () => {
+  // A coach who typed 2200 into the protein box has to hear about it now, not find out a week
+  // later that the target never arrived.
+  for (const bad of [[], 'nope', { kcal: 'lots' }, { kcal: -1 }, { kcal: NUTRI_MAX_KCAL + 1 }, { p: NUTRI_MAX_MACRO + 1 }]) {
+    assert.ok(validateAssignmentBundle(bundle({ nutrition: bad })).error, `should reject ${JSON.stringify(bad)}`)
+  }
 })
 
 test('validateAssignmentBundle survives a circular object instead of throwing', () => {

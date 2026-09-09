@@ -62,6 +62,21 @@ if (BOOTSTRAP_CODE && !INVITE_ONLY)
 // baked into each cookie when it's issued, so lowering this never cuts an existing session short.
 const SESSION_DAYS = Math.max(1, +(process.env.SESSION_DAYS || 90) || 90);
 const MAX_BODY = 5 * 1024 * 1024;
+// PUT /api/data alone gets a bigger one. It is the only route whose body is not a request but a
+// person's entire history — every workout, every set, every weigh-in and now every meal — and it
+// is the only one that grows on its own with no user action that looks like "uploading". 5 MB is
+// years for a lifter and it is NOT years for someone logging four foods a day: meals are the
+// first thing in the blob written several times daily, and hitting the cap does not degrade, it
+// stops the profile syncing altogether. 16 MB buys the same decade back.
+//
+// Deliberately not a wider MAX_BODY. Every other route takes a request someone typed, and a
+// video-sized JSON body must not become bufferable in the heap on all forty of them just because
+// one of them legitimately grew.
+//
+// NGINX_MAX_BODY (128m by default, sized for the video cap) already sits above this, so the
+// invariant in web/nginx.conf.template still holds: node's limit is the one meant to fire,
+// because node answers it in JSON the client can read.
+const STATE_MAX_BODY = 16 * 1024 * 1024;
 // Uploaded media has its own caps and never touches MAX_BODY — the upload routes stream straight
 // to disk instead of calling readBody, so a 90 MB video is never a 90 MB Buffer in the heap and
 // no JSON route inherits the larger number.
@@ -822,17 +837,30 @@ function json(res, code, obj, extraHeaders) {
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...(extraHeaders || {}) });
   res.end(body);
 }
-function readBody(req) {
+// Both refusals below carry a `.status`, which the dispatcher's catch turns into that status and
+// this exact message. Before, an over-size body rejected with a bare Error and the request was
+// DESTROYED in the same breath: the 500 the dispatcher then wrote went to an already-dead socket,
+// so the client saw a connection reset and never read a word of it — and pushState swallows that,
+// sets gym_dirty, and the profile silently stops syncing forever. streamToFile above documents
+// exactly this trap for the upload routes; readBody never got the same treatment. It does now:
+// pause, answer, and let node tear the socket down after the response has flushed.
+function readBody(req, limit = MAX_BODY, tooLargeMsg) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
     req.on('data', d => {
       size += d.length;
-      if (size > MAX_BODY) { reject(new Error('body too large')); req.destroy(); return; }
+      if (size > limit) {
+        req.pause();   // stop reading; the response, not a socket teardown, is what answers this
+        reject(Object.assign(
+          new Error(tooLargeMsg || `request body is larger than the ${mb(limit)} MB limit`),
+          { status: 413 }));
+        return;
+      }
       chunks.push(d);
     });
     req.on('end', () => {
       try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
-      catch { reject(new Error('bad json')); }
+      catch { reject(Object.assign(new Error('bad json'), { status: 400 })); }
     });
     req.on('error', reject);
   });
@@ -1231,7 +1259,10 @@ const routes = {
   'PUT /api/data': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    const body = await readBody(req);
+    // Named, not generic: the client shows whatever this says, and "body too large" tells someone
+    // whose phone has quietly stopped syncing nothing they can act on.
+    const body = await readBody(req, STATE_MAX_BODY,
+      `your training data is over the ${mb(STATE_MAX_BODY)} MB limit for one sync, so this device could not save to the server. Delete some old workouts, or export a backup and start a fresh profile.`);
     if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'state required' });
     delete body.state.active;              // in-progress workouts stay device-local
     atomicWrite(stateFile(user.id), JSON.stringify(body.state));
@@ -1455,6 +1486,14 @@ const routes = {
       // writes into a client's state file, because their next whole-state push would erase it.
       checkins: S.checkins || [],
       checkinDay: S.checkinDay ?? null,
+      // What they ate, and what they were told to eat. Same rule as the check-ins above: the
+      // client authors all three of these and the server only reads them back, because the
+      // target itself reached them through an assignment they accepted, not through this file.
+      // Without these three keys the whole feature is invisible on the coach dashboard, and the
+      // omission is silent — this allow-list is hand-written on purpose (see below).
+      meals: S.meals || [],
+      mealDays: S.mealDays && typeof S.mealDays === 'object' && !Array.isArray(S.mealDays) ? S.mealDays : {},
+      nutriTarget: S.nutriTarget ?? null,
       // Progress photos, and the one field here that does NOT come from readState. They are
       // server-owned (media-<uid>.json), so they arrive from the sidecar instead — and metadata
       // only. The bytes are one authenticated request each against GET /api/media/photo, which
@@ -2192,6 +2231,17 @@ http.createServer(async (req, res) => {
   }
   try { await handler(req, res); }
   catch (e) {
+    // A refusal that named its own status is an ANSWER, not a crash — readBody's 413 and 400
+    // carry a message written for whoever sent the request. Flattening those into "server error"
+    // is how a client ends up retrying forever against a limit nobody told it about.
+    if (e && e.status) {
+      // Connection: close for the same reason the upload routes send it: a refusal happens with
+      // the client still sending, so the body was never fully read and the socket cannot be
+      // reused. Node tears it down AFTER this response flushes, which is what gets the message
+      // out — destroying the request instead is what loses it.
+      if (!res.headersSent) json(res, e.status, { error: e.message }, { Connection: 'close' });
+      return;
+    }
     console.error(key, e);
     if (!res.headersSent) json(res, 500, { error: 'server error' });
   }

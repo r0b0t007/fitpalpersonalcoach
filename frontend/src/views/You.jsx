@@ -53,6 +53,10 @@ export default function You() {
         subtitle={t('Progress & history')} accessory="chevron" onClick={() => nav('/stats')} />
       <Row icon="history" iconTint="var(--grey)" title={t('History')}
         accessory="chevron" onClick={() => nav('/history')} />
+      {/* Not on Home and not a tab: eating is a several-times-a-day job, but it is not what the
+          app is for, and a tracker that opens on food is one people stop opening. */}
+      <Row icon="flame" iconTint="var(--orange)" title={t('Nutrition')}
+        accessory="chevron" onClick={() => nav('/nutrition')} />
       {/* Kept one tap from a tab even though it left the bar: it is a reference catalogue, but a
           1,324-entry one that people do browse. */}
       <Row icon="list" iconTint="var(--teal)" title={t('Exercises')}

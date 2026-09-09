@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { api, setRemoteAuth } from '../lib/api.js'
-import { localTZ } from '../lib/format.js'
+import { localTZ, todayISO } from '../lib/format.js'
+import { compactMeals } from '../lib/nutrition.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
@@ -26,6 +27,27 @@ export const DEF = {
   // Which weekday check-ins fall on (0 = Sunday). null means the default, so a profile written
   // before this existed is not pinned to a day nobody chose.
   checkinDay: null,
+  // Food logged today and for the last four months: [{ id, d, n, g, kcal, p, c, f, s, t }]. The
+  // macros are DENORMALISED onto each entry — already scaled for the grams — and `s` is
+  // provenance, never a key anything resolves. That is what lets a meal be logged in a kitchen
+  // with no signal and read back years later after the food it came from was renamed or deleted.
+  // Here in the blob rather than behind endpoints of its own so it rides the sync, the dirty flag
+  // and the retry that workouts already have. See lib/nutrition.js.
+  meals: [],
+  // Entries past 120 days, rolled to four numbers a day: { '2026-01-04': [kcal, p, c, f] }.
+  // Meals are the first thing in this blob written several times a DAY, and the whole state is
+  // re-serialised to localStorage and pushed on every change — unrolled, a year of them is the
+  // largest single thing here (compactMeals, lib/nutrition.js).
+  mealDays: {},
+  // The ~200 foods this person actually eats, per 100 g, most recently used first: there is no
+  // food database behind this and v1 does not pretend otherwise. Kept in use order so searching
+  // it needs no ranking pass.
+  foods: [],
+  // Daily targets: { kcal, p, c, f, note?, t }, any subset. Written by the CLIENT when it accepts
+  // a coach's program — the bundle carries an optional `nutrition` key (api/domain.mjs). It
+  // cannot arrive any other way: the server writing it into state-<uid>.json would be destroyed
+  // by this client's next whole-state push.
+  nutriTarget: null,
   // Coaches only: named programs written for clients, kept out of `routines` so that progressing
   // a client never changes what the coach themselves trains tomorrow. Each one is a frozen
   // snapshot of chosen routines (see Coach.jsx), which is why editing your own Plan afterwards
@@ -190,6 +212,17 @@ export const useStore = create((set, get) => {
       persist(S, push)
     },
     replaceState(S, push = false) { persist(clone(S), push) },
+
+    // Fold meal entries past the keep window into one row a day (lib/nutrition.js). Called from
+    // the Nutrition screen on open rather than from boot(), for the reason that makes it cheap:
+    // the only profiles this matters for are the ones that log food, and those are exactly the
+    // ones that open that screen. compactMeals returns null when there is nothing to roll, which
+    // is the overwhelmingly common case, and skipping update() there also skips a whole-state
+    // clone and a push nobody asked for.
+    compactNutrition() {
+      const rolled = compactMeals(get().S, todayISO())
+      if (rolled) get().update(s => { s.meals = rolled.meals; s.mealDays = rolled.mealDays })
+    },
 
     // Fires after the moments where losing local data would actually hurt — a workout just
     // logged, a routine just edited — not on every keystroke. No-op off mobile or with the
