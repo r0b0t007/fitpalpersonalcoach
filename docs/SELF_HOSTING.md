@@ -170,7 +170,20 @@ NGINX_PORT=80              # port the web container listens on, inside the conta
 BACKEND=api                # name of the API service that /api is proxied to
 PORT=3000                  # port the API listens on; web proxies to the same value
 SESSION_DAYS=90            # how long a sign-in lasts
+MEDIA_MAX_VIDEO_MB=90      # coach exercise demos (see below)
+MEDIA_MAX_PHOTO_MB=12      # progress photos
 ```
+
+The two media caps are separate from the 5 MB JSON body limit because uploads stream straight to
+disk rather than being buffered and parsed — a large video is never a large Buffer in the node
+heap, and no JSON route inherits the bigger number. Uploads land in `DATA_DIR/media/`, so the
+existing backup covers them.
+
+**Set the video cap from whatever sits in front of the app, not from what node would accept.** A
+reverse proxy's own body limit is the one that fires first: nginx's `client_max_body_size`
+defaults to 1 MB, and Cloudflare refuses bodies over 100 MB on its free and pro plans. A cap above
+the proxy's is not a cap — the upload dies out there, usually with an HTML error page the app
+cannot parse, while the app reports a limit it never actually enforced.
 
 The web image renders its nginx config from these when the container starts, so they take effect
 on a **prebuilt image** — no rebuild. `BACKEND` and `PORT` together are what `/api` is proxied to,

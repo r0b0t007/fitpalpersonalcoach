@@ -22,7 +22,10 @@ cat > "$D/db.json" <<'JSON'
 ],"creds":[],"subs":[],"invites":[],"requests":[],"sessions":[],"assignments":[]}
 JSON
 
-DATA_DIR="$D" PORT=$PORT RP_ID=localhost ORIGIN="http://localhost:$PORT" node "$API/server.js" > "$D/log" 2>&1 &
+# MEDIA_MAX_VIDEO_MB=1 so the over-the-cap path can be exercised with a 2 MB fixture instead of a
+# 91 MB one. The cap being env-driven is what makes that possible, and testing it matters: it is
+# the branch where a partial file is already on disk when the refusal happens.
+DATA_DIR="$D" PORT=$PORT RP_ID=localhost ORIGIN="http://localhost:$PORT" MEDIA_MAX_VIDEO_MB=1 node "$API/server.js" > "$D/log" 2>&1 &
 SRV=$!
 trap 'kill $SRV 2>/dev/null; rm -rf "$D"' EXIT
 # A server that never booted (missing dep, port taken, syntax error) otherwise shows up as every
@@ -220,6 +223,64 @@ chk "...but the assignment is NOT destroyed"  true   "$(curl -s "$B/api/sessions
 chk "editing that class does not force a swap" true   "$(curl -s -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"id":"'"$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));(d.sessions.find(s=>s.title===process.argv[1])||{}).id" 'Spin with B')"'","title":"Spin with B","date":"'"$C2"'","time":"10:30","room":"Studio 4","coachId":"coachB"},"confirm":true}' | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).ok===true)")"
 curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":false}'
 chk "re-enabling restores the name"       "Coach B"   "$(curl -s "$B/api/sessions" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.sessions.find(s=>s.title===process.argv[1])||{}).coachName)" 'Spin with B')"
+
+echo "== media upload: role gating =="
+# Fixtures are built rather than committed: a real .mp4 in the repo is a binary blob nobody can
+# review, and the bytes that matter here are the first 64. `ftyp` + brand is all sniffMedia reads.
+mkfix() { node -e "
+const fs=require('fs'); const b=Buffer.alloc(4096);
+b.writeUInt32BE(32,0); b.write('ftyp',4); b.write(process.argv[2],8); b.writeUInt32BE(0,12);
+process.argv.slice(3).forEach((c,i)=>b.write(c,16+i*4));
+b.write(process.argv[4]||'pad', 2048);          // make each fixture's CONTENT differ, so the
+fs.writeFileSync(process.argv[1], b);           // content-addressed names differ too
+" "$@"; }
+mkfix "$D/demo.mp4" 'isom' 'iso2' 'avc1'
+mkfix "$D/iphone.mov" 'qt  ' 'qt  '
+mkfix "$D/photo.heic" 'heic' 'mif1'
+head -c 300000 /dev/zero > "$D/junk.bin"
+up() { curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/media/exercise?ex=$2&label=front" -H "Cookie: $1" --data-binary "@$3"; }
+
+chk "anonymous cannot upload a demo"          401 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/media/exercise?ex=0025" --data-binary "@$D/demo.mp4")"
+chk "a member cannot upload a demo"           403 "$(up "$M1" 0025 "$D/demo.mp4")"
+chk "a coach can upload a demo"               200 "$(up "$CA" 0025 "$D/demo.mp4")"
+
+echo "== media upload: what it accepts and refuses =="
+chk "an iPhone .mov is ACCEPTED, not refused" 200 "$(up "$CA" 0026 "$D/iphone.mov")"
+chk "...and is flagged raw for conversion"   raw  "$(get -H "Cookie: $CA" "$B/api/media/exercises" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.media.find(m=>m.exId==='0026')||{}).status)")"
+chk "an H.264 mp4 needs no conversion"      ready  "$(get -H "Cookie: $CA" "$B/api/media/exercises" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.media.find(m=>m.exId==='0025')||{}).status)")"
+chk "a photo in the video slot is refused"    415 "$(up "$CA" 0027 "$D/photo.heic")"
+chk "bytes that are not media are refused"    415 "$(up "$CA" 0028 "$D/junk.bin")"
+chk "a traversing exercise id is refused"     400 "$(up "$CA" '../../etc' "$D/demo.mp4")"
+chk "an empty body is refused"                400 "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$B/api/media/exercise?ex=0029" -H "Cookie: $CA" --data-binary '')"
+# The refusals above must leave nothing behind. A partial upload that survives its own rejection
+# is a disk quota filling with files nothing references — invisible until the account is full.
+chk "a refused upload leaves no temp file"      0 "$(ls -1 "$D"/media/ex/.up-* 2>/dev/null | wc -l | tr -d ' ')"
+chk "and stores no file for the refused ids"    0 "$(ls -1 "$D"/media/ex/ 2>/dev/null | grep -c '^002[789]-' | tr -d ' ')"
+
+# A refusal that arrives as a dropped connection is the failure this whole module exists to
+# avoid: the messages are written for a coach who just filmed something and needs to know what to
+# change. Destroying the request to stop the sender silently ate every one of them, and the
+# status-code checks above still passed while it did — so assert the BODY, not just the code.
+msg() { curl -s -X POST "$B/api/media/exercise?ex=$2" -H "Cookie: $1" --data-binary "@$3" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).error||'')"; }
+chk "the refusal carries a readable reason"  true "$(node -pe "String(process.argv[1].length>10)" "$(msg "$CA" 0031 "$D/photo.heic")")"
+chk "...and it names what to send instead"   true "$(node -pe "String(/image|video/i.test(process.argv[1]))" "$(msg "$CA" 0032 "$D/photo.heic")")"
+
+echo "== media upload: the size cap =="
+head -c 2000000 /dev/zero > "$D/big.pad"; cat "$D/demo.mp4" "$D/big.pad" > "$D/big.mp4"
+chk "a file over the cap is refused"          413 "$(up "$CA" 0033 "$D/big.mp4")"
+chk "the 413 says what the limit is"         true "$(node -pe "String(/1 MB/.test(process.argv[1]))" "$(msg "$CA" 0034 "$D/big.mp4")")"
+# This is the branch where bytes are ALREADY on disk when the refusal fires, so it is the one
+# that leaks if the cleanup is wrong.
+chk "an over-cap upload leaves no temp file"    0 "$(ls -1 "$D"/media/ex/.up-* 2>/dev/null | wc -l | tr -d ' ')"
+chk "and stores nothing for it"                 0 "$(ls -1 "$D"/media/ex/ 2>/dev/null | grep -c '^003[34]-' | tr -d ' ')"
+
+echo "== media list =="
+chk "anonymous cannot list media"             401 "$(code "$B/api/media/exercises")"
+chk "a member CAN list media (to render it)"  200 "$(code -H "Cookie: $M1" "$B/api/media/exercises")"
+# Content addressing: the same bytes twice is one row and one file, not two of each.
+up "$CA" 0025 "$D/demo.mp4" > /dev/null
+chk "re-uploading identical bytes dedupes"      1 "$(get -H "Cookie: $CA" "$B/api/media/exercises" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.media.filter(m=>m.exId==='0025').length)")"
+chk "and leaves one file on disk"               1 "$(ls -1 "$D"/media/ex/ 2>/dev/null | grep -c '^0025-' | tr -d ' ')"
 
 echo ""
 echo "passed $pass, failed $fail"
