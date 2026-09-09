@@ -1150,7 +1150,15 @@ const routes = {
       lastSync: S._ts || null,
       routines: (S.routines || []).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: (r.ex || []).length })),
       bodyweight: S.bodyweight || [],
-      workouts: (S.workouts || []).slice().reverse()
+      workouts: (S.workouts || []).slice().reverse(),
+      // The rest of what <StatsPanels> reads, so a coach sees the same charts their client does
+      // rather than a count. Deliberately narrow: these are display preferences and training
+      // data, not the whole state blob — a coach has no business with someone's session
+      // secrets, reminders or device settings, and widening this to `...S` would hand them over.
+      body: S.body || 'male',
+      targetW: S.targetW ?? null,
+      effort: S.effort ?? null,
+      showRir: S.showRir ?? null      // legacy field effortOf() still falls back to
     });
   },
 
