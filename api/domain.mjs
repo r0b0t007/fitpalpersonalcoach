@@ -277,13 +277,22 @@ export function decideAssignment(assignment, accept, now = Date.now()) {
 // is read, and the compatible-brand list after it too, because Apple writes the interesting one
 // there as often as in the major slot.
 //
-// **Honest limit, and the reason this rejects by container rather than promising a codec:** the
-// brand names the container, not the video track. An `isom` MP4 can legally carry HEVC, which
-// Chrome and Firefox will not play. Knowing the codec for certain means walking moov → trak →
-// stsd, which is a real parser and exactly the kind of thing §5 refuses to add. What this does
-// catch is the case that actually happens — an iPhone on default settings records HEVC in a
-// `.mov` with the `qt  ` brand — and it catches it at upload, with a message, instead of at
-// playback on a client's Android phone with a black box.
+// **Honest limit:** the brand names the container, not the video track. An `isom` MP4 can legally
+// carry HEVC, which Chrome and Firefox will not play. Knowing the codec for certain means walking
+// moov → trak → stsd, which is a real parser and exactly the kind of thing §5 refuses to add.
+//
+// **This labels; it does not refuse.** An earlier revision rejected HEVC and QuickTime at upload,
+// which is wrong for the one person who uploads here. An iPhone records **HEVC in a `.mov`** on
+// its default "High Efficiency" setting, and — this is the part that makes rejection untenable
+// rather than merely inconvenient — the Camera app writes a `.mov` container on *both* format
+// settings. "Most Compatible" changes the codec to H.264 and leaves the container alone. So a
+// rule that refuses QuickTime refuses the coach's own camera roll no matter what they set.
+// Since iOS 13.6.1 Safari also hands a site the original file instead of converting it on the
+// way through a file input, so this is every upload from the phone, not an edge case.
+//
+// The playback problem is real and does not go away by accepting the file — it moves to whoever
+// consumes `needsTranscode`. That is the right place for it: refusing here does not get the demo
+// filmed, and a coach who cannot upload from the phone they filmed on has no workflow at all.
 export const MEDIA_SNIFF_BYTES = 32   // ftyp brand ends at 12; RIFF/WEBP needs 12. Headroom.
 
 const BRAND_MP4 = new Set(['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'mp4v', 'avc1', 'M4V ', 'dash', 'cmfc'])
@@ -333,15 +342,22 @@ export function sniffMedia(buf) {
   return null
 }
 
-// What each slot will store. Deliberately narrow: these are the formats every browser a client
-// might open the app in can decode without help, which is the only property that matters here.
-const ACCEPT_VIDEO = new Set(['mp4'])
+const ACCEPT_VIDEO = new Set(['mp4', 'mov'])
 const ACCEPT_PHOTO = new Set(['jpg', 'png', 'webp'])
 
 /**
  * The upload gate. Mirrors validateAssignmentBundle: `{ error }` or the accepted descriptor.
  * Messages say what to do, because the person reading them is the coach who just filmed the
  * thing — "unsupported format" would send them back to the camera roll with no idea what to change.
+ *
+ * `needsTranscode` is the interesting field. It is NOT "this file is broken" — it is "nothing
+ * downstream should assume a client's browser can play this yet". It is set for the QuickTime
+ * container and for an HEVC brand, i.e. for exactly what an iPhone hands over.
+ *
+ * The inverse does not hold and must not be read as if it did: `needsTranscode: false` means
+ * nothing in the header said otherwise, not that the file was verified playable. An `isom` MP4
+ * can still carry HEVC (see sniffMedia's header). Treat it as the best guess available without
+ * a parser, which is what it is.
  */
 export function validateUpload(buf, want) {
   const m = sniffMedia(buf)
@@ -349,12 +365,16 @@ export function validateUpload(buf, want) {
   if (m.kind !== want) return { error: `expected ${want === 'video' ? 'a video' : 'an image'}, got ${m.mime}` }
 
   if (want === 'video') {
-    if (m.ext === 'mov') return { error: 'QuickTime .mov does not play in Chrome or Firefox — export or convert to MP4 (H.264) first' }
-    if (BRAND_HEVC.has(m.brand)) return { error: 'this MP4 is HEVC, which does not play in Chrome or Firefox — re-encode as H.264' }
-    if (!ACCEPT_VIDEO.has(m.ext)) return { error: `${m.mime} is not a supported video format — use MP4 (H.264)` }
-  } else {
-    if (m.ext === 'heic') return { error: 'HEIC photos do not display in most browsers — set the camera to “Most Compatible”, or export as JPEG' }
-    if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG or WebP` }
+    if (!ACCEPT_VIDEO.has(m.ext)) return { error: `${m.mime} is not a supported video format — use MP4 or MOV` }
+    return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: m.ext === 'mov' || BRAND_HEVC.has(m.brand) }
   }
-  return { kind: m.kind, ext: m.ext, mime: m.mime }
+  // Photos stay narrow, and the asymmetry with video is deliberate rather than an oversight.
+  // The client downscales a photo on a <canvas> before upload (§5: 1600px, toBlob 0.82, which
+  // strips EXIF/GPS as a side effect), and the canvas has to decode the source to do it — so
+  // Safari converts an iPhone's HEIC to JPEG for free, on the phone, on the way past. There is
+  // no equivalently cheap client-side step for video, which is the whole reason video needs the
+  // flag above and photos do not.
+  if (m.ext === 'heic') return { error: 'HEIC photos do not display in most browsers — set the camera to “Most Compatible”, or export as JPEG' }
+  if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG or WebP` }
+  return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: false }
 }

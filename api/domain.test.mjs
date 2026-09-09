@@ -409,22 +409,39 @@ test('sniffMedia clamps the brand walk to the bytes actually read', () => {
   assert.equal(sniffMedia(ftyp('mp42', ['isom'], 0)).ext, 'mp4')   // a size of 0 is not a length
 })
 
-test('validateUpload accepts what every browser can decode', () => {
-  assert.deepEqual(validateUpload(ftyp('isom', ['avc1']), 'video'), { kind: 'video', ext: 'mp4', mime: 'video/mp4' })
-  assert.deepEqual(validateUpload(JPEG, 'photo'), { kind: 'photo', ext: 'jpg', mime: 'image/jpeg' })
+test('validateUpload accepts what every browser can decode, unflagged', () => {
+  assert.deepEqual(validateUpload(ftyp('isom', ['avc1']), 'video'),
+    { kind: 'video', ext: 'mp4', mime: 'video/mp4', needsTranscode: false })
+  assert.deepEqual(validateUpload(JPEG, 'photo'),
+    { kind: 'photo', ext: 'jpg', mime: 'image/jpeg', needsTranscode: false })
   assert.equal(validateUpload(PNG, 'photo').error, undefined)
   assert.equal(validateUpload(WEBP, 'photo').error, undefined)
 })
 
-// The case that actually happens, and the one the whole sniff exists for: filmed on an iPhone,
-// perfect on the coach's phone, a black box on a client's Android. It has to fail here, loudly.
-test('validateUpload refuses the formats that would fail silently at playback', () => {
+// The case the coach actually lives in. An iPhone records HEVC in a .mov by default, and writes
+// a .mov container on BOTH format settings — so refusing QuickTime refuses their own camera roll
+// whatever they change. Accepted and flagged, never rejected.
+test('validateUpload takes what an iPhone produces, and marks it for conversion', () => {
   const mov = validateUpload(ftyp('qt  '), 'video')
-  assert.match(mov.error, /mov/)
-  assert.match(mov.error, /MP4/)                                  // says what to do, not just what is wrong
-  assert.match(validateUpload(ftyp('mp42', ['hvc1']), 'video').error, /HEVC/)
+  assert.equal(mov.error, undefined)
+  assert.equal(mov.ext, 'mov')
+  assert.equal(mov.needsTranscode, true)
+  const hevc = validateUpload(ftyp('mp42', ['isom', 'hvc1']), 'video')
+  assert.equal(hevc.error, undefined)
+  assert.equal(hevc.needsTranscode, true)
+})
+
+// needsTranscode:false is "the header gave no reason to think otherwise", never "verified
+// playable" — an isom MP4 can still carry HEVC. Pinned so nobody later reads it as a guarantee.
+test('validateUpload cannot see a codec the container does not declare', () => {
+  assert.equal(validateUpload(ftyp('isom', ['iso2']), 'video').needsTranscode, false)
+})
+
+test('validateUpload still refuses what it cannot store at all', () => {
   assert.match(validateUpload(ftyp('heic', ['mif1']), 'photo').error, /HEIC/)
+  assert.match(validateUpload(ftyp('heic', ['mif1']), 'photo').error, /Most Compatible|JPEG/)  // says what to do
   assert.match(validateUpload(GIF, 'photo').error, /JPEG, PNG or WebP/)
+  assert.match(validateUpload(ftyp('avif'), 'photo').error, /not a supported image format/)
 })
 
 test('validateUpload refuses a file in the wrong slot', () => {
