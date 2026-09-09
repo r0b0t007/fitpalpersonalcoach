@@ -1,7 +1,7 @@
 {
-  "name": "FIT'ONE",
-  "short_name": "FIT'ONE",
-  "description": "FIT'ONE CLUB FITNESS — workouts, plans & body tracking",
+  "name": "FitPal Coach",
+  "short_name": "FitPal",
+  "description": "FitPal Coach — personal coaching: your plan, your progress, your coach",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

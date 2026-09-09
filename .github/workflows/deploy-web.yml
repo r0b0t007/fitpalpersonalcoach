@@ -122,7 +122,7 @@ jobs:
         if: vars.WEB_URL != ''
         run: |
           for i in $(seq 1 6); do
-            if curl -fsS --max-time 10 "${{ vars.WEB_URL }}" | grep -q "<title>FIT"; then
+            if curl -fsS --max-time 10 "${{ vars.WEB_URL }}" | grep -q "<title>FitPal Coach"; then
               echo "Site is serving the app."; exit 0
             fi
             echo "not up yet ($i/6)"; sleep 5

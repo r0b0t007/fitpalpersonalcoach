@@ -131,6 +131,9 @@ curl -fsS https://coach.fitpal.ma/api/health     # {"ok":true,...}
 curl -fsS https://coach.fitpal.ma | grep '<title'
 ```
 
-The frontend health check greps the served HTML for `<title>FIT`. If the brand in
-`frontend/src/lib/brand.js` is ever changed to something that does not contain that string,
-update the grep in `deploy-web.yml` with it.
+The frontend health check greps the served HTML for `<title>FitPal Coach`, which is set in
+`frontend/index.html` (not from `brand.js` — index.html cannot import ESM). It is deliberately
+the *full* title rather than a prefix: the failure this guards against is these two products
+being deployed over each other, and `FIT` matched both brands, so the old prefix would have
+passed while serving the wrong app. Change the grep, `index.html` and `brand.js` in one commit
+or the deploy goes red on a build that is otherwise fine.
