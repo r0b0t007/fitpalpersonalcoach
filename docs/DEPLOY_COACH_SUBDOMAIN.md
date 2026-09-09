@@ -124,12 +124,95 @@ rsync would otherwise match at every depth including inside `node_modules/`), an
 passes `-K` so cPanel's `node_modules` symlink into the Node venv is written *through* rather
 than replaced with a real directory.
 
+## `~/coach.fitpal.ma/.htaccess` — the shell must not be cached
+
+**This file is on the server and not in the repo, so nothing will recreate it.** `deploy-web.yml`
+excludes `/.htaccess` from its `rsync --delete` (that exclude is what stops a deploy deleting
+server-owned config), which also means a copy under `frontend/dist/` would never reach the
+server. If the subdomain is ever rebuilt, write it again:
+
+```apache
+<IfModule mod_headers.c>
+  <FilesMatch "^(sw\.js|index\.html|manifest\.json)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+```
+
+**The edge cache is the thing this fixes, not the browser cache.** Without these headers
+Cloudflare cached `sw.js` outright — `cf-cache-status: HIT`, `max-age=14400` — and handed out the
+*previous* service worker for four hours after a deploy, which then served the previous shell
+from its own cache. The symptom is a deploy that reports success while the app in front of you,
+and in front of every client, is the old one. It cost an hour once already: the fix was live at
+the origin and invisible in the browser.
+
+With the header set, `sw.js` returns `cf-cache-status: REVALIDATED` — the edge checks the origin
+on every request instead of serving a stored copy blind. That is the fix.
+
+Two things are worth knowing so nobody "fixes" this again in the wrong place:
+
+- **Cloudflare rewrites the browser-facing header on `.js`.** The zone's *Browser Cache TTL* is
+  4 hours, so `sw.js` still goes out as `max-age=14400, must-revalidate` however the origin
+  labels it. On anything that implements `updateViaCache` that is inert: `main.jsx` calls
+  `navigator.serviceWorker.register('sw.js')` with no options, and the default (`'imports'`)
+  makes the browser bypass its HTTP cache for the worker script itself. **Safari before iOS 16.4
+  does not implement it** and will honour the four hours — and this is an installed iOS PWA, so
+  that case is real rather than theoretical. If an iPhone is stuck on an old release for a few
+  hours after a deploy, this is why, and *Browser Cache TTL → Respect Existing Headers* is the
+  fix. It is zone-wide, so it also changes `fitpal.ma` and `app.fitpal.ma`.
+- **`index.html` keeps `no-cache` intact**, because Cloudflare treats it as DYNAMIC and passes
+  the origin header through. That is the one that really matters: it names the hashed bundle, so
+  a cached copy pins a client to an old release no matter how fresh everything else is.
+
+Hashed files under `assets/` are deliberately untouched — their names change every build, so
+they should be cached hard.
+
+This file exists only because the cPanel deployment serves the static build through LiteSpeed
+and never renders `web/nginx.conf.template`. The two paths are **not** equivalent, and it is
+worth knowing which way they differ before reconciling one to the other: nginx matches
+`location ~* \.(js|css|json|html)$`, so on Docker *every* `.js` gets `no-cache` — including the
+hashed `assets/index-<hash>.js`, which this `.htaccess` deliberately leaves cacheable. Narrowing
+the nginx regex, or widening the `FilesMatch`, is a real change to how the bundle caches on one
+of the two deployments, not the no-op that "make them the same" implies.
+
+A one-off purge was needed when these headers were first added, because the edge was still
+holding the pre-fix copy: Caching → Configuration → Custom Purge → **URL**, one line,
+`https://coach.fitpal.ma/sw.js`. Purge by URL rather than *Purge Everything* — the zone also
+serves `fitpal.ma` and `app.fitpal.ma`. No purge is needed after later deploys; that is the whole
+point of `REVALIDATED`.
+
 ## Checking it worked
 
 ```
 curl -fsS https://coach.fitpal.ma/api/health     # {"ok":true,...}
 curl -fsS https://coach.fitpal.ma | grep '<title'
+
+# Did the release actually reach the browser? Three different answers are possible, so read all
+# three — a plain refresh tells you none of them.
+#   1. the origin, bypassing Cloudflare entirely
+curl -s --resolve coach.fitpal.ma:443:198.54.116.94 https://coach.fitpal.ma | grep -o 'assets/index-[^"]*\.js'
+#   2. what the edge is handing out
+curl -s https://coach.fitpal.ma | grep -o 'assets/index-[^"]*\.js'
 ```
+
+```js
+//   3. what the page in front of you actually loaded — paste in the browser console. A service
+//      worker will happily go on serving the previous bundle after both of the above are current.
+[...document.querySelectorAll('script[src]')].map(s => s.src.split('/').pop())
+```
+
+A `525` immediately after a deploy is Cloudflare failing its TLS handshake to the origin while
+Passenger restarts. It clears within seconds, so trust the workflow over a single `curl` — but
+know how much patience each one has, because they differ:
+
+| | retries | total |
+|---|---|---|
+| `deploy-api.yml` | 12 × 10s | ~2 min |
+| `deploy-web.yml` | 6 × 5s | **30 s** |
+
+Two minutes is comfortably longer than a Passenger restart; thirty seconds is not always. A red
+`deploy-web` right after a frontend-only push is more likely a slow origin than a bad build —
+re-run it before going looking for the bug.
 
 The frontend health check greps the served HTML for `<title>FitPal Coach`, which is set in
 `frontend/index.html` (not from `brand.js` — index.html cannot import ESM). It is deliberately
