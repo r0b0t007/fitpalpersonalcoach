@@ -229,6 +229,97 @@ function streamToFile(req, tmp, maxBytes, check) {
   });
 }
 
+/* Serve a stored media file, honouring HTTP range requests.
+ *
+ * This is the first byte-level READ in the API, and it exists because the deployment that takes
+ * real clients has no nginx to hand it off to: coach.fitpal.ma is cPanel + LiteSpeed + Passenger,
+ * which never renders web/nginx.conf.template. The original design leaned on X-Accel-Redirect and
+ * let nginx do the sendfile; that is a Docker-only optimisation here, not the mechanism, so the
+ * fallback is the path and node does the work.
+ *
+ * Range handling is not optional decoration. <video> seeks by issuing range requests, and a
+ * server that answers every one of them with the whole file from byte zero makes scrubbing
+ * unusable on anything longer than a few seconds — and Safari will refuse to start playback at
+ * all unless it gets a 206 for its opening probe.
+ *
+ * Deliberately narrow: ONE range, not the multipart/byteranges reply a comma-separated list calls
+ * for. No browser's media element asks for several. What a request this cannot serve gets is the
+ * WHOLE file with a 200 — never a 416 — because 416 means "that range does not exist in this
+ * file" and is a lie about a multi-range or an unknown unit, which the spec says to ignore.
+ * Everything else — open ranges, suffix ranges, over-long ends — is clamped the way the spec says
+ * rather than rejected.
+ */
+function serveMedia(req, res, file, mime) {
+  let st;
+  try { st = fs.statSync(file); }
+  catch { return json(res, 404, { error: 'not found' }); }
+  if (!st.isFile()) return json(res, 404, { error: 'not found' });
+
+  const total = st.size;
+  // Names are content-addressed, so a URL cannot change meaning and may be cached forever.
+  // `private`, not `public`: the route is behind a session, and a shared cache holding a copy
+  // would serve it to whoever asked next, which would quietly undo that check.
+  const base = {
+    'Content-Type': mime || 'application/octet-stream',
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'private, max-age=31536000, immutable'
+  };
+  // `base` is deliberately NOT spread here. A 416 carrying `max-age=31536000, immutable` is a
+  // year-long, unrevalidatable cache entry saying "this file cannot be read" — and the URL has no
+  // Vary: Range, so a browser can serve that stored 416 back for an ordinary GET and the demo
+  // never plays again for that viewer, with no way to recover. Errors are no-store, like json().
+  const unsatisfiable = () => {
+    res.writeHead(416, {
+      'Content-Type': 'application/json', 'Cache-Control': 'no-store',
+      'Accept-Ranges': 'bytes', 'Content-Range': `bytes */${total}`
+    });
+    res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ error: 'range not satisfiable' }));
+  };
+  const send = (code, headers, opts) => {
+    res.writeHead(code, headers);
+    if (req.method === 'HEAD') return res.end();
+    const s = fs.createReadStream(file, opts);
+    // The client going away mid-stream is ordinary (a seek aborts the previous request), so it
+    // must not reach the dispatcher's 500 path or fill the log with stack traces.
+    s.on('error', () => res.destroy());
+    res.on('close', () => s.destroy());
+    s.pipe(res);
+  };
+
+  const raw = req.headers.range;
+  const whole = () => send(200, { ...base, 'Content-Length': total });
+  if (!raw) return whole();
+
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(raw).trim());
+  // A Range this server cannot act on is IGNORED, and the whole entity is sent — RFC 9110 §14.2
+  // for an unknown unit, and the same answer is the right one for a comma-separated multi-range:
+  // the reply that asks for would be multipart/byteranges, a partial version of which is worse
+  // than not implementing it, and every client copes with a 200 carrying everything.
+  //
+  // An earlier revision answered 416 here, reasoning that an honest refusal beats a half
+  // implementation. The first half of that is right and the second does not follow: 416 means
+  // "the range you asked for does not exist in this file", so saying it to a download manager
+  // sending `bytes=0-9,20-29`, or to a proxy sending a unit we do not know, fails a request that
+  // a 200 would have served. 416 is now only for a range that parsed and cannot be met.
+  if (!m || (m[1] === '' && m[2] === '')) return whole();
+  let start, end;
+  if (m[1] === '') {
+    // A suffix range ("give me the last N bytes"), which is how some players read a trailing
+    // index. N larger than the file is the whole file, not an error.
+    const n = parseInt(m[2], 10);
+    if (!n) return unsatisfiable();
+    start = Math.max(0, total - n);
+    end = total - 1;
+  } else {
+    start = parseInt(m[1], 10);
+    end = m[2] === '' ? total - 1 : Math.min(parseInt(m[2], 10), total - 1);
+  }
+  // Covers the empty file too: total 0 makes every range unsatisfiable, which is correct and is
+  // otherwise an off-by-one that serves a 206 promising bytes that do not exist.
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= total) return unsatisfiable();
+  send(206, { ...base, 'Content-Range': `bytes ${start}-${end}/${total}`, 'Content-Length': end - start + 1 }, { start, end });
+}
+
 const stateFile = uid => path.join(DATA, 'state-' + uid.replace(/[^a-zA-Z0-9_-]/g, '') + '.json');
 function readState(uid) {
   try { return JSON.parse(fs.readFileSync(stateFile(uid), 'utf8')); } catch { return null; }
@@ -1434,6 +1525,30 @@ const routes = {
     });
   },
 
+  // The bytes. Addressed by ROW ID rather than by filename, which is what makes traversal
+  // structurally impossible instead of merely filtered: the only paths reachable here are the
+  // ones the upload route wrote into db.media, and nothing a caller types becomes part of a path.
+  // The filename is still pattern-checked before use, because db.json is a plain file an operator
+  // can edit and this is the one place a bad value in it would become a file read.
+  'GET /api/media/ex': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const id = new URL(req.url, 'http://x').searchParams.get('id');
+    const row = db.media.find(m => m.id === id);
+    // typeof first, and not for tidiness: RegExp.test coerces, so a row with no `file` at all is
+    // tested as the string "undefined" — which MATCHES this pattern — and then .includes() throws
+    // on the real undefined, giving a 500. A hand-edited or truncated row is exactly the input
+    // the comment above says this guard is for, so it must 404 rather than crash on it.
+    if (!row || typeof row.file !== 'string' ||
+        !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(row.file) || row.file.includes('..'))
+      return json(res, 404, { error: 'not found' });
+    serveMedia(req, res, path.join(MEDIA_DIR, 'ex', row.file), row.mime);
+  },
+  // The dispatcher keys on method + path, so serveMedia's HEAD branch is unreachable without
+  // this — and a HEAD that 404s while the GET beside it works is the kind of thing a player
+  // probes with and then gives up on.
+  'HEAD /api/media/ex': (req, res) => routes['GET /api/media/ex'](req, res),
+
   'POST /api/coach/assign': async (req, res) => {
     const coach = requireCoach(req, res); if (!coach) return;
     const body = await readBody(req);
@@ -1832,8 +1947,16 @@ http.createServer(async (req, res) => {
   if (origin) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin'); }
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      // HEAD and Range are here for media playback from the paired mobile app, the one client
+      // that is genuinely cross-origin. Range is not a CORS-safelisted request header, so a
+      // ranged fetch preflights — and without both of these that preflight fails, which reads as
+      // "the video does not load" with nothing in any log to say why.
+      'Access-Control-Allow-Methods': 'GET,HEAD,POST,PUT,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range',
+      // A cross-origin reader sees no response headers beyond the safelist unless they are named
+      // here, so without this the client gets its 206 and cannot read how much of what it asked
+      // for it actually received.
+      'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
       'Access-Control-Max-Age': '86400'
     });
     return res.end();

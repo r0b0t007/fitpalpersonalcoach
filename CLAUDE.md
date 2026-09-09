@@ -81,7 +81,7 @@ are dormant mirrors — is false for this repo and inverted: nothing runs on Git
 both the test gate and the deploy path.
 
 Seven jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
-(`coach-smoke.sh`, 64 checks), `mcp`, `api-image` and `web-image` — the last two build *and boot*
+(`coach-smoke.sh`), `mcp`, `api-image` and `web-image` — the last two build *and boot*
 the containers, which is the only place a broken image or an unparseable rendered nginx config is
 caught. **`test.yml` has path filters**; anything outside `frontend/`, `api/`, `mcp/`, `web/` and
 those two scripts runs no checks at all, and GitHub reports "no checks" rather than failing.

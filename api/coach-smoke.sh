@@ -19,8 +19,12 @@ cat > "$D/db.json" <<'JSON'
   {"id":"mem2","name":"Theirs","coachId":"coachB","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem3","name":"Unassigned","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem4","name":"Disabled","coachId":"coachA","disabled":true,"created":"2026-01-01T00:00:00.000Z"}
-],"creds":[],"subs":[],"invites":[],"requests":[],"sessions":[],"assignments":[]}
+],"creds":[],"subs":[],"invites":[],"requests":[],"sessions":[],"assignments":[],
+"media":[{"id":"brokenrow","exId":"0099","coachId":"coachA","mime":"video/mp4","status":"ready"}]}
 JSON
+# That media row has no `file`, on purpose, and is seeded here rather than injected later because
+# the server holds db.json in memory — a row written to the file after boot is never seen. It is
+# the hand-edited/truncated row the serving route's guard exists for.
 
 # MEDIA_MAX_VIDEO_MB=1 so the over-the-cap path can be exercised with a 2 MB fixture instead of a
 # 91 MB one. The cap being env-driven is what makes that possible, and testing it matters: it is
@@ -308,6 +312,56 @@ chk "a member CAN list media (to render it)"  200 "$(code -H "Cookie: $M1" "$B/a
 up "$CA" 0025 "$D/demo.mp4" > /dev/null
 chk "re-uploading identical bytes dedupes"      1 "$(get -H "Cookie: $CA" "$B/api/media/exercises" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.media.filter(m=>m.exId==='0025').length)")"
 chk "and leaves one file on disk"               1 "$(ls -1 "$D"/media/ex/ 2>/dev/null | grep -c '^0025-' | tr -d ' ')"
+
+echo "== serving the bytes back =="
+MID=$(get -H "Cookie: $CA" "$B/api/media/exercises" | node -pe "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));(d.media.find(m=>m.exId==='0025')||{}).id||''")
+SZ=$(node -pe "require('fs').statSync(process.argv[1]).size" "$D/demo.mp4")
+chk "anonymous cannot fetch a demo"            401 "$(code "$B/api/media/ex?id=$MID")"
+chk "a member can watch a demo"                200 "$(code -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "an unknown id is 404"                     404 "$(code -H "Cookie: $M1" "$B/api/media/ex?id=nope")"
+chk "the whole file comes back intact"       "$SZ" "$(curl -s -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | wc -c | tr -d ' ')"
+curl -s -H "Cookie: $M1" "$B/api/media/ex?id=$MID" > "$D/full.got"
+chk "...byte for byte, not just in length"    true "$(node -pe "
+  const fs=require('fs');
+  String(Buffer.compare(fs.readFileSync(process.argv[1]), fs.readFileSync(process.argv[2]))===0)" "$D/demo.mp4" "$D/full.got")"
+chk "and advertises range support"         "bytes" "$(curl -s -D - -o /dev/null -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | grep -i '^accept-ranges' | tr -d '\r' | awk '{print $2}')"
+
+# <video> seeks by issuing range requests. A server that answers each one with the whole file
+# from byte zero makes scrubbing unusable, and Safari will not begin playback at all without a
+# 206 for its opening probe — so these are playback working, not protocol trivia.
+chk "a range request is answered 206"          206 "$(code -r 0-99 -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "...with the right Content-Range"  "bytes 0-99/$SZ" "$(curl -s -D - -o /dev/null -r 0-99 -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | grep -i '^content-range' | tr -d '\r' | cut -d' ' -f2-)"
+chk "...and exactly that many bytes"           100 "$(curl -s -r 0-99 -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | wc -c | tr -d ' ')"
+chk "an open-ended range runs to the end"      206 "$(code -r 100- -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "a suffix range returns the last bytes"     50 "$(curl -s -r -50 -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | wc -c | tr -d ' ')"
+# Length alone would pass on an off-by-one that served the wrong 50 bytes, which is exactly the
+# mistake a suffix range invites. Compare the CONTENT against the tail of the source.
+curl -s -r -50 -H "Cookie: $M1" "$B/api/media/ex?id=$MID" > "$D/tail.got"
+chk "...and they are the right last bytes"    true "$(node -pe "
+  const fs=require('fs'); const src=fs.readFileSync(process.argv[1]); const got=fs.readFileSync(process.argv[2]);
+  String(Buffer.compare(src.subarray(src.length-50), got)===0)" "$D/demo.mp4" "$D/tail.got")"
+chk "an end past EOF is clamped, not refused"  206 "$(code -r "0-$((SZ + 5000))" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+# 416 means "that range does not exist in this file", so it is only ever the answer to a range
+# that parsed and cannot be met. A multi-range or an unknown unit is something this server cannot
+# ACT on, which the spec says to ignore — answer 200 with everything. Saying 416 to those (which
+# an earlier revision did) fails a download manager or a coalescing proxy that a 200 would serve.
+chk "a start past EOF is 416"                  416 "$(code -H "Range: bytes=$((SZ + 10))-" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "...and that 416 is never cached"     "no-store" "$(curl -s -D - -o /dev/null -H "Range: bytes=$((SZ + 10))-" -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | grep -i '^cache-control' | tr -d '\r' | awk '{print $2}')"
+chk "a multi-range falls back to the whole file" 200 "$(code -H "Range: bytes=0-9,20-29" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "...and really is the whole file"        "$SZ" "$(curl -s -H "Range: bytes=0-9,20-29" -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | wc -c | tr -d ' ')"
+chk "an unknown range unit is ignored"         200 "$(code -H "Range: seconds=0-10" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+chk "a malformed range is ignored"             200 "$(code -H "Range: bytes=abc" -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+# A row an operator truncated by hand must 404, not 500. RegExp.test coerces, so a missing `file`
+# is tested as the string "undefined" — which matches the safe-name pattern — and the traversal
+# check then throws on the real undefined.
+chk "a row with no filename 404s, not 500s"    404 "$(code -H "Cookie: $M1" "$B/api/media/ex?id=brokenrow")"
+chk "HEAD works where GET does"                200 "$(code -I -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+# curl's own byte counter, not a sed that hunts for the blank line between headers and body:
+# that separator is CRLF, and how much of it survives the pipe differs between platforms — the
+# first version of this check passed on Windows and failed on CI's Linux for that reason alone.
+chk "...and sends no body"                       0 "$(curl -s -I -o /dev/null -w '%{size_download}' -H "Cookie: $M1" "$B/api/media/ex?id=$MID")"
+# But it must still ANNOUNCE the length, which is what a player reads before deciding how to seek.
+chk "...while still declaring the length"    "$SZ" "$(curl -s -I -H "Cookie: $M1" "$B/api/media/ex?id=$MID" | grep -i '^content-length' | tr -d '\r' | awk '{print $2}')"
 
 echo ""
 echo "passed $pass, failed $fail"
