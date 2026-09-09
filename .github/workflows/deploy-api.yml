@@ -93,6 +93,9 @@ jobs:
           # added to the repo and not to that list: the container crashed on domain.mjs and the
           # subdomain served a 503 for coach/config.js, both with CI green.
           for f in *.js *.mjs; do
+            # An unmatched glob arrives as its own literal, and `cp '*.mjs'` under `bash -e`
+            # would kill the deploy with an error that points nowhere near the cause.
+            [ -e "$f" ] || continue
             case "$f" in *.test.js|*.test.mjs) continue ;; esac
             cp "$f" ../deploy/
           done
