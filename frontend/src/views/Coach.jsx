@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useStore, DEF } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api } from '../lib/api.js'
-import { fmtDate, fmtVol, fmtDur } from '../lib/format.js'
+import { fmtDate, fmtVol, fmtDur, isoOf } from '../lib/format.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
+import { adherenceBand, adherenceOf } from '../lib/adherence.js'
 import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
@@ -39,6 +40,81 @@ const dur = ms => { const m = Math.max(0, Math.floor(ms / 60000)); return m < 60
 //     every chart would read backwards without this.
 //   · routines are stripped to { id, name, count } with no `ex`, so they are withheld rather than
 //     handed to code that expects a real routine.
+// Adherence: did they show up on the days their plan says they train? The only number here a
+// coach cannot get from the member's own screens, and the one that goes wrong quietly — someone
+// drifting from four sessions a week to two still has a chart full of workouts.
+//
+// The band is the judgement and lives in lib/adherence.js with a test on its thresholds; this is
+// only the paint. Rounding for display happens after banding, so a 79.6% never shows as "80%"
+// in green — the colour and the number always agree.
+const ADH_TONE = { 'on-track': 'var(--green)', slipping: 'var(--yellow)', 'off-track': 'var(--red)' }
+const adhPct = a => (a && a.rate != null ? Math.round(a.rate * 100) : null)
+
+// The roster sends the four fields already; an opened member sends the plan plus full history,
+// so the same shape is rebuilt from the richer payload rather than scored differently.
+export const memberAdherence = (d, todayIso = isoOf(new Date())) => adherenceOf({
+  week: d.week,
+  dayPlan: d.dayPlan,
+  // `count` is the routine's exercise count in this payload. Empty routines are dropped for the
+  // same reason the roster drops them server-side: a day nobody could have started is not a day
+  // anybody missed.
+  routineIds: (d.routines || []).filter(r => r.count > 0).map(r => r.id),
+  trainedDays: (d.workouts || []).map(w => w.d),
+  created: d.user?.created || null
+}, todayIso)
+
+// `parts` is the raw four-field shape off the wire, not a scored result -- the roster scores it
+// here so the API never has to know what adherence means.
+export function RosterAdherence({ parts, todayIso = isoOf(new Date()) }) {
+  const res = parts && adherenceOf(parts, todayIso)
+  const pct = adhPct(res)
+  if (pct == null) return null
+  // res.days.length, not the window constant: a member who joined three days ago is scored over
+  // three days, and captioning that "28d" would sell a single Monday as a month of turning up.
+  return <div style={{ textAlign: 'right', marginRight: 6, lineHeight: 1.1 }}>
+    <div style={{ fontWeight: 700, color: ADH_TONE[adherenceBand(res.rate)] }}>{pct}%</div>
+    <div className="dim" style={{ fontSize: '.66rem' }}>{res.days.length}d</div>
+  </div>
+}
+
+export function AdherenceCard({ a }) {
+  const pct = adhPct(a)
+  // No plan means no adherence to report -- not 0%. Saying "0%" about someone who never set a
+  // training week reads as a red flag on a person who has done nothing wrong.
+  if (pct == null) return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="small" style={{ fontWeight: 600 }}>Adherence</div>
+    <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>
+      No training week set, so there is nothing to miss yet.
+    </div>
+  </div>
+  return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="row between">
+      <span className="small" style={{ fontWeight: 600 }}>Adherence · last {a.days.length} days</span>
+      <span style={{ fontWeight: 700, color: ADH_TONE[adherenceBand(a.rate)] }}>{pct}%</span>
+    </div>
+    <div className="dim" style={{ fontSize: '.72rem', marginTop: 2 }}>
+      Trained {a.trained} of {a.planned} planned {a.planned === 1 ? 'day' : 'days'}
+      {a.extra > 0 && ` · ${a.extra} unplanned`}
+      {a.pending && ' · today still to come'}
+    </div>
+    {/* One cell per day, oldest first, so a run of misses reads as a block rather than a number
+        that has quietly moved. Rest days stay visible but recede -- the gaps are the shape.
+        maxWidth matters more than it looks: with flex alone a three-day window stretches to the
+        same full-width bar as a month, and three green cells then read as a month of green. It
+        never binds at a full window, so the usual case is unchanged. */}
+    <div style={{ display: 'flex', gap: 2, marginTop: 8 }}>
+      {a.days.map(d => <div key={d.iso} title={`${d.iso} · ${d.state}`} style={{
+        flex: 1, maxWidth: 14, height: 14, borderRadius: 2,
+        background: d.state === 'trained' ? 'var(--green)'
+          : d.state === 'missed' ? 'var(--red)'
+            : d.state === 'extra' ? 'var(--teal)'
+              : d.state === 'pending' ? 'var(--sep)' : 'var(--surface-2)',
+        opacity: d.state === 'rest' ? .45 : 1
+      }} />)}
+    </div>
+  </div>
+}
+
 const memberState = d => ({
   ...DEF,
   unit: d.unit, body: d.body, targetW: d.targetW, effort: d.effort, showRir: d.showRir,
@@ -72,6 +148,7 @@ function MemberDetail({ id, close, pending, onChanged }) {
       <div className="tile"><div className="l">Routines</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.routines.length}</div></div>
       <div className="tile"><div className="l">Last sync</div><div className="v" style={{ fontSize: '.95rem' }}>{rel(d.lastSync)}</div></div>
     </div>
+    <AdherenceCard a={memberAdherence(d)} />
     {/* The same panels the member sees on their own Stats screen, against their state. readOnly
         hides the controls that write to or navigate the *coach's* data — logging a weigh-in, setting
         a goal, opening a workout sheet that reads from the coach's own store. */}
@@ -312,6 +389,10 @@ export default function Coach() {
           </div>
           <div className="ss">{m.live ? 'training now · ' + m.live.name : m.workouts + ' workouts' + (m.lastWorkout ? ' · last ' + fmtDate(m.lastWorkout) : '') + ' · synced ' + rel(m.lastSync)}</div>
         </div>
+        {/* Down the column this is the thing to scan: a workout count says how long someone has
+            been here, not whether they are still turning up. Absent when they have no training
+            week, rather than a 0% that would read as a problem with the member. */}
+        <RosterAdherence parts={m.adherence} />
         <Icon name="chevronRight" className="chev" />
       </div>)}
       {members && !members.length && <div className="empty">No members assigned to you yet — an admin assigns them from the admin dashboard.</div>}
