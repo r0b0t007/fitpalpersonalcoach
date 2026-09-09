@@ -1275,7 +1275,7 @@ const routes = {
     const body = await readBody(req);
     const invite = mintInvite(admin.id, body.note);
     saveDb();
-    audit(req, 'admin.invite.create', { user: admin, msg: code });
+    audit(req, 'admin.invite.create', { user: admin, msg: invite.code });
     json(res, 200, { invite });
   },
 
