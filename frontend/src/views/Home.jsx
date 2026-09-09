@@ -5,7 +5,8 @@ import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, l
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { BRAND } from '../lib/brand.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, openCoachOffer } from '../sheets.jsx'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, openCoachOffer, checkinSheet } from '../sheets.jsx'
+import { checkinStreak, isCheckinDue } from '../lib/checkins.js'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import InstallCard from '../components/InstallCard.jsx'
@@ -115,6 +116,20 @@ export default function Home() {
       </div>
     </div>
 
+    {/* Only when one is owed, and it disappears the moment it is filed. A permanent "check in"
+        button is ignored within a fortnight; a card that appears because something is actually
+        due is the thing that keeps the habit. */}
+    {isCheckinDue(S, todayISO()) && <div className="card" style={{ marginBottom: 12 }}>
+      <div className="row between">
+        <div>
+          <div className="tt">{t('Weekly check-in')}</div>
+          <div className="ss">{checkinStreak(S, todayISO()) > 0
+            ? t('{0} weeks running — keep it going.', checkinStreak(S, todayISO()))
+            : t('Five quick scales and anything your coach should know.')}</div>
+        </div>
+        <Button size="sm" icon="plus" onClick={() => checkinSheet()}>{t('Check in')}</Button>
+      </div>
+    </div>}
     <InstallCard />
 
     {/* Jump to the gym check-in cards (QR membership codes). Shown here as a quick tap on
