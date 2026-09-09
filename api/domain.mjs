@@ -265,3 +265,142 @@ export function decideAssignment(assignment, accept, now = Date.now()) {
   assignment.decidedAt = new Date(now).toISOString()
   return { assignment }
 }
+
+/* ---------- coaching: uploaded media ---------- */
+// Coach exercise demos and client progress photos are the first bytes this API accepts that are
+// not JSON. `Content-Type` is whatever the uploader chose to send and is not evidence of
+// anything, so the file is identified by its own leading bytes instead.
+//
+// The awkward part is that MP4, QuickTime .mov, HEIC and AVIF are all the SAME container
+// (ISO base media, a leading `ftyp` box) and differ only by the four-character brand inside it.
+// A sniff that stops at "there is an ftyp here" accepts an iPhone photo as a video. So the brand
+// is read, and the compatible-brand list after it too, because Apple writes the interesting one
+// there as often as in the major slot.
+//
+// **Honest limit:** the brand names the container, not the video track. An `isom` MP4 can legally
+// carry HEVC, which Chrome and Firefox will not play. Knowing the codec for certain means walking
+// moov → trak → stsd, which is a real parser and exactly the kind of thing §5 refuses to add.
+//
+// **This labels; it does not refuse.** An earlier revision rejected HEVC and QuickTime at upload,
+// which is wrong for the one person who uploads here. An iPhone records **HEVC in a `.mov`** on
+// its default "High Efficiency" setting, and — this is the part that makes rejection untenable
+// rather than merely inconvenient — the Camera app writes a `.mov` container on *both* format
+// settings. "Most Compatible" changes the codec to H.264 and leaves the container alone. So a
+// rule that refuses QuickTime refuses the coach's own camera roll no matter what they set.
+// Since iOS 13.6.1 Safari also hands a site the original file instead of converting it on the
+// way through a file input, so this is every upload from the phone, not an edge case.
+//
+// The playback problem is real and does not go away by accepting the file — it moves to whoever
+// consumes `needsTranscode`. That is the right place for it: refusing here does not get the demo
+// filmed, and a coach who cannot upload from the phone they filmed on has no workflow at all.
+// 64 rather than 32. The major brand does end at 12, but the classification below turns on the
+// COMPATIBLE list, which starts at offset 16 — so a 32-byte window held only four of them, and
+// the brand that decides the answer is routinely not in the first four. An `hvc1` past the
+// window reads as an ordinary MP4 and comes back `needsTranscode: false`, which is the one flag
+// this module exists to set. 64 carries a major brand plus twelve compatible ones, past anything
+// Apple or ffmpeg writes.
+export const MEDIA_SNIFF_BYTES = 64
+
+const BRAND_MP4 = new Set(['isom', 'iso2', 'iso4', 'iso5', 'iso6', 'mp41', 'mp42', 'mp4v', 'avc1', 'M4V ', 'dash', 'cmfc'])
+const BRAND_HEVC = new Set(['hvc1', 'hev1'])
+const BRAND_HEIF = new Set(['heic', 'heix', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1'])
+const BRAND_AVIF = new Set(['avif', 'avis'])
+
+const ascii = (buf, from, to) => Buffer.from(buf.subarray(from, to)).toString('latin1')
+
+// Every brand the box declares: the major one at 8, then the compatible list from 16.
+//
+// Three separate things have to be clamped, and the buffer length alone covers only the first:
+//   · a first chunk is a PREFIX, so the declared box length routinely exceeds the bytes in hand;
+//   · a declared length of 0 means "to the end of the file" in ISO-BMFF — it is not a length;
+//   · a caller handing over the WHOLE file would otherwise have every 4-byte-aligned window in
+//     it tested against the brand sets. That is not theoretical: a 20 MB MP4 with a size-0 ftyp
+//     took 1.5s of blocked event loop on a single-threaded server, allocated a ~5M-entry array,
+//     and came back `image/heic` because four payload bytes somewhere spelled `mif1` — so the
+//     coach's valid video was refused with "expected a video, got image/heic".
+// The sniff window is therefore the contract, not a suggestion: nothing past MEDIA_SNIFF_BYTES
+// is ever consulted, however much the caller passes in.
+function isoBrands(buf) {
+  const brands = [ascii(buf, 8, 12)]
+  const declared = buf.readUInt32BE(0)
+  const end = Math.min(declared || buf.length, buf.length, MEDIA_SNIFF_BYTES)
+  for (let i = 16; i + 4 <= end; i += 4) brands.push(ascii(buf, i, i + 4))
+  return brands
+}
+
+/**
+ * Identify an upload from its leading bytes. Descriptive only — it says what the file is, never
+ * whether it is wanted; validateUpload() decides that.
+ * @returns {{kind:'video'|'photo', ext:string, mime:string, brand?:string}|null} null if unknown.
+ */
+export function sniffMedia(buf) {
+  if (!buf || buf.length < 12) return null
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf)
+
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { kind: 'photo', ext: 'jpg', mime: 'image/jpeg' }
+  if (ascii(b, 0, 8) === '\x89PNG\r\n\x1a\n') return { kind: 'photo', ext: 'png', mime: 'image/png' }
+  if (ascii(b, 0, 4) === 'RIFF' && ascii(b, 8, 12) === 'WEBP') return { kind: 'photo', ext: 'webp', mime: 'image/webp' }
+  if (ascii(b, 0, 4) === 'GIF8') return { kind: 'photo', ext: 'gif', mime: 'image/gif' }
+
+  if (ascii(b, 4, 8) !== 'ftyp') return null
+  const brands = isoBrands(b)
+  const has = set => brands.some(x => set.has(x))
+  // Order matters, and AVIF has to come first: MIAF conformance REQUIRES an AVIF to carry `mif1`
+  // in its compatible list, and `mif1` is a HEIF brand — so testing HEIF first swallows every
+  // real AVIF ever written and hands the uploader camera-setting advice about a file that never
+  // came from a camera. `avif`/`avis` are unambiguous, so the specific test goes before the
+  // general one. (An earlier revision had this backwards, and its test passed only because the
+  // fixture had an empty compatible list, which no encoder produces.)
+  if (has(BRAND_AVIF)) return { kind: 'photo', ext: 'avif', mime: 'image/avif', brand: brands[0] }
+  // An iPhone HEIC lists `mif1` alongside brands that look like nothing in particular, and a
+  // `.mov` is a video whatever else it claims to be compatible with.
+  if (has(BRAND_HEIF)) return { kind: 'photo', ext: 'heic', mime: 'image/heic', brand: brands[0] }
+  if (brands[0] === 'qt  ') return { kind: 'video', ext: 'mov', mime: 'video/quicktime', brand: brands[0] }
+  if (has(BRAND_HEVC)) return { kind: 'video', ext: 'mp4', mime: 'video/mp4', brand: brands.find(x => BRAND_HEVC.has(x)) }
+  if (has(BRAND_MP4)) return { kind: 'video', ext: 'mp4', mime: 'video/mp4', brand: brands[0] }
+  return null
+}
+
+const ACCEPT_VIDEO = new Set(['mp4', 'mov'])
+// The criterion is "every browser a client might open the app in can decode this", and GIF meets
+// it as squarely as the other three. An earlier revision refused it on the grounds that it would
+// bypass the client-side canvas downscale — which does not hold up: the canvas is a convenience
+// on the way out of the phone, not a boundary anything server-side can rely on, and animated
+// WebP bypasses it identically while sitting on this list. Refusing the one animated format it
+// happened to name and passing the other was an inconsistency, not a rule. Size is the size
+// cap's job.
+const ACCEPT_PHOTO = new Set(['jpg', 'png', 'webp', 'gif'])
+
+/**
+ * The upload gate. Mirrors validateAssignmentBundle: `{ error }` or the accepted descriptor.
+ * Messages say what to do, because the person reading them is the coach who just filmed the
+ * thing — "unsupported format" would send them back to the camera roll with no idea what to change.
+ *
+ * `needsTranscode` is the interesting field. It is NOT "this file is broken" — it is "nothing
+ * downstream should assume a client's browser can play this yet". It is set for the QuickTime
+ * container and for an HEVC brand, i.e. for exactly what an iPhone hands over.
+ *
+ * The inverse does not hold and must not be read as if it did: `needsTranscode: false` means
+ * nothing in the header said otherwise, not that the file was verified playable. An `isom` MP4
+ * can still carry HEVC (see sniffMedia's header). Treat it as the best guess available without
+ * a parser, which is what it is.
+ */
+export function validateUpload(buf, want) {
+  const m = sniffMedia(buf)
+  if (!m) return { error: 'not a recognised image or video file' }
+  if (m.kind !== want) return { error: `expected ${want === 'video' ? 'a video' : 'an image'}, got ${m.mime}` }
+
+  if (want === 'video') {
+    if (!ACCEPT_VIDEO.has(m.ext)) return { error: `${m.mime} is not a supported video format — use MP4 or MOV` }
+    return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: m.ext === 'mov' || BRAND_HEVC.has(m.brand) }
+  }
+  // Photos stay narrow, and the asymmetry with video is deliberate rather than an oversight.
+  // The client downscales a photo on a <canvas> before upload (§5: 1600px, toBlob 0.82, which
+  // strips EXIF/GPS as a side effect), and the canvas has to decode the source to do it — so
+  // Safari converts an iPhone's HEIC to JPEG for free, on the phone, on the way past. There is
+  // no equivalently cheap client-side step for video, which is the whole reason video needs the
+  // flag above and photos do not.
+  if (m.ext === 'heic') return { error: 'HEIC photos do not display in most browsers — set the camera to “Most Compatible”, or export as JPEG' }
+  if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG, WebP or GIF` }
+  return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: false }
+}
