@@ -1,0 +1,19 @@
+# The repo stores LF. Without this, a Windows clone with core.autocrlf=true checks out CRLF and
+# the api suite fails 25 tests locally while CI stays green — the coach prompts are compared
+# against api/coach/prompts/*.md byte for byte, and a \r is a different byte. Normalise the
+# working tree instead of teaching every reader that "those failures are just Windows".
+* text=auto eol=lf
+
+# Binary, and must never be line-ending translated.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.mp4 binary
+*.keystore binary
+*.jks binary
