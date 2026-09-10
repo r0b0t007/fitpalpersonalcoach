@@ -523,6 +523,43 @@ chk "...as metadata only, never a path"       true "$(get -H "Cookie: $CA" "$B/a
   const p=JSON.parse(require('fs').readFileSync(0,'utf8')).photos;
   String(p.every(x => !('file' in x) && x.id && x.d && x.pose))")"
 
+echo "== taking a client on: minting =="
+mint() { curl -s -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $1" -d "{\"note\":\"$2\"}"; }
+chk "anonymous cannot mint a code"            401 "$(code -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -d '{}')"
+chk "a member cannot mint a code"             403 "$(code -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $M1" -d '{}')"
+CODE_A=$(mint "$CA" "for Nadia" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "a coach mints one"                      true "$(node -pe "String(/^[0-9A-F]{16}$/.test(process.argv[1]))" "$CODE_A")"
+chk "and it carries the coach it belongs to" true "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{}).coachId==='coachA')" "$CODE_A")"
+
+echo "== an admin's own code must NOT bind anyone =="
+# isCoach() counts admins as coaches, so inferring the binding from createdBy would have made
+# every general admin invite — and every access-request approval — silently assign that admin as
+# the new member's coach. The field is explicit precisely so this stays absent.
+ACODE=$(curl -s -X POST "$B/api/admin/invites/new" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"note":"general"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "an admin's general code has no coachId" true "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String(!('coachId' in (d.invites.find(i=>i.code===process.argv[1])||{})))" "$ACODE")"
+
+echo "== listing is scoped to the coach, not the gym =="
+chk "coachA sees their own code"                1 "$(get -H "Cookie: $CA" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.invites.filter(i=>i.code===process.argv[1]).length)" "$CODE_A")"
+chk "coachB does NOT see it"                    0 "$(get -H "Cookie: $CB" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.invites.filter(i=>i.code===process.argv[1]).length)" "$CODE_A")"
+chk "nor does the admin's general code appear"  0 "$(get -H "Cookie: $CA" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.invites.filter(i=>i.code===process.argv[1]).length)" "$ACODE")"
+
+echo "== revoking is scoped too, and says nothing about what it will not touch =="
+rev() { curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/coach/invites/revoke" -H 'Content-Type: application/json' -H "Cookie: $1" -d "{\"code\":\"$2\"}"; }
+chk "another coach cannot revoke it"          404 "$(rev "$CB" "$CODE_A")"
+chk "...the same 404 a made-up code gets"     404 "$(rev "$CB" "AAAAAAAAAAAAAAAA")"
+chk "a coach cannot revoke the admin's code"  404 "$(rev "$CA" "$ACODE")"
+chk "the owner can revoke it"                 200 "$(rev "$CA" "$CODE_A")"
+chk "and it is flagged, not deleted"         true "$(get -H "Cookie: $CA" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{}).revoked===true)" "$CODE_A")"
+
 echo ""
 echo "passed $pass, failed $fail"
 [ "$fail" = "0" ] || { echo "--- server log ---"; tail -20 "$D/log"; }

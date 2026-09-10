@@ -18,7 +18,8 @@ import {
   canCoachMember, validateAssignmentBundle, pruneAssignments, decideAssignment,
   pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
   findSessionConflicts, isRealDate,
-  validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile
+  validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile,
+  coachBinding
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
@@ -93,6 +94,9 @@ const MEDIA_DIR = path.join(DATA, 'media');
 // A flood guard, not a product rule: several angles of one lift is reasonable, an unbounded
 // upload endpoint on a shared-hosting quota is not.
 const MEDIA_MAX_PER_EX = 6;
+// Unredeemed codes per coach. A flood guard on a table every registration scans, not a product
+// rule — a coach onboarding real people will not come near it.
+const COACH_MAX_OPEN_INVITES = 20;
 // Progress photos: a closed set of angles rather than a free-text label, because the entire
 // value of the feature is comparing like with like — this week's front against March's front.
 // A typo'd label does not fail, it quietly starts a fourth series nobody ever looks at.
@@ -886,11 +890,17 @@ setInterval(() => { for (const [k, v] of presence) if (Date.now() - v.updatedAt 
 // good, so the code itself has to be the thing that isn't worth guessing. Codes already in
 // db.json keep working — validation is an exact string compare, never a length or format check.
 // Caller saves; approval of an access request passes requestId so redemption stays traceable.
-function mintInvite(adminId, note, requestId) {
+// `coachId` is what puts a redeemed code on a coach's roster, and it is an EXPLICIT field rather
+// than something inferred from createdBy at redemption. Inferring would be a real bug: isCoach()
+// counts admins as coaches implicitly, so every general invite an admin mints — including the ones
+// minted automatically when an access request is approved — would silently bind that admin as the
+// new member's coach. Only the coach route sets it.
+function mintInvite(creatorId, note, { requestId, coachId } = {}) {
   let code;
   do { code = crypto.randomBytes(8).toString('hex').toUpperCase(); } while (db.invites.some(i => i.code === code));
-  const invite = { code, note: String(note || '').slice(0, 60), createdBy: adminId, created: new Date().toISOString() };
+  const invite = { code, note: String(note || '').slice(0, 60), createdBy: creatorId, created: new Date().toISOString() };
   if (requestId) invite.requestId = requestId;
+  if (coachId) invite.coachId = coachId;
   db.invites.push(invite);
   return invite;
 }
@@ -1113,7 +1123,21 @@ const routes = {
       }
     }
     const user = { id: c.uid, name: c.name, created: new Date().toISOString() };
-    if (invite) { user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created; }
+    if (invite) {
+      user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created;
+      // A coach's code carries who it belongs to, so redeeming it puts this client straight onto
+      // that coach's roster — the whole point, since the only other way onto one is an admin
+      // running assign-coach by hand.
+      //
+      // Re-checked HERE rather than trusted from mint time, because a code can sit unread in a
+      // message for a fortnight: a coach disabled or demoted in between must not keep acquiring
+      // clients. When that happens the signup still SUCCEEDS and the member simply lands
+      // unassigned, which is a state the roster already handles. Refusing the registration would
+      // punish the client for something only the gym can see and only the gym can fix.
+      const bound = invite.coachId ? db.users.find(u => u.id === invite.coachId) : null;
+      const boundId = coachBinding(invite, bound, { isCoach: isCoach(bound) });
+      if (boundId) user.coachId = boundId;
+    }
     // Stored on the row, which isAdmin already honours — so the operator never has to find their
     // uid and set ADMIN_UIDS by hand, and the code is inert from here on.
     if (bootstrap) {
@@ -1529,6 +1553,62 @@ const routes = {
       .filter(s => s.coachId === coach.id && s.date >= from)
       .sort(sessionSort);
     json(res, 200, { sessions });
+  },
+
+  /* ---------- coaching: taking a client on ---------- */
+  // Until now the only way onto a coach's roster was POST /api/admin/user/assign-coach — an admin
+  // wiring each client by hand, after they had already signed up some other way. A coach could
+  // program for people but could not acquire them. This is the same invite machinery the admin
+  // dashboard uses, scoped to one coach and carrying who the code belongs to.
+  'GET /api/coach/invites': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    json(res, 200, {
+      // Scoped on coachId, NOT createdBy: an admin's general invites carry no coachId and must
+      // stay invisible here, and a code minted FOR this coach is theirs whoever typed it.
+      invites: db.invites.filter(i => i.coachId === coach.id).map(i => ({
+        code: i.code, note: i.note, created: i.created, revoked: !!i.revoked,
+        usedAt: i.usedAt || null,
+        // The name is the point of the list: it is how a coach sees which code the person in
+        // front of them used. Only ever a member of their own roster, since redeeming is what
+        // put them there.
+        usedByName: i.usedBy ? (db.users.find(u => u.id === i.usedBy) || {}).name || null : null
+      })),
+      // A coach code only binds anything on an instance that actually gates signup on codes —
+      // with INVITE_ONLY off, registration never looks at an invite at all. Said out loud rather
+      // than letting a coach hand out codes that quietly do nothing.
+      inviteOnly: INVITE_ONLY,
+      max: COACH_MAX_OPEN_INVITES
+    });
+  },
+
+  'POST /api/coach/invites/new': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const body = await readBody(req);
+    const open = db.invites.filter(i => i.coachId === coach.id && !i.usedBy && !i.revoked).length;
+    if (open >= COACH_MAX_OPEN_INVITES)
+      return json(res, 429, { error: `you already have ${COACH_MAX_OPEN_INVITES} unused codes — revoke one before making another` });
+    const invite = mintInvite(coach.id, body.note, { coachId: coach.id });
+    saveDb();
+    audit(req, 'coach.invite.create', { user: coach, msg: invite.code });
+    json(res, 200, { invite });
+  },
+
+  'POST /api/coach/invites/revoke': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const body = await readBody(req);
+    const inv = db.invites.find(i => i.code === String(body.code || '').toUpperCase());
+    // The SAME 404 for "no such code" and "not yours". A distinguishable answer would let any
+    // coach probe for the admin's codes, or another coach's, by watching which ones reply
+    // differently — the same reasoning as the 403 on GET /api/coach/member.
+    if (!inv || inv.coachId !== coach.id) return json(res, 404, { error: 'no such code' });
+    if (inv.usedBy) return json(res, 400, { error: 'already used — cannot revoke' });
+    // Flagged, not deleted, matching the admin route: the registration gate already refuses a
+    // revoked code, and dropping the row would destroy the record that it was ever issued.
+    inv.revoked = true;
+    inv.revokedAt = new Date().toISOString();
+    saveDb();
+    audit(req, 'coach.invite.revoke', { user: coach, msg: inv.code });
+    json(res, 200, { ok: true });
   },
 
   /* ---------- coach media: exercise demos ---------- */
@@ -1970,7 +2050,7 @@ const routes = {
     const admin = requireAdmin(req, res); if (!admin) return;
     const body = await readBody(req);
     const r = db.requests.find(x => x.id === body.id);
-    const out = decideRequest(r, !!body.approve, () => mintInvite(admin.id, 'access: ' + r.name, r.id).code);
+    const out = decideRequest(r, !!body.approve, () => mintInvite(admin.id, 'access: ' + r.name, { requestId: r.id }).code);
     if (out.error) return json(res, r ? 400 : 404, { error: out.error });
     saveDb();
     json(res, 200, { request: out.request });
