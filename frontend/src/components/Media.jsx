@@ -141,7 +141,7 @@ export default function Media({ ex, id, compact, minimizable }) {
   }
   const alt = exerciseNameFor(ex)
   return (
-    <div ref={box} className={'exmedia' + (compact ? ' compact' : '') + (mini ? ' mini' : '') + (!kind ? ' broken' : '')} id={id} onClick={onTap}>
+    <div ref={box} className={'exmedia' + (compact ? ' compact' : '') + (mini ? ' mini' : '') + (kind === 'video' ? ' vid' : '') + (!kind ? ' broken' : '')} id={id} onClick={onTap}>
       {kind === 'video'
         // No `controls`: the container's tap is play/pause and always has been, and a control
         // bar would swallow every one of those taps (scrub, mute, fullscreen all bubble into it).

@@ -198,7 +198,10 @@ export function resolveMedia(ex, rows) {
   //
   // A coach-uploaded photo IS used, because that one they chose. Generating a real poster frame
   // from the video needs ffmpeg, which is the step this fork has not taken.
-  const videoPoster = pic ? mediaRowSrc(pic) : null
+  // `pic ? poster : null`, not a second `mediaRowSrc(pic)`: the invariant is "the same photo the
+  // chain would use, minus the dataset fallback", and re-deriving the first rung means a change to
+  // how `pic` is chosen up there silently leaves this behind.
+  const videoPoster = pic ? poster : null
   return {
     video: vid ? mediaRowSrc(vid) : null,
     // 'raw' does not mean broken. It means nothing has yet confirmed a browser can decode this

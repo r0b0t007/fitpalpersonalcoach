@@ -29,6 +29,7 @@ const EX = { id: 'bench', n: 'bench press', gif: 'bench.gif', img: 'bench.jpg' }
 // The exercise the coach invented: no dataset row, so no gif and no jpg, ever.
 const CUSTOM = { id: 'mk9x2', n: 'cable thing', custom: true }
 const ROW = { id: 'r1', exId: 'bench', file: 'b.mp4', label: '', mime: 'video/mp4', bytes: 9, status: 'ready', created: '2026-01-01T00:00:00.000Z' }
+const PIC = { id: 'p1', exId: 'bench', file: 'p.jpg', label: '', mime: 'image/jpeg', bytes: 9, status: 'ready', created: '2026-01-01T00:00:00.000Z' }
 
 // happy-dom ships an IntersectionObserver whose observe() does nothing, so on its own nothing
 // would ever come on screen and no video would ever start. These tests say when it does.
@@ -297,5 +298,28 @@ describe('Media gives up on a video that never loads', () => {
     expect(host.querySelector('video')).not.toBe(null)
     await act(async () => { vi.advanceTimersByTime(60000) })
     expect(host.querySelector('video')).not.toBe(null)
+  })
+})
+
+// The half of the fix a pure-function test cannot reach. exercises.test.js proves resolveMedia
+// returns the right videoPoster; only a mount proves Media.jsx actually PASSES it. Without this,
+// hardcoding poster={undefined} — dropping the coach's own chosen photo, which is the half worth
+// keeping — passes the entire suite.
+describe('Media video poster wiring', () => {
+  it('uses a coach-uploaded photo as the video poster', () => {
+    stubIO()
+    setCoachMedia([ROW, PIC])
+    mount({})
+    expect(host.querySelector('.exmedia video').getAttribute('poster')).toBe('/api/media/ex?id=p1')
+  })
+
+  it('and the box is not left white while nothing has decoded', () => {
+    // Dropping the stranger's photo was right; leaving pure white behind it was not. .exmedia is
+    // background:#fff for the dataset gifs — over a video that has not decoded yet it reads as
+    // broken rather than as not-started.
+    stubIO()
+    setCoachMedia([ROW])
+    mount({})
+    expect(host.querySelector('.exmedia').className).toContain('vid')
   })
 })
