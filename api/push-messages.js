@@ -21,7 +21,18 @@ const COPY = {
   },
 };
 
-const copyFor = lang => COPY[lang] || COPY.en;
+// de/es/fr carry ONLY the check-in strings. This fork ships en/de/es/fr (CLAUDE.md) while these
+// messages still carry upstream's en + pt-BR, so the rest-timer and workout-reminder copy reaches
+// a German member in English — pre-existing, and its own change to make. New copy had no excuse
+// for repeating it, so the entries below are partial on purpose: copyFor falls through to English
+// per KEY, not per language, which is what lets them be added one at a time.
+COPY.de = { checkinTitle: 'Wöchentliches Check-in 📋', checkinBody: 'Fünf kurze Skalen und alles, was dein Coach wissen sollte.' };
+COPY.es = { checkinTitle: 'Check-in semanal 📋', checkinBody: 'Cinco escalas rápidas y lo que tu entrenador deba saber.' };
+COPY.fr = { checkinTitle: 'Point hebdomadaire 📋', checkinBody: 'Cinq échelles rapides et ce que votre coach doit savoir.' };
+
+// Per KEY, not per language: a language block that carries only some of the strings falls back to
+// English for the rest instead of losing them.
+const copyFor = lang => ({ ...COPY.en, ...(COPY[lang] || {}) });
 
 export function restTimerPush(lang) {
   const copy = copyFor(lang);

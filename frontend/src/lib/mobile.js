@@ -12,6 +12,7 @@
 import { t } from './i18n-core.js'
 import { isoOf, todayISO } from './format.js'
 import { effectiveRoutineIds } from './history.js'
+import { checkinDayOf, isCheckinDue } from './checkins.js'
 
 export const MOBILE = import.meta.env.VITE_MOBILE === '1'
 
@@ -89,6 +90,10 @@ export async function saveRemoteFile(data) {
 // unbounded notification list. The next sync cancels and replaces this whole window.
 export const REMINDER_WINDOW_DAYS = 60
 const REMINDER_ID_BASE = 1000
+// A separate block so the two never collide as the window slides. The cancel below clears both,
+// which is what makes rescheduling idempotent — a partial cancel would leave yesterday's plan
+// firing alongside today's.
+const CHECKIN_ID_BASE = 2000
 const LEGACY_REMINDER_IDS = Array.from({ length: 7 }, (_, d) => ({ id: 100 + d }))
 
 // Pure date expansion for the native reminder. `now` is injectable so the calendar boundary,
@@ -125,23 +130,71 @@ export function buildReminderNotifications(S, now = new Date()) {
   return notifications
 }
 
-// (Re)schedule the workout-day reminder: one one-off notification per future calendar date in
-// the bounded window. Cheap enough to run after any state change — the plan or the reminder time
+/**
+ * The weekly check-in nudge, for the standalone app.
+ *
+ * The web build gets this from the server's reminder loop, which walks push subscriptions — and
+ * this build HAS none: it schedules native local notifications instead and never subscribes. So
+ * without this the feature simply would not exist on the app, silently, for exactly the members
+ * most likely to be using it on a phone.
+ *
+ * Same window and the same `reminder.on` switch as the workout reminder, for the same reason the
+ * server reuses it: a member who turned reminders off should not be nudged about anything, and a
+ * second switch is a second thing to find.
+ *
+ * Deliberately NOT gated on whether a workout is planned. A check-in is owed whether or not they
+ * trained that week — which is the whole point of asking.
+ */
+export function buildCheckinNotifications(S, now = new Date()) {
+  const r = S?.reminder
+  if (!r?.on) return []
+  const [hour, minute] = (r.time || '08:00').split(':').map(Number)
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return []
+  const want = checkinDayOf(S)
+  const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12)
+  const out = []
+  for (let offset = 0; offset < REMINDER_WINDOW_DAYS; offset++) {
+    const day = new Date(date)
+    day.setDate(date.getDate() + offset)
+    if (day.getDay() !== want) continue
+    const iso = isoOf(day)
+    // For a future date nothing can have been filed yet, so this only ever suppresses the one
+    // that matters: today's, when they have already answered.
+    if (!isCheckinDue(S, iso)) continue
+    const at = new Date(day)
+    at.setHours(hour, minute, 0, 0)
+    if (at <= now) continue
+    out.push({
+      id: CHECKIN_ID_BASE + offset,
+      title: t('Weekly check-in'),
+      body: t('Five quick scales and anything your coach should know.'),
+      schedule: { at, allowWhileIdle: true },
+    })
+  }
+  return out
+}
+
+// (Re)schedule both local reminders — the workout day, and the weekly check-in: one-off
+// notifications per future calendar date in the bounded window. Cheap enough to run after any state change — the plan or the reminder time
 // may just have been edited. `interactive` gates the OS permission prompt to the Settings toggle;
 // a background resync never pops a dialog.
 export async function syncReminder(S, interactive = false) {
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications')
+    // BOTH blocks, always. Cancelling only the workout ids would leave last sync's check-in
+    // nudges scheduled beside this sync's — the window slides daily, so they would accumulate
+    // until the member saw several for the same week.
     await LocalNotifications.cancel({ notifications: [
       ...LEGACY_REMINDER_IDS,
       ...Array.from({ length: REMINDER_WINDOW_DAYS }, (_, d) => ({ id: REMINDER_ID_BASE + d })),
+      ...Array.from({ length: REMINDER_WINDOW_DAYS }, (_, d) => ({ id: CHECKIN_ID_BASE + d })),
     ] }).catch(() => {})
     const r = S.reminder
     if (!r?.on) return true
     let perm = await LocalNotifications.checkPermissions()
     if (perm.display !== 'granted' && interactive) perm = await LocalNotifications.requestPermissions()
     if (perm.display !== 'granted') return false
-    const notifications = buildReminderNotifications(S)
+    const notifications = [...buildReminderNotifications(S), ...buildCheckinNotifications(S)]
     if (notifications.length) await LocalNotifications.schedule({ notifications })
     return true
   } catch (e) { return false }

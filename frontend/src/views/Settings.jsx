@@ -536,7 +536,7 @@ function MobileReminderCard({ S, update, toast }) {
   }
   return (
     <Section title={t('Notifications')}
-      footer={S.reminder?.on ? t('Reminds you at this time on days that have a routine planned.') : null}>
+      footer={S.reminder?.on ? t('Reminds you at this time on days that have a routine planned, and on your check-in day.') : null}>
       <Row icon="calendar" iconTint="var(--orange)" title={t('Workout day reminder')}>
         <Switch checked={!!S.reminder?.on} onChange={toggle} />
       </Row>
@@ -583,7 +583,7 @@ function PushCard({ S, update, toast }) {
     <Section
       title={t('Notifications')}
       footer={on && S.reminder?.on
-        ? t("Only sent on days you have a routine planned and haven't logged a workout yet.") +
+        ? t("Sent on days you have a routine planned and haven't logged a workout yet, and on your weekly check-in day.") +
           (S.reminder?.tz ? ' ' + t('Timezone: {0} (auto-detected, updates if you travel).', S.reminder.tz) : '')
         : null}
     >

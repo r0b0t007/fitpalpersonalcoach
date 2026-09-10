@@ -19,7 +19,7 @@ import {
   pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
   findSessionConflicts, isRealDate,
   validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile,
-  coachBinding, checkinReminderDue
+  coachBinding, checkinReminderDue, checkinPeriodStart
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
@@ -569,8 +569,14 @@ setInterval(() => {
     //
     // Before the workout guards below on purpose. Those return early on a rest day or a session
     // already logged, and the check-in is owed regardless of whether they trained.
-    if (user.lastCheckinReminder !== now.date && checkinReminderDue(S, now.date)) {
-      user.lastCheckinReminder = now.date;
+    // Compared against the PERIOD, not the date. The trigger is one ~60s window on one weekday a
+    // week, so an exact-date match means any restart spanning that minute costs every affected
+    // member the whole week's nudge — and deploy-api.yml restarts the app on every push to main,
+    // so a Sunday-morning deploy would silently do exactly that. A DST spring-forward that skips
+    // the reminder hour does the same. Late is better than never for something weekly.
+    const period = checkinPeriodStart(S, now.date);
+    if (user.lastCheckinReminder !== period && checkinReminderDue(S, now.date)) {
+      user.lastCheckinReminder = period;
       saveDb();
       sendPush(user.id, checkinReminderPush(S.lang));
     }

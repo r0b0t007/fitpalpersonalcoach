@@ -20,7 +20,11 @@ const read = p => readFileSync(join(root, p), 'utf8')
 // Captured rather than imported: importing the frontend module would drag in its own imports and
 // a build step, and this only needs the number.
 const grab = (src, file) => {
-  const m = src.match(/DEFAULT_CHECKIN_DAY\s*=\s*(\d+)/)
+  // Anchored to `export const`, not the bare name: an unanchored match takes the FIRST occurrence
+  // in the file, comments included, so a line like "// was DEFAULT_CHECKIN_DAY = 0 before we moved
+  // to Monday" above the export would have this compare a stale number and report OK on a real
+  // drift — silently, which is the one failure mode this script's own header warns about.
+  const m = src.match(/export\s+const\s+DEFAULT_CHECKIN_DAY\s*=\s*(\d+)/)
   if (!m) {
     console.error(`FAIL  could not find DEFAULT_CHECKIN_DAY in ${file} — it was renamed or removed,`)
     console.error('      which means this check has stopped checking anything. Fix the pattern.')
