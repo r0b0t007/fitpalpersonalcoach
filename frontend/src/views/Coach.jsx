@@ -493,13 +493,18 @@ function InviteSheet() {
     setBusy(true)
     try {
       const { invite } = await api('/api/coach/invites/new', { method: 'POST', body: JSON.stringify({ note }) })
-      setNote('')
-      await load()
       // Straight to the clipboard: the only thing anyone does with a fresh code is send it to
-      // somebody, and reading sixteen hex characters off a screen into a message is where a
-      // typo becomes "your code doesn't work".
+      // somebody, and reading sixteen hex characters off a screen into a message is where a typo
+      // becomes "your code doesn't work".
+      //
+      // BEFORE load(), not after. WebKit only honours a clipboard write while the user activation
+      // from the tap is still live, and load() is a second round trip — so on Safari, which is
+      // most of the phones and iPads a coach holds on a gym floor, awaiting it first meant the
+      // write was refused every single time and the feature silently degraded to the fallback.
       try { await navigator.clipboard.writeText(invite.code); toast('Code copied — ' + invite.code) }
       catch { toast('Code ready — ' + invite.code) }
+      setNote('')
+      await load()
     } catch (e) { toast(e.message) } finally { setBusy(false) }
   }
 
@@ -548,7 +553,11 @@ function InviteSheet() {
     </div>}
 
     <h4 className="sec" style={{ marginTop: 18 }}>Waiting to be used</h4>
-    {failed ? <div className="dim small">Could not load your codes. <a onClick={load}>Try again</a></div>
+    {failed ? <div className="dim small">Could not load your codes.{' '}
+      {/* A button, not an <a onClick> — with no href an anchor is not keyboard-focusable and gets
+          no pointer cursor, and this is the only retry on a sheet whose Make-a-code button is
+          disabled until a load succeeds. Unreachable here means stuck here. */}
+      <button className="btn" style={{ width: 'auto', padding: '2px 10px' }} onClick={load}>Try again</button></div>
       : state === null ? <div className="dim small">Loading…</div>
       : open.length ? <div className="list" style={{ rowGap: 0 }}>
         {open.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>

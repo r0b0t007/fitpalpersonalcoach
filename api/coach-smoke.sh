@@ -579,6 +579,40 @@ chk "a redeemer on their roster is named"    "Mine" "$(mine REDEEMEDMINE0000 use
 chk "one who is not is withheld"             "null" "$(mine REDEEMEDTHEIRS00 usedByName)"
 chk "...but that code still reads as used"   true   "$(mine REDEEMEDTHEIRS00 usedAt | node -pe "String(process.argv[1]!=='null'&&process.argv[1]!=='undefined')" "$(mine REDEEMEDTHEIRS00 usedAt)")"
 
+echo "== a coach who loses the role stops handing out working codes =="
+# New risk with coach-minted invites. While only admins could mint, every live code was under the
+# gym's direct control; a code minted by a role that can be TAKEN AWAY is different. The
+# registration gate only asks whether a code is unused and unrevoked, so a coach let go on Monday
+# would otherwise still be handing out working signups on Tuesday.
+LIVE=$(curl -s -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $CB" -d '{"note":"coachB open"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "coachB's code starts out usable"        false "$(get -H "Cookie: $CB" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String(!!(d.invites.find(i=>i.code===process.argv[1])||{}).revoked)" "$LIVE")"
+curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":true}'
+chk "disabling them revokes it"               true "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{}).revoked===true)" "$LIVE")"
+chk "...with a reason, not silently"  "coach detached" "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{}).revokedReason)" "$LIVE")"
+# Revoked, never deleted: the row is the record that the code was issued at all.
+chk "the row survives"                        true "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String(!!d.invites.find(i=>i.code===process.argv[1]))" "$LIVE")"
+curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":false}'
+
+echo "== deleting a class no longer 500s after deleting it =="
+# `audit(req, 'admin.invite.revoke', { user: admin, msg: inv.code })` sat in sessions/delete since
+# v1.2.9, where neither identifier exists — a ReferenceError AFTER saveDb(), so the class went and
+# the dashboard reported failure. And invite revocations went unlogged the whole time.
+# save answers { ok: true } and nothing else, so the id comes back off the timetable.
+curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"title":"Doomed","date":"'"$C1"'","time":"11:00"},"confirm":true}'
+DID=$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));((d.sessions||[]).find(s=>s.title==='Doomed')||{}).id||''")
+chk "delete answers 200, not 500"             200 "$(code -X POST "$B/api/admin/sessions/delete" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d "{\"id\":\"$DID\"}")"
+chk "and the class is actually gone"            0 "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.sessions.filter(s=>s.title==='Doomed').length)")"
+
 echo ""
 echo "passed $pass, failed $fail"
 [ "$fail" = "0" ] || { echo "--- server log ---"; tail -20 "$D/log"; }

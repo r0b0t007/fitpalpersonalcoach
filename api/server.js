@@ -94,9 +94,14 @@ const MEDIA_DIR = path.join(DATA, 'media');
 // A flood guard, not a product rule: several angles of one lift is reasonable, an unbounded
 // upload endpoint on a shared-hosting quota is not.
 const MEDIA_MAX_PER_EX = 6;
-// Unredeemed codes per coach. A flood guard on a table every registration scans, not a product
-// rule — a coach onboarding real people will not come near it.
+// Unredeemed codes per coach, and it bounds exactly that: how many codes can be usable at once.
+// It is NOT a bound on the size of db.invites, which an earlier version of this comment claimed —
+// revoking frees a slot, so mint-revoke-repeat grows the table without limit, and db.invites is
+// scanned on every registration and rewritten whole on every mint. COACH_MAX_LIFETIME_INVITES is
+// the bound on that. Both are flood guards, not product rules: a coach onboarding real people
+// comes near neither.
 const COACH_MAX_OPEN_INVITES = 20;
+const COACH_MAX_LIFETIME_INVITES = 500;
 // Progress photos: a closed set of angles rather than a free-text label, because the entire
 // value of the feature is comparing like with like — this week's front against March's front.
 // A typo'd label does not fail, it quietly starts a fourth series nobody ever looks at.
@@ -679,6 +684,22 @@ function requireCoach(req, res, headers) {
 function detachCoach(coachId) {
   db.users.forEach(m => { if (m.coachId === coachId) delete m.coachId; });
   expireAssignmentsWhere(a => a.coachId === coachId);
+  // Their outstanding codes die with the role, and this is new with coach-minted invites. While
+  // only admins could mint, every live code was under the gym's direct control; a code minted by
+  // a role that can be TAKEN AWAY is different. The registration gate only asks whether a code is
+  // unused and unrevoked, so without this a coach who was let go on Monday still hands out working
+  // signups on Tuesday — they would land unassigned, but on an INVITE_ONLY instance they would get
+  // in, which is the whole thing INVITE_ONLY is for.
+  //
+  // Revoked, not deleted, like every other path here: the row is the record that the code was
+  // issued and to whom. Only unredeemed ones — a used code is history, not a key.
+  db.invites.forEach(i => {
+    if (i.coachId === coachId && !i.usedBy && !i.revoked) {
+      i.revoked = true;
+      i.revokedAt = new Date().toISOString();
+      i.revokedReason = 'coach detached';
+    }
+  });
   // Classes deliberately keep their coachId. Stripping it off every future occurrence — up to a
   // 26-week series — is unrecoverable, and disabling is often temporary (a coach off sick for a
   // week). Instead, eligibility is applied at the two places it is observable: coachOf() below
@@ -1594,9 +1615,13 @@ const routes = {
   'POST /api/coach/invites/new': async (req, res) => {
     const coach = requireCoach(req, res); if (!coach) return;
     const body = await readBody(req);
-    const open = db.invites.filter(i => i.coachId === coach.id && !i.usedBy && !i.revoked).length;
-    if (open >= COACH_MAX_OPEN_INVITES)
+    const mine = db.invites.filter(i => i.coachId === coach.id);
+    if (mine.filter(i => !i.usedBy && !i.revoked).length >= COACH_MAX_OPEN_INVITES)
       return json(res, 429, { error: `you already have ${COACH_MAX_OPEN_INVITES} unused codes — revoke one before making another` });
+    // The one a coach cannot revoke their way around. Unreachable by hand; it exists so a stuck
+    // client looping mint-and-revoke cannot grow the table every registration scans.
+    if (mine.length >= COACH_MAX_LIFETIME_INVITES)
+      return json(res, 429, { error: 'too many codes made on this account — ask an admin' });
     const invite = mintInvite(coach.id, body.note, { coachId: coach.id });
     saveDb();
     audit(req, 'coach.invite.create', { user: coach, msg: invite.code });
@@ -2005,6 +2030,12 @@ const routes = {
     inv.revoked = true;
     inv.revokedAt = new Date().toISOString();
     saveDb();
+    // This call existed since v1.2.9 — inside POST /api/admin/sessions/delete, where neither
+    // `admin` nor `inv` is defined. It threw a ReferenceError on every class deletion, AFTER
+    // saveDb() had persisted it: the class went and the dashboard reported a 500. Meanwhile
+    // invite revocations went unlogged the whole time, despite the label existing and being
+    // asserted in audit.test.js. Verbatim the same line, in the function it was written for.
+    audit(req, 'admin.invite.revoke', { user: admin, msg: inv.code });
     json(res, 200, { ok: true });
   },
 
@@ -2215,7 +2246,6 @@ const routes = {
       ? db.sessions.filter(x => !(x.seriesId === s.seriesId && x.date >= s.date))
       : db.sessions.filter(x => x.id !== s.id);
     saveDb();
-    audit(req, 'admin.invite.revoke', { user: admin, msg: inv.code });
     json(res, 200, { ok: true });
   },
 
