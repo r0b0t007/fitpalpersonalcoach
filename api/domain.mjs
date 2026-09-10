@@ -237,6 +237,43 @@ function cleanNutrition(raw) {
   return { nutrition: { ...out, ...(note ? { note } : {}) } }
 }
 
+/* ---------- the weekly check-in reminder ---------- */
+// These three mirror frontend/src/lib/checkins.js, and the duplication is deliberate in the same
+// way effectiveRoutineId's is in server.js: tiny pure rules, on the far side of a boundary the two
+// runtimes cannot import across. **If the rule changes there, change it here** — a drift would be
+// silent, because a reminder that fires on the wrong day looks exactly like one nobody set.
+// DEFAULT_CHECKIN_DAY is tied to the frontend's by api/scripts/check-checkin-day.mjs.
+export const DEFAULT_CHECKIN_DAY = 0   // Sunday: the day people review a week
+
+export const checkinDayOf = S => {
+  const d = S?.checkinDay
+  return Number.isInteger(d) && d >= 0 && d <= 6 ? d : DEFAULT_CHECKIN_DAY
+}
+
+// The most recent occurrence of the check-in weekday, on or before todayIso — the start of the
+// period a check-in belongs to. Midday and UTC on purpose: the caller has already resolved the
+// date in the MEMBER's timezone, so this must not shift it again by parsing in the server's.
+export function checkinPeriodStart(S, todayIso) {
+  const want = checkinDayOf(S)
+  const d = new Date(todayIso + 'T12:00:00Z')
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() - want + 7) % 7))
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * Should this member be pushed about their check-in today?
+ *
+ * ON THE DAY ONLY, not every day until they answer. The Home card is the thing that persists —
+ * it stays up while one is owed — and a push repeating each morning is how somebody turns
+ * notifications off for the whole app, taking the rest-timer and the workout reminder with it.
+ * One nudge a week, on the day, is the whole budget.
+ */
+export function checkinReminderDue(S, todayIso) {
+  if (new Date(todayIso + 'T12:00:00Z').getUTCDay() !== checkinDayOf(S)) return false
+  const from = checkinPeriodStart(S, todayIso)
+  return !(S?.checkins || []).some(c => c && c.d >= from)
+}
+
 // Which weekday a member's check-in falls on, 0 = Sunday, matching getDay() and
 // lib/checkins.js. Rides the plan bundle for the same reason the nutrition targets do: the server
 // cannot write into a member's state file — their next whole-state push would erase it — so a

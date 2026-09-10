@@ -19,14 +19,14 @@ import {
   pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
   findSessionConflicts, isRealDate,
   validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile,
-  coachBinding
+  coachBinding, checkinReminderDue
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { startCadence } from './coach/cadence.js';
 import { startWarmup } from './coach/warmup.js';
-import { dayReminderPush, restTimerPush, testPush } from './push-messages.js';
+import { checkinReminderPush, dayReminderPush, restTimerPush, testPush } from './push-messages.js';
 import { verifyError } from './verify-error.js';
 
 const PORT = +(process.env.PORT || 3000);
@@ -561,6 +561,20 @@ setInterval(() => {
     if (!S?.reminder?.on) continue;
     const now = userNow(S.reminder.tz || 'UTC');
     if (!now || S.reminder.time !== now.hhmm) continue;
+
+    // The weekly check-in nudge rides this loop rather than getting a schedule of its own: the
+    // hard part — resolving each member's own clock and firing once per day at a time they chose —
+    // is already solved here, and a second timer would solve it a second way. It also inherits the
+    // right consent: a member who turned reminders off is not pushed about anything.
+    //
+    // Before the workout guards below on purpose. Those return early on a rest day or a session
+    // already logged, and the check-in is owed regardless of whether they trained.
+    if (user.lastCheckinReminder !== now.date && checkinReminderDue(S, now.date)) {
+      user.lastCheckinReminder = now.date;
+      saveDb();
+      sendPush(user.id, checkinReminderPush(S.lang));
+    }
+
     if (user.lastReminder === now.date) continue;
     if ((S.workouts || []).some(w => w.d === now.date)) continue;
     const rid = effectiveRoutineId(S, now.date);

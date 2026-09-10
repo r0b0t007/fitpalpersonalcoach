@@ -10,7 +10,8 @@ import {
   pendingAssignmentsFor, ASSIGN_MAX_ROUTINES, ASSIGN_MAX_EX, ASSIGN_PENDING_DAYS,
   ASSIGN_NOTE_MAX, NUTRI_MAX_KCAL, NUTRI_MAX_MACRO,
   sessionsOverlap, findSessionConflicts,
-  sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, coachBinding, safeMediaFile
+  sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, coachBinding,
+  checkinReminderDue, checkinPeriodStart, checkinDayOf, DEFAULT_CHECKIN_DAY, safeMediaFile
 } from './domain.mjs'
 
 const DAY = 86400000
@@ -615,4 +616,60 @@ test('a day that is not a weekday is refused, not quietly dropped', () => {
   // was accepted as a deliberate Sunday until this test said so.
   for (const bad of [7, -1, 1.5, 'monday', {}, [], [5], true, false, NaN, Infinity])
     assert.match(validateAssignmentBundle({ ...PLAN, checkinDay: bad }).error, /check-in day/)
+})
+
+/* ---------- the weekly check-in reminder ---------- */
+// 2026-09-06 is a Sunday, 09 a Wednesday, 10 a Thursday.
+
+test('the nudge fires on the check-in day, and only then', () => {
+  const S = { checkinDay: 3, checkins: [] }              // Wednesday
+  assert.equal(checkinReminderDue(S, '2026-09-09'), true)
+  // NOT every day until they answer. The Home card is what persists; a push repeating each
+  // morning is how somebody turns notifications off for the whole app, taking the rest timer
+  // and the workout reminder with it.
+  assert.equal(checkinReminderDue(S, '2026-09-10'), false)
+  assert.equal(checkinReminderDue(S, '2026-09-08'), false)
+})
+
+test('nobody is nudged about a check-in they already filed', () => {
+  const S = { checkinDay: 3, checkins: [{ d: '2026-09-09' }] }
+  assert.equal(checkinReminderDue(S, '2026-09-09'), false)
+})
+
+// Last week's answer does not count for this week: the period starts at the most recent
+// occurrence of the day, so a check-in from seven days ago is behind it.
+test(`last week's check-in does not silence this week`, () => {
+  const S = { checkinDay: 3, checkins: [{ d: '2026-09-02' }] }
+  assert.equal(checkinReminderDue(S, '2026-09-09'), true)
+})
+
+test('a member who never set a day is on the default', () => {
+  assert.equal(checkinDayOf({}), DEFAULT_CHECKIN_DAY)
+  assert.equal(checkinDayOf({ checkinDay: null }), DEFAULT_CHECKIN_DAY)
+  assert.equal(checkinDayOf({ checkinDay: 9 }), DEFAULT_CHECKIN_DAY)
+  // 0 is Sunday and 0 is falsy — the trap that runs through this whole feature.
+  assert.equal(checkinDayOf({ checkinDay: 0 }), 0)
+  assert.equal(checkinReminderDue({ checkins: [] }, '2026-09-06'), true)   // Sunday, defaulted
+})
+
+test('the period starts at the most recent occurrence of the day, never after today', () => {
+  const S = { checkinDay: 3 }
+  assert.equal(checkinPeriodStart(S, '2026-09-09'), '2026-09-09')   // on the day itself
+  assert.equal(checkinPeriodStart(S, '2026-09-10'), '2026-09-09')   // the day after
+  assert.equal(checkinPeriodStart(S, '2026-09-08'), '2026-09-02')   // the day before: last week
+})
+
+// A ROUND-TRIP property, and worth being honest about what it does not do: I rewrote
+// checkinPeriodStart to parse and read entirely in LOCAL time and this test stayed green — because
+// at midday the two agree on the date for every offset a real timezone has, so an all-local
+// implementation is equally correct and there is nothing here to catch.
+//
+// The bug this shape actually prevents is the MIXED one — parsing local and then reading
+// getUTCDay(), or the reverse — which shifts the weekday for anyone far enough east or west. That
+// is the UTC-vs-local class that has bitten this repo three times, and midday-UTC throughout is
+// what makes it unreachable rather than merely untested. Nothing below would notice if someone
+// mixed them; the single-timezone CI runner could not either.
+test('a date on its own check-in day comes back unchanged', () => {
+  for (const iso of ['2026-09-09', '2026-01-01', '2026-12-31'])
+    assert.equal(checkinPeriodStart({ checkinDay: new Date(iso + 'T12:00:00Z').getUTCDay() }, iso), iso)
 })

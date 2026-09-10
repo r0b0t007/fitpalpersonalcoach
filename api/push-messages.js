@@ -6,6 +6,8 @@ const COPY = {
     dayFallbackTitle: 'Workout planned today',
     dayRoutineSuffix: 'today',
     dayBody: "It's on your plan — let's go 💪",
+    checkinTitle: 'Weekly check-in 📋',
+    checkinBody: 'Five quick scales and anything your coach should know.',
   },
   'pt-BR': {
     restTitle: 'Descanso terminado 💪',
@@ -14,6 +16,8 @@ const COPY = {
     dayFallbackTitle: 'Treino planejado para hoje',
     dayRoutineSuffix: 'hoje',
     dayBody: 'Está no seu plano — vamos treinar 💪',
+    checkinTitle: 'Check-in semanal 📋',
+    checkinBody: 'Cinco escalas rápidas e o que seu treinador precisa saber.',
   },
 };
 
@@ -37,4 +41,12 @@ export function dayReminderPush(lang, routine) {
     body: copy.dayBody,
     tag: 'day-reminder',
   };
+}
+
+// Once a week, on the member's check-in day. `tag` matters as much as the copy: a push with the
+// same tag REPLACES the one before it on the device rather than stacking, so a member who left
+// their phone in a drawer comes back to one check-in nudge and not four.
+export function checkinReminderPush(lang) {
+  const copy = copyFor(lang);
+  return { title: copy.checkinTitle, body: copy.checkinBody, tag: 'checkin-reminder' };
 }
