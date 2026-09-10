@@ -382,10 +382,21 @@ export function printPlan(S, owner) {
 // pointing at those routines. Dropping the orphan days matters — a snapshot carrying a schedule
 // that references routines it does not contain would make mergePlan clear the member's week and
 // put only part of it back. Lives here so the Coach screen and its tests exercise one function.
+//
+// `S.week[d]` is a LIST of routine ids (a weekday can hold several routines — see
+// buildPlanBundle and history.js), with a bare id only in state written before that change.
+// The first version of this compared the list itself against the picked ids, which is never
+// true, so every saved program shipped `week: {}` and the "also set their weekly schedule"
+// toggle silently did nothing for saved programs — only for "send my current plan", which goes
+// through buildPlanBundle directly. A day keeps the picked routines it points at, in order, and
+// a day pointing at none of them is left out, not written as `[]`.
 export function buildProgramBundle(S, routineIds, name) {
   const ids = new Set(routineIds || [])
   const routines = (S.routines || []).filter(r => ids.has(r.id))
   const week = {}
-  for (const [d, rid] of Object.entries(S.week || {})) if (ids.has(rid)) week[d] = rid
+  for (const [d, val] of Object.entries(S.week || {})) {
+    const kept = [].concat(val ?? []).filter(id => ids.has(id))
+    if (kept.length) week[d] = kept
+  }
   return buildPlanBundle({ routines, week, customEx: S.customEx }, name)
 }
