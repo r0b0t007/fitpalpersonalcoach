@@ -237,6 +237,30 @@ function cleanNutrition(raw) {
   return { nutrition: { ...out, ...(note ? { note } : {}) } }
 }
 
+// Which weekday a member's check-in falls on, 0 = Sunday, matching getDay() and
+// lib/checkins.js. Rides the plan bundle for the same reason the nutrition targets do: the server
+// cannot write into a member's state file — their next whole-state push would erase it — so a
+// value they ACCEPT is the only kind that survives.
+//
+// Absent means "this bundle does not move the day", NOT "put it back to Sunday". A coach sending
+// a new block should not silently reset a check-in day they deliberately moved three months ago,
+// and the member who has been answering on a Wednesday since should not find the reminder has
+// wandered because of a program that said nothing about it.
+//
+// 0 is a valid day and a falsy number, which is exactly the trap here — `raw.checkinDay || null`
+// would turn a coach's deliberate "Sunday" into "leave it alone". Tested.
+function cleanCheckinDay(raw) {
+  if (raw == null || raw === '') return { checkinDay: null }
+  // Type-checked before coercing, because Number() is far too willing: Number([]) is 0, and so is
+  // Number(false) — so an empty array arriving in this field would have been accepted as a
+  // deliberate "Sunday". Found by the test below, not by reading. Same reason cleanNutrition
+  // checks Array.isArray before it trusts an object.
+  if (typeof raw !== 'number' && typeof raw !== 'string') return { error: 'check-in day must be a weekday, 0 (Sunday) to 6' }
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 0 || n > 6) return { error: 'check-in day must be a weekday, 0 (Sunday) to 6' }
+  return { checkinDay: n }
+}
+
 // One place for "may this coach act on this member", because it guards five routes and getting
 // it wrong in any one of them exposes another member's training history. Admins pass regardless
 // (they own the gym); isAdmin is passed in rather than read here so this stays pure — the server's
@@ -291,6 +315,8 @@ export function validateAssignmentBundle(raw) {
   if (customEx.length > ASSIGN_MAX_CUSTOM) return { error: 'too many custom exercises' }
   const { nutrition, error: nutriError } = cleanNutrition(raw.nutrition)
   if (nutriError) return { error: nutriError }
+  const { checkinDay, error: dayError } = cleanCheckinDay(raw.checkinDay)
+  if (dayError) return { error: dayError }
   // Size last: cheap checks first, and this one serialises the whole thing.
   let bytes
   try { bytes = Buffer.byteLength(JSON.stringify(raw)) } catch { return { error: 'plan is not serialisable' } }
@@ -305,7 +331,10 @@ export function validateAssignmentBundle(raw) {
       customEx,
       // Omitted rather than stored as null, so a bundle without targets is byte-identical to the
       // ones written before this existed and the member's client can test for the key.
-      ...(nutrition ? { nutrition } : {})
+      ...(nutrition ? { nutrition } : {}),
+      // `!= null`, not a truthy test: 0 is Sunday, and dropping it here would make the one day
+      // the app defaults to the one day a coach cannot deliberately choose.
+      ...(checkinDay != null ? { checkinDay } : {})
     }
   }
 }

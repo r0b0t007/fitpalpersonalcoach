@@ -290,6 +290,10 @@ function MemberDetail({ id, close, pending, onChanged }) {
 // Labels and units for the four numbers, in the order a coach reads them. English, like the rest
 // of this screen; the member's side of the same four numbers is translated (components/MacroRows).
 const MACRO_FIELDS = [['kcal', 'Calories', 'kcal'], ['p', 'Protein', 'g'], ['c', 'Carbs', 'g'], ['f', 'Fat', 'g']]
+// getDay() order, 0 = Sunday, matching lib/checkins.js. Listed Monday-first because that is how a
+// training week reads, with Sunday last where the default actually sits.
+const CHECKIN_DAYS = [[1, 'Monday'], [2, 'Tuesday'], [3, 'Wednesday'], [4, 'Thursday'],
+  [5, 'Friday'], [6, 'Saturday'], [0, 'Sunday']]
 
 function SendSheet({ members, close, program }) {
   const S = useStore(s => s.S)
@@ -306,6 +310,11 @@ function SendSheet({ members, close, program }) {
   // and a bundle without the key leaves whatever they already have alone.
   const [macros, setMacros] = useState({ kcal: '', p: '', c: '', f: '' })
   const [macroNote, setMacroNote] = useState('')
+  // '' means "this bundle says nothing about the day", which is NOT the same as Sunday. A coach
+  // sending a new block should not silently drag a member who has checked in on Wednesdays for
+  // months back to the default. Kept as a string precisely so the empty case and the deliberate
+  // 0 stay distinguishable — the whole trap in this feature is that Sunday is falsy.
+  const [checkinDay, setCheckinDay] = useState('')
   const macro = (k, v) => setMacros(m => ({ ...m, [k]: v.replace(/[^\d]/g, '').slice(0, 5) }))
   const nutrition = MACRO_FIELDS.some(([k]) => +macros[k] > 0)
     ? Object.fromEntries([
@@ -325,7 +334,15 @@ function SendSheet({ members, close, program }) {
     setBusy(true)
     api('/api/coach/assign', {
       method: 'POST',
-      body: JSON.stringify({ memberIds: picked, bundle: nutrition ? { ...bundle, nutrition } : bundle, note, schedule })
+      body: JSON.stringify({
+        memberIds: picked,
+        bundle: {
+          ...bundle,
+          ...(nutrition ? { nutrition } : {}),
+          ...(checkinDay === '' ? {} : { checkinDay: +checkinDay })
+        },
+        note, schedule
+      })
     })
       .then(({ sent }) => { toast('Sent to ' + sent + (sent === 1 ? ' member' : ' members')); close() })
       .catch(e => { toast(e.message); setBusy(false) })
@@ -375,6 +392,17 @@ function SendSheet({ members, close, program }) {
         </span>
       </label>)}
     </div>
+    <h4 className="sec" style={{ marginTop: 16 }}>Check-in day</h4>
+    <div className="dim small" style={{ marginBottom: 8, lineHeight: 1.4 }}>
+      Which day their weekly check-in falls on. Leave it alone and this program does not touch it —
+      a member who has been answering on a Wednesday stays on Wednesday.
+    </div>
+    <select className="input" value={checkinDay} onChange={e => setCheckinDay(e.target.value)}
+      style={{ marginBottom: 10 }}>
+      <option value="">Leave their day as it is</option>
+      {CHECKIN_DAYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+    </select>
+
     <input className="input" placeholder="Note on the diet (optional)" maxLength={280}
       value={macroNote} onChange={e => setMacroNote(e.target.value)} style={{ marginBottom: 6 }} />
 

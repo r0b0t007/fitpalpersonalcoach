@@ -243,6 +243,13 @@ export function bwSheet(opts = {}) {
   return h
 }
 
+// getDay() order, 0 = Sunday, matching lib/checkins.js. A function rather than a lookup object so
+// t() runs at render, after the language is known — a const map would freeze whatever the language
+// was when this module first loaded. Translated, unlike the coach's own picker in views/Coach.jsx:
+// that is an operator surface, this is the member's screen.
+const CHECKIN_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const checkinDayLabel = d => t(CHECKIN_DAY_NAMES[d] || CHECKIN_DAY_NAMES[0])
+
 /* ============================ body measurements ============================ */
 // The tape, alongside the scale. One sheet for the whole check-in rather than one per site:
 // a client measures everything in one sitting, and seven separate sheets is six more chances
@@ -1774,6 +1781,15 @@ function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAcce
       <div className="tt" style={{ fontSize: 15, marginBottom: 6 }}>{t('Daily targets')}</div>
       <TargetRows target={bundle.nutrition} />
       {bundle.nutrition.note && <div className="small" style={{ marginTop: 8, lineHeight: 1.4 }}>“{bundle.nutrition.note}”</div>}
+    </div>}
+    {/* Shown for the same reason the targets are: this REPLACES something the member already has.
+        A check-in day moving without warning is worse than a target changing — the reminder and
+        the whole weekly rhythm move with it, and the member would have no idea why. */}
+    {bundle.checkinDay != null && <div style={{ padding: '10px 2px', borderBottom: '1px solid var(--sep)', marginBottom: 14 }}>
+      <div className="tt" style={{ fontSize: 15, marginBottom: 4 }}>{t('Check-in day')}</div>
+      <div className="small dim" style={{ lineHeight: 1.4 }}>
+        {t('Your weekly check-in moves to {0}.', checkinDayLabel(bundle.checkinDay))}
+      </div>
     </div>}
     {bundle.dropped > 0 && <div className="small" style={{ color: 'var(--yellow)', marginBottom: 14, lineHeight: 1.4 }}>
       {t(bundle.dropped === 1

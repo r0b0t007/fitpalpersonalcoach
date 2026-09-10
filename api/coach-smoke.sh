@@ -613,6 +613,25 @@ chk "delete answers 200, not 500"             200 "$(code -X POST "$B/api/admin/
 chk "and the class is actually gone"            0 "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "
   const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.sessions.filter(s=>s.title==='Doomed').length)")"
 
+echo "== moving a member's check-in day rides the plan bundle =="
+# The server cannot write into a member's state file — their next whole-state push erases it — so
+# the day travels on the bundle they ACCEPT, exactly as the nutrition targets do.
+sendday() { curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/coach/assign" -H 'Content-Type: application/json' -H "Cookie: $CA"   -d "{\"memberIds\":[\"mem1\"],\"bundle\":$(node -pe "JSON.stringify(Object.assign(JSON.parse(process.argv[1]), process.argv[2]==='none'?{}:{checkinDay:JSON.parse(process.argv[2])}))" "$BUNDLE" "$1"),\"note\":\"d\"}"; }
+lastday() { get -H "Cookie: $CA" "$B/api/coach/members" > /dev/null; get -H "Cookie: $M1" "$B/api/assignments" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));const a=d.assignments||[];
+  const b=(a[a.length-1]||{}).bundle||{};String('checkinDay' in b ? b.checkinDay : 'absent')"; }
+chk "Wednesday survives the round trip"        200 "$(sendday 3)"
+chk "...and arrives as 3"                        3 "$(lastday)"
+# 0 is Sunday AND falsy. A truthy test anywhere on this path would make the one day the app
+# defaults to the one day a coach cannot deliberately choose.
+chk "Sunday is a real choice, not a blank"     200 "$(sendday 0)"
+chk "...and arrives as 0, not dropped"           0 "$(lastday)"
+# Absent must not read as "reset to Sunday", or every ordinary program drags a member back.
+chk "a bundle that omits it carries nothing"   200 "$(sendday none)"
+chk "...and the key is simply absent"       absent "$(lastday)"
+chk "a day that is not a weekday is refused"   400 "$(sendday 9)"
+chk "and neither is an empty array"            400 "$(sendday '[]')"
+
 echo ""
 echo "passed $pass, failed $fail"
 [ "$fail" = "0" ] || { echo "--- server log ---"; tail -20 "$D/log"; }
