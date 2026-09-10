@@ -26,13 +26,26 @@ vi.mock('../lib/mobile.js', () => ({
 const { DEF } = await import('../store/useStore.js')
 const { StatsPanels } = await import('./Stats.jsx')
 
-// Mirrors memberState() in Coach.jsx. Kept as a local copy on purpose: the point of the test is
-// that the transform exists and stays correct, so importing the implementation would test nothing.
+// Mirrors memberState() in Coach.jsx (~line 215). Kept as a local copy on purpose: the point of
+// the test is that the transform exists and stays correct, so importing the implementation would
+// test nothing.
+//
+// THE COPY IS THE HAZARD, THOUGH, AND IT HAS ALREADY BITTEN. It silently fell five fields behind
+// the real one — checkins, checkinDay, meals, mealDays, nutriTarget — so everything Phase 1's
+// check-ins and step 8's nutrition added went untested through this path, and a test written
+// against it failed for the mirror's reasons rather than the code's. A stale mirror does not fail;
+// it quietly tests the contract as it stood when someone last looked. **Anything added to
+// memberState in Coach.jsx must be added here in the same commit.**
 const memberState = d => ({
   ...DEF,
   unit: d.unit, body: d.body, targetW: d.targetW, effort: d.effort, showRir: d.showRir,
   bodyweight: d.bodyweight || [],
   measurements: d.measurements || [],
+  checkins: d.checkins || [],
+  checkinDay: d.checkinDay ?? null,
+  meals: d.meals || [],
+  mealDays: d.mealDays || {},
+  nutriTarget: d.nutriTarget ?? null,
   workouts: [...(d.workouts || [])].reverse(),
   routines: []
 })
@@ -324,5 +337,58 @@ describe('check-ins in the coach view', () => {
   it('says none are filed rather than rendering an empty card', () => {
     expect(render(<CheckinsCard checkins={[]} />).textContent).toContain('None filed yet.')
     expect(render(<CheckinsCard checkins={undefined} />).textContent).toContain('None filed yet.')
+  })
+})
+
+// The third of step 8's scope is "let the coach see it", and it is the third with no test. The
+// server sends meals/mealDays/nutriTarget and coach-smoke asserts they are on the wire; nothing
+// asserted the coach VIEW draws them. That gap matters more here than elsewhere, because the card
+// is gated on hasNutrition(S): drop the field on the wire or in memberState and the card simply
+// does not render. No error, no empty state — it looks exactly like a client who never logged a
+// meal. Same silent shape the measurements tests were written for.
+describe('nutrition in the coach view', () => {
+  const render = S => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    act(() => {
+      createRoot(host).render(<MemoryRouter><StatsPanels S={S} readOnly /></MemoryRouter>)
+    })
+    return host
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  const fed = {
+    ...payload,
+    meals: [
+      { id: 'm1', d: today, n: 'Oats', g: 80, kcal: 304, p: 10.4, c: 48, f: 5.6, t: 1 },
+      { id: 'm2', d: today, n: 'Chicken', g: 200, kcal: 330, p: 62, c: 0, f: 7.2, t: 2 },
+    ],
+    mealDays: {},
+    nutriTarget: { kcal: 2200, p: 160, c: 220, f: 70 },
+  }
+
+  it('carries the day through to the panel', () => {
+    const text = render(memberState(fed)).textContent
+    expect(text).toContain('Nutrition')
+    expect(text).toMatch(/634/)            // 304 + 330, what they actually ate today
+  })
+
+  it('shows the intake against the target the coach set', () => {
+    expect(memberState(fed).nutriTarget).toEqual(fed.nutriTarget)
+    expect(render(memberState(fed)).textContent).toMatch(/2,?200/)
+  })
+
+  it('offers no way to log from the coach view', () => {
+    // Log navigates to /nutrition — the VIEWER's own screen. A coach pressing it would be sent
+    // off to log their own breakfast from inside their client's progress.
+    const host = render(memberState(fed))
+    const logs = [...host.querySelectorAll('button')].filter(b => /^Log$/.test(b.textContent.trim()))
+    expect(logs).toHaveLength(0)
+  })
+
+  it('draws nothing at all for a member who has never logged a meal', () => {
+    // The honest empty state here is absence: a zero-calorie day is not the same as no data, and
+    // rendering "0 kcal" against a coach's target would read as a client who ate nothing.
+    const text = render(memberState({ ...payload, meals: [], mealDays: {}, nutriTarget: null })).textContent
+    expect(text).not.toContain('Nutrition')
   })
 })
