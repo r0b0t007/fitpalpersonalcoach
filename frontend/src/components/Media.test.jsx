@@ -102,13 +102,18 @@ describe('Media gifSize', () => {
 })
 
 describe('Media coach demos', () => {
-  it('prefers the coach video over the stock animation, poster and all, and says whose it is', () => {
+  it('prefers the coach video over the stock animation, and says whose it is', () => {
     setCoachMedia([ROW])
     mount({})
     const v = host.querySelector('.exmedia video')
     expect(v).toBeTruthy()
     expect(v.getAttribute('src')).toBe('/api/media/ex?id=r1')
-    expect(v.getAttribute('poster')).toBe('img/bench.jpg')
+    // NO poster. This used to assert 'img/bench.jpg' — the dataset still — and that assertion was
+    // pinning a real defect: a coach reported their own footage sitting behind a photograph of a
+    // stranger doing the lift, which reads as the demo itself until the video starts. With no
+    // poster the browser paints the video's own first frame. A coach-uploaded photo is still used
+    // (covered in exercises.test.js); only the stock stand-in is refused.
+    expect(v.getAttribute('poster')).toBe(null)
     expect(host.querySelector('.exmedia img')).toBeFalsy()
     expect(host.querySelector('.exbadge')).toBeTruthy()
     expect(host.querySelector('.exbadge.warn')).toBeFalsy()

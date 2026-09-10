@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchExercise, normalizeStr } from './exercises.js'
+import { matchExercise, normalizeStr, resolveMedia } from './exercises.js'
 import { _setLangState } from './i18n-core.js'
 
 describe('normalizeStr', () => {
@@ -120,5 +120,24 @@ describe('matchExercise', () => {
     _setLangState('en', null, null, null)
     expect(matchExercise(benchPress, 'supino')).toBe(false)
     expect(matchExercise(benchPress, 'bench')).toBe(true)
+  })
+})
+
+// A coach's own footage must not sit behind a photograph of a stranger doing the same lift. The
+// dataset still is a fine LAST rung of the chain; it is not a stand-in for the video above it.
+describe('resolveMedia and the video poster', () => {
+  const ex = { id: '0025', n: 'bench press', gif: 'b.gif', img: 'b.jpg' }
+  const vid = { id: 'r1', exId: '0025', file: 'v.mp4', mime: 'video/mp4', status: 'ready' }
+  const pic = { id: 'r2', exId: '0025', file: 'p.jpg', mime: 'image/jpeg', status: 'ready' }
+
+  it('gives a coach video no poster when only the dataset still exists', () => {
+    const m = resolveMedia(ex, [vid])
+    expect(m.videoPoster).toBe(null)
+    // The still is still there for the fallback rung — it just is not the video's poster.
+    expect(m.poster).toBeTruthy()
+  })
+
+  it('uses a coach-uploaded photo, because that one they chose', () => {
+    expect(resolveMedia(ex, [vid, pic]).videoPoster).toBeTruthy()
   })
 })

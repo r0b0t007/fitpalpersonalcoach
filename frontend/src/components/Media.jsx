@@ -149,7 +149,7 @@ export default function Media({ ex, id, compact, minimizable }) {
         // onPlay/onPause are the other half of the reconciliation above: a browser that stops
         // the video on its own (a hit concurrent-decoder limit in the list view, Low Power Mode
         // kicking in mid-demo) tells us here, and nowhere else.
-        ? <video ref={vid} src={m.video} poster={m.poster || undefined} aria-label={alt} muted loop playsInline
+        ? <video ref={vid} src={m.video} poster={m.videoPoster || undefined} aria-label={alt} muted loop playsInline
             preload="metadata" onError={onError} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
         : kind
           ? <img decoding="async" draggable={false} src={showStill || kind === 'still' ? m.poster : m.gif} alt={alt} onError={onError} />
