@@ -586,3 +586,33 @@ test('no invite at all is not an error', () => {
   assert.equal(coachBinding(null, INVITER, { isCoach: true }), null)
   assert.equal(coachBinding(undefined, INVITER, { isCoach: true }), null)
 })
+
+/* ---------- moving a member's check-in day ---------- */
+// The day rides the plan bundle because the server cannot write into a member's state file — their
+// next whole-state push would erase it — so a value they ACCEPT is the only kind that survives.
+
+const PLAN = { opengym_plan: 1, routines: [{ id: 'r1', name: 'Push', ex: [{ id: '0025' }] }] }
+
+test('a coach can move the check-in day, and Sunday is a real choice', () => {
+  // 0 is Sunday AND falsy. `raw.checkinDay || null` would turn a coach's deliberate Sunday into
+  // "leave it alone", making the one day the app defaults to the one day nobody can choose.
+  assert.equal(validateAssignmentBundle({ ...PLAN, checkinDay: 0 }).bundle.checkinDay, 0)
+  assert.equal(validateAssignmentBundle({ ...PLAN, checkinDay: 3 }).bundle.checkinDay, 3)
+  assert.equal(validateAssignmentBundle({ ...PLAN, checkinDay: 6 }).bundle.checkinDay, 6)
+})
+
+test('a bundle that says nothing about the day carries nothing', () => {
+  // Absent must not read as "reset to Sunday": an ordinary new block would otherwise drag a member
+  // who has checked in on Wednesdays for months back to the default, and their reminder with it.
+  for (const raw of [PLAN, { ...PLAN, checkinDay: null }, { ...PLAN, checkinDay: '' }])
+    assert.equal('checkinDay' in validateAssignmentBundle(raw).bundle, false)
+})
+
+test('a day that is not a weekday is refused, not quietly dropped', () => {
+  // Loudly, like a mistyped macro target: a coach who picked something impossible has to hear it
+  // now, not discover a week later that the reminder never moved.
+  // [] and true are in this list because Number() maps both to 0 — an empty array in this field
+  // was accepted as a deliberate Sunday until this test said so.
+  for (const bad of [7, -1, 1.5, 'monday', {}, [], [5], true, false, NaN, Infinity])
+    assert.match(validateAssignmentBundle({ ...PLAN, checkinDay: bad }).error, /check-in day/)
+})

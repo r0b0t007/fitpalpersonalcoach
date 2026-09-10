@@ -213,6 +213,11 @@ export function mergePlan(s, bundle, { schedule } = {}) {
   // and nobody could explain. A bundle without them leaves whatever is there alone, so accepting
   // an ordinary program does not silently clear the targets from the one before it.
   if (bundle.nutrition) s.nutriTarget = { ...bundle.nutrition, t: Date.now() }
+  // Same rule as the targets: a bundle that says nothing about the day leaves it alone, so an
+  // ordinary program does not drag a member who has been checking in on Wednesdays back to
+  // Sunday. `!= null` because 0 IS Sunday — a truthy test would silently discard the one value
+  // the app already defaults to, making it the only day a coach could not deliberately set.
+  if (bundle.checkinDay != null) s.checkinDay = bundle.checkinDay
   return { routines: bundle.routines.length }
 }
 

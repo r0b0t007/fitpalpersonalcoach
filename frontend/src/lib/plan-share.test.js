@@ -136,3 +136,30 @@ describe('week schedule as a routine-id list', () => {
     expect(parsePlan({ opengym_plan: 1, routines: [], customEx: [], week: { 1: ['a'], 2: [], 4: 'b' } }).scheduledDays).toBe(2)
   })
 })
+
+// A coach can move a member's check-in day, and it travels on the plan bundle because the server
+// cannot write into a member's state file — their next whole-state push would erase it.
+describe('mergePlan and the check-in day', () => {
+  const bundle = extra => ({
+    opengym_plan: 1, name: 'Block', routines: [{ id: 'r1', name: 'Push', ex: [] }], customEx: [], ...extra
+  })
+  const applyTo = (s, b) => { mergePlan(s, b, {}); return s }
+
+  it('moves the day when the bundle carries one', () => {
+    expect(applyTo({ routines: [], week: {}, checkinDay: null }, bundle({ checkinDay: 3 })).checkinDay).toBe(3)
+  })
+
+  // 0 is Sunday and 0 is falsy. `if (bundle.checkinDay)` would silently discard the one day the
+  // app already defaults to, making it the only day a coach could not deliberately choose.
+  it('treats Sunday as a real choice rather than a blank', () => {
+    expect(applyTo({ routines: [], week: {}, checkinDay: 4 }, bundle({ checkinDay: 0 })).checkinDay).toBe(0)
+  })
+
+  // The other half of the same rule: absent means "this program says nothing about the day", not
+  // "put it back". Otherwise every ordinary block drags a member who moved to Wednesday back to
+  // Sunday, and their reminder with it.
+  it('leaves a day the member already has alone when the bundle is silent', () => {
+    expect(applyTo({ routines: [], week: {}, checkinDay: 3 }, bundle()).checkinDay).toBe(3)
+    expect(applyTo({ routines: [], week: {}, checkinDay: 0 }, bundle()).checkinDay).toBe(0)
+  })
+})

@@ -1358,6 +1358,8 @@ export default {
   'Nothing logged today.': 'Heute noch nichts eingetragen.',
   'Nothing logged in this window.': 'In diesem Zeitraum nichts eingetragen.',
   'No targets yet — your coach sets them with your program.': 'Noch keine Ziele — dein Coach legt sie mit deinem Programm fest.',
+  'Check-in day': 'Check-in-Tag',
+  'Your weekly check-in moves to {0}.': 'Dein wöchentliches Check-in wird auf {0} verlegt.',
   'Enter a weight in grams, up to 5000.': 'Gib ein Gewicht in Gramm ein, bis 5000.',
   'Check the numbers — calories are required, and all four are per 100 g.': 'Prüf die Zahlen — Kalorien sind Pflicht, und alle vier gelten pro 100 g.',
   '{0} kcal on average': 'Ø {0} kcal',
