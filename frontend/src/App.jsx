@@ -10,12 +10,12 @@ import { fetchExerciseMedia } from './lib/api.js'
 import { setCoachMedia } from './lib/coach-media.js'
 import { initBackButton } from './lib/back.js'
 import { useWakeLock } from './lib/wakelock.js'
-import { MOBILE } from './lib/mobile.js'
-import { DEMO } from './lib/demo.js'
+import { shellFor, useShellPref } from './lib/role.js'
 import { installViewportGuard } from './lib/viewport-guard.js'
 import { startFlow } from './sheets.jsx'
 import Logo from './components/Logo.jsx'
 import TabBar from './components/TabBar.jsx'
+import CoachTabBar from './components/CoachTabBar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import Modals from './components/Modals.jsx'
 import Toast from './components/Toast.jsx'
@@ -24,7 +24,6 @@ import TimerFlash from './components/TimerFlash.jsx'
 import Login from './views/Login.jsx'
 import MobileOnboarding from './views/MobileOnboarding.jsx'
 import Home from './views/Home.jsx'
-import CheckIn from './views/CheckIn.jsx'
 import Plan from './views/Plan.jsx'
 import RoutineEdit from './views/RoutineEdit.jsx'
 import Workout from './views/Workout.jsx'
@@ -32,7 +31,6 @@ import Stats from './views/Stats.jsx'
 import Nutrition from './views/Nutrition.jsx'
 import History from './views/History.jsx'
 import Library from './views/Library.jsx'
-import Sessions from './views/Sessions.jsx'
 import Muscles from './views/Muscles.jsx'
 import Settings from './views/Settings.jsx'
 import You from './views/You.jsx'
@@ -60,6 +58,56 @@ function applyPrefs(theme, accent) {
   if (meta) meta.content = de.dataset.theme === 'light' ? '#f2f2f7' : '#000000'
 }
 
+// The two shells. Which one a signed-in person gets is decided once, here, from the role the
+// server reports (lib/role.js) — nothing below this branches on it again. A coach is the tenant:
+// their clients, their programs, their account, and none of a trainee's own plan. A client, or a
+// coach who chose "Train myself", gets the training app. Each table falls through to its own
+// home, which is also what happens after sign-in: Login never navigates, so a coach still
+// sitting on #/home lands on /today because this table has no /home.
+function ClientRoutes() {
+  return (
+    <Routes>
+      <Route path="/home" element={<Home />} />
+      <Route path="/plan" element={<Plan />} />
+      <Route path="/plan/r/:id" element={<RoutineEdit />} />
+      <Route path="/workout" element={<Workout />} />
+      <Route path="/stats" element={<Stats />} />
+      <Route path="/nutrition" element={<Nutrition />} />
+      <Route path="/history" element={<History />} />
+      <Route path="/library" element={<Library />} />
+      <Route path="/muscles" element={<Muscles />} />
+      <Route path="/you" element={<You />} />
+      <Route path="/settings" element={<Settings />} />
+      {/* The AI Coach screens gate themselves on the instance config; the routes exist
+          unconditionally so a deep link from a notification lands somewhere sane
+          rather than on the catch-all. */}
+      <Route path="/coach" element={<CoachChat />} />
+      <Route path="/coach/intake" element={<CoachIntake />} />
+      <Route path="/coach/proposal" element={<Navigate to="/coach" replace />} />
+      <Route path="/coach/setup" element={<CoachSetup />} />
+      <Route path="*" element={<Navigate to="/home" replace />} />
+    </Routes>
+  )
+}
+
+// /today carries the existing dashboard until its replacement lands; /account is the shared
+// Settings screen for the same reason. /trainer was the dashboard's old address (it could not be
+// /coach — upstream's AI chat owns that path in the client table).
+function CoachRoutes({ user }) {
+  return (
+    <Routes>
+      <Route path="/today" element={<Coach />} />
+      <Route path="/account" element={<Settings />} />
+      {/* The operator page stays reachable for the admin account for one release, hidden, while
+          the pieces a single coach still needs (activity log, disabling an account) move into
+          Account. Everything else on it — classes, timetable, access requests — is gym-only. */}
+      <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/today" replace />} />
+      <Route path="/trainer" element={<Navigate to="/today" replace />} />
+      <Route path="*" element={<Navigate to="/today" replace />} />
+    </Routes>
+  )
+}
+
 function Shell() {
   const navigate = useNavigate()
   const loc = useLocation()
@@ -68,6 +116,8 @@ function Shell() {
   const isGuest = useStore(s => s.isGuest())
   const needsMobileOnboarding = useStore(s => s.needsMobileOnboarding)
   const langV = useLang()   // re-renders the whole shell when the language (pack) changes
+  const shellPref = useShellPref()
+  const shell = shellFor(user, shellPref)
   useEffect(() => { setNav(navigate) }, [navigate])
   useEffect(() => { applyPrefs(S.theme, S.accent) }, [S.theme, S.accent])
   // 'system' needs to react live if the OS theme flips while the app is open, not just on
@@ -134,41 +184,11 @@ function Shell() {
           re-mounts the boundary, so the tab bar is always a way out */}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
-          {!authed ? <Login /> : needsMobileOnboarding ? <MobileOnboarding /> : (
-            <Routes>
-              <Route path="/home" element={<Home />} />
-              {/* Gym check-in — switched off in Settings, the route falls through to the
-                  catch-all redirect below. */}
-              {S.checkIn !== false && <Route path="/checkin" element={<CheckIn />} />}
-              <Route path="/plan" element={<Plan />} />
-              <Route path="/plan/r/:id" element={<RoutineEdit />} />
-              <Route path="/workout" element={<Workout />} />
-              <Route path="/stats" element={<Stats />} />
-              <Route path="/nutrition" element={<Nutrition />} />
-              <Route path="/history" element={<History />} />
-              <Route path="/library" element={<Library />} />
-              {!MOBILE && !DEMO && <Route path="/sessions" element={<Sessions />} />}
-              <Route path="/muscles" element={<Muscles />} />
-              <Route path="/you" element={<You />} />
-              <Route path="/settings" element={<Settings />} />
-              {/* The Coach screens gate themselves on the instance config; the routes exist
-                  unconditionally so a deep link from a notification lands somewhere sane
-                  rather than on the catch-all. */}
-              <Route path="/coach" element={<CoachChat />} />
-              <Route path="/coach/intake" element={<CoachIntake />} />
-              <Route path="/coach/proposal" element={<Navigate to="/coach" replace />} />
-              <Route path="/coach/setup" element={<CoachSetup />} />
-              <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/home" replace />} />
-              {/* The human coach dashboard. NOT /coach: upstream routes its AI Coach chat there, and
-                  two identical paths in one <Routes> silently resolve to the first. */}
-              <Route path="/trainer" element={user?.coach ? <Coach /> : <Navigate to="/home" replace />} />
-              <Route path="*" element={<Navigate to="/home" replace />} />
-            </Routes>
-          )}
+          {!authed ? <Login /> : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <CoachRoutes user={user} /> : <ClientRoutes />}
         </ErrorBoundary>
       </div>
       {/* The chat owns the bottom of the screen: its composer sits where the tabs would be. */}
-      {loc.pathname !== '/coach' && <TabBar onStart={startFlow} />}
+      {loc.pathname !== '/coach' && (shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
       <RestTimer />
       <Modals />
       <Toast />

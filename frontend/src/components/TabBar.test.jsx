@@ -49,14 +49,10 @@ afterEach(() => {
 })
 
 describe('the bar itself', () => {
-  it('is five cells, which is the ceiling both iOS and Material set', () => {
+  it('is four cells: Home, Plan, the Start action and You — in that order', () => {
+    // Sessions left with the gym timetable; the coach dashboards moved to CoachTabBar.jsx.
     render('/home')
-    expect(cells()).toHaveLength(5)
-  })
-
-  it('is Home, Plan, the Start action, Sessions and You — in that order', () => {
-    render('/home')
-    expect(cells().map(b => b.textContent.trim())).toEqual(['Home', 'Plan', 'Start', 'Sessions', 'You'])
+    expect(cells().map(b => b.textContent.trim())).toEqual(['Home', 'Plan', 'Start', 'You'])
   })
 
   it('the centre cell is the raised action, not a destination', () => {
@@ -69,8 +65,8 @@ describe('what the You hub owns', () => {
   // Each of these lost its own cell, or never had one. Every one must still light the hub.
   for (const [path, label] of [
     ['/you', 'You'], ['/stats', 'You'], ['/history', 'You'], ['/library', 'You'],
-    ['/settings', 'You'], ['/admin', 'You'], ['/trainer', 'You'], ['/coach', 'You'],
-    ['/home', 'Home'], ['/plan', 'Plan'], ['/sessions', 'Sessions'],
+    ['/settings', 'You'], ['/coach', 'You'],
+    ['/home', 'Home'], ['/plan', 'Plan'],
   ]) {
     it(`${path} lights ${label}`, () => {
       render(path)

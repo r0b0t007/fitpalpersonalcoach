@@ -3,13 +3,12 @@ import { useStore } from '../store/useStore.js'
 import { effectiveRoutineIds, effectiveRoutines } from '../lib/history.js'
 import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { MOBILE } from '../lib/mobile.js'
-import { DEMO } from '../lib/demo.js'
 import Icon from './Icon.jsx'
 
 // Everything the You hub owns. /stats and /library lost their own cells; /settings, /history and
-// the two dashboards never had one.
-const YOU_ROUTES = ['you', 'stats', 'history', 'library', 'muscles', 'settings', 'admin', 'trainer', 'coach']
+// the AI coach never had one. The two dashboards used to be here too — they now live in the
+// coach shell (CoachTabBar.jsx), which this bar never renders alongside.
+const YOU_ROUTES = ['you', 'stats', 'history', 'library', 'muscles', 'settings', 'coach']
 
 export default function TabBar({ onStart }) {
   const nav = useNavigate()
@@ -20,8 +19,8 @@ export default function TabBar({ onStart }) {
   const assignments = useStore(s => s.assignments)
   if (!user && !isGuest) return null
   const cur = loc.pathname.split('/')[1] || 'home'
-  // Six routes have no cell of their own and all belong to the hub, so it stays lit while you are
-  // inside any of them. Miss one and the bar reads as though nothing is selected.
+  // Several routes have no cell of their own and all belong to the hub, so it stays lit while you
+  // are inside any of them. Miss one and the bar reads as though nothing is selected.
   const on = k => cur === k || (k === 'you' && YOU_ROUTES.includes(cur))
 
   const startWorkout = () => {
@@ -50,9 +49,6 @@ export default function TabBar({ onStart }) {
         <span className="cir"><Icon name={S.active ? (cur === 'workout' ? 'dumbbell' : 'play') : 'dumbbell'} /></span>
         <span>{S.active ? (cur === 'workout' ? t('Workout') : t('Resume')) : t('Start')}</span>
       </button>
-      {/* the timetable lives on the server — the standalone mobile and demo builds have none,
-          so the tab would only ever show an empty state there */}
-      {!MOBILE && !DEMO && <Tab k="sessions" icon="people" to="/sessions" label={t('Sessions')} />}
       <Tab k="you" icon="personCircle" to="/you" label={t('You')} dot={!!assignments?.length} />
     </nav>
   )

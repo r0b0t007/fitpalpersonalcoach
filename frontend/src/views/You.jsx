@@ -5,6 +5,7 @@ import { openCoachOffer } from '../sheets.jsx'
 import { MOBILE } from '../lib/mobile.js'
 import { DEMO } from '../lib/demo.js'
 import { Section, Row } from '../components/ui.jsx'
+import { isCoach, setShellPref } from '../lib/role.js'
 
 // The hub the tab bar gained when it lost two of its six cells.
 //
@@ -25,17 +26,13 @@ export default function You() {
       <div><h1>{t('You')}</h1>{user && <div className="sub">{user.name}</div>}</div>
     </div>
 
-    {/* Running the club is a daily job, so it sits above the member's own things rather than
-        three taps down inside Settings, where it used to be. Its own section so a coach who is
-        also a member does not have to pick their dashboard out of a list of preferences.
-        The dashboards themselves are English-only by choice; these labels never were, and are
-        translated in all 11 packs, so they keep using those keys. */}
-    {(user?.admin || user?.coach) && (
-      <Section title={t('Staff')}>
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')}
-          accessory="chevron" onClick={() => nav('/admin')} />}
-        {user.coach && <Row icon="figureStrength" iconTint="var(--indigo)" title={t('Coach dashboard')}
-          accessory="chevron" onClick={() => nav('/trainer')} />}
+    {/* This screen only renders in the training shell, so a coach seeing it is one who chose
+        "Train myself" (lib/role.js). The way back sits above their own things, where the Staff
+        section used to put the dashboards before the two shells were split. */}
+    {isCoach(user) && (
+      <Section>
+        <Row icon="figureStrength" iconTint="var(--acc)" title={t('Back to coaching')}
+          accessory="chevron" onClick={() => { setShellPref('coach'); nav('/today') }} />
       </Section>
     )}
 

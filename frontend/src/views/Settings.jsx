@@ -192,7 +192,6 @@ export default function Settings() {
       {user && syncError && <Row icon="warning" iconTint="var(--red)" title={t('This device could not save to the server')} subtitle={syncError} />}
       {MOBILE ? (user ? <>
         <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Synced with your openGym server.')} />
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
         <Row icon="signOut" iconTint="var(--red)" title={t('Disconnect')} danger onClick={() => confirmSheet({
           title: t('Disconnect from your server?'),
           message: t('Your data is synced to your server first, then this device switches back to local-only.'),
@@ -255,11 +254,6 @@ export default function Settings() {
         <Segmented className="seg-inline"
           options={[{ value: MONDAY, label: t('Monday') }, { value: SUNDAY, label: t('Sunday') }]}
           value={weekStartOf(S)} onChange={v => update(s => { s.weekStart = v })} />
-      </Row>
-      {/* Membership QR codes on Home (views/CheckIn.jsx); off = no Home card, no route. */}
-      <Row icon="qr" iconTint="var(--blue)" title={t('Gym check-in')}
-        subtitle={t('Show a card on Home with your membership QR codes.')}>
-        <Switch checked={S.checkIn !== false} onChange={v => update(s => { s.checkIn = v })} />
       </Row>
     </Section>
 
