@@ -21,3 +21,10 @@ node_modules
 junit.xml
 coverage/
 frontend/bundle-size.json
+
+# design-sync (claude.ai/design) scratch — regenerated per run
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
