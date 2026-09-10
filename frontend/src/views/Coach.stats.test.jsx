@@ -12,6 +12,7 @@
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
+import { todayISO } from '../lib/format.js'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('../lib/api.js', () => ({
@@ -31,11 +32,15 @@ const { StatsPanels } = await import('./Stats.jsx')
 // test nothing.
 //
 // THE COPY IS THE HAZARD, THOUGH, AND IT HAS ALREADY BITTEN. It silently fell five fields behind
-// the real one — checkins, checkinDay, meals, mealDays, nutriTarget — so everything Phase 1's
-// check-ins and step 8's nutrition added went untested through this path, and a test written
-// against it failed for the mirror's reasons rather than the code's. A stale mirror does not fail;
-// it quietly tests the contract as it stood when someone last looked. **Anything added to
-// memberState in Coach.jsx must be added here in the same commit.**
+// the real one — checkins, checkinDay, meals, mealDays, nutriTarget — and a test written against
+// it then failed for the mirror's reasons rather than the code's. Of those five, the three that
+// matter here are the nutrition ones: StatsPanels reads them, so a mirror without them renders a
+// client who looks like they never ate. `checkins`/`checkinDay` have no consumer on this path at
+// all — Stats.jsx never reads them, and Coach.jsx hands them straight to CheckinsCard outside
+// this transform — so they are carried for fidelity with the real thing, nothing more.
+//
+// The parity test below is what actually enforces this. A comment cannot fail CI, and this drift
+// already survived two whole features.
 const memberState = d => ({
   ...DEF,
   unit: d.unit, body: d.body, targetW: d.targetW, effort: d.effort, showRir: d.showRir,
@@ -138,7 +143,7 @@ describe('StatsPanels against a member payload', () => {
 // scored result and the parts it was scored from are both plausible-looking objects. Reading
 // `.rate` off the parts yields undefined and renders nothing at all: no error, just a column
 // that quietly stops appearing. That is what these pin.
-const { AdherenceCard, CheckinsCard, RosterAdherence, memberAdherence } = await import('./Coach.jsx')
+const { AdherenceCard, CheckinsCard, RosterAdherence, memberAdherence, memberState: realMemberState } = await import('./Coach.jsx')
 
 describe('adherence in the coach view', () => {
   // Fixed, never the clock. memberAdherence defaults `todayIso` to today, so a test that let it
@@ -355,7 +360,13 @@ describe('nutrition in the coach view', () => {
     })
     return host
   }
-  const today = new Date().toISOString().slice(0, 10)
+  // todayISO(), NOT toISOString().slice(0,10). NutritionCard asks todayISO() what day it is, and
+  // that is the LOCAL day; toISOString gives the UTC one. They agree on a UTC runner and diverge
+  // for anyone east or west of it for part of every day — so a UTC-dated fixture silently lands
+  // on "yesterday", totalsFor finds nothing, and the card renders the very string this suite
+  // exists to catch: "0 / 2,200 kcal". The first version of this file made exactly that mistake,
+  // hours after the same bug was fixed in coach-local.test.js. Third time in this repo.
+  const today = todayISO()
   const fed = {
     ...payload,
     meals: [
@@ -366,15 +377,14 @@ describe('nutrition in the coach view', () => {
     nutriTarget: { kcal: 2200, p: 160, c: 220, f: 70 },
   }
 
-  it('carries the day through to the panel', () => {
+  // '634 / 2,200' and not /634/: the average line below the chart ("634 kcal on average") carries
+  // the same number and does NOT depend on the entry falling on today, so a loose match stays
+  // green even when the day is wrong — which is precisely how the UTC bug above hid itself.
+  it("shows today's intake against the target the coach set", () => {
     const text = render(memberState(fed)).textContent
     expect(text).toContain('Nutrition')
-    expect(text).toMatch(/634/)            // 304 + 330, what they actually ate today
-  })
-
-  it('shows the intake against the target the coach set', () => {
-    expect(memberState(fed).nutriTarget).toEqual(fed.nutriTarget)
-    expect(render(memberState(fed)).textContent).toMatch(/2,?200/)
+    expect(text).toContain('634 / 2,200')
+    expect(text).toContain('72.4 / 160')        // protein too, so one number cannot carry the test
   })
 
   it('offers no way to log from the coach view', () => {
@@ -385,10 +395,42 @@ describe('nutrition in the coach view', () => {
     expect(logs).toHaveLength(0)
   })
 
+  // mealDays is not a minor field: past MEALS_KEEP_DAYS, compactMeals has rolled a client's
+  // history into it and it is ALL the coach's chart has left. Both fixtures above set it to {},
+  // and DEF supplies {} too, so dropping it from the transform was invisible — verified by
+  // deleting the mirror line and watching every test stay green.
+  it('draws a card at all for a history that has already been compacted', () => {
+    // Note what is NOT asserted: the rolled-up figure itself. compactMeals only rolls days past
+    // MEALS_KEEP_DAYS (120), so a compacted day is by definition older than the chart's default
+    // 30-day window and correctly renders "Nothing logged in this window" — reading 2,100 here
+    // would need the All range, which is a different test. The property that matters on the wire
+    // is that the rollup ALONE satisfies hasNutrition, so a client whose history has aged out
+    // still gets a card instead of vanishing from the coach's view entirely.
+    const rolled = { ...payload, meals: [], nutriTarget: null, mealDays: { '2026-01-04': [2100, 150, 210, 65] } }
+    expect(render(memberState(rolled)).textContent).toContain('Nutrition')
+  })
+
   it('draws nothing at all for a member who has never logged a meal', () => {
     // The honest empty state here is absence: a zero-calorie day is not the same as no data, and
     // rendering "0 kcal" against a coach's target would read as a client who ate nothing.
     const text = render(memberState({ ...payload, meals: [], mealDays: {}, nutriTarget: null })).textContent
     expect(text).not.toContain('Nutrition')
+  })
+})
+
+// The mirror above is only worth keeping if it cannot drift, and it already did — five fields,
+// across two features, with nothing going red. This is the guard: the real transform is imported
+// for its SHAPE only, so the behavioural assertions still run against the local copy and still
+// test the transform rather than importing it, but a field added on one side alone fails here.
+describe('the local memberState mirror matches the real one', () => {
+  it('carries exactly the same keys', () => {
+    const full = {
+      ...payload,
+      checkins: [{ d: '2026-09-06', answers: { energy: 4 }, t: 1 }], checkinDay: 3,
+      meals: [{ id: 'm1', d: '2026-09-06', n: 'Oats', g: 80, kcal: 304, p: 10, c: 48, f: 6, t: 1 }],
+      mealDays: { '2026-01-04': [2100, 150, 210, 65] },
+      nutriTarget: { kcal: 2200 },
+    }
+    expect(Object.keys(memberState(full)).sort()).toEqual(Object.keys(realMemberState(full)).sort())
   })
 })

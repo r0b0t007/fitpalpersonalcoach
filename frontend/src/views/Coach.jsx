@@ -212,7 +212,10 @@ export function AdherenceCard({ a }) {
   </div>
 }
 
-const memberState = d => ({
+// Exported only so Coach.stats.test.jsx can assert its key set against the local mirror it tests
+// the transform through. That mirror silently fell five fields behind this and nothing failed, so
+// the parity check is the thing that stops it happening again — a comment cannot fail CI.
+export const memberState = d => ({
   ...DEF,
   unit: d.unit, body: d.body, targetW: d.targetW, effort: d.effort, showRir: d.showRir,
   bodyweight: d.bodyweight || [],
