@@ -673,6 +673,12 @@ h4.sec{
 /* both the animation and the still failed to load: a neutral tile instead of the browser's
    broken-image glyph; same heights as the picture so the card does not jump. tap retries. */
 .exmedia.broken{background:var(--surface-2)}
+/* The white above exists for the dataset gifs and stills, which are drawn on white. A coach's own
+   video has no such need, and with no poster there are real windows where nothing has decoded yet
+   — autoplay refused, a card still offscreen, a slow file before the stall deadline — where white
+   reads as broken rather than as not-started. Surface-2 with the "Coach demo" badge over it reads
+   as a video waiting to play, which is what it is. Same treatment .broken already gets. */
+.exmedia.vid{background:var(--surface-2)}
 .exmedia-x{width:100%;height:320px;display:flex;align-items:center;justify-content:center;color:var(--label-3);font-size:34px}
 .exmedia.compact .exmedia-x{height:120px}
 .exmedia.mini .exmedia-x{height:84px}

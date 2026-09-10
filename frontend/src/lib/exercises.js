@@ -190,6 +190,18 @@ export function resolveMedia(ex, rows) {
   const pic = list.find(isPhotoRow)
   const gif = ex && ex.gif ? gifSrc(ex) : null
   const poster = pic ? mediaRowSrc(pic) : (ex && ex.img ? imgSrc(ex) : null)
+  // What a <video> may show BEFORE it has decoded a frame — and deliberately not `poster` above.
+  // That one falls back to the dataset still, which is a photograph of a stranger doing the lift:
+  // putting it over the coach's own footage is worse than showing nothing, because it reads as
+  // the demo itself until the video starts. With no poster the browser paints the video's own
+  // first frame instead, which is what a filmed demo should look like.
+  //
+  // A coach-uploaded photo IS used, because that one they chose. Generating a real poster frame
+  // from the video needs ffmpeg, which is the step this fork has not taken.
+  // `pic ? poster : null`, not a second `mediaRowSrc(pic)`: the invariant is "the same photo the
+  // chain would use, minus the dataset fallback", and re-deriving the first rung means a change to
+  // how `pic` is chosen up there silently leaves this behind.
+  const videoPoster = pic ? poster : null
   return {
     video: vid ? mediaRowSrc(vid) : null,
     // 'raw' does not mean broken. It means nothing has yet confirmed a browser can decode this
@@ -199,6 +211,7 @@ export function resolveMedia(ex, rows) {
     label: vid ? String(vid.label || '') : '',
     gif,
     poster,
+    videoPoster,
     // Whether there is anything at all to draw. This is the gate Media.jsx opens on, and it is
     // the reason a custom exercise can finally render something.
     any: !!(vid || gif || pic)
