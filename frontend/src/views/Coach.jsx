@@ -11,6 +11,7 @@ import { adherenceBand, adherenceOf } from '../lib/adherence.js'
 import { QUESTIONS, scoreOf } from '../lib/checkins.js'
 import { photoSrc, photosByPeriod, PHOTOS_REACHABLE } from '../lib/photo.js'
 import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
+import { confirmSheet } from '../sheets.jsx'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
@@ -459,6 +460,145 @@ const MB = b => (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB'
 // counted against the cap instead of vanishing from a list it still occupies.
 const exName = id => (EXIDX[id] && EXIDX[id].n) || id
 
+// Taking a client on. The code IS the product here: the coach makes one, reads it out or texts
+// it, and the person who redeems it lands on their roster already assigned — which until now took
+// an admin running assign-coach by hand after the fact.
+//
+// English-only raw strings, like the rest of this screen. It is an operator surface.
+function InviteSheet() {
+  const toast = useUI(s => s.toast)
+  const [state, setState] = useState(null)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const [failed, setFailed] = useState(false)
+  // NOT a { max: 0 } placeholder on failure. That reads as a real answer everywhere downstream:
+  // `open.length >= state.max` is 0 >= 0, so the button disables itself permanently with no retry,
+  // under a message reading "You have 0 codes waiting. Revoke one you are not going to use."
+  // A failure leaves state null and says so.
+  const load = () => api('/api/coach/invites')
+    .then(d => { setState(d); setFailed(false) })
+    .catch(e => { setFailed(true); toast(e.message) })
+  useEffect(() => { load() }, [])
+
+  const invites = state?.invites || []
+  const open = invites.filter(i => !i.usedAt && !i.revoked)
+  const used = invites.filter(i => i.usedAt)
+  // Shown, not dropped. Filtering revoked codes out of BOTH lists meant a revoke — accidental or
+  // not — erased the row with no trace, so a coach could not tell a code they had sent from one
+  // that had never existed. The admin screen keeps them for the same reason.
+  const dead = invites.filter(i => i.revoked && !i.usedAt)
+
+  const mint = async () => {
+    setBusy(true)
+    try {
+      const { invite } = await api('/api/coach/invites/new', { method: 'POST', body: JSON.stringify({ note }) })
+      // Straight to the clipboard: the only thing anyone does with a fresh code is send it to
+      // somebody, and reading sixteen hex characters off a screen into a message is where a typo
+      // becomes "your code doesn't work".
+      //
+      // BEFORE load(), not after. WebKit only honours a clipboard write while the user activation
+      // from the tap is still live, and load() is a second round trip — so on Safari, which is
+      // most of the phones and iPads a coach holds on a gym floor, awaiting it first meant the
+      // write was refused every single time and the feature silently degraded to the fallback.
+      try { await navigator.clipboard.writeText(invite.code); toast('Code copied — ' + invite.code) }
+      catch { toast('Code ready — ' + invite.code) }
+      setNote('')
+      await load()
+    } catch (e) { toast(e.message) } finally { setBusy(false) }
+  }
+
+  // Confirmed, like the identical action on the admin screen. There is no un-revoke route, this
+  // button sits six pixels from Copy, and a code the coach has already texted to someone dies on
+  // a mis-tap — the client then reads "invite code is no longer valid" while the coach has no
+  // idea why. The message names the code and the note so the sheet is answerable without
+  // remembering which row was tapped.
+  const revoke = i => confirmSheet({
+    title: 'Revoke this code?',
+    message: (i.note ? `“${i.note}” — ` : '') + `${i.code} stops working immediately. If you have already sent it out, whoever has it will not be able to join.`,
+    confirmText: 'Revoke', danger: true,
+    onConfirm: () => api('/api/coach/invites/revoke', { method: 'POST', body: JSON.stringify({ code: i.code }) })
+      .then(() => { toast('Code revoked'); return load() }).catch(e => toast(e.message))
+  })
+
+  const copy = async code => {
+    try { await navigator.clipboard.writeText(code); toast('Copied ' + code) }
+    catch { toast(code) }
+  }
+
+  return <>
+    <h3>Take a client on</h3>
+    <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
+      Make a code and give it to the person joining. They enter it when they sign up, and they
+      arrive already on your roster — nobody has to assign them afterwards.
+    </div>
+
+    {/* A code only does anything on an instance that gates signup on codes. With INVITE_ONLY off
+        registration never looks at an invite at all, so the code would be real, redeemable, and
+        bind nothing — worth saying before they hand one out, not after. */}
+    {state && !state.inviteOnly && <div className="card" style={{ borderColor: 'var(--red)', marginBottom: 12 }}>
+      <div className="small" style={{ lineHeight: 1.45 }}>
+        This gym does not require a code to sign up, so a code will not put anyone on your roster.
+        Ask an admin to turn invite-only on first.
+      </div>
+    </div>}
+
+    <input className="input" placeholder="Who is it for? (optional)" value={note} maxLength={60}
+      onChange={e => setNote(e.target.value)} style={{ marginBottom: 8 }} />
+    <Button variant="primary" disabled={busy || !state || open.length >= state.max} onClick={mint}>
+      {busy ? 'Making…' : 'Make a code'}
+    </Button>
+    {!!state && open.length >= state.max && <div className="dim small" style={{ marginTop: 6 }}>
+      You have {state.max} codes waiting. Revoke one you are not going to use.
+    </div>}
+
+    <h4 className="sec" style={{ marginTop: 18 }}>Waiting to be used</h4>
+    {failed ? <div className="dim small">Could not load your codes.{' '}
+      {/* A button, not an <a onClick> — with no href an anchor is not keyboard-focusable and gets
+          no pointer cursor, and this is the only retry on a sheet whose Make-a-code button is
+          disabled until a load succeeds. Unreachable here means stuck here. */}
+      <button className="btn" style={{ width: 'auto', padding: '2px 10px' }} onClick={load}>Try again</button></div>
+      : state === null ? <div className="dim small">Loading…</div>
+      : open.length ? <div className="list" style={{ rowGap: 0 }}>
+        {open.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <div>
+            <div className="small" style={{ fontWeight: 600, fontFamily: 'ui-monospace, monospace' }}>{i.code}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>
+              {i.note ? i.note + ' · ' : ''}made {fmtDate(String(i.created).slice(0, 10))}</div>
+          </div>
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => copy(i.code)}>Copy</button>
+            <button className="iconbtn" aria-label={'Revoke ' + i.code} onClick={() => revoke(i)}><Icon name="trash" /></button>
+          </div>
+        </div>)}
+      </div> : <div className="dim small">No codes waiting.</div>}
+
+    {!!dead.length && <>
+      <h4 className="sec" style={{ marginTop: 18 }}>Revoked</h4>
+      <div className="list" style={{ rowGap: 0 }}>
+        {dead.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)', opacity: .55 }}>
+          <div><div className="small" style={{ fontWeight: 600, textDecoration: 'line-through', fontFamily: 'ui-monospace, monospace' }}>{i.code}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>{i.note || 'no note'} · will not work</div></div>
+        </div>)}
+      </div>
+    </>}
+
+    {/* Kept rather than hidden once used: this is the record of who came in on which code, and
+        it is the only place a coach can see that a code they sent was actually redeemed. */}
+    {!!used.length && <>
+      <h4 className="sec" style={{ marginTop: 18 }}>Used</h4>
+      <div className="list" style={{ rowGap: 0 }}>
+        {used.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <div><div className="small" style={{ fontWeight: 600 }}>{i.usedByName || 'someone'}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>
+              {i.note ? i.note + ' · ' : ''}joined {fmtDate(String(i.usedAt).slice(0, 10))}</div></div>
+          <span className="dim" style={{ fontSize: '.7rem', fontFamily: 'ui-monospace, monospace' }}>{i.code}</span>
+        </div>)}
+      </div>
+    </>}
+  </>
+}
+
 function MediaSheet() {
   const S = useStore(s => s.S)
   const toast = useUI(s => s.toast)
@@ -669,6 +809,20 @@ export default function Coach() {
       <div style={{ height: 10 }} />
       <Button variant="ghost" className="dim" disabled={!members?.length}
         onClick={() => openSheet(close => <SendSheet members={members || []} close={close} />)}>Send my current plan instead</Button>
+    </div>
+
+    {/* Grouped with demos rather than put at the top: both are things you set up occasionally,
+        where programming is what you come to this screen for daily. Verified in a browser that
+        this is in fact where it renders — the first version of this comment claimed it was the
+        first card under the numbers, which it never was. */}
+    <div className="card">
+      <div className="row between"><h2 style={{ margin: 0 }}>Take a client on</h2>
+        <Button variant="primary" size="sm" icon="plus"
+          onClick={() => openSheet(() => <InviteSheet />)}>Make a code</Button></div>
+      <div className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.4 }}>
+        Give the code to whoever is joining. They enter it when they sign up and arrive already on
+        your roster.
+      </div>
     </div>
 
     {/* Below programming, above the live roster: a demo is something you set up once and then

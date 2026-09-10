@@ -92,6 +92,12 @@ jobs:
       # a trimmed date is indistinguishable from a day nobody trained, so every member's
       # adherence just quietly drops.
       - run: node api/scripts/check-adherence-window.mjs
+      # Every audit event server.js emits must have a human label in frontend/src/lib/audit.js, or
+      # the admin activity log prints a dotted identifier at whoever is reading it. audit.test.js
+      # claims to guard this and cannot — its event list is a hand-typed copy, so it only ever
+      # tests the names somebody remembered to copy, and three auth.pair.* events had been
+      # shipping unlabelled because of it. This reads both files.
+      - run: node api/scripts/check-audit-labels.mjs
 
   # The unit suite imports domain.mjs and nothing else, so until this job existed no HTTP route,
   # cookie check or permission boundary was covered by any automated run: canCoachMember was

@@ -252,6 +252,31 @@ export function canCoachMember(coach, member, { isAdmin = false } = {}) {
   return isAdmin || member.coachId === coach.id
 }
 
+/**
+ * Who, if anyone, does redeeming this invite put the new member with?
+ *
+ * The decision this makes is the whole of "a coach can take a client on", and it cannot be
+ * reached from the smoke suite — registration needs a real passkey — so it lives here with tests
+ * beside it, the way CONTRIBUTING asks for anything that decides something.
+ *
+ * `isCoach` is injected rather than computed, exactly as canCoachMember takes `isAdmin`: whether
+ * someone counts as a coach depends on ADMIN_UIDS from the environment, which has no business in
+ * a pure function.
+ *
+ * Two rules, both about time passing. The binding is read from the invite's explicit `coachId`
+ * and never inferred from who created it — admins count as coaches, so inferring would make every
+ * general admin invite silently assign that admin. And eligibility is judged NOW, not at mint
+ * time: a code can sit unread in a message for a fortnight, and a coach disabled or demoted in
+ * between must not keep acquiring clients. Returning null then is not a refusal of the signup —
+ * the caller still registers the member, unassigned.
+ */
+export function coachBinding(invite, coach, { isCoach = false } = {}) {
+  if (!invite || !invite.coachId) return null
+  if (!coach || coach.id !== invite.coachId) return null
+  if (!isCoach || coach.disabled) return null
+  return coach.id
+}
+
 export function validateAssignmentBundle(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { error: 'plan required' }
   if (!raw.opengym_plan) return { error: 'not a plan bundle' }

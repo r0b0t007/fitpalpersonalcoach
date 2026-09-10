@@ -19,8 +19,12 @@ cat > "$D/db.json" <<'JSON'
   {"id":"mem2","name":"Theirs","coachId":"coachB","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem3","name":"Unassigned","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem4","name":"Disabled","coachId":"coachA","disabled":true,"created":"2026-01-01T00:00:00.000Z"}
-],"creds":[],"subs":[],"invites":[],"requests":[],"sessions":[],"assignments":[],
-"media":[{"id":"brokenrow","exId":"0099","coachId":"coachA","mime":"video/mp4","status":"ready"}]}
+],"creds":[],"subs":[],"requests":[],"sessions":[],"assignments":[],
+"media":[{"id":"brokenrow","exId":"0099","coachId":"coachA","mime":"video/mp4","status":"ready"}],
+"invites":[
+  {"code":"REDEEMEDMINE0000","note":"already used","createdBy":"coachA","coachId":"coachA","created":"2026-01-01T00:00:00.000Z","usedBy":"mem1","usedAt":"2026-01-02T00:00:00.000Z"},
+  {"code":"REDEEMEDTHEIRS00","note":"used, then reassigned","createdBy":"coachA","coachId":"coachA","created":"2026-01-01T00:00:00.000Z","usedBy":"mem2","usedAt":"2026-01-02T00:00:00.000Z"}
+]}
 JSON
 # That media row has no `file`, on purpose, and is seeded here rather than injected later because
 # the server holds db.json in memory — a row written to the file after boot is never seen. It is
@@ -522,6 +526,92 @@ chk "the opened member carries their photos"     2 "$(get -H "Cookie: $CA" "$B/a
 chk "...as metadata only, never a path"       true "$(get -H "Cookie: $CA" "$B/api/coach/member?id=mem1" | node -pe "
   const p=JSON.parse(require('fs').readFileSync(0,'utf8')).photos;
   String(p.every(x => !('file' in x) && x.id && x.d && x.pose))")"
+
+echo "== taking a client on: minting =="
+mint() { curl -s -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $1" -d "{\"note\":\"$2\"}"; }
+chk "anonymous cannot mint a code"            401 "$(code -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -d '{}')"
+chk "a member cannot mint a code"             403 "$(code -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $M1" -d '{}')"
+CODE_A=$(mint "$CA" "for Nadia" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "a coach mints one"                      true "$(node -pe "String(/^[0-9A-F]{16}$/.test(process.argv[1]))" "$CODE_A")"
+chk "and it carries the coach it belongs to" true "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{}).coachId==='coachA')" "$CODE_A")"
+
+echo "== an admin's own code must NOT bind anyone =="
+# isCoach() counts admins as coaches, so inferring the binding from createdBy would have made
+# every general admin invite — and every access-request approval — silently assign that admin as
+# the new member's coach. The field is explicit precisely so this stays absent.
+ACODE=$(curl -s -X POST "$B/api/admin/invites/new" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"note":"general"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "an admin's general code has no coachId" true "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String(!('coachId' in (d.invites.find(i=>i.code===process.argv[1])||{})))" "$ACODE")"
+
+echo "== listing is scoped to the coach, not the gym =="
+chk "coachA sees their own code"                1 "$(get -H "Cookie: $CA" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.invites.filter(i=>i.code===process.argv[1]).length)" "$CODE_A")"
+chk "coachB does NOT see it"                    0 "$(get -H "Cookie: $CB" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.invites.filter(i=>i.code===process.argv[1]).length)" "$CODE_A")"
+chk "nor does the admin's general code appear"  0 "$(get -H "Cookie: $CA" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.invites.filter(i=>i.code===process.argv[1]).length)" "$ACODE")"
+
+echo "== revoking is scoped too, and says nothing about what it will not touch =="
+rev() { curl -s -o /dev/null -w "%{http_code}" -X POST "$B/api/coach/invites/revoke" -H 'Content-Type: application/json' -H "Cookie: $1" -d "{\"code\":\"$2\"}"; }
+chk "another coach cannot revoke it"          404 "$(rev "$CB" "$CODE_A")"
+chk "...the same 404 a made-up code gets"     404 "$(rev "$CB" "AAAAAAAAAAAAAAAA")"
+chk "a coach cannot revoke the admin's code"  404 "$(rev "$CA" "$ACODE")"
+chk "the owner can revoke it"                 200 "$(rev "$CA" "$CODE_A")"
+chk "and it is flagged, not deleted"         true "$(get -H "Cookie: $CA" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{}).revoked===true)" "$CODE_A")"
+
+echo "== a used code names the redeemer only while they are still yours =="
+# Both codes below are seeded already-redeemed in db.json at boot, because redeeming one for real
+# needs a passkey and editing the file mid-run does not survive this suite's bash-vs-node /tmp
+# split on Windows. REDEEMED-MINE was used by a member of coachA's roster; REDEEMED-THEIRS by one
+# of coachB's, which is the case that matters: the invite keeps its coachId forever, but the
+# member may not be on this roster — binding is refused if the coach was disabled at redemption,
+# and an admin can reassign anyone afterwards. Handing the name back regardless would leak it on
+# the one screen whose sibling route answers 403 specifically to stop a coach enumerating the gym.
+mine() { get -H "Cookie: $CA" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{})[process.argv[2]])" "$1" "$2"; }
+chk "a redeemer on their roster is named"    "Mine" "$(mine REDEEMEDMINE0000 usedByName)"
+chk "one who is not is withheld"             "null" "$(mine REDEEMEDTHEIRS00 usedByName)"
+chk "...but that code still reads as used"   true   "$(mine REDEEMEDTHEIRS00 usedAt | node -pe "String(process.argv[1]!=='null'&&process.argv[1]!=='undefined')" "$(mine REDEEMEDTHEIRS00 usedAt)")"
+
+echo "== a coach who loses the role stops handing out working codes =="
+# New risk with coach-minted invites. While only admins could mint, every live code was under the
+# gym's direct control; a code minted by a role that can be TAKEN AWAY is different. The
+# registration gate only asks whether a code is unused and unrevoked, so a coach let go on Monday
+# would otherwise still be handing out working signups on Tuesday.
+LIVE=$(curl -s -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $CB" -d '{"note":"coachB open"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "coachB's code starts out usable"        false "$(get -H "Cookie: $CB" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String(!!(d.invites.find(i=>i.code===process.argv[1])||{}).revoked)" "$LIVE")"
+curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":true}'
+chk "disabling them revokes it"               true "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{}).revoked===true)" "$LIVE")"
+chk "...with a reason, not silently"  "coach detached" "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{}).revokedReason)" "$LIVE")"
+# Revoked, never deleted: the row is the record that the code was issued at all.
+chk "the row survives"                        true "$(get -H "Cookie: $ADMIN" "$B/api/admin/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String(!!d.invites.find(i=>i.code===process.argv[1]))" "$LIVE")"
+curl -s -o /dev/null -X POST "$B/api/admin/user/disable" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"coachB","disabled":false}'
+
+echo "== deleting a class no longer 500s after deleting it =="
+# `audit(req, 'admin.invite.revoke', { user: admin, msg: inv.code })` sat in sessions/delete since
+# v1.2.9, where neither identifier exists — a ReferenceError AFTER saveDb(), so the class went and
+# the dashboard reported failure. And invite revocations went unlogged the whole time.
+# save answers { ok: true } and nothing else, so the id comes back off the timetable.
+curl -s -o /dev/null -X POST "$B/api/admin/sessions/save" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"session":{"title":"Doomed","date":"'"$C1"'","time":"11:00"},"confirm":true}'
+DID=$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));((d.sessions||[]).find(s=>s.title==='Doomed')||{}).id||''")
+chk "delete answers 200, not 500"             200 "$(code -X POST "$B/api/admin/sessions/delete" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d "{\"id\":\"$DID\"}")"
+chk "and the class is actually gone"            0 "$(curl -s "$B/api/sessions" -H "Cookie: $ADMIN" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String(d.sessions.filter(s=>s.title==='Doomed').length)")"
 
 echo ""
 echo "passed $pass, failed $fail"

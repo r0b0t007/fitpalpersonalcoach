@@ -10,7 +10,7 @@ import {
   pendingAssignmentsFor, ASSIGN_MAX_ROUTINES, ASSIGN_MAX_EX, ASSIGN_PENDING_DAYS,
   ASSIGN_NOTE_MAX, NUTRI_MAX_KCAL, NUTRI_MAX_MACRO,
   sessionsOverlap, findSessionConflicts,
-  sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile
+  sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, coachBinding, safeMediaFile
 } from './domain.mjs'
 
 const DAY = 86400000
@@ -551,4 +551,38 @@ test('safeMediaFile refuses everything that is not a plain stored file', () => {
   assert.equal(safeMediaFile(undefined), false)
   assert.equal(safeMediaFile(null), false)
   assert.equal(safeMediaFile(123), false)
+})
+
+/* ---------- taking a client on ---------- */
+// This decides whether redeeming an invite puts someone on a coach's roster, and no smoke test can
+// reach it — registration needs a real passkey. So the rules live here.
+
+const INVITER = { id: 'c1', name: 'Ahmed', coach: true }
+
+test('a coach invite binds the client to that coach', () => {
+  assert.equal(coachBinding({ code: 'X', coachId: 'c1' }, INVITER, { isCoach: true }), 'c1')
+})
+
+// The bug this shape exists to prevent. isCoach() counts admins as coaches, so a binding inferred
+// from `createdBy` would put every general admin invite — and every access-request approval —
+// onto that admin's roster silently. No coachId, no binding, whoever minted it.
+test('an invite with no coachId binds nobody, even minted by a coach', () => {
+  assert.equal(coachBinding({ code: 'X', createdBy: 'c1' }, INVITER, { isCoach: true }), null)
+  assert.equal(coachBinding({ code: 'X' }, INVITER, { isCoach: true }), null)
+})
+
+// A code can sit unread in a message for a fortnight. Eligibility is judged when it is REDEEMED.
+test('a coach who has since been disabled or demoted acquires nobody', () => {
+  assert.equal(coachBinding({ coachId: 'c1' }, { ...INVITER, disabled: true }, { isCoach: true }), null)
+  assert.equal(coachBinding({ coachId: 'c1' }, { id: 'c1', name: 'Ahmed' }, { isCoach: false }), null)
+})
+
+test('a coachId pointing at nobody, or at someone else, binds nothing', () => {
+  assert.equal(coachBinding({ coachId: 'gone' }, null, { isCoach: true }), null)
+  assert.equal(coachBinding({ coachId: 'c1' }, { id: 'c2', coach: true }, { isCoach: true }), null)
+})
+
+test('no invite at all is not an error', () => {
+  assert.equal(coachBinding(null, INVITER, { isCoach: true }), null)
+  assert.equal(coachBinding(undefined, INVITER, { isCoach: true }), null)
 })

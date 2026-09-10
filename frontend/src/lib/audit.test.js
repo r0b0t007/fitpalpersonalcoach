@@ -2,13 +2,19 @@ import { describe, it, expect } from 'vitest'
 import { auditCat, auditLabel, auditReason, auditLine, fmtWhen } from './audit.js'
 
 // Every event name and reason code the server can emit (api/server.js, the audit block).
-// If a new one is added there without a label here, the first test fails rather than the
-// dashboard quietly printing a dotted identifier at a person.
+//
+// This list is a hand-typed COPY, so it can only ever test the names somebody remembered to copy —
+// it does NOT catch a new event added to server.js, whatever an earlier version of this comment
+// claimed. It had been stale long enough that auth.pair.{create,ok,fail} shipped unlabelled and
+// nothing went red. **api/scripts/check-audit-labels.mjs is the guard that actually reads both
+// files**; this list stays for the rendering assertions below.
 const EVENTS = [
   'auth.login.ok', 'auth.login.fail', 'auth.register.ok', 'auth.register.fail',
   'auth.register.denied', 'auth.logout', 'auth.logout.all',
   'admin.user.disable', 'admin.user.enable', 'admin.invite.create',
-  'admin.invite.revoke', 'admin.audit.clear', 'admin.denied'
+  'admin.invite.revoke', 'admin.audit.clear', 'admin.denied',
+  'auth.pair.create', 'auth.pair.ok', 'auth.pair.fail',
+  'coach.invite.create', 'coach.invite.revoke'
 ]
 const REASONS = [
   'challenge-expired', 'unknown-credential', 'verify-error', 'not-verified',
@@ -39,8 +45,11 @@ describe('auditCat', () => {
   it('survives a missing event name', () => {
     expect(auditCat(undefined)).toBe('')
   })
-  it('puts every known event in exactly auth or admin', () => {
-    expect([...new Set(EVENTS.map(auditCat))].sort()).toEqual(['admin', 'auth'])
+  // The point is not the number of categories, it is that each one is REACHABLE: Admin.jsx builds
+  // its filter chips from a hardcoded list, so an event in a category with no chip is visible only
+  // under "All". coach.* was exactly that until a chip was added for it.
+  it('puts every known event in a category the dashboard has a chip for', () => {
+    expect([...new Set(EVENTS.map(auditCat))].sort()).toEqual(['admin', 'auth', 'coach'])
   })
 })
 
