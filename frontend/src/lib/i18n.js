@@ -16,9 +16,16 @@ export {
 
 // Vite code-splits locale, instruction and exercise-name packs via import.meta.glob. They are
 // lazy, so the production bundle ships English only until another language is selected.
-const localePacks = import.meta.glob('../locales/*.js')
-const instrPacks = import.meta.glob('../instr/*.js')
-const exerciseNamePacks = import.meta.glob('../exercise-names/*.js')
+//
+// Each lookup sits in its own try: Vite rewrites the literal call at build time, so under Vite
+// the catch is dead code. Under any other bundler (esbuild packaging the components for
+// claude.ai/design — see .design-sync/) `import.meta` is an empty object and the call throws;
+// catching it leaves the packs empty, which means English, instead of taking the whole module
+// down at load and every component that imports t() with it.
+let localePacks = {}, instrPacks = {}, exerciseNamePacks = {}
+try { localePacks = import.meta.glob('../locales/*.js') } catch { /* not Vite: English only */ }
+try { instrPacks = import.meta.glob('../instr/*.js') } catch { /* not Vite */ }
+try { exerciseNamePacks = import.meta.glob('../exercise-names/*.js') } catch { /* not Vite */ }
 
 // React subscription bookkeeping — kept here, not in core, so core has zero React coupling.
 const subs = new Set()
