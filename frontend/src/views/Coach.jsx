@@ -459,6 +459,108 @@ const MB = b => (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB'
 // counted against the cap instead of vanishing from a list it still occupies.
 const exName = id => (EXIDX[id] && EXIDX[id].n) || id
 
+// Taking a client on. The code IS the product here: the coach makes one, reads it out or texts
+// it, and the person who redeems it lands on their roster already assigned — which until now took
+// an admin running assign-coach by hand after the fact.
+//
+// English-only raw strings, like the rest of this screen. It is an operator surface.
+function InviteSheet() {
+  const toast = useUI(s => s.toast)
+  const [state, setState] = useState(null)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const load = () => api('/api/coach/invites')
+    .then(setState)
+    .catch(e => { setState({ invites: [], inviteOnly: true, max: 0 }); toast(e.message) })
+  useEffect(() => { load() }, [])
+
+  const invites = state?.invites || []
+  const open = invites.filter(i => !i.usedAt && !i.revoked)
+  const used = invites.filter(i => i.usedAt)
+
+  const mint = async () => {
+    setBusy(true)
+    try {
+      const { invite } = await api('/api/coach/invites/new', { method: 'POST', body: JSON.stringify({ note }) })
+      setNote('')
+      await load()
+      // Straight to the clipboard: the only thing anyone does with a fresh code is send it to
+      // somebody, and reading sixteen hex characters off a screen into a message is where a
+      // typo becomes "your code doesn't work".
+      try { await navigator.clipboard.writeText(invite.code); toast('Code copied — ' + invite.code) }
+      catch { toast('Code ready — ' + invite.code) }
+    } catch (e) { toast(e.message) } finally { setBusy(false) }
+  }
+
+  const revoke = async code => {
+    try { await api('/api/coach/invites/revoke', { method: 'POST', body: JSON.stringify({ code }) }); await load() }
+    catch (e) { toast(e.message) }
+  }
+
+  const copy = async code => {
+    try { await navigator.clipboard.writeText(code); toast('Copied ' + code) }
+    catch { toast(code) }
+  }
+
+  return <>
+    <h3>Take a client on</h3>
+    <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
+      Make a code and give it to the person joining. They enter it when they sign up, and they
+      arrive already on your roster — nobody has to assign them afterwards.
+    </div>
+
+    {/* A code only does anything on an instance that gates signup on codes. With INVITE_ONLY off
+        registration never looks at an invite at all, so the code would be real, redeemable, and
+        bind nothing — worth saying before they hand one out, not after. */}
+    {state && !state.inviteOnly && <div className="card" style={{ borderColor: 'var(--red)', marginBottom: 12 }}>
+      <div className="small" style={{ lineHeight: 1.45 }}>
+        This gym does not require a code to sign up, so a code will not put anyone on your roster.
+        Ask an admin to turn invite-only on first.
+      </div>
+    </div>}
+
+    <input className="input" placeholder="Who is it for? (optional)" value={note} maxLength={60}
+      onChange={e => setNote(e.target.value)} style={{ marginBottom: 8 }} />
+    <Button variant="primary" disabled={busy || (state ? open.length >= state.max : true)} onClick={mint}>
+      {busy ? 'Making…' : 'Make a code'}
+    </Button>
+    {state && open.length >= state.max && <div className="dim small" style={{ marginTop: 6 }}>
+      You have {state.max} codes waiting. Revoke one you are not going to use.
+    </div>}
+
+    <h4 className="sec" style={{ marginTop: 18 }}>Waiting to be used</h4>
+    {state === null ? <div className="dim small">Loading…</div>
+      : open.length ? <div className="list" style={{ rowGap: 0 }}>
+        {open.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <div>
+            <div className="small" style={{ fontWeight: 600, fontFamily: 'ui-monospace, monospace' }}>{i.code}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>
+              {i.note ? i.note + ' · ' : ''}made {fmtDate(String(i.created).slice(0, 10))}</div>
+          </div>
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => copy(i.code)}>Copy</button>
+            <button className="iconbtn" aria-label={'Revoke ' + i.code} onClick={() => revoke(i.code)}><Icon name="trash" /></button>
+          </div>
+        </div>)}
+      </div> : <div className="dim small">No codes waiting.</div>}
+
+    {/* Kept rather than hidden once used: this is the record of who came in on which code, and
+        it is the only place a coach can see that a code they sent was actually redeemed. */}
+    {!!used.length && <>
+      <h4 className="sec" style={{ marginTop: 18 }}>Used</h4>
+      <div className="list" style={{ rowGap: 0 }}>
+        {used.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <div><div className="small" style={{ fontWeight: 600 }}>{i.usedByName || 'someone'}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>
+              {i.note ? i.note + ' · ' : ''}joined {fmtDate(String(i.usedAt).slice(0, 10))}</div></div>
+          <span className="dim" style={{ fontSize: '.7rem', fontFamily: 'ui-monospace, monospace' }}>{i.code}</span>
+        </div>)}
+      </div>
+    </>}
+  </>
+}
+
 function MediaSheet() {
   const S = useStore(s => s.S)
   const toast = useUI(s => s.toast)
@@ -669,6 +771,20 @@ export default function Coach() {
       <div style={{ height: 10 }} />
       <Button variant="ghost" className="dim" disabled={!members?.length}
         onClick={() => openSheet(close => <SendSheet members={members || []} close={close} />)}>Send my current plan instead</Button>
+    </div>
+
+    {/* Grouped with demos rather than put at the top: both are things you set up occasionally,
+        where programming is what you come to this screen for daily. Verified in a browser that
+        this is in fact where it renders — the first version of this comment claimed it was the
+        first card under the numbers, which it never was. */}
+    <div className="card">
+      <div className="row between"><h2 style={{ margin: 0 }}>Take a client on</h2>
+        <Button variant="primary" size="sm" icon="plus"
+          onClick={() => openSheet(() => <InviteSheet />)}>Make a code</Button></div>
+      <div className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.4 }}>
+        Give the code to whoever is joining. They enter it when they sign up and arrive already on
+        your roster.
+      </div>
     </div>
 
     {/* Below programming, above the live roster: a demo is something you set up once and then
