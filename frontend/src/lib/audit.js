@@ -26,7 +26,17 @@ const LABELS = {
   'admin.invite.create': 'Created an invite code',
   'admin.invite.revoke': 'Revoked an invite code',
   'admin.audit.clear': 'Cleared the activity log',
-  'admin.denied': 'Blocked from the admin dashboard'
+  'admin.denied': 'Blocked from the admin dashboard',
+  // Pairing the phone app. These three were emitted unlabelled from the day they were added —
+  // the dashboard printed "auth.pair.ok" at whoever read it — because the only guard was a
+  // hand-typed copy of the event names in a test. api/scripts/check-audit-labels.mjs reads both
+  // files now, and found them.
+  'auth.pair.create': 'Started pairing a phone',
+  'auth.pair.ok': 'Paired a phone',
+  'auth.pair.fail': 'Phone pairing failed',
+  // A coach taking a client on, rather than an admin assigning one.
+  'coach.invite.create': 'Created a client code',
+  'coach.invite.revoke': 'Revoked a client code'
 }
 // An unknown event is shown raw rather than dropped or rendered as "undefined": a dashboard
 // that is one version behind the server should still say *something* truthful.

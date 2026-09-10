@@ -11,6 +11,7 @@ import { adherenceBand, adherenceOf } from '../lib/adherence.js'
 import { QUESTIONS, scoreOf } from '../lib/checkins.js'
 import { photoSrc, photosByPeriod, PHOTOS_REACHABLE } from '../lib/photo.js'
 import { buildPlanBundle, buildProgramBundle } from '../lib/plan-share.js'
+import { confirmSheet } from '../sheets.jsx'
 import { uid } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
@@ -470,14 +471,23 @@ function InviteSheet() {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const [failed, setFailed] = useState(false)
+  // NOT a { max: 0 } placeholder on failure. That reads as a real answer everywhere downstream:
+  // `open.length >= state.max` is 0 >= 0, so the button disables itself permanently with no retry,
+  // under a message reading "You have 0 codes waiting. Revoke one you are not going to use."
+  // A failure leaves state null and says so.
   const load = () => api('/api/coach/invites')
-    .then(setState)
-    .catch(e => { setState({ invites: [], inviteOnly: true, max: 0 }); toast(e.message) })
+    .then(d => { setState(d); setFailed(false) })
+    .catch(e => { setFailed(true); toast(e.message) })
   useEffect(() => { load() }, [])
 
   const invites = state?.invites || []
   const open = invites.filter(i => !i.usedAt && !i.revoked)
   const used = invites.filter(i => i.usedAt)
+  // Shown, not dropped. Filtering revoked codes out of BOTH lists meant a revoke — accidental or
+  // not — erased the row with no trace, so a coach could not tell a code they had sent from one
+  // that had never existed. The admin screen keeps them for the same reason.
+  const dead = invites.filter(i => i.revoked && !i.usedAt)
 
   const mint = async () => {
     setBusy(true)
@@ -493,10 +503,18 @@ function InviteSheet() {
     } catch (e) { toast(e.message) } finally { setBusy(false) }
   }
 
-  const revoke = async code => {
-    try { await api('/api/coach/invites/revoke', { method: 'POST', body: JSON.stringify({ code }) }); await load() }
-    catch (e) { toast(e.message) }
-  }
+  // Confirmed, like the identical action on the admin screen. There is no un-revoke route, this
+  // button sits six pixels from Copy, and a code the coach has already texted to someone dies on
+  // a mis-tap — the client then reads "invite code is no longer valid" while the coach has no
+  // idea why. The message names the code and the note so the sheet is answerable without
+  // remembering which row was tapped.
+  const revoke = i => confirmSheet({
+    title: 'Revoke this code?',
+    message: (i.note ? `“${i.note}” — ` : '') + `${i.code} stops working immediately. If you have already sent it out, whoever has it will not be able to join.`,
+    confirmText: 'Revoke', danger: true,
+    onConfirm: () => api('/api/coach/invites/revoke', { method: 'POST', body: JSON.stringify({ code: i.code }) })
+      .then(() => { toast('Code revoked'); return load() }).catch(e => toast(e.message))
+  })
 
   const copy = async code => {
     try { await navigator.clipboard.writeText(code); toast('Copied ' + code) }
@@ -522,15 +540,16 @@ function InviteSheet() {
 
     <input className="input" placeholder="Who is it for? (optional)" value={note} maxLength={60}
       onChange={e => setNote(e.target.value)} style={{ marginBottom: 8 }} />
-    <Button variant="primary" disabled={busy || (state ? open.length >= state.max : true)} onClick={mint}>
+    <Button variant="primary" disabled={busy || !state || open.length >= state.max} onClick={mint}>
       {busy ? 'Making…' : 'Make a code'}
     </Button>
-    {state && open.length >= state.max && <div className="dim small" style={{ marginTop: 6 }}>
+    {!!state && open.length >= state.max && <div className="dim small" style={{ marginTop: 6 }}>
       You have {state.max} codes waiting. Revoke one you are not going to use.
     </div>}
 
     <h4 className="sec" style={{ marginTop: 18 }}>Waiting to be used</h4>
-    {state === null ? <div className="dim small">Loading…</div>
+    {failed ? <div className="dim small">Could not load your codes. <a onClick={load}>Try again</a></div>
+      : state === null ? <div className="dim small">Loading…</div>
       : open.length ? <div className="list" style={{ rowGap: 0 }}>
         {open.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
           <div>
@@ -540,10 +559,20 @@ function InviteSheet() {
           </div>
           <div className="row" style={{ gap: 6 }}>
             <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => copy(i.code)}>Copy</button>
-            <button className="iconbtn" aria-label={'Revoke ' + i.code} onClick={() => revoke(i.code)}><Icon name="trash" /></button>
+            <button className="iconbtn" aria-label={'Revoke ' + i.code} onClick={() => revoke(i)}><Icon name="trash" /></button>
           </div>
         </div>)}
       </div> : <div className="dim small">No codes waiting.</div>}
+
+    {!!dead.length && <>
+      <h4 className="sec" style={{ marginTop: 18 }}>Revoked</h4>
+      <div className="list" style={{ rowGap: 0 }}>
+        {dead.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)', opacity: .55 }}>
+          <div><div className="small" style={{ fontWeight: 600, textDecoration: 'line-through', fontFamily: 'ui-monospace, monospace' }}>{i.code}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>{i.note || 'no note'} · will not work</div></div>
+        </div>)}
+      </div>
+    </>}
 
     {/* Kept rather than hidden once used: this is the record of who came in on which code, and
         it is the only place a coach can see that a code they sent was actually redeemed. */}

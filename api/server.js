@@ -1569,9 +1569,19 @@ const routes = {
         code: i.code, note: i.note, created: i.created, revoked: !!i.revoked,
         usedAt: i.usedAt || null,
         // The name is the point of the list: it is how a coach sees which code the person in
-        // front of them used. Only ever a member of their own roster, since redeeming is what
-        // put them there.
-        usedByName: i.usedBy ? (db.users.find(u => u.id === i.usedBy) || {}).name || null : null
+        // front of them used. But "redeeming put them on my roster" is NOT reliably true, which
+        // an earlier version of this comment asserted and this same feature makes false: if the
+        // coach was disabled or demoted at the moment of redemption, coachBinding() returns null
+        // and the member lands unassigned while the invite keeps its coachId — and an admin can
+        // reassign anyone afterwards. Either way the name would be of a person who is not theirs,
+        // handed out on a screen whose sibling route answers 403 precisely to stop a coach
+        // enumerating the gym. So the roster is re-checked here, and a code redeemed by someone
+        // who is no longer theirs still shows as used, just not by whom.
+        usedByName: (() => {
+          if (!i.usedBy) return null
+          const u = db.users.find(x => x.id === i.usedBy)
+          return u && canCoachMember(coach, u, { isAdmin: isAdmin(coach) }) ? u.name : null
+        })()
       })),
       // A coach code only binds anything on an instance that actually gates signup on codes —
       // with INVITE_ONLY off, registration never looks at an invite at all. Said out loud rather

@@ -19,8 +19,12 @@ cat > "$D/db.json" <<'JSON'
   {"id":"mem2","name":"Theirs","coachId":"coachB","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem3","name":"Unassigned","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem4","name":"Disabled","coachId":"coachA","disabled":true,"created":"2026-01-01T00:00:00.000Z"}
-],"creds":[],"subs":[],"invites":[],"requests":[],"sessions":[],"assignments":[],
-"media":[{"id":"brokenrow","exId":"0099","coachId":"coachA","mime":"video/mp4","status":"ready"}]}
+],"creds":[],"subs":[],"requests":[],"sessions":[],"assignments":[],
+"media":[{"id":"brokenrow","exId":"0099","coachId":"coachA","mime":"video/mp4","status":"ready"}],
+"invites":[
+  {"code":"REDEEMEDMINE0000","note":"already used","createdBy":"coachA","coachId":"coachA","created":"2026-01-01T00:00:00.000Z","usedBy":"mem1","usedAt":"2026-01-02T00:00:00.000Z"},
+  {"code":"REDEEMEDTHEIRS00","note":"used, then reassigned","createdBy":"coachA","coachId":"coachA","created":"2026-01-01T00:00:00.000Z","usedBy":"mem2","usedAt":"2026-01-02T00:00:00.000Z"}
+]}
 JSON
 # That media row has no `file`, on purpose, and is seeded here rather than injected later because
 # the server holds db.json in memory — a row written to the file after boot is never seen. It is
@@ -559,6 +563,21 @@ chk "the owner can revoke it"                 200 "$(rev "$CA" "$CODE_A")"
 chk "and it is flagged, not deleted"         true "$(get -H "Cookie: $CA" "$B/api/coach/invites" | node -pe "
   const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
   String((d.invites.find(i=>i.code===process.argv[1])||{}).revoked===true)" "$CODE_A")"
+
+echo "== a used code names the redeemer only while they are still yours =="
+# Both codes below are seeded already-redeemed in db.json at boot, because redeeming one for real
+# needs a passkey and editing the file mid-run does not survive this suite's bash-vs-node /tmp
+# split on Windows. REDEEMED-MINE was used by a member of coachA's roster; REDEEMED-THEIRS by one
+# of coachB's, which is the case that matters: the invite keeps its coachId forever, but the
+# member may not be on this roster — binding is refused if the coach was disabled at redemption,
+# and an admin can reassign anyone afterwards. Handing the name back regardless would leak it on
+# the one screen whose sibling route answers 403 specifically to stop a coach enumerating the gym.
+mine() { get -H "Cookie: $CA" "$B/api/coach/invites" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));
+  String((d.invites.find(i=>i.code===process.argv[1])||{})[process.argv[2]])" "$1" "$2"; }
+chk "a redeemer on their roster is named"    "Mine" "$(mine REDEEMEDMINE0000 usedByName)"
+chk "one who is not is withheld"             "null" "$(mine REDEEMEDTHEIRS00 usedByName)"
+chk "...but that code still reads as used"   true   "$(mine REDEEMEDTHEIRS00 usedAt | node -pe "String(process.argv[1]!=='null'&&process.argv[1]!=='undefined')" "$(mine REDEEMEDTHEIRS00 usedAt)")"
 
 echo ""
 echo "passed $pass, failed $fail"
