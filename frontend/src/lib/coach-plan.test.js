@@ -138,7 +138,10 @@ describe('saving a program from selected routines', () => {
       { id: 'b', name: 'Pull', emoji: 'pullup', ex: [{ id: '0027', sets: 4, reps: 8 }] },
       { id: 'mine', name: 'My own cardio', emoji: 'bike', ex: [{ id: '0043', sets: 1, reps: 1 }] }
     ],
-    week: { 1: 'a', 3: 'b', 5: 'mine' },
+    // The real shape: a LIST per weekday, since upstream's combine-routines change (see
+    // history.js, Plan.jsx). Day 3 holds a picked routine AND one that will be left out, which
+    // is the case the scalar fixture this replaced could never express.
+    week: { 1: ['a'], 3: ['b', 'mine'], 5: ['mine'] },
     customEx: []
   })
   // The real handler, not a re-implementation of it: Coach.jsx calls this same function, so
@@ -151,11 +154,20 @@ describe('saving a program from selected routines', () => {
     expect(bundle.routines.some(r => r.name === 'My own cardio')).toBe(false)
   })
 
-  it('drops weekdays pointing at routines that were left out', () => {
+  it('keeps each weekday’s picked routines and drops the ones that were left out', () => {
     // Otherwise the snapshot carries a schedule referencing routines it does not contain, and
-    // mergePlan would clear the member's week and put only part of it back.
+    // mergePlan would clear the member's week and put only part of it back. The first version
+    // compared the day's LIST against the picked ids and never matched, so every saved program
+    // shipped week:{} and the schedule toggle was a no-op for saved programs — the scalar
+    // fixture it was tested against hid that. Day 3 must keep 'b' and lose 'mine'; day 5,
+    // pointing at nothing picked, must be absent rather than [].
     const bundle = snapshot(coachPlan(), ['a', 'b'], 'Block A')
-    expect(Object.keys(bundle.week).sort()).toEqual(['1', '3'])
+    expect(bundle.week).toEqual({ 1: ['a'], 3: ['b'] })
+  })
+
+  it('still reads a week written before days became lists', () => {
+    const S = { ...coachPlan(), week: { 1: 'a', 3: 'b', 5: 'mine' } }
+    expect(snapshot(S, ['a', 'b'], 'Block A').week).toEqual({ 1: ['a'], 3: ['b'] })
   })
 
   it('is a copy — editing the coach’s plan afterwards leaves it untouched', () => {

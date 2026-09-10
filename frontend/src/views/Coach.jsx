@@ -342,7 +342,7 @@ function SendSheet({ members, close, program }) {
           ...(nutrition ? { nutrition } : {}),
           ...(checkinDay === '' ? {} : { checkinDay: +checkinDay })
         },
-        note, schedule
+        note, schedule: schedule && days > 0
       })
     })
       .then(({ sent }) => { toast('Sent to ' + sent + (sent === 1 ? ' member' : ' members')); close() })
@@ -369,12 +369,24 @@ function SendSheet({ members, close, program }) {
     <input className="input" placeholder="Note (optional) — what this block is for" maxLength={280}
       value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: 10 }} />
 
-    <label className="row between" style={{ padding: '8px 2px', marginBottom: 6 }}>
-      <span className="small">Also set their weekly schedule</span>
-      <input type="checkbox" checked={schedule} onChange={e => setSchedule(e.target.checked)} />
-    </label>
-    {schedule && <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.4 }}>
-      This replaces which routine sits on each weekday for them. Leave it off to add the routines and let them slot them in.
+    {/* No toggle for a bundle with no scheduled days: the member's side (mergePlan) ignores
+        `schedule` when the incoming week is empty, so ticking it would do nothing and look like
+        it did. A saved program hits this for one of two reasons — the coach never put those
+        routines on a weekday, or it was saved before buildProgramBundle kept the week at all
+        (programs live in S and outlive the fix) — and only a re-save can tell them apart, so
+        that is what the note asks for. */}
+    {days ? <>
+      <label className="row between" style={{ padding: '8px 2px', marginBottom: 6 }}>
+        <span className="small">Also set their weekly schedule</span>
+        <input type="checkbox" checked={schedule} onChange={e => setSchedule(e.target.checked)} />
+      </label>
+      {schedule && <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.4 }}>
+        This replaces which routine sits on each weekday for them. Leave it off to add the routines and let them slot them in.
+      </div>}
+    </> : <div className="dim small" style={{ padding: '8px 2px', marginBottom: 10, lineHeight: 1.4 }}>
+      {program
+        ? 'No weekly schedule in this program. If its routines are on weekdays in your Plan, save the program again and the schedule comes with it.'
+        : 'No weekly schedule to send — none of these routines is on a weekday in your Plan.'}
     </div>}
 
     <h4 className="sec">Daily nutrition targets (optional)</h4>
