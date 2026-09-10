@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { setShellPref } from '../lib/role.js'
 import { api, setRemoteAuth } from '../lib/api.js'
 import { localTZ, todayISO } from '../lib/format.js'
 import { compactMeals } from '../lib/nutrition.js'
@@ -185,6 +186,7 @@ export const useStore = create((set, get) => {
   // Everything a sign-out leaves behind on this device, whichever way it was triggered.
   const clearLocalSession = () => {
     get().setUser(null)
+    setShellPref('coach')   // "Train myself" belonged to the profile leaving, not to the device
     set({ syncError: null })   // whatever the server refused belonged to the profile leaving
     localStorage.removeItem('gym_guest')
     localStorage.removeItem('gym_dirty')

@@ -12,9 +12,12 @@ before touching anything under `.github/workflows/deploy-*`.
 
 What this fork adds on top of upstream, none of which upstream's notes below describe:
 
-- **A human coach role.** The coach dashboard is `/trainer`, not `/coach` — upstream took
-  `/coach` for its AI Coach during the 401-commit merge. `views/Coach.jsx` is an operator
-  surface and is deliberately **English-only**, like `Admin.jsx`; it uses raw strings, not `t()`.
+- **A human coach role, with its own shell.** `App.jsx` renders one of two route tables from
+  `lib/role.js`: a coach gets `/today` (the dashboard, `views/Coach.jsx`) and `/account` with
+  `CoachTabBar`; a client gets `/home` and the training app. The dashboard's old address
+  `/trainer` redirects (it could never be `/coach` — upstream took that for its AI Coach during
+  the 401-commit merge). Coach surfaces are deliberately **English-only**, like `Admin.jsx`;
+  they use raw strings, not `t()`.
 - **`StatsPanels`** (`views/Stats.jsx`) is exported and prop-driven so the coach sees a client's
   own charts by passing a different `S`. Keeping panels prop-driven is what makes every new
   client-side metric free on the coach side — do not reach for `useStore` inside one.

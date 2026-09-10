@@ -102,6 +102,14 @@ function CoachRoutes({ user }) {
           the pieces a single coach still needs (activity log, disabling an account) move into
           Account. Everything else on it — classes, timetable, access requests — is gym-only. */}
       <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/today" replace />} />
+      {/* Settings (shared, mounted at /account) links here on the phone build to choose how the
+          AI coach runs — a device setting, not a coaching feature, so the screen stays reachable. */}
+      <Route path="/coach/setup" element={<CoachSetup />} />
+      {/* Shared screens still say nav('/you') and nav('/home') — Settings after sign-out or reset,
+          Admin's back button. Named here so they land on the coach's equivalents instead of
+          the catch-all; the catch-all is for paths nobody meant. */}
+      <Route path="/you" element={<Navigate to="/account" replace />} />
+      <Route path="/home" element={<Navigate to="/today" replace />} />
       <Route path="/trainer" element={<Navigate to="/today" replace />} />
       <Route path="*" element={<Navigate to="/today" replace />} />
     </Routes>

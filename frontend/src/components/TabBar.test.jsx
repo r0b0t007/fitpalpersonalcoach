@@ -64,7 +64,7 @@ describe('the bar itself', () => {
 describe('what the You hub owns', () => {
   // Each of these lost its own cell, or never had one. Every one must still light the hub.
   for (const [path, label] of [
-    ['/you', 'You'], ['/stats', 'You'], ['/history', 'You'], ['/library', 'You'],
+    ['/you', 'You'], ['/stats', 'You'], ['/history', 'You'], ['/library', 'You'], ['/nutrition', 'You'],
     ['/settings', 'You'], ['/coach', 'You'],
     ['/home', 'Home'], ['/plan', 'Plan'],
   ]) {

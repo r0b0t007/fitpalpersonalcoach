@@ -117,7 +117,7 @@ implicitly and can reach any member. Revoking the role unassigns their members a
 access immediately.
 
 A coach builds the program in the ordinary **Plan** screen — there is no separate builder — then
-*Coach dashboard → Send my plan*, picks members, and optionally sets their weekly schedule too.
+*Today → Send my current plan instead*, picks members, and optionally sets their weekly schedule too.
 Members are **asked before anything changes**: the program shows up as a card on Home with the
 coach's name and note, and accepting adds the routines as **new** ones. Nothing they already had
 is modified, renamed or removed, and declining leaves their plan untouched.

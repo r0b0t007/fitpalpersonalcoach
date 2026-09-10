@@ -8,7 +8,7 @@ import Icon from './Icon.jsx'
 // Everything the You hub owns. /stats and /library lost their own cells; /settings, /history and
 // the AI coach never had one. The two dashboards used to be here too — they now live in the
 // coach shell (CoachTabBar.jsx), which this bar never renders alongside.
-const YOU_ROUTES = ['you', 'stats', 'history', 'library', 'muscles', 'settings', 'coach']
+const YOU_ROUTES = ['you', 'stats', 'history', 'library', 'muscles', 'nutrition', 'settings', 'coach']
 
 export default function TabBar({ onStart }) {
   const nav = useNavigate()

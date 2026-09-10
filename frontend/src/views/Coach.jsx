@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { setShellPref } from '../lib/role.js'
+import { setShellPref, homeFor } from '../lib/role.js'
 import { useNavigate } from 'react-router-dom'
 import { useStore, DEF } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
@@ -805,7 +805,7 @@ export default function Coach() {
       <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>Coach</h1>
         <div className="sub">{members ? members.length + (members.length === 1 ? ' member' : ' members') + ' · ' + active + ' active this week' : 'Loading…'}</div></div>
       {/* The coach's own training lives in the other shell (lib/role.js); this is the door. */}
-      <button className="btn sm tinted" onClick={() => { setShellPref('client'); nav('/home') }}>Train myself</button>
+      <button className="btn sm tinted" onClick={() => { setShellPref('client'); nav(homeFor(user, 'client')) }}>Train myself</button>
       <button className="iconbtn" onClick={load} aria-label="refresh">↻</button>
     </div>
 

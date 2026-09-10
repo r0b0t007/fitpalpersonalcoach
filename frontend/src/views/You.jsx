@@ -5,7 +5,7 @@ import { openCoachOffer } from '../sheets.jsx'
 import { MOBILE } from '../lib/mobile.js'
 import { DEMO } from '../lib/demo.js'
 import { Section, Row } from '../components/ui.jsx'
-import { isCoach, setShellPref } from '../lib/role.js'
+import { isCoach, setShellPref, homeFor } from '../lib/role.js'
 
 // The hub the tab bar gained when it lost two of its six cells.
 //
@@ -32,7 +32,7 @@ export default function You() {
     {isCoach(user) && (
       <Section>
         <Row icon="figureStrength" iconTint="var(--acc)" title={t('Back to coaching')}
-          accessory="chevron" onClick={() => { setShellPref('coach'); nav('/today') }} />
+          accessory="chevron" onClick={() => { setShellPref('coach'); nav(homeFor(user, 'coach')) }} />
       </Section>
     )}
 
