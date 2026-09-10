@@ -77,6 +77,12 @@ chk() { # chk <label> <expected> <actual>
 code() { curl -s -o /dev/null -w "%{http_code}" "$@"; }
 get()  { curl -s "$@"; }
 
+# ---- pairing hands the phone the same user shape as /api/me. The phone keeps that object for
+# every offline boot and chooses the whole shell from its `coach` flag (frontend lib/role.js);
+# a hand-picked {id,name,admin} put every paired coach in the trainee's app.
+PC=$(get -X POST "$B/api/pair/create" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).code")
+chk "pair/redeem carries the coach flag"     true "$(get -X POST "$B/api/pair/redeem" -H 'Content-Type: application/json' -d "{\"code\":\"$PC\"}" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).user.coach)")"
+
 # Computed, not literal - a hardcoded date falls out of the GET /api/sessions window (7 days
 # back) once the clock passes it, and this suite gates deploys. See the note in sessions-smoke.sh.
 eval "$(node -e "

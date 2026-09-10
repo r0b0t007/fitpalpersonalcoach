@@ -1309,7 +1309,9 @@ const routes = {
       return json(res, 400, { error: 'invalid or expired code' });
     }
     audit(req, 'auth.pair.ok', { user });
-    json(res, 200, { token: makeSession(user), user: { id: user.id, name: user.name, admin: isAdmin(user) } });
+    // publicUser, not a hand-picked subset: the phone decides which shell to show from `coach`
+    // (frontend lib/role.js), and it keeps this object for every offline boot after pairing.
+    json(res, 200, { token: makeSession(user), user: publicUser(user) });
   },
 
   'GET /api/data': async (req, res) => {

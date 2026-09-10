@@ -21,6 +21,7 @@ import { ConnectSheet } from './MobileOnboarding.jsx'
 import { starterPlanSheet, confirmSheet, importFromApp, importFromHevy, equipmentProfileSheet, menuSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
+import { setShellPref } from '../lib/role.js'
 
 export default function Settings() {
   const nav = useNavigate()
@@ -192,7 +193,7 @@ export default function Settings() {
       {user && syncError && <Row icon="warning" iconTint="var(--red)" title={t('This device could not save to the server')} subtitle={syncError} />}
       {MOBILE ? (user ? <>
         <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Synced with your openGym server.')} />
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => nav('/admin')} />}
+        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => { setShellPref('coach'); nav('/admin') }} />}
         <Row icon="signOut" iconTint="var(--red)" title={t('Disconnect')} danger onClick={() => confirmSheet({
           title: t('Disconnect from your server?'),
           message: t('Your data is synced to your server first, then this device switches back to local-only.'),
@@ -211,6 +212,10 @@ export default function Settings() {
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : user ? <>
         <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
+        {/* The operator page has no cell in the coach bar; this row is its one door until the
+            pieces a coach still needs move into Account. It lives in the coach shell, hence the
+            preference reset — from "Train myself" the client table has no /admin. */}
+        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => { setShellPref('coach'); nav('/admin') }} />}
         {/* Told, not hidden: a coach can read this member's training history, and the person being
             read should never have to discover that from somewhere else. */}
         {user.coachName && <Row icon="personCircle" iconTint="var(--grey)" title={t('Your coach')} subtitle={t('{0} can see your training and send you programs.', user.coachName)} />}
@@ -255,11 +260,6 @@ export default function Settings() {
         <Segmented className="seg-inline"
           options={[{ value: MONDAY, label: t('Monday') }, { value: SUNDAY, label: t('Sunday') }]}
           value={weekStartOf(S)} onChange={v => update(s => { s.weekStart = v })} />
-      </Row>
-      {/* Membership QR codes on Home (views/CheckIn.jsx); off = no Home card, no route. */}
-      <Row icon="qr" iconTint="var(--blue)" title={t('Gym check-in')}
-        subtitle={t('Show a card on Home with your membership QR codes.')}>
-        <Switch checked={S.checkIn !== false} onChange={v => update(s => { s.checkIn = v })} />
       </Row>
     </Section>
 

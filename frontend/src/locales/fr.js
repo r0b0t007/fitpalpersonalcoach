@@ -1349,4 +1349,6 @@ export default {
   // A save the server refused (Settings → account). The server's own sentence is the subtitle
   // and stays English; this is the line that says whose problem it is.
   'This device could not save to the server': 'Cet appareil n’a pas pu enregistrer sur le serveur',
+  // The way back for a coach using the training app as a trainee (views/You.jsx).
+  'Back to coaching': 'Retour au coaching',
 }
