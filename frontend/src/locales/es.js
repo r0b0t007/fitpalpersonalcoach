@@ -1338,6 +1338,8 @@ export default {
   'Nothing logged today.': 'Hoy no has registrado nada.',
   'Nothing logged in this window.': 'Nada registrado en este periodo.',
   'No targets yet — your coach sets them with your program.': 'Aún no hay objetivos — tu entrenador los fija junto con tu programa.',
+  'Reminds you at this time on days that have a routine planned, and on your check-in day.': 'Te avisa a esta hora los días con rutina planificada y el día de tu check-in.',
+  "Sent on days you have a routine planned and haven't logged a workout yet, and on your weekly check-in day.": 'Se envía los días con rutina planificada en los que aún no has registrado entrenamiento, y el día de tu check-in semanal.',
   'Check-in day': 'Día del check-in',
   'Your weekly check-in moves to {0}.': 'Tu check-in semanal pasa al {0}.',
   'Enter a weight in grams, up to 5000.': 'Introduce un peso en gramos, hasta 5000.',

@@ -98,6 +98,10 @@ jobs:
       # tests the names somebody remembered to copy, and three auth.pair.* events had been
       # shipping unlabelled because of it. This reads both files.
       - run: node api/scripts/check-audit-labels.mjs
+      # DEFAULT_CHECKIN_DAY lives on both sides of the api/frontend boundary — the member's screen
+      # decides which day starts a period, the server decides which day it pushes about one. A
+      # drift does not error: the card says a check-in is owed while the push arrives a day later.
+      - run: node api/scripts/check-checkin-day.mjs
 
   # The unit suite imports domain.mjs and nothing else, so until this job existed no HTTP route,
   # cookie check or permission boundary was covered by any automated run: canCoachMember was
