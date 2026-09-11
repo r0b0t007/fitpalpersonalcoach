@@ -52,7 +52,7 @@ const fail = m => { console.error('FAIL  ' + m); process.exitCode = 1 }
 // by server.js alone forever, which is the shape of a self-check that never fires. Raise it
 // deliberately when events are added. A DROP means the extractor stopped seeing calls that are
 // still there — the exact rot this script exists to avoid becoming.
-const FLOOR = 18
+const FLOOR = 20
 if (emitted.size < FLOOR) fail(`found ${emitted.size} audit events across api/, expected at least ${FLOOR} — the extractor is broken, not the code`)
 if (labelled.size < FLOOR) fail(`found ${labelled.size} labels in audit.js, expected at least ${FLOOR} — the extractor is broken, not the code`)
 

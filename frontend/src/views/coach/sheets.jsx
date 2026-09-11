@@ -6,6 +6,7 @@ import { setCoachMedia } from '../../lib/coach-media.js'
 import { EXIDX, allExercises, matchesExerciseSearch, mediaRowSrc } from '../../lib/exercises.js'
 import { fmtDate, uid } from '../../lib/format.js'
 import { buildPlanBundle, buildProgramBundle } from '../../lib/plan-share.js'
+import { savePrograms } from '../../lib/programs.js'
 import { confirmSheet } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
@@ -169,22 +170,23 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
 
 // Saving a program = snapshotting the routines you picked. Copies, not references: a program
 // you saved last month must not change because you edited your own Plan this morning.
-export function SaveProgramSheet({ close }) {
+export function SaveProgramSheet({ close, onSaved }) {
   const S = useStore(s => s.S)
   const toast = useUI(s => s.toast)
   const [name, setName] = useState('')
   const [picked, setPicked] = useState([])
+  const [busy, setBusy] = useState(false)
   const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : p.concat(id))
 
+  // Straight to the library on the server. The old version pushed into the coach's own S, which
+  // is why a program used to ride along on every state sync (lib/programs.js says more).
   const save = () => {
     if (!picked.length) { toast('Pick at least one routine'); return }
-    const bundle = buildProgramBundle(S, picked, name.trim() || 'Program')
-    useStore.getState().update(s => {
-      s.programs = s.programs || []
-      s.programs.push({ id: uid(), name: name.trim() || 'Program', created: new Date().toISOString(), bundle })
-    })
-    toast('Program saved')
-    close()
+    const label = name.trim() || 'Program'
+    setBusy(true)
+    savePrograms({ id: uid(), name: label, bundle: buildProgramBundle(S, picked, label) })
+      .then(d => { toast('Program saved'); onSaved?.(d.programs); close() })
+      .catch(e => { toast(e.message); setBusy(false) })
   }
 
   const usable = (S.routines || []).filter(r => (r.ex || []).length)
@@ -210,7 +212,7 @@ export function SaveProgramSheet({ close }) {
         <input type="checkbox" checked={picked.includes(r.id)} onChange={() => toggle(r.id)} />
       </label>)}
     </div>
-    <Button variant="primary" style={{ marginTop: 14 }} disabled={!picked.length} onClick={save}>
+    <Button variant="primary" style={{ marginTop: 14 }} disabled={!picked.length || busy} onClick={save}>
       {picked.length ? 'Save ' + picked.length + (picked.length === 1 ? ' routine' : ' routines') + ' as a program' : 'Pick at least one routine'}
     </Button>
   </>

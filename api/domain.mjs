@@ -376,6 +376,53 @@ export function validateAssignmentBundle(raw) {
   }
 }
 
+/* ---------- the coach's program library ---------- */
+// A saved program is a named bundle the coach can send later. It lives server-side in
+// coach-<uid>.json rather than in the coach's own `S`, so it is not pushed on every state sync,
+// survives a device, and can be read by the server; see the route block in server.js.
+//
+// The bundle goes through validateAssignmentBundle — the same gate the send route uses — because
+// a program IS what gets sent, and a library row that would be refused at send time is a trap the
+// coach only discovers when they try to use it.
+export const COACH_MAX_PROGRAMS = 50
+export const PROGRAM_NAME_MAX = 60
+// A coach's private note about one client. Long enough for real context, short enough that the
+// sidecar cannot be grown without bound one note at a time.
+export const COACH_NOTE_MAX = 4000
+
+export function cleanProgram(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { error: 'program required' }
+  const name = String(raw.name == null ? '' : raw.name).trim().slice(0, PROGRAM_NAME_MAX)
+  if (!name) return { error: 'program needs a name' }
+  const { bundle, error } = validateAssignmentBundle(raw.bundle)
+  if (error) return { error }
+  // The library row's own name wins over whatever the bundle carries: the coach renamed it here,
+  // and a send built from this row should announce the name they can see.
+  return { program: { name, bundle: { ...bundle, name } } }
+}
+
+// Upsert by id. Returns a NEW array — callers write it back — and refuses past the cap only when
+// the write would add a row, so renaming or re-saving an existing program never hits the wall.
+export function upsertProgram(programs, { id, name, bundle }, now) {
+  const list = Array.isArray(programs) ? programs : []
+  const { program, error } = cleanProgram({ name, bundle })
+  if (error) return { error }
+  const at = id ? list.findIndex(p => p && p.id === id) : -1
+  if (at < 0 && list.length >= COACH_MAX_PROGRAMS)
+    return { error: `you have ${COACH_MAX_PROGRAMS} programs — delete one before saving another` }
+  const row = {
+    id: at >= 0 ? list[at].id : id || null,
+    name: program.name,
+    created: at >= 0 ? list[at].created : now,
+    updated: now,
+    bundle: program.bundle
+  }
+  if (!row.id) return { error: 'program id required' }
+  const next = list.slice()
+  if (at >= 0) next[at] = row; else next.push(row)
+  return { programs: next, program: row }
+}
+
 export const pendingAssignmentsFor = (assignments, memberId) =>
   (assignments || []).filter(a => a.memberId === memberId && a.status === 'pending')
 

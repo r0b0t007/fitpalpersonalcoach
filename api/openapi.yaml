@@ -1309,6 +1309,21 @@ components:
           type: integer
           description: Coach roster only. How many of their routines have at least one exercise — i.e. is there anything to train.
 
+    CoachProgram:
+      type: object
+      description: >
+        A saved program in a coach's library. Stored server-side in `coach-<uid>.json`, not in the
+        coach's own state blob: a bundle is large, `db.json` is rewritten whole on every save, and
+        the server never writes a member's `state-<uid>.json`.
+      properties:
+        id: { type: string }
+        name: { type: string, maxLength: 60 }
+        created: { type: number, description: ms }
+        updated: { type: number, description: ms }
+        bundle:
+          type: object
+          description: The same shape a send accepts — it goes through validateAssignmentBundle.
+
     Presence:
       type: object
       description: Live-workout snapshot (from /api/activity heartbeats).

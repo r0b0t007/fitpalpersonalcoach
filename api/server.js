@@ -19,7 +19,8 @@ import {
   pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
   findSessionConflicts, isRealDate,
   validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile,
-  coachBinding, checkinReminderDue, checkinPeriodStart
+  coachBinding, checkinReminderDue, checkinPeriodStart,
+  upsertProgram, COACH_MAX_PROGRAMS, COACH_NOTE_MAX
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
@@ -378,6 +379,24 @@ function readState(uid) {
  * Bytes are not in it. This holds `{ photos: [ { id, d, pose, file, bytes, mime, created } ] }`
  * and the files themselves live under MEDIA_DIR/photo/<uid>/.
  */
+/* The coach's own server-side file: their program library and their private notes about a
+ * client. Its own sidecar for the same reasons media-<uid>.json is one — db.json is held in
+ * memory and rewritten whole on every saveDb(), and a program bundle is large.
+ *
+ * Deliberately NOT the coach's state-<uid>.json: that file belongs to the client half of the app
+ * and the server never writes into one. This file is the server's, for a coach.
+ */
+const coachFile = uid => path.join(DATA, 'coach-' + safeUid(uid) + '.json');
+function readCoachData(uid) {
+  try {
+    const d = JSON.parse(fs.readFileSync(coachFile(uid), 'utf8'));
+    return {
+      programs: Array.isArray(d && d.programs) ? d.programs : [],
+      notes: d && d.notes && typeof d.notes === 'object' && !Array.isArray(d.notes) ? d.notes : {}
+    };
+  } catch { return { programs: [], notes: {} }; }
+}
+const writeCoachData = (uid, data) => atomicWrite(coachFile(uid), JSON.stringify(data), 0o600);
 const mediaFile = uid => path.join(DATA, 'media-' + safeUid(uid) + '.json');
 const photoDir = uid => path.join(MEDIA_DIR, 'photo', safeUid(uid));
 function userPhotos(uid) {
@@ -1604,6 +1623,59 @@ const routes = {
       .filter(s => s.coachId === coach.id && s.date >= from)
       .sort(sessionSort);
     json(res, 200, { sessions });
+  },
+
+  /* ---------- coaching: the program library ---------- */
+  // Where a coach's programs live now. They used to sit in the coach's own `S` under `programs`,
+  // which meant every state push carried every bundle, a coach who never trains had nowhere to
+  // keep them, and the server could not read them. lib/programs.js migrates the old ones up once.
+  'GET /api/coach/programs': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const { programs } = readCoachData(coach.id);
+    json(res, 200, { programs, max: COACH_MAX_PROGRAMS });
+  },
+
+  'POST /api/coach/programs/save': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const body = await readBody(req);
+    const data = readCoachData(coach.id);
+    const { programs, program, error } = upsertProgram(data.programs, {
+      id: body.id || crypto.randomUUID(), name: body.name, bundle: body.bundle
+    }, Date.now());
+    // 429 for the cap, 400 for a malformed program: the first is "you have too many", which is
+    // a state the coach can fix, and the second is a bad request.
+    if (error) return json(res, /programs —|delete one/.test(error) ? 429 : 400, { error });
+    writeCoachData(coach.id, { ...data, programs });
+    audit(req, 'coach.program.save', { user: coach, msg: program.name });
+    json(res, 200, { program, programs });
+  },
+
+  'POST /api/coach/programs/delete': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const body = await readBody(req);
+    const data = readCoachData(coach.id);
+    const gone = data.programs.find(p => p && p.id === body.id);
+    if (!gone) return json(res, 404, { error: 'no such program' });
+    const programs = data.programs.filter(p => p !== gone);
+    writeCoachData(coach.id, { ...data, programs });
+    audit(req, 'coach.program.delete', { user: coach, msg: gone.name });
+    json(res, 200, { programs });
+  },
+
+  // A coach's private note about one of their clients. Never sent to the client, and gated on
+  // canCoachMember so it cannot be used to write a row keyed by a stranger's id.
+  'POST /api/coach/notes/save': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const body = await readBody(req);
+    const member = db.users.find(u => u.id === body.memberId);
+    if (!member || !canCoachMember(coach, member, { isAdmin: isAdmin(coach) }))
+      return json(res, 403, { error: 'not your client' });
+    const data = readCoachData(coach.id);
+    const text = String(body.text == null ? '' : body.text).slice(0, COACH_NOTE_MAX);
+    const notes = { ...data.notes };
+    if (text) notes[member.id] = text; else delete notes[member.id];
+    writeCoachData(coach.id, { ...data, notes });
+    json(res, 200, { ok: true });
   },
 
   /* ---------- coaching: taking a client on ---------- */

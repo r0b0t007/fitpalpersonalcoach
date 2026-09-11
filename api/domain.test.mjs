@@ -11,7 +11,8 @@ import {
   ASSIGN_NOTE_MAX, NUTRI_MAX_KCAL, NUTRI_MAX_MACRO,
   sessionsOverlap, findSessionConflicts,
   sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, coachBinding,
-  checkinReminderDue, checkinPeriodStart, checkinDayOf, DEFAULT_CHECKIN_DAY, safeMediaFile
+  checkinReminderDue, checkinPeriodStart, checkinDayOf, DEFAULT_CHECKIN_DAY, safeMediaFile,
+  cleanProgram, upsertProgram, COACH_MAX_PROGRAMS, PROGRAM_NAME_MAX
 } from './domain.mjs'
 
 const DAY = 86400000
@@ -672,4 +673,69 @@ test('the period starts at the most recent occurrence of the day, never after to
 test('a date on its own check-in day comes back unchanged', () => {
   for (const iso of ['2026-09-09', '2026-01-01', '2026-12-31'])
     assert.equal(checkinPeriodStart({ checkinDay: new Date(iso + 'T12:00:00Z').getUTCDay() }, iso), iso)
+})
+
+/* ---------- the coach's program library ---------- */
+// A saved program is what eventually gets SENT, so it goes through the same gate as a send. The
+// point of these: a row the library accepts but the send route would refuse is a trap the coach
+// only finds when they try to use it.
+const goodBundle = (over = {}) => ({
+  opengym_plan: 1, name: 'whatever', week: { 1: ['r1'] },
+  routines: [{ id: 'r1', name: 'Push', ex: [{ id: '0025', sets: 3 }] }], customEx: [], ...over
+})
+
+test('cleanProgram needs a name and a bundle that would survive being sent', () => {
+  assert.equal(cleanProgram(null).error, 'program required')
+  assert.equal(cleanProgram({ bundle: goodBundle() }).error, 'program needs a name')
+  assert.equal(cleanProgram({ name: '   ', bundle: goodBundle() }).error, 'program needs a name')
+  assert.equal(cleanProgram({ name: 'Block A' }).error, 'plan required')
+  assert.equal(cleanProgram({ name: 'Block A', bundle: goodBundle({ routines: [] }) }).error, 'plan has no routines')
+})
+
+test('cleanProgram trims and caps the name, and the row name wins inside the bundle', () => {
+  const { program } = cleanProgram({ name: '  Block A  ', bundle: goodBundle({ name: 'stale' }) })
+  assert.equal(program.name, 'Block A')
+  // The coach renamed it here; a send built from this row must announce the name they can see.
+  assert.equal(program.bundle.name, 'Block A')
+  const long = cleanProgram({ name: 'x'.repeat(PROGRAM_NAME_MAX + 40), bundle: goodBundle() })
+  assert.equal(long.program.name.length, PROGRAM_NAME_MAX)
+})
+
+test('upsertProgram adds, then updates in place keeping created', () => {
+  const t1 = NOW, t2 = NOW + DAY
+  const added = upsertProgram([], { id: 'p1', name: 'Block A', bundle: goodBundle() }, t1)
+  assert.equal(added.programs.length, 1)
+  assert.equal(added.program.created, t1)
+
+  const edited = upsertProgram(added.programs, { id: 'p1', name: 'Block A v2', bundle: goodBundle() }, t2)
+  assert.equal(edited.programs.length, 1, 'same id updates rather than appending')
+  assert.equal(edited.program.name, 'Block A v2')
+  assert.equal(edited.program.created, t1, 'created survives an edit')
+  assert.equal(edited.program.updated, t2)
+})
+
+test('upsertProgram caps the library, but only on a row that would be added', () => {
+  const full = []
+  for (let i = 0; i < COACH_MAX_PROGRAMS; i++)
+    full.push(upsertProgram(full.slice(), { id: 'p' + i, name: 'P' + i, bundle: goodBundle() }, NOW).program)
+  assert.equal(full.length, COACH_MAX_PROGRAMS)
+
+  const over = upsertProgram(full, { id: 'new', name: 'One more', bundle: goodBundle() }, NOW)
+  assert.match(over.error, /delete one/)
+  // Renaming an existing one at the cap must still work, or a full library becomes read-only.
+  const renamed = upsertProgram(full, { id: 'p0', name: 'Renamed', bundle: goodBundle() }, NOW)
+  assert.equal(renamed.error, undefined)
+  assert.equal(renamed.programs.length, COACH_MAX_PROGRAMS)
+})
+
+test('upsertProgram refuses a row with no id rather than inventing one', () => {
+  assert.equal(upsertProgram([], { name: 'Block A', bundle: goodBundle() }, NOW).error, 'program id required')
+})
+
+test('upsertProgram never mutates the array it was handed', () => {
+  const before = [upsertProgram([], { id: 'p1', name: 'A', bundle: goodBundle() }, NOW).program]
+  const snapshot = JSON.stringify(before)
+  upsertProgram(before, { id: 'p2', name: 'B', bundle: goodBundle() }, NOW)
+  upsertProgram(before, { id: 'p1', name: 'A renamed', bundle: goodBundle() }, NOW)
+  assert.equal(JSON.stringify(before), snapshot)
 })
