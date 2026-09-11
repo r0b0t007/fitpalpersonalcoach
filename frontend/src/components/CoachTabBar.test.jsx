@@ -25,9 +25,9 @@ beforeEach(() => { globalThis.IS_REACT_ACT_ENVIRONMENT = true })
 afterEach(() => { act(() => root.unmount()); container.remove() })
 
 describe('the coach bar', () => {
-  it('is Today and Account, in that order, until the other screens land', () => {
+  it('is Today, Clients and Account, in that order, until Programs lands', () => {
     render('/today')
-    expect(cells().map(b => b.textContent.trim())).toEqual(['Today', 'Account'])
+    expect(cells().map(b => b.textContent.trim())).toEqual(['Today', 'Clients', 'Account'])
   })
 
   it('has no raised Start cell — that starts the coach’s own workout', () => {
@@ -36,7 +36,7 @@ describe('the coach bar', () => {
     expect(container.querySelector('.cir')).toBeNull()
   })
 
-  for (const [path, label] of [['/today', 'Today'], ['/account', 'Account'], ['/', 'Today']]) {
+  for (const [path, label] of [['/today', 'Today'], ['/clients', 'Clients'], ['/clients/abc', 'Clients'], ['/account', 'Account'], ['/', 'Today']]) {
     it(`${path} lights ${label}`, () => {
       render(path)
       expect(lit()).toEqual([label])

@@ -10,6 +10,7 @@ import Icon from './Icon.jsx'
 // than pointing a tab at a page that does not exist yet.
 const CELLS = [
   { k: 'today', icon: 'house', to: '/today', label: 'Today' },
+  { k: 'clients', icon: 'people', to: '/clients', label: 'Clients' },
   { k: 'account', icon: 'personCircle', to: '/account', label: 'Account' },
 ]
 

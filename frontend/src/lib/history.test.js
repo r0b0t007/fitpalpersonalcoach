@@ -1080,6 +1080,15 @@ describe('per-side set counters', () => {
     expect(setsDoneActive(A)).toBe(2)
     expect(setsDone({ entries: A.entries })).toBe(2)
   })
+
+  it('setsDone survives a damaged session row, because the coach renders somebody else’s', () => {
+    // A client page draws sessions the API passes through verbatim; one row missing `entries`
+    // (a truncated write, a hand-edited state file) used to take the whole screen down for a
+    // coach who has no way to fix that data.
+    expect(setsDone({})).toBe(0)
+    expect(setsDone({ entries: [{}] })).toBe(0)
+    expect(setsDone({ entries: [{ sets: [{ done: true }] }, null] })).toBe(1)
+  })
 })
 
 // ---- combine routines: plural planner resolver + per-entry noProg (ENG-9) ----

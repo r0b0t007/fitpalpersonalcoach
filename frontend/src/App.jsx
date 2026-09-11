@@ -35,7 +35,9 @@ import Muscles from './views/Muscles.jsx'
 import Settings from './views/Settings.jsx'
 import You from './views/You.jsx'
 import Admin from './views/Admin.jsx'
-import Coach from './views/Coach.jsx'
+import CoachToday from './views/coach/CoachToday.jsx'
+import Clients from './views/coach/Clients.jsx'
+import ClientDetail from './views/coach/ClientDetail.jsx'
 import CoachChat from './views/CoachChat.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachSetup from './views/CoachSetup.jsx'
@@ -90,13 +92,15 @@ function ClientRoutes() {
   )
 }
 
-// /today carries the existing dashboard until its replacement lands; /account is the shared
-// Settings screen for the same reason. /trainer was the dashboard's old address (it could not be
-// /coach — upstream's AI chat owns that path in the client table).
+// /account is the shared Settings screen until the coach's own lands. /trainer was the old
+// dashboard's address (it could not be /coach — upstream's AI chat owns that path in the client
+// table).
 function CoachRoutes({ user }) {
   return (
     <Routes>
-      <Route path="/today" element={<Coach />} />
+      <Route path="/today" element={<CoachToday />} />
+      <Route path="/clients" element={<Clients />} />
+      <Route path="/clients/:id" element={<ClientDetail />} />
       <Route path="/account" element={<Settings />} />
       {/* The operator page stays reachable for the admin account for one release, hidden, while
           the pieces a single coach still needs (activity log, disabling an account) move into

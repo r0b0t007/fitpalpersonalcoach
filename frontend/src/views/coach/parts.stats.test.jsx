@@ -12,7 +12,7 @@
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
-import { todayISO } from '../lib/format.js'
+import { todayISO } from '../../lib/format.js'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('../lib/api.js', () => ({
@@ -24,10 +24,10 @@ vi.mock('../lib/mobile.js', () => ({
   syncReminder: () => {}, initReminderSync: () => {}, writeAutoBackup: () => {},
 }))
 
-const { DEF } = await import('../store/useStore.js')
-const { StatsPanels } = await import('./Stats.jsx')
+const { DEF } = await import('../../store/useStore.js')
+const { StatsPanels } = await import('../Stats.jsx')
 
-// Mirrors memberState() in Coach.jsx (~line 215). Kept as a local copy on purpose: the point of
+// Mirrors memberState() in views/coach/parts.jsx. Kept as a local copy on purpose: the point of
 // the test is that the transform exists and stays correct, so importing the implementation would
 // test nothing.
 //
@@ -143,7 +143,7 @@ describe('StatsPanels against a member payload', () => {
 // scored result and the parts it was scored from are both plausible-looking objects. Reading
 // `.rate` off the parts yields undefined and renders nothing at all: no error, just a column
 // that quietly stops appearing. That is what these pin.
-const { AdherenceCard, CheckinsCard, RosterAdherence, memberAdherence, memberState: realMemberState } = await import('./Coach.jsx')
+const { AdherenceCard, CheckinsCard, RosterAdherence, memberAdherence, memberState: realMemberState } = await import('./parts.jsx')
 
 describe('adherence in the coach view', () => {
   // Fixed, never the clock. memberAdherence defaults `todayIso` to today, so a test that let it

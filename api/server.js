@@ -761,7 +761,15 @@ const memberCard = (u, viewerId = null) => {
     // What frontend/src/lib/adherence.js needs to score "are they showing up" without the roster
     // pulling every member's full state. The state is already read at the top of this function,
     // so it costs no extra I/O — only these four fields on the wire.
-    adherence: adherenceParts(S, u)
+    adherence: adherenceParts(S, u),
+    // Three more facts the coach's Today scores its "needs attention" list from
+    // (frontend/src/lib/roster-attention.js): is a check-in owed, is there anything to train.
+    // Same trade as adherence — the state is in hand, the client decides what the facts mean.
+    // `lastCheckin` is the newest date filed, not the last entry: the list is kept in date order
+    // by upsertCheckin, but a coach-side judgement should not depend on that invariant holding.
+    lastCheckin: (S.checkins || []).reduce((max, c) => (c && c.d > max ? c.d : max), '') || null,
+    checkinDay: Number.isInteger(S.checkinDay) && S.checkinDay >= 0 && S.checkinDay <= 6 ? S.checkinDay : null,
+    routines: (S.routines || []).filter(r => (r.ex || []).length).length
   };
 };
 

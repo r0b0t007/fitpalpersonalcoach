@@ -1,0 +1,87 @@
+// What needs the coach today, from the roster alone.
+//
+// The coach opens the app several times a day to triage, not to browse, so the first thing on
+// their Today is this list: one row per client who needs something, most pressing first. Scored
+// here, in a pure helper with a test, from the fields GET /api/coach/members already sends — the
+// same trade adherence.js makes: the server ships facts, the client decides what they mean.
+//
+// One row per client, not one per reason. A client who is both a week off training and late on
+// their check-in is one person to talk to, and two rows for them would push someone else off the
+// screen. The reasons rank in the order a coach would act on them: an unanswered program is a
+// conversation waiting to happen; a decline is a conversation that already went wrong; a new
+// client with nothing to train is the one thing that only the coach can fix today; then the
+// slower drifts — no check-in, no training — which are what this list exists to catch before the
+// client stops opening the app.
+import { checkinOverdue } from './checkins.js'
+
+export const INACTIVE_DAYS = 7
+export const NEW_DAYS = 7
+
+const DAY = 86400000
+const noon = iso => Date.parse(String(iso).slice(0, 10) + 'T12:00:00Z')
+// Whole days between a date-ish value (ISO day, ISO timestamp, or ms) and the roster's today.
+export const daysSince = (v, todayIso) => {
+  if (v == null) return null
+  const t = typeof v === 'number' ? v : (String(v).length === 10 ? noon(v) : Date.parse(v))
+  if (!Number.isFinite(t)) return null
+  return Math.max(0, Math.round((noon(todayIso) - t) / DAY))
+}
+const ago = n => (n == null ? '' : n === 0 ? 'today' : n === 1 ? 'yesterday' : n + ' days ago')
+
+const REASONS = [
+  {
+    type: 'program-waiting',
+    when: m => m.pending?.length > 0,
+    title: 'Program not answered',
+    detail: (m, today) => 'Sent ' + ago(daysSince(m.pending[0].created, today)),
+  },
+  {
+    type: 'declined',
+    when: m => m.lastDecision?.status === 'declined',
+    title: 'Declined the last program',
+    detail: (m, today) => ago(daysSince(m.lastDecision.at, today)),
+  },
+  {
+    type: 'new-client',
+    when: (m, today) => !(m.routines > 0) && daysSince(m.created, today) != null && daysSince(m.created, today) <= NEW_DAYS,
+    title: 'New client, no program yet',
+    detail: (m, today) => 'Joined ' + ago(daysSince(m.created, today)),
+  },
+  {
+    type: 'no-program',
+    when: m => !(m.routines > 0),
+    title: 'No program',
+    detail: () => 'Nothing on their plan to train',
+  },
+  {
+    type: 'checkin-overdue',
+    // Only once they have something to train — a check-in on an empty plan is not a habit anyone
+    // agreed to yet, and the row above already says what is missing.
+    when: (m, today) => checkinOverdue(m, today),
+    title: 'Check-in overdue',
+    detail: (m, today) => (m.lastCheckin ? 'Last one ' + ago(daysSince(m.lastCheckin, today)) : 'None filed yet'),
+  },
+  {
+    type: 'inactive',
+    when: (m, today) => !m.live && (m.lastWorkout == null || daysSince(m.lastWorkout, today) >= INACTIVE_DAYS),
+    title: 'Not training',
+    detail: (m, today) => (m.lastWorkout ? 'Last workout ' + ago(daysSince(m.lastWorkout, today)) : 'No workouts yet'),
+  },
+]
+
+export function reasonFor(m, todayIso) {
+  const i = REASONS.findIndex(r => r.when(m, todayIso))
+  if (i < 0) return null
+  const r = REASONS[i]
+  return { type: r.type, rank: i, title: r.title, detail: r.detail(m, todayIso) }
+}
+
+export function attentionItems(members, todayIso) {
+  const out = []
+  for (const m of members || []) {
+    if (m.disabled) continue
+    const r = reasonFor(m, todayIso)
+    if (r) out.push({ ...r, id: m.id, name: m.name })
+  }
+  return out.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+}

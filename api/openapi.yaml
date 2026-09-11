@@ -1296,6 +1296,18 @@ components:
         live:
           oneOf: [{ $ref: '#/components/schemas/Presence' }, { type: 'null' }]
           description: Currently training, or null.
+        lastCheckin:
+          oneOf: [{ type: string }, { type: 'null' }]
+          description: >
+            Coach roster only. ISO day of the newest weekly check-in, or null. With `checkinDay`
+            this is what the coach's "check-in overdue" row is scored from
+            (frontend/src/lib/roster-attention.js).
+        checkinDay:
+          oneOf: [{ type: integer, minimum: 0, maximum: 6 }, { type: 'null' }]
+          description: Coach roster only. The member's own check-in weekday (0 = Sunday); null means the default.
+        routines:
+          type: integer
+          description: Coach roster only. How many of their routines have at least one exercise — i.e. is there anything to train.
 
     Presence:
       type: object

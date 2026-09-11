@@ -1,0 +1,22 @@
+// @vitest-environment happy-dom
+//
+// The coach screens were carved out of one 900-line file, and a helper left behind in another
+// module is a ReferenceError that only fires when that branch renders — the send sheet's member
+// list needed `rel`, which had moved, and every gate (build, vitest, the locale check) stayed
+// green because an undefined identifier is only an error at runtime. Importing each module for
+// real is what catches it: a missing import fails the import itself, and every exported
+// component is at least constructed.
+import { describe, it, expect } from 'vitest'
+
+describe('the coach modules load and export what the screens import', () => {
+  it('parts, sheets and the three screens import cleanly', async () => {
+    const parts = await import('./parts.jsx')
+    const sheets = await import('./sheets.jsx')
+    for (const n of ['rel', 'dur', 'memberState', 'memberAdherence', 'RosterAdherence', 'CheckinsCard', 'PhotosCard', 'AdherenceCard'])
+      expect(typeof parts[n], n).toMatch(/function/)
+    for (const n of ['SendSheet', 'SaveProgramSheet', 'InviteSheet', 'MediaSheet'])
+      expect(typeof sheets[n], n).toBe('function')
+    for (const m of ['./CoachToday.jsx', './Clients.jsx', './ClientDetail.jsx'])
+      expect(typeof (await import(m)).default, m).toBe('function')
+  })
+})

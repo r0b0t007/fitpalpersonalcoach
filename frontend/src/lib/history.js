@@ -496,9 +496,12 @@ export const doneUnits = s => (isSideSet(s) ? (s.sides.L.done ? 1 : 0) + (s.side
 // Total completion-units across a session's rows (both sides of every unilateral set counted).
 export const setUnitsTotal = entries => (entries || []).reduce((n, e) => n + (e.sets || []).reduce((m, s) => m + setUnits(s), 0), 0)
 
+// Tolerant of a missing/damaged shape on purpose: the coach's client page renders somebody
+// ELSE's sessions, passed through by the API verbatim, and a single row without `entries` would
+// otherwise take the whole screen down for a coach who cannot fix the data.
 export function setsDone(w) {
   let n = 0
-  w.entries.forEach(e => e.sets.forEach(s => { n += doneUnits(s) }))
+  ;(w?.entries || []).forEach(e => (e?.sets || []).forEach(s => { n += doneUnits(s) }))
   return n
 }
 export function setsDoneActive(A) {
