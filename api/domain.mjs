@@ -386,9 +386,6 @@ export function validateAssignmentBundle(raw) {
 // coach only discovers when they try to use it.
 export const COACH_MAX_PROGRAMS = 50
 export const PROGRAM_NAME_MAX = 60
-// A coach's private note about one client. Long enough for real context, short enough that the
-// sidecar cannot be grown without bound one note at a time.
-export const COACH_NOTE_MAX = 4000
 
 export function cleanProgram(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { error: 'program required' }
@@ -407,17 +404,23 @@ export function upsertProgram(programs, { id, name, bundle }, now) {
   const list = Array.isArray(programs) ? programs : []
   const { program, error } = cleanProgram({ name, bundle })
   if (error) return { error }
-  const at = id ? list.findIndex(p => p && p.id === id) : -1
+  // A string, and one that could have come from crypto.randomUUID(). Anything else — an object,
+  // an array — is stored verbatim by a caller that trusts it, then never matches on the way back
+  // out (findIndex compares by reference), so every re-save appends a row until the cap locks the
+  // coach out of saving entirely.
+  if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { error: 'program id required', code: 'bad-id' }
+  const at = list.findIndex(p => p && p.id === id)
   if (at < 0 && list.length >= COACH_MAX_PROGRAMS)
-    return { error: `you have ${COACH_MAX_PROGRAMS} programs — delete one before saving another` }
+    // `code`, not the wording: the route decides 429 vs 400 from this, and an earlier version
+    // matched the message text, so rewording this line silently downgraded the cap to a 400.
+    return { error: `you have ${COACH_MAX_PROGRAMS} programs — delete one before saving another`, code: 'cap' }
   const row = {
-    id: at >= 0 ? list[at].id : id || null,
+    id: at >= 0 ? list[at].id : id,
     name: program.name,
     created: at >= 0 ? list[at].created : now,
     updated: now,
     bundle: program.bundle
   }
-  if (!row.id) return { error: 'program id required' }
   const next = list.slice()
   if (at >= 0) next[at] = row; else next.push(row)
   return { programs: next, program: row }

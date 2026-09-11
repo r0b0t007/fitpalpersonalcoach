@@ -1,6 +1,7 @@
 // node --test — pure-logic tests for the access-request and group-session helpers.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
 import {
   normPhone, hasPendingPhone, pruneRequests, decideRequest,
   addDaysISO, isRealDate, validateSession, expandRepeats, pruneSessions, sessionSort,
@@ -728,8 +729,20 @@ test('upsertProgram caps the library, but only on a row that would be added', ()
   assert.equal(renamed.programs.length, COACH_MAX_PROGRAMS)
 })
 
-test('upsertProgram refuses a row with no id rather than inventing one', () => {
-  assert.equal(upsertProgram([], { name: 'Block A', bundle: goodBundle() }, NOW).error, 'program id required')
+test('upsertProgram refuses an id that is not a plain string', () => {
+  // Anything else is stored verbatim and then never matches on the way back out (findIndex
+  // compares by reference), so every re-save appends a row until the cap locks saving entirely.
+  for (const id of [undefined, '', {}, [], 42, 'has spaces', 'x'.repeat(65)])
+    assert.equal(upsertProgram([], { id, name: 'Block A', bundle: goodBundle() }, NOW).error, 'program id required', String(id))
+  assert.equal(upsertProgram([], { id: crypto.randomUUID(), name: 'Block A', bundle: goodBundle() }, NOW).error, undefined)
+})
+
+test('the cap carries a code, so the route never has to match the message text', () => {
+  const full = []
+  for (let i = 0; i < COACH_MAX_PROGRAMS; i++)
+    full.push(upsertProgram(full.slice(), { id: 'p' + i, name: 'P' + i, bundle: goodBundle() }, NOW).program)
+  assert.equal(upsertProgram(full, { id: 'new', name: 'One more', bundle: goodBundle() }, NOW).code, 'cap')
+  assert.equal(upsertProgram([], { id: '', name: 'x', bundle: goodBundle() }, NOW).code, 'bad-id')
 })
 
 test('upsertProgram never mutates the array it was handed', () => {

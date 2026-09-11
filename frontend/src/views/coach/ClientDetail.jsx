@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
 import { api } from '../../lib/api.js'
+import { fetchPrograms } from '../../lib/programs.js'
 import { fmtDate, fmtVol, fmtDur, DAYN } from '../../lib/format.js'
 import { workoutVolume, setsDone } from '../../lib/history.js'
 import Icon from '../../components/Icon.jsx'
@@ -47,7 +47,9 @@ export default function ClientDetail() {
   const nav = useNavigate()
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
-  const programs = useStore(s => s.S.programs) || []
+  // The library lives on the server now (lib/programs.js). Reading S.programs here is what made
+  // "Send a program" fall through to the coach's current plan without ever offering the picker.
+  const [programs, setPrograms] = useState([])
   const [d, setD] = useState(null)
   const [roster, setRoster] = useState(null)
   const [tab, setTab] = useState('overview')
@@ -58,6 +60,7 @@ export default function ClientDetail() {
     api('/api/coach/members').then(r => setRoster(r.members || [])).catch(() => {})
   }
   useEffect(load, [id])
+  useEffect(() => { fetchPrograms().then(d => setPrograms(d.programs)).catch(() => {}) }, [])
 
   if (!d) return <div className="narrow"><div className="hdr"><h1>…</h1></div><div className="muted small">Loading…</div></div>
   const row = (roster || []).find(m => m.id === id)

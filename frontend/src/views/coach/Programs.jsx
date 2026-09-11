@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
-import { fmtDate } from '../../lib/format.js'
+import { fmtDate, isoOf } from '../../lib/format.js'
 import { fetchPrograms, deleteProgram, migrateLocalPrograms } from '../../lib/programs.js'
 import { glyphOf } from '../../lib/glyphs.js'
 import Icon from '../../components/Icon.jsx'
@@ -34,7 +34,7 @@ function ProgramActions({ program, close, roster, onChanged }) {
   return <>
     <h3>{program.name}</h3>
     <div className="dim small" style={{ marginBottom: 12 }}>
-      {program.bundle?.routines?.length || 0} {program.bundle?.routines?.length === 1 ? 'routine' : 'routines'} · saved {fmtDate(new Date(program.created).toISOString().slice(0, 10))}
+      {program.bundle?.routines?.length || 0} {program.bundle?.routines?.length === 1 ? 'routine' : 'routines'} · saved {fmtDate(isoOf(new Date(program.created)))}
       {days ? ` · scheduled on ${days} ${days === 1 ? 'day' : 'days'}` : ' · no weekly schedule'}
     </div>
     <Button variant="primary" icon="clipboard" disabled={!roster.length}
@@ -62,21 +62,27 @@ export default function Programs() {
       // running this after the first finds everything already there and does nothing.
       const local = useStore.getState().S.programs || []
       if (local.length) {
-        const { moved, failed, programs: after } = await migrateLocalPrograms(local, remote)
+        const { moved, failed, programs: after, safeIds } = await migrateLocalPrograms(local, remote)
+        // Drop exactly the rows that are now on the server, and nothing else. A row the server
+        // refused, or one too damaged to send, stays local where the coach can still see it —
+        // clearing the lot would destroy the only copy of it. This also runs when `moved` is 0,
+        // which is the second-device case: everything was already up there, so the local copy
+        // goes and stops riding every state push. The DEF key stays for a release so an older
+        // device pulling its own state cannot resurrect a library that has already moved.
+        if (safeIds.size) useStore.getState().update(s => { s.programs = (s.programs || []).filter(p => !safeIds.has(p && p.id)) })
         if (moved || failed.length) {
           setPrograms(after)
-          // Cleared only once they are safely up. The DEF key stays for a release so an older
-          // device pulling its own state cannot resurrect a library that has already moved.
-          useStore.getState().update(s => { s.programs = [] })
           toast(failed.length
-            ? `Moved ${moved} to your library · ${failed.length} could not be moved`
+            ? `Moved ${moved} · ${failed.length} could not be moved and are still on this device`
             : `Moved ${moved} ${moved === 1 ? 'program' : 'programs'} to your library`)
           return
         }
       }
       setPrograms(remote)
     })
-    .catch(e => { toast(e.message || 'Failed to load'); setPrograms([]) })
+    // A failed load must not read as an empty library: "No programs yet" to a coach whose
+    // session expired is the app telling them their work is gone.
+    .catch(e => { toast(e.message || 'Failed to load'); setPrograms(false) })
 
   // Re-runs when the pulled state arrives carrying a library to move.
   useEffect(() => { load() }, [localCount])
@@ -88,12 +94,12 @@ export default function Programs() {
   return <div className="narrow">
     <div className="hdr">
       <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>Programs</h1>
-        <div className="sub">{programs ? (programs.length ? programs.length + ' in your library' : 'Nothing saved yet') : 'Loading…'}</div></div>
+        <div className="sub">{programs === false ? 'Could not load' : programs ? (programs.length ? programs.length + ' in your library' : 'Nothing saved yet') : 'Loading…'}</div></div>
       <Button variant="tinted" size="sm" icon="plus" onClick={() => openSheet(close => <SaveProgramSheet close={close} onSaved={setPrograms} />)}>New</Button>
     </div>
 
     <div className="list">
-      {(programs || []).map(p => {
+      {(Array.isArray(programs) ? programs : []).map(p => {
         const days = Object.keys(p.bundle?.week || {}).length
         const ex = (p.bundle?.routines || []).reduce((n, r) => n + (r.ex || []).length, 0)
         const routines = p.bundle?.routines?.length || 0
@@ -109,7 +115,10 @@ export default function Programs() {
           <Icon name="chevronRight" className="chev" />
         </button>
       })}
-      {programs && !programs.length && <div className="empty">
+      {programs === false && <div className="empty">
+        Could not reach the server, so your library is not shown. Nothing has been lost — try again in a moment.
+      </div>}
+      {Array.isArray(programs) && !programs.length && <div className="empty">
         No programs yet. Save one from the routines in your own Plan, then send it to as many clients as you like.
       </div>}
     </div>

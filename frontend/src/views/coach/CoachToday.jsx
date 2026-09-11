@@ -11,7 +11,7 @@ import { fetchPrograms } from '../../lib/programs.js'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { dur, rel } from './parts.jsx'
-import { SendSheet, InviteSheet, MediaSheet } from './sheets.jsx'
+import { InviteSheet, MediaSheet } from './sheets.jsx'
 
 // The coach's landing screen: what needs me, who is training, what happened. A coach opens the
 // app several times a day to triage, so the list of clients who need something comes first and

@@ -20,7 +20,7 @@ import {
   findSessionConflicts, isRealDate,
   validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile,
   coachBinding, checkinReminderDue, checkinPeriodStart,
-  upsertProgram, COACH_MAX_PROGRAMS, COACH_NOTE_MAX
+  upsertProgram, COACH_MAX_PROGRAMS
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
 import * as coachJobs from './coach/jobs.js';
@@ -1639,12 +1639,17 @@ const routes = {
     const coach = requireCoach(req, res); if (!coach) return;
     const body = await readBody(req);
     const data = readCoachData(coach.id);
-    const { programs, program, error } = upsertProgram(data.programs, {
-      id: body.id || crypto.randomUUID(), name: body.name, bundle: body.bundle
+    const { programs, program, error, code } = upsertProgram(data.programs, {
+      // Only an ABSENT id is generated. A present-but-malformed one is passed through so
+      // upsertProgram refuses it loudly — coercing it to a fresh id instead would silently
+      // ignore what the caller asked for and append a new row on every retry.
+      id: body.id == null || body.id === '' ? crypto.randomUUID() : body.id,
+      name: body.name, bundle: body.bundle
     }, Date.now());
     // 429 for the cap, 400 for a malformed program: the first is "you have too many", which is
-    // a state the coach can fix, and the second is a bad request.
-    if (error) return json(res, /programs —|delete one/.test(error) ? 429 : 400, { error });
+    // a state the coach can fix, and the second is a bad request. Keyed on `code` rather than
+    // on the message text, so rewording the message cannot change the status.
+    if (error) return json(res, code === 'cap' ? 429 : 400, { error });
     writeCoachData(coach.id, { ...data, programs });
     audit(req, 'coach.program.save', { user: coach, msg: program.name });
     json(res, 200, { program, programs });
@@ -1660,22 +1665,6 @@ const routes = {
     writeCoachData(coach.id, { ...data, programs });
     audit(req, 'coach.program.delete', { user: coach, msg: gone.name });
     json(res, 200, { programs });
-  },
-
-  // A coach's private note about one of their clients. Never sent to the client, and gated on
-  // canCoachMember so it cannot be used to write a row keyed by a stranger's id.
-  'POST /api/coach/notes/save': async (req, res) => {
-    const coach = requireCoach(req, res); if (!coach) return;
-    const body = await readBody(req);
-    const member = db.users.find(u => u.id === body.memberId);
-    if (!member || !canCoachMember(coach, member, { isAdmin: isAdmin(coach) }))
-      return json(res, 403, { error: 'not your client' });
-    const data = readCoachData(coach.id);
-    const text = String(body.text == null ? '' : body.text).slice(0, COACH_NOTE_MAX);
-    const notes = { ...data.notes };
-    if (text) notes[member.id] = text; else delete notes[member.id];
-    writeCoachData(coach.id, { ...data, notes });
-    json(res, 200, { ok: true });
   },
 
   /* ---------- coaching: taking a client on ---------- */

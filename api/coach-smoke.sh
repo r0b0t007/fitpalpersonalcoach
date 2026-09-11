@@ -124,9 +124,8 @@ chk "a member cannot read a library"           403 "$(code -H "Cookie: $M1" "$B/
 chk "a nameless program is refused"            400 "$(code -X POST "$B/api/coach/programs/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"x","name":"","bundle":{"opengym_plan":1,"routines":[{"id":"r","ex":[]}]}}')"
 chk "a routine-less bundle is refused"         400 "$(code -X POST "$B/api/coach/programs/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"x","name":"Empty","bundle":{"opengym_plan":1,"routines":[]}}')"
 chk "re-saving the same id updates in place"   1 "$(get -H "Cookie: $CA" "$B/api/coach/programs" >/dev/null; code -X POST "$B/api/coach/programs/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "$PROG" >/dev/null; get -H "Cookie: $CA" "$B/api/coach/programs" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).programs.length")"
-chk "a private note needs to be your client"   403 "$(code -X POST "$B/api/coach/notes/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"memberId":"mem2","text":"hi"}')"
-chk "a private note on your own client saves"  200 "$(code -X POST "$B/api/coach/notes/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"memberId":"mem1","text":"Shoulder still grumbling."}')"
 chk "the coach file is a sidecar, not state"   "absent" "$([ -f "$D/state-coachA.json" ] && echo present || echo absent)"
+chk "a non-string id is refused"                400 "$(code -X POST "$B/api/coach/programs/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":{"a":1},"name":"Odd","bundle":{"opengym_plan":1,"routines":[{"id":"r","ex":[{"id":"0025"}]}]}}')"
 chk "deleting an unknown program is 404"       404 "$(code -X POST "$B/api/coach/programs/delete" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"nope"}')"
 chk "coach deletes their program"              0 "$(code -X POST "$B/api/coach/programs/delete" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"p-smoke"}' >/dev/null; get -H "Cookie: $CA" "$B/api/coach/programs" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).programs.length")"
 

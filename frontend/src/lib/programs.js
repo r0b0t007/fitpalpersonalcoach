@@ -15,24 +15,27 @@ export const savePrograms = ({ id, name, bundle }) =>
 export const deleteProgram = id =>
   api('/api/coach/programs/delete', { method: 'POST', body: JSON.stringify({ id }) })
 
-export const saveClientNote = (memberId, text) =>
-  api('/api/coach/notes/save', { method: 'POST', body: JSON.stringify({ memberId, text }) })
-
 /**
  * Move a pre-server library up, once.
  *
- * Deliberately additive and id-preserving: a program already on the server wins, so running this
- * twice — two devices, or a coach who upgrades, syncs, then opens the dashboard again — cannot
- * duplicate anything. The caller clears `S.programs` only after every row is safely up, and the
- * DEF key stays in the store for a release so an older device pulling its own state does not
- * resurrect a library that has already moved.
+ * Additive and id-preserving: a program already on the server wins, so running this twice — two
+ * devices, or a coach who upgrades, syncs, then opens the dashboard again — cannot duplicate
+ * anything.
  *
- * Returns what happened so the caller can say it out loud rather than migrating in silence.
+ * `safeIds` is the contract with the caller and the reason this returns anything at all: it holds
+ * exactly the ids that are now on the server, so the caller removes those and NOTHING else from
+ * the local copy. A row the server refused (over the cap, a bundle that predates a validation
+ * rule) and a row too damaged to send (no id, no bundle) both stay local, where the coach can
+ * still see them. An earlier version cleared the whole local library whenever anything moved,
+ * which quietly destroyed every rejected program — the one copy of it.
  */
 export async function migrateLocalPrograms(local, remote) {
-  const have = new Set((remote || []).map(p => p && p.id))
-  const todo = (local || []).filter(p => p && p.id && p.bundle && !have.has(p.id))
-  if (!todo.length) return { moved: 0, failed: [], programs: remote || [] }
+  const list = local || []
+  const have = new Set((remote || []).map(p => p && p.id).filter(Boolean))
+  const todo = list.filter(p => p && p.id && p.bundle && !have.has(p.id))
+  // Already-uploaded rows are safe whether or not there is anything left to do.
+  const safeIds = new Set(list.filter(p => p && p.id && have.has(p.id)).map(p => p.id))
+  if (!todo.length) return { moved: 0, failed: [], programs: remote || [], safeIds }
 
   let programs = remote || []
   const failed = []
@@ -40,10 +43,12 @@ export async function migrateLocalPrograms(local, remote) {
     try {
       const r = await savePrograms({ id: p.id, name: p.name, bundle: p.bundle })
       programs = r.programs || programs
+      safeIds.add(p.id)
     } catch (e) {
-      // One bad row — a bundle that predates a validation rule — must not strand the rest.
+      // One bad row — a bundle that predates a validation rule, or the library cap — must not
+      // strand the rest, and must not be thrown away either.
       failed.push({ name: p.name, error: e.message })
     }
   }
-  return { moved: todo.length - failed.length, failed, programs }
+  return { moved: todo.length - failed.length, failed, programs, safeIds }
 }
