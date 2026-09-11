@@ -12,22 +12,22 @@
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
-import { todayISO } from '../lib/format.js'
+import { todayISO } from '../../lib/format.js'
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('../lib/api.js', () => ({
+vi.mock('../../lib/api.js', () => ({
   api: vi.fn(() => Promise.resolve({})),
   IS_IOS: false, IS_ANDROID: false, IS_APPLE: false, webauthnOK: () => true,
 }))
-vi.mock('../lib/mobile.js', () => ({
+vi.mock('../../lib/mobile.js', () => ({
   MOBILE: false, nativeLoad: async () => null, nativeSave: () => {},
   syncReminder: () => {}, initReminderSync: () => {}, writeAutoBackup: () => {},
 }))
 
-const { DEF } = await import('../store/useStore.js')
-const { StatsPanels } = await import('./Stats.jsx')
+const { DEF } = await import('../../store/useStore.js')
+const { StatsPanels } = await import('../Stats.jsx')
 
-// Mirrors memberState() in Coach.jsx (~line 215). Kept as a local copy on purpose: the point of
+// Mirrors memberState() in views/coach/parts.jsx. Kept as a local copy on purpose: the point of
 // the test is that the transform exists and stays correct, so importing the implementation would
 // test nothing.
 //
@@ -36,7 +36,7 @@ const { StatsPanels } = await import('./Stats.jsx')
 // it then failed for the mirror's reasons rather than the code's. Of those five, the three that
 // matter here are the nutrition ones: StatsPanels reads them, so a mirror without them renders a
 // client who looks like they never ate. `checkins`/`checkinDay` have no consumer on this path at
-// all — Stats.jsx never reads them, and Coach.jsx hands them straight to CheckinsCard outside
+// all — Stats.jsx never reads them, and views/coach/ClientDetail.jsx hands them straight to
 // this transform — so they are carried for fidelity with the real thing, nothing more.
 //
 // The parity test below is what actually enforces this. A comment cannot fail CI, and this drift
@@ -143,7 +143,7 @@ describe('StatsPanels against a member payload', () => {
 // scored result and the parts it was scored from are both plausible-looking objects. Reading
 // `.rate` off the parts yields undefined and renders nothing at all: no error, just a column
 // that quietly stops appearing. That is what these pin.
-const { AdherenceCard, CheckinsCard, RosterAdherence, memberAdherence, memberState: realMemberState } = await import('./Coach.jsx')
+const { AdherenceCard, CheckinsCard, RosterAdherence, memberAdherence, memberState: realMemberState } = await import('./parts.jsx')
 
 describe('adherence in the coach view', () => {
   // Fixed, never the clock. memberAdherence defaults `todayIso` to today, so a test that let it

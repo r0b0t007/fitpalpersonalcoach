@@ -69,6 +69,16 @@ export function isCheckinDue(S, todayIso) {
   return !(S?.checkins || []).some(c => c.d >= from)
 }
 
+/**
+ * isCheckinDue for the coach's roster, which carries a member's check-in day and newest check-in
+ * date (GET /api/coach/members) but not their state. Same rule — owed from the check-in day
+ * onward until one is filed for that period — so the coach's "check-in overdue" row and the
+ * member's own Home card agree on the day. checkins.overdue.test.js holds them together.
+ */
+export function checkinOverdue({ checkinDay, lastCheckin }, todayIso) {
+  return !lastCheckin || lastCheckin < periodStart({ checkinDay }, todayIso)
+}
+
 /** The check-in filed for the current period, if there is one. */
 export function currentCheckin(S, todayIso) {
   const from = periodStart(S, todayIso)

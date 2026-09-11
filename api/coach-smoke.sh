@@ -114,6 +114,9 @@ chk "admin reads any member"                  200 "$(code -H "Cookie: $ADMIN" "$
 # The roster scores adherence client-side (frontend/src/lib/adherence.js) from four fields the
 # card carries. They are cheap -- the state is already read to build the card -- but they are
 # also easy to drop in a refactor, and the failure is silent: the column just stops rendering.
+chk "member card carries the roster facts"     "ok" "$(get -H "Cookie: $CA" "$B/api/coach/members" | node -pe "
+  const m = JSON.parse(require('fs').readFileSync(0,'utf8')).members[0];
+  ('lastCheckin' in m && 'checkinDay' in m && typeof m.routines === 'number') ? 'ok' : 'got ' + JSON.stringify(m)")"
 chk "member card carries the adherence fields" "ok" "$(get -H "Cookie: $CA" "$B/api/coach/members" | node -pe "
   const a = JSON.parse(require('fs').readFileSync(0,'utf8')).members[0].adherence || {};
   ['week','dayPlan','routineIds','trainedDays','created'].every(k => k in a) ? 'ok' : 'missing: ' + JSON.stringify(a)")"

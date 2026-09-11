@@ -1,0 +1,140 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useStore } from '../../store/useStore.js'
+import { useUI } from '../../store/useUI.js'
+import { api } from '../../lib/api.js'
+import { fmtDate, todayISO } from '../../lib/format.js'
+import { setShellPref, homeFor } from '../../lib/role.js'
+import { attentionItems } from '../../lib/roster-attention.js'
+import { activityFeed } from '../../lib/roster-activity.js'
+import Icon from '../../components/Icon.jsx'
+import { Button } from '../../components/ui.jsx'
+import { dur, rel } from './parts.jsx'
+import { SendSheet, SaveProgramSheet, InviteSheet, MediaSheet } from './sheets.jsx'
+
+// The coach's landing screen: what needs me, who is training, what happened. A coach opens the
+// app several times a day to triage, so the list of clients who need something comes first and
+// the roster itself lives on its own tab. English-only like every coach surface.
+//
+// Roster and activity are derived client-side from GET /api/coach/members (lib/roster-attention,
+// lib/roster-activity) — the server ships dates and counts, this screen decides what they mean.
+export default function CoachToday() {
+  const nav = useNavigate()
+  const user = useStore(s => s.user)
+  const programs = useStore(s => s.S.programs) || []
+  const toast = useUI(s => s.toast)
+  const openSheet = useUI(s => s.openSheet)
+  const [members, setMembers] = useState(null)
+
+  const load = () => api('/api/coach/members').then(d => setMembers(d.members)).catch(e => toast(e.message || 'Failed to load'))
+  useEffect(() => {
+    load()
+    const iv = setInterval(load, 15000)   // keeps "training now" live
+    return () => clearInterval(iv)
+  }, [])
+
+  const today = todayISO()
+  const roster = (members || []).filter(m => !m.disabled)
+  const live = roster.filter(m => m.live)
+  const active = roster.filter(m => m.lastSync && Date.now() - m.lastSync < 7 * 86400000).length
+  const attention = attentionItems(roster, today)
+  const activity = activityFeed(roster)
+  const open = id => nav('/clients/' + encodeURIComponent(id))
+
+  return <div className="narrow">
+    <div className="hdr">
+      <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>Today</h1>
+        <div className="sub">{fmtDate(today, true)}{user?.name ? ' · ' + user.name : ''}</div></div>
+      {/* The coach's own training lives in the other shell (lib/role.js); this is the door. */}
+      <button className="btn sm tinted" onClick={() => { setShellPref('client'); nav(homeFor(user, 'client')) }}>Train myself</button>
+      <button className="iconbtn" onClick={load} aria-label="refresh">↻</button>
+    </div>
+
+    <div className="tiles" style={{ marginBottom: 12 }}>
+      <div className="tile tappable" onClick={() => nav('/clients')}><div className="l">Clients</div><div className="v">{members ? roster.length : '—'}</div></div>
+      <div className="tile"><div className="l">Training now</div><div className="v" style={{ color: live.length ? 'var(--acc)' : undefined }}>{members ? live.length : '—'}</div></div>
+      <div className="tile"><div className="l">Active 7d</div><div className="v">{members ? active : '—'}</div></div>
+    </div>
+
+    {members && !roster.length && <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>Invite your first client</h2>
+      <div className="small muted" style={{ marginBottom: 10, lineHeight: 1.4 }}>
+        Make a code, give it to whoever is joining, and they arrive on your roster the moment they sign up.
+      </div>
+      <Button variant="primary" icon="plus" onClick={() => openSheet(() => <InviteSheet />)}>Invite a client</Button>
+    </div>}
+
+    {roster.length > 0 && <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>Needs attention</h2>
+      {attention.length ? attention.map(a => (
+        <button key={a.id} className="row between" style={{ width: '100%', textAlign: 'left', padding: '9px 2px', borderBottom: '1px solid var(--sep)' }} onClick={() => open(a.id)}>
+          <div><div className="small" style={{ fontWeight: 600 }}>{a.name}</div>
+            <div className="dim" style={{ fontSize: '.72rem' }}>{a.title} · {a.detail}</div></div>
+          <Icon name="chevronRight" className="chev" />
+        </button>
+      )) : <div className="dim small">Everyone is on track.</div>}
+    </div>}
+
+    {live.length > 0 && <div className="card" style={{ borderColor: 'var(--acc)' }}>
+      <h2 className="row" style={{ margin: '0 0 8px', gap: 6 }}><Icon name="dot" style={{ fontSize: 10, color: 'var(--green)' }} />Training now</h2>
+      {live.map(m => <button key={m.id} className="row between" style={{ width: '100%', textAlign: 'left', padding: '8px 2px', borderBottom: '1px solid var(--sep)' }} onClick={() => open(m.id)}>
+        <div><div className="small" style={{ fontWeight: 600 }}>{m.name}</div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>{m.live.name} · ex {m.live.exIdx}/{m.live.exTotal} · {m.live.setsDone}/{m.live.setsTotal} sets</div></div>
+        <span className="tag acc">{dur(Date.now() - m.live.startedAt)}</span>
+      </button>)}
+    </div>}
+
+    {activity.length > 0 && <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>Recent activity</h2>
+      {activity.map((e, i) => <button key={e.id + e.kind + i} className="row between" style={{ width: '100%', textAlign: 'left', padding: '7px 2px', borderBottom: '1px solid var(--sep)' }} onClick={() => open(e.id)}>
+        <div className="small"><b>{e.name}</b> <span className="muted">{e.text}</span></div>
+        <span className="dim" style={{ fontSize: '.72rem', flex: 'none' }}>{rel(e.t)}</span>
+      </button>)}
+    </div>}
+
+    {/* Programs, invites and demos stay here until their own screens land (Programs tab, Account).
+        Below the day's triage rather than above it: these are things a coach sets up, not things
+        they check on. */}
+    <div className="card">
+      <div className="row between"><h2 style={{ margin: 0 }}>Programs</h2>
+        <Button variant="primary" size="sm" icon="plus"
+          onClick={() => openSheet(close => <SaveProgramSheet close={close} />)}>Save a program</Button></div>
+      <div className="small muted" style={{ margin: '6px 0 8px', lineHeight: 1.4 }}>
+        Write the routines in your own Plan, save the ones that make up a program here, then send it.
+        Clients accept before anything is added to theirs.
+      </div>
+      {programs.map(p => <div key={p.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+        <div><div className="small" style={{ fontWeight: 600 }}>{p.name}</div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>
+            {p.bundle.routines.length} {p.bundle.routines.length === 1 ? 'routine' : 'routines'} · saved {fmtDate(String(p.created).slice(0, 10))}</div></div>
+        <div className="row" style={{ gap: 6 }}>
+          <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} disabled={!roster.length}
+            onClick={() => openSheet(close => <SendSheet members={roster} close={close} program={p} />)}>Send</button>
+          <button className="iconbtn" aria-label="Delete program"
+            onClick={() => useStore.getState().update(s => { s.programs = (s.programs || []).filter(x => x.id !== p.id) })}><Icon name="trash" /></button>
+        </div>
+      </div>)}
+      {!programs.length && <div className="dim small">No saved programs yet.</div>}
+      <div style={{ height: 10 }} />
+      <Button variant="ghost" className="dim" disabled={!roster.length}
+        onClick={() => openSheet(close => <SendSheet members={roster} close={close} />)}>Send my current plan instead</Button>
+    </div>
+
+    {roster.length > 0 && <div className="card">
+      <div className="row between"><h2 style={{ margin: 0 }}>Take a client on</h2>
+        <Button variant="primary" size="sm" icon="plus" onClick={() => openSheet(() => <InviteSheet />)}>Make a code</Button></div>
+      <div className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.4 }}>
+        Give the code to whoever is joining. They enter it when they sign up and arrive already on your roster.
+      </div>
+    </div>}
+
+    <div className="card">
+      <div className="row between"><h2 style={{ margin: 0 }}>Exercise demos</h2>
+        <Button variant="primary" size="sm" icon="camera" onClick={() => openSheet(() => <MediaSheet />)}>Upload a video</Button></div>
+      <div className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.4 }}>
+        Your own footage of a lift, shown to clients in place of the stock animation — including on
+        the exercises you invented, which have never had one.
+      </div>
+    </div>
+  </div>
+}

@@ -144,7 +144,7 @@ describe('saving a program from selected routines', () => {
     week: { 1: ['a'], 3: ['b', 'mine'], 5: ['mine'] },
     customEx: []
   })
-  // The real handler, not a re-implementation of it: Coach.jsx calls this same function, so
+  // The real handler, not a re-implementation of it: views/coach/sheets.jsx calls this same function, so
   // these tests fail if the shipped snapshot logic changes.
   const snapshot = buildProgramBundle
 
