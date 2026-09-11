@@ -14,7 +14,13 @@ node_modules/
 *.log
 .DS_Store
 node_modules
-.claude/
+# Claude Code's own directory is local state — EXCEPT the two files below, which are repo
+# tooling every checkout should get. git cannot re-include a file whose parent directory is
+# excluded, so this ignores the contents rather than the directory itself.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json
 .agents/
 
 # CI reports (test:* jobs write these next to the suites)

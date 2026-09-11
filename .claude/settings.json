@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "deny": [
+      "Edit(./.github/workflows/deploy-api.yml)",
+      "Edit(./.github/workflows/deploy-web.yml)",
+      "Edit(./.github/workflows/deploy-site.yml)",
+      "Write(./.github/workflows/deploy-api.yml)",
+      "Write(./.github/workflows/deploy-web.yml)",
+      "Write(./.github/workflows/deploy-site.yml)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guards.mjs\"",
+            "timeout": 30,
+            "statusMessage": "Checking cross-boundary guards"
+          }
+        ]
+      }
+    ]
+  }
+}
