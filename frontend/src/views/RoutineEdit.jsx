@@ -319,7 +319,7 @@ function useRoutineReorder(routineIdentity, exercises, onDrop) {
  */
 export function RoutineEditor() {
   const nav = useNavigate()
-  const { routine: r, patch, addCopy, remove, canRemove, pathFor, backPath, ownEquipment } = useRoutineTarget()
+  const { routine: r, patch, addCopy, remove, canRemove, pathFor, backPath, backLabel, ownEquipment } = useRoutineTarget()
   const S = useStore(s => s.S)
   const toast = useUI(s => s.toast)
   useEffect(() => { if (!r) nav(backPath) }, [!!r])
@@ -355,7 +355,7 @@ export function RoutineEditor() {
 
   return <div className="narrow">
     <div className="hdr">
-      <button className="iconbtn" onClick={() => nav(backPath)} aria-label={t('Plan')}><Icon name="chevronLeft" /></button>
+      <button className="iconbtn" onClick={() => nav(backPath)} aria-label={backLabel || t('Plan')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, margin: '0 12px' }}>
         <input className="input" defaultValue={r.name} style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-.021em' }}
           onChange={e => patch(routine => { routine.name = e.target.value.trim() || t('Routine') })} />

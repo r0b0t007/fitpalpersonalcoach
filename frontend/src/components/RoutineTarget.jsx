@@ -19,6 +19,7 @@ import { useStore } from '../store/useStore.js'
  *   canRemove     false when removing would leave a set the owner cannot save
  *   pathFor(id)   where a sibling lives
  *   backPath      where the header's back button goes
+ *   backLabel     what that button is called; already final, so a coach surface stays English
  *   ownEquipment  true when this is the viewer's own plan, so "you don't own this kit" applies
  *
  * Two providers implement it: the one below, which reproduces exactly what the screen did before,
@@ -51,6 +52,7 @@ export function StoreRoutineTarget({ id, children }) {
     ownEquipment: true,
     canRemove: true,
     backPath: '/plan',
+    backLabel: null,      // the client's own plan: the screen's translated t('Plan') is right
     pathFor: rid => '/plan/r/' + rid,
     // The find is repeated inside the producer rather than closing over the routine above: the
     // producer runs against a fresh clone of S, and mutating the rendered object would write into
