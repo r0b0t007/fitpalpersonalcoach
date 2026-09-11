@@ -50,17 +50,22 @@ function RequestAccessSheet({ close }) {
  * is worse than one that waits a beat. GET /api/invite deliberately 404s for a spent, revoked or
  * unknown code, so a stale link quietly falls back to the ordinary sign-up.
  */
+let inviterAsked = null
 function useInviter() {
   const code = pendingInvite()
   const [name, setName] = useState(undefined)
   useEffect(() => {
     if (!code || DEMO) { setName(null); return }
     let alive = true
-    api('/api/invite?code=' + encodeURIComponent(code))
-      .then(d => { if (alive) setName(d.coachName || null) })
+    // Asked once per code, not once per component. The register sheet auto-opens OVER the rendered
+    // Login and both want the answer, which was two identical unauthenticated requests on every
+    // single arrival from a link — the one request shape anybody can make without an account.
+    if (!inviterAsked) inviterAsked = api('/api/invite?code=' + encodeURIComponent(code))
+      .then(d => d.coachName || null)
       // Offline, or the code is spent. Either way there is nobody to name, and registration is
       // still perfectly possible — the code rides along and the server decides.
-      .catch(() => { if (alive) setName(null) })
+      .catch(() => null)
+    inviterAsked.then(n => { if (alive) setName(n) })
     return () => { alive = false }
   }, [code])
   return name
@@ -86,7 +91,7 @@ function RegisterSheet({ close }) {
     if (!n) { useUI.getState().toast(t('Enter a name')); return }
     if (inviteOnly && !code.trim()) { useUI.getState().toast(t('An invite code is required')); return }
     try {
-      const u = await passkeyRegister(n, code.trim())
+      const u = await passkeyRegister(n, (inviter ? fromLink : code).trim())
       clearInvite()   // redeemed: drop it from memory and from the address bar
       setUser(u); close()
       if (hasData(useStore.getState().S)) { await pushState(); useUI.getState().toast(t('Profile created — data from this device moved into it')) }
@@ -106,7 +111,13 @@ function RegisterSheet({ close }) {
         shown rather than hidden, so what is about to happen is visible. */}
     {(inviteOnly || inviter) && <>
       <div style={{ height: 10 }} />
-      <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
+      {/* `fromLink`, not `code`, whenever a coach was named: this sheet auto-opens the moment
+          config lands, while GET /api/invite is still in flight, so anything typed in that window
+          would otherwise be frozen into a read-only field captioned "From your invite link" —
+          registration then fails with "invite code is no longer valid" and nothing on the screen
+          can put it right. What the link carries is what gets sent. */}
+      <input className="input" placeholder={t('Invite code')} maxLength={40}
+        value={inviter ? fromLink : code}
         readOnly={!!inviter} onChange={e => setCode(e.target.value.toUpperCase())}
         style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center', ...(inviter ? { opacity: .7 } : {}) }} />
       <div className="dim small" style={{ marginTop: 6 }}>

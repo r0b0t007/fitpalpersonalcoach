@@ -1675,11 +1675,6 @@ const routes = {
     json(res, 200, { programs });
   },
 
-  /* ---------- coaching: taking a client on ---------- */
-  // Until now the only way onto a coach's roster was POST /api/admin/user/assign-coach — an admin
-  // wiring each client by hand, after they had already signed up some other way. A coach could
-  // program for people but could not acquire them. This is the same invite machinery the admin
-  // dashboard uses, scoped to one coach and carrying who the code belongs to.
   /* ---------- joining a coach ---------- */
   // Unauthenticated on purpose: this is what the sign-in screen asks when somebody opens an invite
   // link, before they have an account to authenticate with. It answers one question — whose invite
@@ -1722,6 +1717,12 @@ const routes = {
     // A general invite — an admin's, or an access-request approval — binds nobody. Burning it here
     // would spend somebody's signup code to achieve nothing at all.
     if (!coachId) return json(res, 400, { error: 'this code does not belong to a coach' });
+    // A coach opening their own link while signed in would otherwise end up coaching themselves:
+    // coachBinding has no opinion on who is redeeming, and nothing downstream would let them out
+    // of it. The code is burnt, canCoachMember refuses self so member/release answers 403, and
+    // every later redeem is refused 409 "you already have a coach" — only an admin clearing the
+    // field by hand could undo it. POST /api/admin/user/assign-coach already carries this guard.
+    if (coachId === user.id) return json(res, 400, { error: 'that is your own invite link' });
     if (user.disabled) return json(res, 403, { error: 'forbidden' });
     user.coachId = coachId;
     invite.usedBy = user.id;
@@ -1741,16 +1742,26 @@ const routes = {
     // canCoachMember, so the same 403 answers "no such member" and "not yours" — the identical
     // reasoning as GET /api/coach/member: a distinguishable answer lets a coach enumerate the gym.
     if (!member || !canCoachMember(coach, member, { isAdmin: isAdmin(coach) })) return json(res, 403, { error: 'forbidden' });
+    // Read BEFORE the delete, and it is the member's coach rather than the caller. Those are not
+    // always the same person: requireCoach admits admins, and canCoachMember lets an admin act on
+    // anyone, so an admin releasing another coach's client expired nothing at all. The offers then
+    // outlive the relationship — acceptable for ASSIGN_DECIDED_DAYS with an ex-coach's name on the
+    // card, and eating the per-member pending cap, which blocks the NEXT coach with "already has N
+    // programs waiting" and leaves nobody able to clear it. detachCoach and assign-coach both
+    // capture the outgoing coach this way; this route was the odd one out.
+    const had = member.coachId;
     delete member.coachId;
-    // Their pending offers go with the relationship. An offer left behind is acceptable for up to
-    // ASSIGN_DECIDED_DAYS by someone who is no longer a client, with the ex-coach's name still on
-    // the card, and those dead rows also eat the per-member pending cap.
-    expireAssignmentsWhere(a => a.memberId === member.id && a.coachId === coach.id);
+    expireAssignmentsWhere(a => a.memberId === member.id && a.coachId === had);
     saveDb();
     audit(req, 'coach.member.release', { user: coach, msg: member.id });
     json(res, 200, { ok: true });
   },
 
+  /* ---------- coaching: taking a client on ---------- */
+  // Until now the only way onto a coach's roster was POST /api/admin/user/assign-coach — an admin
+  // wiring each client by hand, after they had already signed up some other way. A coach could
+  // program for people but could not acquire them. This is the same invite machinery the admin
+  // dashboard uses, scoped to one coach and carrying who the code belongs to.
   'GET /api/coach/invites': async (req, res) => {
     const coach = requireCoach(req, res); if (!coach) return;
     json(res, 200, {
@@ -1774,10 +1785,10 @@ const routes = {
           return u && canCoachMember(coach, u, { isAdmin: isAdmin(coach) }) ? u.name : null
         })()
       })),
-      // A coach code only binds anything on an instance that actually gates signup on codes —
-      // with INVITE_ONLY off, registration never looks at an invite at all. Said out loud rather
-      // than letting a coach hand out codes that quietly do nothing.
-      inviteOnly: INVITE_ONLY,
+      // `inviteOnly` used to be here so the sheet could warn that a code would bind nothing with
+      // INVITE_ONLY off. Registration looks a supplied code up either way now, so the warning was
+      // false and both it and this field are gone. Removed rather than left unread: a dead flag
+      // named after the thing that is no longer true is how the card comes back.
       max: COACH_MAX_OPEN_INVITES
     });
   },

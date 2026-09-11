@@ -2,12 +2,16 @@
 //
 // The link IS the invite. All a client is ever given is a URL, so anything wrong with it is
 // unrecoverable at their end: there is no code to retype and nobody to ask but the coach.
-import { describe, it, expect, beforeEach } from 'vitest'
-import { inviteLink } from './invite.js'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+
+// The paired mobile build is the case location.href gets wrong, so it has to be controllable.
+let base = ''
+vi.mock('./api.js', () => ({ serverBase: () => base }))
+const { inviteLink } = await import('./invite.js')
 
 const at = href => { history.replaceState(null, '', href); return inviteLink('ABC123') }
 
-beforeEach(() => { history.replaceState(null, '', '/') })
+beforeEach(() => { history.replaceState(null, '', '/'); base = '' })
 
 describe('inviteLink', () => {
   it('points at the app the coach is actually using', () => {
@@ -42,5 +46,18 @@ describe('inviteLink', () => {
   it('escapes rather than pasting a code straight into a query string', () => {
     history.replaceState(null, '', '/')
     expect(inviteLink('a&b=c')).toBe('http://localhost:3000/?invite=A%26B%3DC')
+  })
+
+  it('points at the paired server, not at the WebView, on the mobile build', () => {
+    // capacitor://localhost is not a place the recipient's phone can open, and the link IS the
+    // invite — there is no code for them to retype when it resolves to nothing.
+    base = 'https://coach.fitpal.ma'
+    history.replaceState(null, '', '/#/clients')
+    expect(inviteLink('abc123')).toBe('https://coach.fitpal.ma/?invite=ABC123')
+  })
+
+  it('keeps a paired server that lives under a subdirectory', () => {
+    base = 'https://example.com/gym'
+    expect(inviteLink('abc123')).toBe('https://example.com/gym/?invite=ABC123')
   })
 })

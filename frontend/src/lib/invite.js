@@ -1,3 +1,4 @@
+import { serverBase } from './api.js'
 // An invite arrives as a link (?invite=CODE) rather than sixteen characters to retype.
 //
 // Two rules, both learned the hard way:
@@ -40,10 +41,14 @@ export function clearInvite() {
 }
 
 /**
- * The link a coach sends. Built from where the app is actually being served rather than from a
- * configured origin, so it is right on coach.fitpal.ma, on a self-hosted instance and on localhost
- * without anyone setting a variable — and so a coach who is signed in somewhere unusual cannot
- * hand out a link that points at somewhere else.
+ * The link a coach sends.
+ *
+ * Built from where the app is served, so it is right on coach.fitpal.ma, on a self-hosted instance
+ * and on localhost without anyone setting a variable — EXCEPT on the paired mobile build, where
+ * the WebView's own origin is capacitor://localhost (or http://localhost) and the server is
+ * wherever the coach pointed the app. A link to the WebView's origin resolves to nothing on the
+ * recipient's phone, and since the link IS the invite there is nothing for them to retype. So a
+ * paired base wins when there is one.
  *
  * The hash is dropped deliberately. The coach is somewhere inside the app when they tap Share
  * (#/clients, say), and carrying that along would send a brand-new visitor to a coach's screen
@@ -52,9 +57,13 @@ export function clearInvite() {
 export function inviteLink(code) {
   const c = String(code || '').trim().toUpperCase()
   try {
-    const url = new URL(location.href)
+    const base = serverBase()
+    const url = new URL(base || location.href, location.href)
     url.hash = ''
     url.search = ''
+    // A paired base is an origin, not a page: "https://coach.example.com" needs a trailing slash
+    // or "/api" left on it would turn into "/?invite=…" at the wrong level.
+    if (base && !url.pathname.endsWith('/')) url.pathname += '/'
     url.searchParams.set('invite', c)
     return url.toString()
   } catch {
