@@ -270,6 +270,7 @@ export default {
   'Delete routine?': 'Supprimer la routine ?',
   '“{0}” and its exercises will be removed.': '« {0} » et ses exercices seront supprimés.',
   'Delete routine': 'Supprimer la routine',
+  'This is the only routine here. Add another before you can delete this one.': 'C’est la seule routine ici. Ajoutes-en une autre avant de pouvoir supprimer celle-ci.',
   'Copy routine': 'Copier la routine',
   'Copy': 'Copie',
   '{0} exercises with animations': '{0} exercices avec animations',

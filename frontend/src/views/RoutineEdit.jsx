@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store/useStore.js'
+import { useRoutineTarget, StoreRoutineTarget } from '../components/RoutineTarget.jsx'
 import { useUI } from '../store/useUI.js'
 import { exOr } from '../lib/exercises.js'
 import { activeProfile, exAvailable } from '../lib/equipment.js'
@@ -303,19 +304,26 @@ function useRoutineReorder(routineIdentity, exercises, onDrop) {
   return { listRef, drag, onClickCapture }
 }
 
-export default function RoutineEdit() {
+/**
+ * The routine editor, wherever the routine lives.
+ *
+ * It reads and writes through a RoutineTarget (components/RoutineTarget.jsx) instead of the store,
+ * which is what lets the coach's program editor mount this same screen against a draft on its way
+ * to the server. Nothing else about it changed: there is still no save button, and every edit
+ * persists through the target the moment it happens.
+ *
+ * What still comes from the store is the VIEWER's own settings — unit, body silhouette, equipment
+ * profile — because those describe who is looking, not what is being edited. The equipment warning
+ * is the exception and hangs off `ownEquipment`: "needs kit outside your profile" is useful about
+ * your own plan and simply wrong about a program you are writing for somebody else's gym.
+ */
+export function RoutineEditor() {
   const nav = useNavigate()
-  const { id } = useParams()
+  const { routine: r, patch, addCopy, remove, canRemove, pathFor, backPath, backLabel, ownEquipment } = useRoutineTarget()
   const S = useStore(s => s.S)
-  const update = useStore(s => s.update)
   const toast = useUI(s => s.toast)
-  const r = S.routines.find(x => x.id === id)
-  useEffect(() => { if (!r) nav('/plan') }, [!!r])
-  // Editing here has no explicit "save" — every field change persists immediately. A single
-  // auto-backup on the way out (not per keystroke) covers the whole editing session, deletion
-  // included: this still unmounts after the delete button navigates away.
-  useEffect(() => () => useStore.getState().autoBackupNow(), [])
-  const edit = fn => update(s => { fn(s.routines.find(x => x.id === id).ex) })
+  useEffect(() => { if (!r) nav(backPath) }, [!!r])
+  const edit = fn => patch(routine => { fn(routine.ex) })
   const reorder = useRoutineReorder(r, r?.ex || [], (sourceIndex, targetSlot) => {
     edit(exercises => { reorderRoutineUnit(exercises, sourceIndex, targetSlot) })
   })
@@ -342,27 +350,26 @@ export default function RoutineEdit() {
   const unitIndex = new Map(units.flatMap((unit, index) => unit.map(i => [i, index])))
   const unitFirst = new Set(units.filter(u => u.length > 1).map(u => u[0]))
   const inSS = new Set(units.filter(u => u.length > 1).flat())
-  const profile = activeProfile(S)
+  const profile = ownEquipment ? activeProfile(S) : null
   const missingCount = profile ? r.ex.filter(e => !exAvailable(S, exOr(e.id))).length : 0
 
   return <div className="narrow">
     <div className="hdr">
-      <button className="iconbtn" onClick={() => nav('/plan')} aria-label={t('Plan')}><Icon name="chevronLeft" /></button>
+      <button className="iconbtn" onClick={() => nav(backPath)} aria-label={backLabel || t('Plan')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, margin: '0 12px' }}>
         <input className="input" defaultValue={r.name} style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-.021em' }}
-          onChange={e => update(s => { s.routines.find(x => x.id === id).name = e.target.value.trim() || t('Routine') })} />
+          onChange={e => patch(routine => { routine.name = e.target.value.trim() || t('Routine') })} />
       </div>
-      <button className="iconbtn" aria-label={t('Pick an icon')} onClick={() => glyphPicker(r.emoji, g => update(s => { s.routines.find(x => x.id === id).emoji = g }))}><Icon name={glyphOf(r.emoji)} /></button>
+      <button className="iconbtn" aria-label={t('Pick an icon')} onClick={() => glyphPicker(r.emoji, g => patch(routine => { routine.emoji = g }))}><Icon name={glyphOf(r.emoji)} /></button>
     </div>
 
     <div className="sect-b" style={{ marginBottom: 16 }}>
       <SelectRow icon="chartLine" title={t('Progression')} sheetTitle={t('Progression')}
-        value={r.prog || 'linear'} onChange={v => update(s => { s.routines.find(x => x.id === id).prog = v })}
+        value={r.prog || 'linear'} onChange={v => patch(routine => { routine.prog = v })}
         options={POLICIES_FOR.reps.map(p => ({ value: p, label: t(POLICY_NAME[p]), subtitle: t(POLICY_DESC[p]) }))} />
       <Row icon="pause" iconTint="var(--orange)" title={t('Exclude from automatic progression')}
         subtitle={t('Use for planned deloads. Workouts stay in history and statistics.')}>
-        <Switch checked={r.excludeFromProgression === true} onChange={v => update(s => {
-          const routine = s.routines.find(x => x.id === id)
+        <Switch checked={r.excludeFromProgression === true} onChange={v => patch(routine => {
           if (v) routine.excludeFromProgression = true
           else delete routine.excludeFromProgression
         })} />
@@ -441,25 +448,23 @@ export default function RoutineEdit() {
     <div style={{ height: 10 }} />
     <Button onClick={() => {
       const copy = copyRoutine(r, t('Copy'))
-      update(s => { s.routines.push(copy) })
-      nav('/plan/r/' + copy.id)
+      addCopy(copy)
+      nav(pathFor(copy.id))
     }}>{t('Copy routine')}</Button>
     <div style={{ height: 10 }} />
-    <Button variant="danger" onClick={() => confirmSheet({
+    {/* The server refuses a program with no routines, so the last one in a program cannot go. The
+        target decides that, rather than this screen guessing at whose rules apply. */}
+    {canRemove ? <Button variant="danger" onClick={() => confirmSheet({
       title: t('Delete routine?'), message: t('“{0}” and its exercises will be removed.', r.name), confirmText: t('Delete'), danger: true,
-      onConfirm: () => {
-        update(s => {
-          s.routines = s.routines.filter(x => x.id !== id)
-          // A weekday holds a routine-id list: pull the deleted id from each day, drop the
-          // key when it empties (never store []). dayPlan stays scalar.
-          Object.keys(s.week).forEach(k => {
-            const next = [].concat(s.week[k]).filter(rid => rid !== id)
-            if (next.length) s.week[k] = next; else delete s.week[k]
-          })
-          Object.keys(s.dayPlan).forEach(k => { if (s.dayPlan[k] === id) delete s.dayPlan[k] })
-        })
-        nav('/plan')
-      }
+      onConfirm: () => { remove(); nav(backPath) }
     })}>{t('Delete routine')}</Button>
+      : <div className="small dim" style={{ margin: '0 2px' }}>
+        {t('This is the only routine here. Add another before you can delete this one.')}
+      </div>}
   </div>
+}
+
+export default function RoutineEdit() {
+  const { id } = useParams()
+  return <StoreRoutineTarget id={id}><RoutineEditor /></StoreRoutineTarget>
 }

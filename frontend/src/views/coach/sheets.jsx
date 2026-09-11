@@ -5,22 +5,19 @@ import { api, fetchExerciseMedia, uploadExerciseMedia } from '../../lib/api.js'
 import { setCoachMedia } from '../../lib/coach-media.js'
 import { EXIDX, allExercises, matchesExerciseSearch, mediaRowSrc } from '../../lib/exercises.js'
 import { fmtDate, uid } from '../../lib/format.js'
-import { buildPlanBundle, buildProgramBundle } from '../../lib/plan-share.js'
-import { savePrograms } from '../../lib/programs.js'
+import { buildPlanBundle } from '../../lib/plan-share.js'
 import { confirmSheet } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { rel } from './parts.jsx'
 
-// The coach's sheets: send a program, save one, invite a client, upload a demo. Moved out of the
-// old single-file dashboard unchanged when it split into screens; they are opened from Today,
-// Clients and a client's page. English-only, like every coach surface.
+// The coach's sheets: send a program, invite a client, upload a demo. Opened from Today, Clients
+// and a client's page. English-only, like every coach surface.
 //
-// Programs are authored in the ordinary Plan screen and then SAVED as a named snapshot — a frozen
-// copy of the routines you chose. That keeps one place to write routines while still separating
-// client programming from personal training: once saved, changing your own Plan does not touch a
-// program you already have in the library, and sending picks a program rather than shipping
-// everything you happen to have.
+// Saving a program used to be a sheet here too, and it could only ever snapshot the routines in
+// the coach's own Plan — which meant the one way to write a program was to first write it into
+// your own training. The editor at /programs/:pid replaced it; "copy from my own plan" survives
+// there as one way to start rather than the only one.
 
 // Labels and units for the four numbers, in the order a coach reads them. English, like the rest
 // of this screen; the member's side of the same four numbers is translated (components/MacroRows).
@@ -170,54 +167,6 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
 
 // Saving a program = snapshotting the routines you picked. Copies, not references: a program
 // you saved last month must not change because you edited your own Plan this morning.
-export function SaveProgramSheet({ close, onSaved }) {
-  const S = useStore(s => s.S)
-  const toast = useUI(s => s.toast)
-  const [name, setName] = useState('')
-  const [picked, setPicked] = useState([])
-  const [busy, setBusy] = useState(false)
-  const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : p.concat(id))
-
-  // Straight to the library on the server. The old version pushed into the coach's own S, which
-  // is why a program used to ride along on every state sync (lib/programs.js says more).
-  const save = () => {
-    if (!picked.length) { toast('Pick at least one routine'); return }
-    const label = name.trim() || 'Program'
-    setBusy(true)
-    savePrograms({ id: uid(), name: label, bundle: buildProgramBundle(S, picked, label) })
-      .then(d => { toast('Program saved'); onSaved?.(d.programs); close() })
-      .catch(e => { toast(e.message); setBusy(false) })
-  }
-
-  const usable = (S.routines || []).filter(r => (r.ex || []).length)
-  if (!usable.length) return <>
-    <h3>Nothing to save yet</h3>
-    <div className="dim small" style={{ lineHeight: 1.5 }}>
-      Build the routines in your own Plan first, then come back and save the ones that make up this program.
-    </div>
-  </>
-
-  return <>
-    <h3>Save a program</h3>
-    <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.4 }}>
-      This takes a copy of the routines you pick. Editing your own Plan later will not change it.
-    </div>
-    <input className="input" placeholder="Program name (e.g. Beginner Block A)" maxLength={40}
-      value={name} onChange={e => setName(e.target.value)} style={{ marginBottom: 10 }} />
-    <h4 className="sec">Routines to include</h4>
-    <div className="list" style={{ rowGap: 0 }}>
-      {usable.map(r => <label key={r.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
-        <div><div className="small" style={{ fontWeight: 600 }}>{r.name}</div>
-          <div className="dim" style={{ fontSize: '.72rem' }}>{r.ex.length} exercises</div></div>
-        <input type="checkbox" checked={picked.includes(r.id)} onChange={() => toggle(r.id)} />
-      </label>)}
-    </div>
-    <Button variant="primary" style={{ marginTop: 14 }} disabled={!picked.length || busy} onClick={save}>
-      {picked.length ? 'Save ' + picked.length + (picked.length === 1 ? ' routine' : ' routines') + ' as a program' : 'Pick at least one routine'}
-    </Button>
-  </>
-}
-
 /* ---------------------------------------------------- exercise demos -- */
 /* Videos the coach shoots themselves, keyed on the EXERCISE ID rather than on a dataset row —
    which is what finally gives custom exercises media, since the stock catalogue has no entry for
