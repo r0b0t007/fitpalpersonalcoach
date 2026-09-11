@@ -14,9 +14,19 @@ describe('the coach modules load and export what the screens import', () => {
     const sheets = await import('./sheets.jsx')
     for (const n of ['rel', 'dur', 'memberState', 'memberAdherence', 'RosterAdherence', 'CheckinsCard', 'PhotosCard', 'AdherenceCard'])
       expect(typeof parts[n], n).toMatch(/function/)
-    for (const n of ['SendSheet', 'SaveProgramSheet', 'InviteSheet', 'MediaSheet'])
+    for (const n of ['SendSheet', 'InviteSheet', 'MediaSheet'])
       expect(typeof sheets[n], n).toBe('function')
-    for (const m of ['./CoachToday.jsx', './Clients.jsx', './ClientDetail.jsx'])
+    for (const m of ['./CoachToday.jsx', './Clients.jsx', './ClientDetail.jsx', './Programs.jsx', './ProgramEdit.jsx'])
       expect(typeof (await import(m)).default, m).toBe('function')
+    // The program editor reaches across into the client-side routine editor and the context that
+    // lets it bind somewhere other than the store. Both are exactly the kind of cross-module
+    // import a rename breaks silently until a coach opens a routine inside a program.
+    const editor = await import('./ProgramEdit.jsx')
+    for (const n of ['ProgramEdit', 'ProgramRoutineEdit'])
+      expect(typeof editor[n], n).toBe('function')
+    expect(typeof (await import('../RoutineEdit.jsx')).RoutineEditor).toBe('function')
+    const target = await import('../../components/RoutineTarget.jsx')
+    for (const n of ['RoutineTarget', 'StoreRoutineTarget', 'useRoutineTarget'])
+      expect(typeof target[n], n).toBe('function')
   })
 })

@@ -1,60 +1,33 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
-import { fmtDate, isoOf } from '../../lib/format.js'
-import { fetchPrograms, deleteProgram, migrateLocalPrograms } from '../../lib/programs.js'
+import { fetchPrograms, savePrograms, migrateLocalPrograms } from '../../lib/programs.js'
+import { newProgramDraft, bundleOf } from '../../lib/program-draft.js'
+import { uid } from '../../lib/format.js'
 import { glyphOf } from '../../lib/glyphs.js'
 import Icon from '../../components/Icon.jsx'
-import { Button, Section, Row } from '../../components/ui.jsx'
-import { confirmSheet } from '../../sheets.jsx'
-import { SaveProgramSheet, SendSheet } from './sheets.jsx'
+import { Button } from '../../components/ui.jsx'
 
 // The coach's library. It lives on the server now (lib/programs.js), so it is the same list on
 // every device, it does not ride along on every state push, and a coach who never trains still
 // has somewhere to keep it.
 //
+// This screen is now only the list. Everything a program can do — rename, edit its routines,
+// schedule it, send it, delete it — moved into the editor at /programs/:pid, which is where a
+// coach expects to find it and where there is room to say what each thing means.
+//
 // A program is a frozen copy of routines: editing your own Plan afterwards never changes one, and
 // neither does editing a program change what a client already accepted.
-// What a program can do, until the editor screen lands and takes Send into its own header.
-// A sheet rather than buttons in the row: at 390px a row with an icon, two lines, a tag, a
-// button and a delete control has nowhere left to put the name.
-function ProgramActions({ program, close, roster, onChanged }) {
-  const toast = useUI(s => s.toast)
-  const openSheet = useUI(s => s.openSheet)
-  const days = Object.keys(program.bundle?.week || {}).length
-  const del = () => {
-    close()
-    confirmSheet({
-      title: 'Delete this program?',
-      message: `“${program.name}” goes from your library. Clients who already accepted it keep what they have.`,
-      confirmText: 'Delete', danger: true,
-      onConfirm: () => deleteProgram(program.id).then(d => onChanged(d.programs)).catch(e => toast(e.message)),
-    })
-  }
-  return <>
-    <h3>{program.name}</h3>
-    <div className="dim small" style={{ marginBottom: 12 }}>
-      {program.bundle?.routines?.length || 0} {program.bundle?.routines?.length === 1 ? 'routine' : 'routines'} · saved {fmtDate(isoOf(new Date(program.created)))}
-      {days ? ` · scheduled on ${days} ${days === 1 ? 'day' : 'days'}` : ' · no weekly schedule'}
-    </div>
-    <Button variant="primary" icon="clipboard" disabled={!roster.length}
-      onClick={() => { close(); openSheet(c => <SendSheet members={roster} close={c} program={program} />) }}>
-      {roster.length ? 'Send to a client' : 'No clients yet'}
-    </Button>
-    <div style={{ height: 10 }} />
-    <Button variant="danger" icon="trash" onClick={del}>Delete program</Button>
-  </>
-}
-
 export default function Programs() {
+  const nav = useNavigate()
   const toast = useUI(s => s.toast)
-  const openSheet = useUI(s => s.openSheet)
   // Subscribed, not read once: boot() pulls the coach's own state from the server AFTER this
   // screen can mount, so a version that read the local library from the first render found it
   // empty and silently skipped the migration for anyone who opened this tab quickly.
   const localCount = (useStore(s => s.S.programs) || []).length
   const [programs, setPrograms] = useState(null)
-  const [members, setMembers] = useState([])
+  const [busy, setBusy] = useState(false)
 
   const load = () => fetchPrograms()
     .then(async ({ programs: remote }) => {
@@ -86,16 +59,25 @@ export default function Programs() {
 
   // Re-runs when the pulled state arrives carrying a library to move.
   useEffect(() => { load() }, [localCount])
-  // The send sheet needs the roster; a failure there is not worth blocking the library over.
-  useEffect(() => { import('../../lib/api.js').then(m => m.api('/api/coach/members')).then(d => setMembers(d.members || [])).catch(() => {}) }, [])
 
-  const roster = members.filter(m => !m.disabled)
+  // Created on the server before the editor opens, rather than kept in memory until it looks
+  // finished: the editor autosaves against a real id, and a program the coach abandons is one row
+  // they can delete — not work that quietly evaporated when they backed out.
+  const create = () => {
+    if (busy) return
+    setBusy(true)
+    const id = uid()
+    const draft = newProgramDraft()
+    savePrograms({ id, name: draft.name, bundle: bundleOf(draft, useStore.getState().S.customEx) })
+      .then(() => nav('/programs/' + id))
+      .catch(e => { toast(e.message); setBusy(false) })
+  }
 
   return <div className="narrow">
     <div className="hdr">
       <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>Programs</h1>
         <div className="sub">{programs === false ? 'Could not load' : programs ? (programs.length ? programs.length + ' in your library' : 'Nothing saved yet') : 'Loading…'}</div></div>
-      <Button variant="tinted" size="sm" icon="plus" onClick={() => openSheet(close => <SaveProgramSheet close={close} onSaved={setPrograms} />)}>New</Button>
+      <Button variant="tinted" size="sm" icon="plus" disabled={busy} onClick={create}>New</Button>
     </div>
 
     <div className="list">
@@ -103,7 +85,7 @@ export default function Programs() {
         const days = Object.keys(p.bundle?.week || {}).length
         const ex = (p.bundle?.routines || []).reduce((n, r) => n + (r.ex || []).length, 0)
         const routines = p.bundle?.routines?.length || 0
-        return <button key={p.id} className="item" onClick={() => openSheet(close => <ProgramActions program={p} close={close} roster={roster} onChanged={setPrograms} />)}>
+        return <button key={p.id} className="item" onClick={() => nav('/programs/' + p.id)}>
           <span className="thumb" style={{ background: 'var(--acc-soft)', color: 'var(--acc)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
             <Icon name={glyphOf((p.bundle?.routines || [])[0]?.emoji)} />
           </span>
@@ -119,17 +101,14 @@ export default function Programs() {
         Could not reach the server, so your library is not shown. Nothing has been lost — try again in a moment.
       </div>}
       {Array.isArray(programs) && !programs.length && <div className="empty">
-        No programs yet. Save one from the routines in your own Plan, then send it to as many clients as you like.
+        No programs yet. Start one here, or copy the routines out of your own Plan, then send it to
+        as many clients as you like.
       </div>}
     </div>
 
-    <Section title="Start from">
-      <Row icon="figureStrength" iconTint="var(--acc)" title="Copy from my own plan"
-        subtitle="Your current routines, saved as a program" accessory="chevron"
-        onClick={() => openSheet(close => <SaveProgramSheet close={close} onSaved={setPrograms} />)} />
-    </Section>
     <p className="sect-f">
-      Programs live in your library, not in your own plan. Editing one later never changes what a client already accepted.
+      Programs live in your library, not in your own plan. Editing one later never changes what a
+      client has already accepted.
     </p>
   </div>
 }

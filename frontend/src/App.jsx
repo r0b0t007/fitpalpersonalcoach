@@ -39,6 +39,7 @@ import CoachToday from './views/coach/CoachToday.jsx'
 import Clients from './views/coach/Clients.jsx'
 import ClientDetail from './views/coach/ClientDetail.jsx'
 import Programs from './views/coach/Programs.jsx'
+import ProgramEditShell, { ProgramEdit, ProgramRoutineEdit } from './views/coach/ProgramEdit.jsx'
 import CoachChat from './views/CoachChat.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachSetup from './views/CoachSetup.jsx'
@@ -103,6 +104,12 @@ function CoachRoutes({ user }) {
       <Route path="/clients" element={<Clients />} />
       <Route path="/clients/:id" element={<ClientDetail />} />
       <Route path="/programs" element={<Programs />} />
+      {/* One shell, two screens: the library row's editor and the shared routine editor inside it.
+          Nested so both work off a single draft — see ProgramEdit.jsx for why that matters. */}
+      <Route path="/programs/:pid" element={<ProgramEditShell />}>
+        <Route index element={<ProgramEdit />} />
+        <Route path="r/:rid" element={<ProgramRoutineEdit />} />
+      </Route>
       <Route path="/account" element={<Settings />} />
       {/* The operator page stays reachable for the admin account for one release, hidden, while
           the pieces a single coach still needs (activity log, disabling an account) move into

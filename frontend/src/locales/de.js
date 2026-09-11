@@ -282,6 +282,7 @@ export default {
   'Delete routine?': 'Routine löschen?',
   '“{0}” and its exercises will be removed.': '„{0}“ und ihre Übungen werden entfernt.',
   'Delete routine': 'Routine löschen',
+  'This is the only routine here. Add another before you can delete this one.': 'Das ist die einzige Routine hier. Füge eine weitere hinzu, bevor du diese löschen kannst.',
   'Copy routine': 'Routine kopieren',
   'Copy': 'Kopie',
   // --- library / history ---

@@ -17,7 +17,7 @@ import { targetOf } from './nutrition.js'
 import { BRAND, BRAND_DOMAIN } from './brand.js'
 
 const PLAN_FMT = 1
-const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]   // every getDay() index; only the reader's own
+export const WEEK_DAYS = [1, 2, 3, 4, 5, 6, 0]   // every getDay() index; only the reader's own
                                           // screen puts them in an order (see weekOrder)
 
 // Keep only the meaningful config fields, so the file stays small and readable.
