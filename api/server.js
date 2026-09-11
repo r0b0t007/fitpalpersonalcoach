@@ -19,7 +19,7 @@ import {
   pendingAssignmentsFor, ASSIGN_MAX_PENDING, ASSIGN_NOTE_MAX,
   findSessionConflicts, isRealDate,
   validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile,
-  coachBinding, checkinReminderDue, checkinPeriodStart,
+  coachBinding, redeemableInvite, checkinReminderDue, checkinPeriodStart,
   upsertProgram, COACH_MAX_PROGRAMS
 } from './domain.mjs';
 import * as coachConfig from './coach/config.js';
@@ -1130,7 +1130,13 @@ const routes = {
     const name = String(body.name || '').trim().slice(0, 40);
     if (!name) return json(res, 400, { error: 'name required' });
     const code = String(body.code || '').trim().toUpperCase();
-    if (INVITE_ONLY && !isBootstrapCode(code) && !db.invites.some(i => i.code === code && !i.usedBy && !i.revoked)) {
+    // Looked up whenever a code is SUPPLIED, and only REQUIRED when INVITE_ONLY is on. Those used
+    // to be the same condition, which is why a coach's invite link did nothing on an open instance
+    // and the invite sheet had to carry a red card reading "ask an admin to turn invite-only on
+    // first" — a coach being told their own feature is off until an operator they may not have
+    // flips an environment variable. Taking a client on is the product; the signup gate is a
+    // separate question about who may create an account at all.
+    if (INVITE_ONLY && !isBootstrapCode(code) && !redeemableInvite(db.invites, code)) {
       // The rejected code itself is never recorded — a near-miss guess in the log is a liability.
       audit(req, 'auth.register.denied', { ok: false, name, msg: 'invite-rejected' });
       return json(res, 403, { error: 'a valid invite code is required' });
@@ -1182,14 +1188,16 @@ const routes = {
     // else finished registering in between, the database is no longer empty and the code is spent.
     // From here to db.users.push there is no await, so that check can't go stale under concurrency.
     const bootstrap = isBootstrapCode(c.code);
-    let invite = null;
-    if (INVITE_ONLY && !bootstrap) {
-      invite = db.invites.find(i => i.code === c.code && !i.usedBy && !i.revoked);
-      if (!invite) {
-        audit(req, 'auth.register.fail', { ok: false, name: c.name, msg: 'invite-invalid' });
-        return json(res, 403, { error: 'invite code is no longer valid — ask for a new one' });
-      }
+    // Same split as in options: looked up whenever supplied, required only when INVITE_ONLY is on.
+    const invite = bootstrap ? null : redeemableInvite(db.invites, c.code);
+    if (INVITE_ONLY && !bootstrap && !invite) {
+      audit(req, 'auth.register.fail', { ok: false, name: c.name, msg: 'invite-invalid' });
+      return json(res, 403, { error: 'invite code is no longer valid — ask for a new one' });
     }
+    // A code supplied on an OPEN instance that turns out to be spent does not fail the signup: the
+    // person is holding a link somebody sent them and cannot fix it, and the landing screen
+    // (GET /api/invite) already declined to name a coach, so nothing ever promised them one. They
+    // arrive unassigned and can redeem a fresh code later without making a second account.
     const user = { id: c.uid, name: c.name, created: new Date().toISOString() };
     if (invite) {
       user.invitedBy = invite.code; invite.usedBy = user.id; invite.usedAt = user.created;
@@ -1672,6 +1680,77 @@ const routes = {
   // wiring each client by hand, after they had already signed up some other way. A coach could
   // program for people but could not acquire them. This is the same invite machinery the admin
   // dashboard uses, scoped to one coach and carrying who the code belongs to.
+  /* ---------- joining a coach ---------- */
+  // Unauthenticated on purpose: this is what the sign-in screen asks when somebody opens an invite
+  // link, before they have an account to authenticate with. It answers one question — whose invite
+  // is this — and nothing else. No code, no note, no member list, no count of how many are open.
+  //
+  // It does confirm that a given code is live, which is the point of the screen and is not much of
+  // an oracle: a minted code is sixteen hex characters, and anyone guessing one could equally well
+  // just try to register with it.
+  'GET /api/invite': async (req, res) => {
+    const code = new URL(req.url, 'http://x').searchParams.get('code');
+    const invite = redeemableInvite(db.invites, code);
+    // The same 404 for "no such code", "already used" and "revoked". Distinguishing them would
+    // turn this into a scanner that tells you which codes ever existed, and none of the three is
+    // actionable by the person holding the link anyway — they need a new one either way.
+    if (!invite) return json(res, 404, { error: 'this invite link is not valid any more' });
+    const bound = invite.coachId ? db.users.find(u => u.id === invite.coachId) : null;
+    // Judged through coachBinding, the same function registration will use, so the screen cannot
+    // promise a coach the signup would not actually give them — a coach disabled or demoted since
+    // the link was sent shows as a plain invite rather than as a name.
+    const coachId = coachBinding(invite, bound, { isCoach: isCoach(bound) });
+    json(res, 200, { coachName: coachId ? bound.name : null });
+  },
+
+  // For someone who ALREADY has an account. Registration burns an invite as part of signing up, so
+  // without this the only way onto a coach's roster was to be new — an existing self-training user
+  // handed a link had to make a second account and abandon their history, or find an admin willing
+  // to run assign-coach by hand.
+  'POST /api/invite/redeem': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const body = await readBody(req);
+    // Refused before the code is even looked at, so a client cannot be moved between coaches by
+    // whoever sends them a link next. Leaving is a decision with a person on the other end of it:
+    // their current coach releases them, or an admin reassigns.
+    if (user.coachId) return json(res, 409, { error: 'you already have a coach — they can release you first' });
+    const invite = redeemableInvite(db.invites, body.code);
+    if (!invite) return json(res, 404, { error: 'this invite link is not valid any more' });
+    const bound = invite.coachId ? db.users.find(u => u.id === invite.coachId) : null;
+    const coachId = coachBinding(invite, bound, { isCoach: isCoach(bound) });
+    // A general invite — an admin's, or an access-request approval — binds nobody. Burning it here
+    // would spend somebody's signup code to achieve nothing at all.
+    if (!coachId) return json(res, 400, { error: 'this code does not belong to a coach' });
+    if (user.disabled) return json(res, 403, { error: 'forbidden' });
+    user.coachId = coachId;
+    invite.usedBy = user.id;
+    invite.usedAt = new Date().toISOString();
+    saveDb();
+    audit(req, 'invite.redeem', { user, msg: invite.code });
+    json(res, 200, { user: publicUser(user) });
+  },
+
+  // The other end of the relationship. Until now a coach could only ever gain clients: ending it
+  // needed an admin running assign-coach, which on a one-coach instance means the coach asking
+  // themselves to do it from a screen this redesign is removing.
+  'POST /api/coach/member/release': async (req, res) => {
+    const coach = requireCoach(req, res); if (!coach) return;
+    const body = await readBody(req);
+    const member = db.users.find(u => u.id === String(body.id || ''));
+    // canCoachMember, so the same 403 answers "no such member" and "not yours" — the identical
+    // reasoning as GET /api/coach/member: a distinguishable answer lets a coach enumerate the gym.
+    if (!member || !canCoachMember(coach, member, { isAdmin: isAdmin(coach) })) return json(res, 403, { error: 'forbidden' });
+    delete member.coachId;
+    // Their pending offers go with the relationship. An offer left behind is acceptable for up to
+    // ASSIGN_DECIDED_DAYS by someone who is no longer a client, with the ex-coach's name still on
+    // the card, and those dead rows also eat the per-member pending cap.
+    expireAssignmentsWhere(a => a.memberId === member.id && a.coachId === coach.id);
+    saveDb();
+    audit(req, 'coach.member.release', { user: coach, msg: member.id });
+    json(res, 200, { ok: true });
+  },
+
   'GET /api/coach/invites': async (req, res) => {
     const coach = requireCoach(req, res); if (!coach) return;
     json(res, 200, {

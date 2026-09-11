@@ -314,6 +314,30 @@ export function canCoachMember(coach, member, { isAdmin = false } = {}) {
 }
 
 /**
+ * Is this code one that can still be redeemed, right now?
+ *
+ * Four places need the answer and they used to each spell it out: the two halves of registration,
+ * the landing screen that asks whose invite this is, and redeeming one from an account that
+ * already exists. Four copies of `!i.usedBy && !i.revoked` is four chances for one of them to
+ * drift, and the one that drifts is the one that lets a spent code back in.
+ *
+ * Normalisation belongs here too. A code arrives typed, pasted with a trailing space, or lifted
+ * out of a URL somebody lower-cased on the way — and the registration gate compared it raw, so
+ * whether a real invite worked depended on the sender's keyboard.
+ *
+ * Deliberately says nothing about the code's SHAPE. Minted codes are 16 hex characters, but
+ * BOOTSTRAP_CODE is whatever the operator exported and existing databases carry hand-written
+ * ones; a format check here would quietly invalidate codes already in people's messages.
+ */
+export function redeemableInvite(invites, code) {
+  const c = String(code == null ? '' : code).trim().toUpperCase()
+  if (!c) return null
+  const invite = (invites || []).find(i => i && i.code === c)
+  if (!invite || invite.usedBy || invite.revoked) return null
+  return invite
+}
+
+/**
  * Who, if anyone, does redeeming this invite put the new member with?
  *
  * The decision this makes is the whole of "a coach can take a client on", and it cannot be

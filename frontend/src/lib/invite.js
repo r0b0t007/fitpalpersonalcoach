@@ -38,3 +38,26 @@ export function clearInvite() {
     history.replaceState(null, '', url.pathname + url.search + url.hash)
   } catch { /* the registration still worked; only the tidy-up failed */ }
 }
+
+/**
+ * The link a coach sends. Built from where the app is actually being served rather than from a
+ * configured origin, so it is right on coach.fitpal.ma, on a self-hosted instance and on localhost
+ * without anyone setting a variable — and so a coach who is signed in somewhere unusual cannot
+ * hand out a link that points at somewhere else.
+ *
+ * The hash is dropped deliberately. The coach is somewhere inside the app when they tap Share
+ * (#/clients, say), and carrying that along would send a brand-new visitor to a coach's screen
+ * before bouncing them. The invite belongs to the app's front door.
+ */
+export function inviteLink(code) {
+  const c = String(code || '').trim().toUpperCase()
+  try {
+    const url = new URL(location.href)
+    url.hash = ''
+    url.search = ''
+    url.searchParams.set('invite', c)
+    return url.toString()
+  } catch {
+    return '?invite=' + encodeURIComponent(c)
+  }
+}

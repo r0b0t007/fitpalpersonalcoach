@@ -5,6 +5,7 @@ import { api, fetchExerciseMedia, uploadExerciseMedia } from '../../lib/api.js'
 import { setCoachMedia } from '../../lib/coach-media.js'
 import { EXIDX, allExercises, matchesExerciseSearch, mediaRowSrc } from '../../lib/exercises.js'
 import { fmtDate, uid } from '../../lib/format.js'
+import { inviteLink } from '../../lib/invite.js'
 import { buildPlanBundle } from '../../lib/plan-share.js'
 import { confirmSheet } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
@@ -190,6 +191,18 @@ const exName = id => (EXIDX[id] && EXIDX[id].n) || id
 // an admin running assign-coach by hand after the fact.
 //
 // English-only raw strings, like the rest of this screen. It is an operator surface.
+/* An invite is a LINK, not sixteen characters to read down a phone.
+ *
+ * What this screen used to be: make a code, copy it, and tell the client to type it into a field
+ * they will only find if the instance happens to gate signup on codes. If it did not, the sheet
+ * showed a red card saying the code would not work and to ask an admin to turn invite-only on —
+ * a coach being told their own product is switched off until an operator they may not have flips
+ * an environment variable. The server no longer works that way (a supplied code is honoured
+ * whatever INVITE_ONLY says), so the card is gone and so is the code field as the main event.
+ *
+ * The code still exists underneath and the list still shows it, because a link is unusable over a
+ * phone call and a coach reading one out needs something to read.
+ */
 export function InviteSheet() {
   const toast = useUI(s => s.toast)
   const [state, setState] = useState(null)
@@ -214,104 +227,129 @@ export function InviteSheet() {
   // that had never existed. The admin screen keeps them for the same reason.
   const dead = invites.filter(i => i.revoked && !i.usedAt)
 
+  /* Share, then clipboard, then just show the link.
+   *
+   * Both need transient user activation, which an await can spend, and the two failures are NOT
+   * alike: navigator.share rejects (NotAllowedError) but navigator.clipboard.writeText simply
+   * never settles when the document is not focused. An unsettled promise is why this button sat on
+   * "Making…" for ever with the freshly minted link nowhere on screen — the code existed on the
+   * server, and the only thing that could show it to the coach was waiting on a promise with no
+   * outcome. So the clipboard gets a deadline, and this function never rejects: the caller is a
+   * convenience, not the feature.
+   */
+  const sendLink = async code => {
+    const link = inviteLink(code)
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Join me on FitPal', text: 'Here is your invite:', url: link }); return }
+      // AbortError is the user closing the share sheet, not a failure — falling through to the
+      // clipboard there would tell them something was copied when they had just said no.
+      catch (e) { if (e && e.name === 'AbortError') return }
+    }
+    try {
+      await Promise.race([
+        navigator.clipboard.writeText(link),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('clipboard never answered')), 2000))
+      ])
+      toast('Invite link copied')
+    } catch { toast(link) }   // last resort: put it on screen, where it can at least be selected
+  }
+
   const mint = async () => {
     setBusy(true)
+    let code
     try {
       const { invite } = await api('/api/coach/invites/new', { method: 'POST', body: JSON.stringify({ note }) })
-      // Straight to the clipboard: the only thing anyone does with a fresh code is send it to
-      // somebody, and reading sixteen hex characters off a screen into a message is where a typo
-      // becomes "your code doesn't work".
-      //
-      // BEFORE load(), not after. WebKit only honours a clipboard write while the user activation
-      // from the tap is still live, and load() is a second round trip — so on Safari, which is
-      // most of the phones and iPads a coach holds on a gym floor, awaiting it first meant the
-      // write was refused every single time and the feature silently degraded to the fallback.
-      try { await navigator.clipboard.writeText(invite.code); toast('Code copied — ' + invite.code) }
-      catch { toast('Code ready — ' + invite.code) }
-      setNote('')
-      await load()
-    } catch (e) { toast(e.message) } finally { setBusy(false) }
+      code = invite.code
+    } catch (e) { toast(e.message); setBusy(false); return }
+    // Attempted immediately, because WebKit only honours a share or a clipboard write while the
+    // activation from the tap is still live and load() is a second round trip — but NOT awaited,
+    // because whether the link reaches the share sheet must not decide whether it reaches the
+    // list. The row below, with its own Share button one direct tap away, is the reliable path.
+    sendLink(code)
+    setNote('')
+    await load()
+    setBusy(false)
   }
 
   // Confirmed, like the identical action on the admin screen. There is no un-revoke route, this
-  // button sits six pixels from Copy, and a code the coach has already texted to someone dies on
-  // a mis-tap — the client then reads "invite code is no longer valid" while the coach has no
-  // idea why. The message names the code and the note so the sheet is answerable without
-  // remembering which row was tapped.
+  // button sits six pixels from Share, and a link the coach has already sent dies on a mis-tap —
+  // the client then reads "this invite link is not valid any more" while the coach has no idea
+  // why. The message names the code and the note so the sheet is answerable without remembering
+  // which row was tapped.
   const revoke = i => confirmSheet({
-    title: 'Revoke this code?',
-    message: (i.note ? `“${i.note}” — ` : '') + `${i.code} stops working immediately. If you have already sent it out, whoever has it will not be able to join.`,
+    title: 'Revoke this invite?',
+    message: (i.note ? `“${i.note}” — ` : '') + `${i.code} stops working immediately. If you have already sent the link, whoever has it will not be able to join.`,
     confirmText: 'Revoke', danger: true,
     onConfirm: () => api('/api/coach/invites/revoke', { method: 'POST', body: JSON.stringify({ code: i.code }) })
-      .then(() => { toast('Code revoked'); return load() }).catch(e => toast(e.message))
+      .then(() => { toast('Invite revoked'); return load() }).catch(e => toast(e.message))
   })
 
-  const copy = async code => {
+  const copyCode = async code => {
     try { await navigator.clipboard.writeText(code); toast('Copied ' + code) }
     catch { toast(code) }
   }
 
+  const atCap = !!state && open.length >= state.max
+
   return <>
     <h3>Take a client on</h3>
     <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-      Make a code and give it to the person joining. They enter it when they sign up, and they
-      arrive already on your roster — nobody has to assign them afterwards.
+      Send them a link. They open it, make their profile, and arrive already on your roster —
+      nobody has to assign them afterwards. Each link works once.
     </div>
-
-    {/* A code only does anything on an instance that gates signup on codes. With INVITE_ONLY off
-        registration never looks at an invite at all, so the code would be real, redeemable, and
-        bind nothing — worth saying before they hand one out, not after. */}
-    {state && !state.inviteOnly && <div className="card" style={{ borderColor: 'var(--red)', marginBottom: 12 }}>
-      <div className="small" style={{ lineHeight: 1.45 }}>
-        This gym does not require a code to sign up, so a code will not put anyone on your roster.
-        Ask an admin to turn invite-only on first.
-      </div>
-    </div>}
 
     <input className="input" placeholder="Who is it for? (optional)" value={note} maxLength={60}
       onChange={e => setNote(e.target.value)} style={{ marginBottom: 8 }} />
-    <Button variant="primary" disabled={busy || !state || open.length >= state.max} onClick={mint}>
-      {busy ? 'Making…' : 'Make a code'}
+    <Button variant="primary" icon="link" disabled={busy || !state || atCap} onClick={mint}>
+      {busy ? 'Making…' : 'Make an invite link'}
     </Button>
-    {!!state && open.length >= state.max && <div className="dim small" style={{ marginTop: 6 }}>
-      You have {state.max} codes waiting. Revoke one you are not going to use.
+    {/* Only when it is actually in the way. A quota a coach is nowhere near is noise on the one
+        screen whose whole job is "send this to somebody". */}
+    {atCap && <div className="dim small" style={{ marginTop: 6 }}>
+      You have {state.max} links waiting. Revoke one you are not going to use.
     </div>}
 
-    <h4 className="sec" style={{ marginTop: 18 }}>Waiting to be used</h4>
-    {failed ? <div className="dim small">Could not load your codes.{' '}
+    <h4 className="sec" style={{ marginTop: 18 }}>Waiting</h4>
+    {failed ? <div className="dim small">Could not load your invites.{' '}
       {/* A button, not an <a onClick> — with no href an anchor is not keyboard-focusable and gets
-          no pointer cursor, and this is the only retry on a sheet whose Make-a-code button is
+          no pointer cursor, and this is the only retry on a sheet whose Make button is
           disabled until a load succeeds. Unreachable here means stuck here. */}
       <button className="btn" style={{ width: 'auto', padding: '2px 10px' }} onClick={load}>Try again</button></div>
       : state === null ? <div className="dim small">Loading…</div>
       : open.length ? <div className="list" style={{ rowGap: 0 }}>
         {open.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
-          <div>
-            <div className="small" style={{ fontWeight: 600, fontFamily: 'ui-monospace, monospace' }}>{i.code}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="small" style={{ fontWeight: 600 }}>{i.note || 'No note'}</div>
+            {/* The code is kept visible: a link cannot be read down a phone, and this is the only
+                thing a coach standing in front of someone can dictate. */}
             <div className="dim" style={{ fontSize: '.72rem' }}>
-              {i.note ? i.note + ' · ' : ''}made {fmtDate(String(i.created).slice(0, 10))}</div>
+              made {fmtDate(String(i.created).slice(0, 10))} ·{' '}
+              <button onClick={() => copyCode(i.code)} aria-label={'Copy the code ' + i.code}
+                style={{ font: 'inherit', fontFamily: 'ui-monospace, monospace', color: 'inherit', background: 'none',
+                  border: 0, padding: 0, textDecoration: 'underline', cursor: 'pointer' }}>{i.code}</button>
+            </div>
           </div>
-          <div className="row" style={{ gap: 6 }}>
-            <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => copy(i.code)}>Copy</button>
+          <div className="row" style={{ gap: 6, flex: 'none' }}>
+            <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => sendLink(i.code)}>Share</button>
             <button className="iconbtn" aria-label={'Revoke ' + i.code} onClick={() => revoke(i)}><Icon name="trash" /></button>
           </div>
         </div>)}
-      </div> : <div className="dim small">No codes waiting.</div>}
+      </div> : <div className="dim small">Nothing waiting. Make a link and send it.</div>}
 
     {!!dead.length && <>
       <h4 className="sec" style={{ marginTop: 18 }}>Revoked</h4>
       <div className="list" style={{ rowGap: 0 }}>
         {dead.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)', opacity: .55 }}>
-          <div><div className="small" style={{ fontWeight: 600, textDecoration: 'line-through', fontFamily: 'ui-monospace, monospace' }}>{i.code}</div>
-            <div className="dim" style={{ fontSize: '.72rem' }}>{i.note || 'no note'} · will not work</div></div>
+          <div><div className="small" style={{ fontWeight: 600, textDecoration: 'line-through' }}>{i.note || 'No note'}</div>
+            <div className="dim" style={{ fontSize: '.72rem', fontFamily: 'ui-monospace, monospace' }}>{i.code} · will not work</div></div>
         </div>)}
       </div>
     </>}
 
-    {/* Kept rather than hidden once used: this is the record of who came in on which code, and
-        it is the only place a coach can see that a code they sent was actually redeemed. */}
+    {/* Kept rather than hidden once used: this is the record of who came in on which link, and it
+        is the only place a coach can see that one they sent was actually taken up. */}
     {!!used.length && <>
-      <h4 className="sec" style={{ marginTop: 18 }}>Used</h4>
+      <h4 className="sec" style={{ marginTop: 18 }}>Joined</h4>
       <div className="list" style={{ rowGap: 0 }}>
         {used.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
           <div><div className="small" style={{ fontWeight: 600 }}>{i.usedByName || 'someone'}</div>

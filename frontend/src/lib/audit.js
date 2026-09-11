@@ -38,7 +38,11 @@ const LABELS = {
   'coach.program.save': 'Saved a program',
   'coach.program.delete': 'Deleted a program',
   'coach.invite.create': 'Created a client code',
-  'coach.invite.revoke': 'Revoked a client code'
+  'coach.invite.revoke': 'Revoked a client code',
+  // Both ends of a coaching relationship that is not a signup. Redeeming is the client's own act,
+  // from an account they already had; releasing is the coach's.
+  'invite.redeem': 'Joined a coach with a code',
+  'coach.member.release': 'Released a client'
 }
 // An unknown event is shown raw rather than dropped or rendered as "undefined": a dashboard
 // that is one version behind the server should still say *something* truthful.
