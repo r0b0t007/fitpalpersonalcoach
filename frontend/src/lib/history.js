@@ -483,8 +483,11 @@ export function workoutVolume(w) {
   // does it; this line was the one that did not, which only stopped being harmless when a
   // routine started planning warm-ups by default. The number is written into the saved
   // workout, so an inflated one would stay wrong forever.
-  w.entries.forEach(e => e.sets.forEach(s => {
-    if (s.done && !isWarmupRow(s)) v += (s.w || 0) * (s.r || 0) + extraVolumeOf(s)
+  // Tolerant of a damaged shape for the same reason setsDone is: the coach's client page draws
+  // somebody else's sessions, and this is the `w.vol ?? workoutVolume(w)` fallback — reached
+  // only for rows saved before `vol` was stored, i.e. the oldest and likeliest to be damaged.
+  ;(w?.entries || []).forEach(e => (e?.sets || []).forEach(s => {
+    if (s?.done && !isWarmupRow(s)) v += (s.w || 0) * (s.r || 0) + extraVolumeOf(s)
   }))
   return v
 }
@@ -501,7 +504,7 @@ export const setUnitsTotal = entries => (entries || []).reduce((n, e) => n + (e.
 // otherwise take the whole screen down for a coach who cannot fix the data.
 export function setsDone(w) {
   let n = 0
-  ;(w?.entries || []).forEach(e => (e?.sets || []).forEach(s => { n += doneUnits(s) }))
+  ;(w?.entries || []).forEach(e => (e?.sets || []).forEach(s => { n += doneUnits(s || {}) }))
   return n
 }
 export function setsDoneActive(A) {

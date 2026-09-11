@@ -245,7 +245,7 @@ export function bwSheet(opts = {}) {
 
 // getDay() order, 0 = Sunday, matching lib/checkins.js. A function rather than a lookup object so
 // t() runs at render, after the language is known — a const map would freeze whatever the language
-// was when this module first loaded. Translated, unlike the coach's own picker in views/Coach.jsx:
+// was when this module first loaded. Translated, unlike the coach's own picker in views/coach/sheets.jsx:
 // that is an operator surface, this is the member's screen.
 const CHECKIN_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const checkinDayLabel = d => t(CHECKIN_DAY_NAMES[d] || CHECKIN_DAY_NAMES[0])

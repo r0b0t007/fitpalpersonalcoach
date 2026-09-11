@@ -195,7 +195,7 @@ export function AdherenceCard({ a }) {
   </div>
 }
 
-// Exported only so Coach.stats.test.jsx can assert its key set against the local mirror it tests
+// Exported only so parts.stats.test.jsx can assert its key set against the local mirror it tests
 // the transform through. That mirror silently fell five fields behind this and nothing failed, so
 // the parity check is the thing that stops it happening again — a comment cannot fail CI.
 export const memberState = d => ({

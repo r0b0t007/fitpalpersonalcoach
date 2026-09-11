@@ -1088,6 +1088,15 @@ describe('per-side set counters', () => {
     expect(setsDone({})).toBe(0)
     expect(setsDone({ entries: [{}] })).toBe(0)
     expect(setsDone({ entries: [{ sets: [{ done: true }] }, null] })).toBe(1)
+    expect(setsDone({ entries: [{ sets: [null, { done: true }] }] })).toBe(1)
+  })
+
+  it('workoutVolume survives one too — it is the fallback for the oldest rows', () => {
+    // `w.vol ?? workoutVolume(w)`: the fallback only runs for sessions saved before the volume
+    // was stored on the row, which are precisely the ones most likely to be half-written.
+    expect(workoutVolume({})).toBe(0)
+    expect(workoutVolume({ entries: [{}, null] })).toBe(0)
+    expect(workoutVolume({ entries: [{ sets: [null, { done: true, w: 60, r: 5 }] }] })).toBe(300)
   })
 })
 

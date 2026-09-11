@@ -16,6 +16,13 @@ import { checkinOverdue } from './checkins.js'
 
 export const INACTIVE_DAYS = 7
 export const NEW_DAYS = 7
+// How long a decline stays a thing to do something about. `lastDecision` is the newest decided
+// assignment for that member, with no end date of its own, so without a bound one decline from
+// January outranks every live problem forever — and this list shows ONE row per client, so the
+// stale row is not merely noise, it hides the real one. Two weeks is long enough to still be
+// worth a conversation and short enough not to become furniture. (A later acceptance clears it
+// on its own: `lastDecision` only ever holds the most recent decision.)
+export const DECLINE_DAYS = 14
 
 const DAY = 86400000
 const noon = iso => Date.parse(String(iso).slice(0, 10) + 'T12:00:00Z')
@@ -37,27 +44,32 @@ const REASONS = [
   },
   {
     type: 'declined',
-    when: m => m.lastDecision?.status === 'declined',
+    when: (m, today) => m.lastDecision?.status === 'declined' && daysSince(m.lastDecision.at, today) <= DECLINE_DAYS,
     title: 'Declined the last program',
     detail: (m, today) => ago(daysSince(m.lastDecision.at, today)),
   },
   {
     type: 'new-client',
-    when: (m, today) => !(m.routines > 0) && daysSince(m.created, today) != null && daysSince(m.created, today) <= NEW_DAYS,
+    when: (m, today) => m.routines === 0 && daysSince(m.created, today) != null && daysSince(m.created, today) <= NEW_DAYS,
     title: 'New client, no program yet',
     detail: (m, today) => 'Joined ' + ago(daysSince(m.created, today)),
   },
   {
     type: 'no-program',
-    when: m => !(m.routines > 0),
+    // `=== 0`, not `!(x > 0)`: `routines`, `lastCheckin` and `checkinDay` are new on the wire,
+    // and the static frontend and the live API are separate deploy paths (CLAUDE.md). A bundle
+    // served against an API that has not shipped them yet would otherwise label EVERY client
+    // "No program" and bury every real signal. An absent field means unknown, so: no row.
+    when: m => m.routines === 0,
     title: 'No program',
     detail: () => 'Nothing on their plan to train',
   },
   {
     type: 'checkin-overdue',
     // Only once they have something to train — a check-in on an empty plan is not a habit anyone
-    // agreed to yet, and the row above already says what is missing.
-    when: (m, today) => checkinOverdue(m, today),
+    // agreed to yet, and the row above already says what is missing. `undefined` is an API that
+    // predates the field (see 'no-program'); `null` is a client who has genuinely never filed one.
+    when: (m, today) => m.lastCheckin !== undefined && checkinOverdue(m, today),
     title: 'Check-in overdue',
     detail: (m, today) => (m.lastCheckin ? 'Last one ' + ago(daysSince(m.lastCheckin, today)) : 'None filed yet'),
   },

@@ -62,7 +62,7 @@ export const POSES = [
  * worse than one that is honestly absent. VITE_MOBILE is a build-time constant, so this whole
  * branch folds away in the web bundle.
  *
- * The coach's half (Coach.jsx PhotosCard) reads the same flag but does NOT hide: a coach seeing
+ * The coach's half (views/coach/parts.jsx PhotosCard) reads the same flag but does NOT hide: a coach seeing
  * no card cannot tell it apart from a client who sent nothing, so that side says out loud that
  * the photos are there and open in the browser. */
 export const PHOTOS_REACHABLE = (import.meta.env || {}).VITE_MOBILE !== '1'

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
 import { api } from '../../lib/api.js'
 import { fmtDate, fmtVol, fmtDur, DAYN } from '../../lib/format.js'
@@ -20,13 +21,35 @@ const TABS = [
 // Monday-first, the way a training week reads; getDay() indexes like everywhere else.
 const WEEK = [1, 2, 3, 4, 5, 6, 0]
 
+// Which program to send, when the coach has a library. Sending their current Plan stays on the
+// list because that is what the button did before there was a library, and it is still how a
+// coach who writes a block and sends it the same day works.
+export function ProgramPicker({ programs, close, onPick }) {
+  return <>
+    <h3>Send a program</h3>
+    <div className="list" style={{ rowGap: 0 }}>
+      {programs.map(p => <button key={p.id} className="row between" style={{ width: '100%', textAlign: 'left', padding: '11px 2px', borderBottom: '1px solid var(--sep)' }} onClick={() => onPick(p)}>
+        <div><div className="small" style={{ fontWeight: 600 }}>{p.name}</div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>{p.bundle.routines.length} {p.bundle.routines.length === 1 ? 'routine' : 'routines'}</div></div>
+        <Icon name="chevronRight" className="chev" />
+      </button>)}
+      <button className="row between" style={{ width: '100%', textAlign: 'left', padding: '11px 2px' }} onClick={() => onPick(null)}>
+        <div><div className="small" style={{ fontWeight: 600 }}>My current plan</div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>Whatever is in your own Plan right now</div></div>
+        <Icon name="chevronRight" className="chev" />
+      </button>
+    </div>
+  </>
+}
+
 export default function ClientDetail() {
   const { id } = useParams()
   const nav = useNavigate()
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
+  const programs = useStore(s => s.S.programs) || []
   const [d, setD] = useState(null)
-  const [roster, setRoster] = useState([])
+  const [roster, setRoster] = useState(null)
   const [tab, setTab] = useState('overview')
 
   const load = () => {
@@ -37,9 +60,13 @@ export default function ClientDetail() {
   useEffect(load, [id])
 
   if (!d) return <div className="narrow"><div className="hdr"><h1>…</h1></div><div className="muted small">Loading…</div></div>
-  const row = roster.find(m => m.id === id)
+  const row = (roster || []).find(m => m.id === id)
   const pending = row?.pending || []
-  const lastCheckin = d.checkins?.length ? d.checkins[d.checkins.length - 1].d : null
+  // max, not the last element — the same reduce the server's roster field uses. The list is kept
+  // in date order by upsertCheckin, but a coach-side judgement should not depend on that holding:
+  // if it ever slipped, this tile and Today's "check-in overdue" row would disagree about one
+  // client in front of the coach.
+  const lastCheckin = (d.checkins || []).reduce((max, c) => (c && c.d > max ? c.d : max), '') || null
   const byId = Object.fromEntries((d.routines || []).map(r => [r.id, r]))
   const week = d.week || {}
 
@@ -48,7 +75,17 @@ export default function ClientDetail() {
   const withdraw = a => api('/api/coach/assignments/withdraw', { method: 'POST', body: JSON.stringify({ id: a.id }) })
     .then(() => { toast('Program withdrawn'); load() })
     .catch(e => toast(e.message))
-  const send = () => openSheet(close => <SendSheet members={roster.filter(m => !m.disabled)} close={close} preselect={[id]} onSent={load} />)
+  // The sheet needs the roster row for everyone it lists, and the request for it can still be in
+  // flight (or have failed) while this page is already drawn from its own payload. Falling back to
+  // a row built from what we do have keeps the sheet honest: it would otherwise say "no members
+  // assigned to you yet" underneath a primary button reading "Send to 1 client".
+  const sendTo = roster?.length ? roster.filter(m => !m.disabled) : [{ id, name: d.user.name, workouts: d.workouts.length, lastSync: d.lastSync }]
+  const open = program => openSheet(close => <SendSheet members={sendTo} close={close} program={program} preselect={[id]} onSent={load} />)
+  // "Send a program" has to be able to send a saved one, not silently always the coach's current
+  // Plan. With a library, pick from it first; with none, there is nothing to pick between.
+  const send = () => (programs.length
+    ? openSheet(close => <ProgramPicker programs={programs} close={close} onPick={p => { close(); open(p) }} />)
+    : open(null))
 
   return <div className="narrow">
     <div className="hdr">

@@ -15,11 +15,11 @@ import { MemoryRouter } from 'react-router-dom'
 import { todayISO } from '../../lib/format.js'
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('../lib/api.js', () => ({
+vi.mock('../../lib/api.js', () => ({
   api: vi.fn(() => Promise.resolve({})),
   IS_IOS: false, IS_ANDROID: false, IS_APPLE: false, webauthnOK: () => true,
 }))
-vi.mock('../lib/mobile.js', () => ({
+vi.mock('../../lib/mobile.js', () => ({
   MOBILE: false, nativeLoad: async () => null, nativeSave: () => {},
   syncReminder: () => {}, initReminderSync: () => {}, writeAutoBackup: () => {},
 }))
@@ -36,7 +36,7 @@ const { StatsPanels } = await import('../Stats.jsx')
 // it then failed for the mirror's reasons rather than the code's. Of those five, the three that
 // matter here are the nutrition ones: StatsPanels reads them, so a mirror without them renders a
 // client who looks like they never ate. `checkins`/`checkinDay` have no consumer on this path at
-// all — Stats.jsx never reads them, and Coach.jsx hands them straight to CheckinsCard outside
+// all — Stats.jsx never reads them, and views/coach/ClientDetail.jsx hands them straight to
 // this transform — so they are carried for fidelity with the real thing, nothing more.
 //
 // The parity test below is what actually enforces this. A comment cannot fail CI, and this drift

@@ -35,6 +35,14 @@ describe('one reason per client', () => {
     const m = with_({ lastDecision: { status: 'declined', at: '2026-09-09T10:00:00.000Z' }, routines: 0 })
     expect(reasonFor(m, TODAY)).toMatchObject({ type: 'declined', detail: 'yesterday' })
   })
+  it('but a decline ages out, instead of sitting on the client’s one row forever', () => {
+    // The list shows ONE row per client, so a decline from months ago does not merely linger —
+    // it outranks and hides whatever is wrong with them now.
+    const old = with_({ lastDecision: { status: 'declined', at: '2026-06-01T10:00:00.000Z' }, routines: 0 })
+    expect(reasonFor(old, TODAY)).toMatchObject({ type: 'no-program' })
+    const edge = with_({ lastDecision: { status: 'declined', at: '2026-08-27T12:00:00.000Z' }, routines: 0 })
+    expect(reasonFor(edge, TODAY)).toMatchObject({ type: 'declined' })   // exactly DECLINE_DAYS
+  })
   it('a new client with no program is the coach’s job today', () => {
     const m = with_({ created: '2026-09-08T09:00:00.000Z', routines: 0, workouts: 0, lastWorkout: null, lastCheckin: null })
     expect(reasonFor(m, TODAY)).toMatchObject({ type: 'new-client', detail: 'Joined 2 days ago' })
@@ -58,6 +66,24 @@ describe('one reason per client', () => {
     expect(reasonFor(with_({ lastWorkout: '2026-09-03' }), TODAY)).toMatchObject({ type: 'inactive', detail: 'Last workout 7 days ago' })
     expect(reasonFor(with_({ lastWorkout: '2026-09-04' }), TODAY)).toBeNull()
     expect(reasonFor(with_({ lastWorkout: '2026-09-01', live: { name: 'Push', startedAt: 1 } }), TODAY)).toBeNull()
+  })
+})
+
+describe('an API that has not shipped the new roster fields yet', () => {
+  // The static frontend and the live API deploy separately (CLAUDE.md), so a bundle can be
+  // served against a server with no `routines` / `lastCheckin`. Reading absent as zero labelled
+  // every client at once and buried every real signal; absent means unknown, so: no row.
+  const oldApi = { id: 'm', name: 'Sara', created: '2026-01-01T00:00:00.000Z', workouts: 40,
+    lastWorkout: '2026-09-09', lastSync: 1, live: null, pending: [], lastDecision: null }
+
+  it('says nothing about a program or a check-in it cannot see', () => {
+    expect(reasonFor(oldApi, TODAY)).toBeNull()
+  })
+  it('still reports what it can see', () => {
+    expect(reasonFor({ ...oldApi, lastWorkout: '2026-08-01' }, TODAY)).toMatchObject({ type: 'inactive' })
+  })
+  it('and a client who genuinely has no program is still zero, not absent', () => {
+    expect(reasonFor({ ...oldApi, routines: 0 }, TODAY)).toMatchObject({ type: 'no-program' })
   })
 })
 

@@ -3,7 +3,7 @@ import Icon from './Icon.jsx'
 
 // The coach's bar — the other half of the split App.jsx makes on lib/role.js.
 //
-// English-only, like every coach surface (views/Coach.jsx says why). No raised Start cell: that
+// English-only, like every coach surface (views/coach/parts.jsx says why). No raised Start cell: that
 // is a trainee's affordance, and a coach's primary action differs per screen (Invite on Clients,
 // New on Programs), so it lives in each screen's header instead. A cell is added here the day
 // its screen lands — Today first, then Clients, Programs, Account as the redesign ships — rather

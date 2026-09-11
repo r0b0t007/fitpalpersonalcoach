@@ -27,19 +27,23 @@ export default function Clients() {
 
   const today = todayISO()
   const needle = q.trim().toLowerCase()
-  const rows = (members || [])
-    .filter(m => !m.disabled && (!needle || m.name.toLowerCase().includes(needle)))
+  // One population for the count, the threshold and the list: with disabled accounts in the mix
+  // a roster of five active clients grew a search field, and a subtitle taken from the filtered
+  // rows counted down while the coach typed.
+  const active = (members || []).filter(m => !m.disabled)
+  const rows = active
+    .filter(m => !needle || m.name.toLowerCase().includes(needle))
     .map(m => ({ m, reason: reasonFor(m, today) }))
     .sort((a, b) => (a.reason ? a.reason.rank : 99) - (b.reason ? b.reason.rank : 99) || a.m.name.localeCompare(b.m.name))
 
   return <div className="narrow">
     <div className="hdr">
       <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>Clients</h1>
-        <div className="sub">{members ? rows.length + (rows.length === 1 ? ' client' : ' clients') : 'Loading…'}</div></div>
+        <div className="sub">{members ? active.length + (active.length === 1 ? ' client' : ' clients') : 'Loading…'}</div></div>
       <Button variant="tinted" size="sm" icon="plus" onClick={() => openSheet(() => <InviteSheet />)}>Invite</Button>
     </div>
 
-    {(members?.length || 0) > 6 && <div style={{ marginBottom: 12 }}>
+    {active.length > 6 && <div style={{ marginBottom: 12 }}>
       <SearchField value={q} onChange={e => setQ(e.target.value)} onClear={() => setQ('')} placeholder="Search clients" />
     </div>}
 
@@ -61,10 +65,10 @@ export default function Clients() {
         <RosterAdherence parts={m.adherence} />
         <Icon name="chevronRight" className="chev" />
       </button>)}
-      {members && !members.length && <div className="empty">
+      {members && !active.length && <div className="empty">
         No clients yet. Make an invite code and give it to whoever is joining — they arrive on your roster the moment they sign up.
       </div>}
-      {members && members.length > 0 && !rows.length && <div className="empty">Nobody matches “{q}”.</div>}
+      {members && active.length > 0 && !rows.length && <div className="empty">Nobody matches “{q}”.</div>}
     </div>
   </div>
 }
