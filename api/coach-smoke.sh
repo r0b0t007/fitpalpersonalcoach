@@ -114,6 +114,21 @@ chk "admin reads any member"                  200 "$(code -H "Cookie: $ADMIN" "$
 # The roster scores adherence client-side (frontend/src/lib/adherence.js) from four fields the
 # card carries. They are cheap -- the state is already read to build the card -- but they are
 # also easy to drop in a refactor, and the failure is silent: the column just stops rendering.
+# ---- the program library. It lives in coach-<uid>.json, NOT in the coach's own state file:
+# the server never writes a state-<uid>.json, and a bundle is too big to ride db.json.
+PROG='{"id":"p-smoke","name":"Block A","bundle":{"opengym_plan":1,"name":"x","week":{"1":["r1"]},"routines":[{"id":"r1","name":"Push","ex":[{"id":"0025","sets":3}]}],"customEx":[]}}'
+chk "coach saves a program"                    200 "$(code -X POST "$B/api/coach/programs/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "$PROG")"
+chk "coach lists their own library"            "Block A" "$(get -H "Cookie: $CA" "$B/api/coach/programs" | node -pe "(JSON.parse(require('fs').readFileSync(0,'utf8')).programs[0]||{}).name")"
+chk "another coach's library is separate"      0 "$(get -H "Cookie: $CB" "$B/api/coach/programs" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).programs.length")"
+chk "a member cannot read a library"           403 "$(code -H "Cookie: $M1" "$B/api/coach/programs")"
+chk "a nameless program is refused"            400 "$(code -X POST "$B/api/coach/programs/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"x","name":"","bundle":{"opengym_plan":1,"routines":[{"id":"r","ex":[]}]}}')"
+chk "a routine-less bundle is refused"         400 "$(code -X POST "$B/api/coach/programs/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"x","name":"Empty","bundle":{"opengym_plan":1,"routines":[]}}')"
+chk "re-saving the same id updates in place"   1 "$(get -H "Cookie: $CA" "$B/api/coach/programs" >/dev/null; code -X POST "$B/api/coach/programs/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "$PROG" >/dev/null; get -H "Cookie: $CA" "$B/api/coach/programs" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).programs.length")"
+chk "the coach file is a sidecar, not state"   "absent" "$([ -f "$D/state-coachA.json" ] && echo present || echo absent)"
+chk "a non-string id is refused"                400 "$(code -X POST "$B/api/coach/programs/save" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":{"a":1},"name":"Odd","bundle":{"opengym_plan":1,"routines":[{"id":"r","ex":[{"id":"0025"}]}]}}')"
+chk "deleting an unknown program is 404"       404 "$(code -X POST "$B/api/coach/programs/delete" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"nope"}')"
+chk "coach deletes their program"              0 "$(code -X POST "$B/api/coach/programs/delete" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"p-smoke"}' >/dev/null; get -H "Cookie: $CA" "$B/api/coach/programs" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).programs.length")"
+
 chk "member card carries the roster facts"     "ok" "$(get -H "Cookie: $CA" "$B/api/coach/members" | node -pe "
   const m = JSON.parse(require('fs').readFileSync(0,'utf8')).members[0];
   ('lastCheckin' in m && 'checkinDay' in m && typeof m.routines === 'number') ? 'ok' : 'got ' + JSON.stringify(m)")"

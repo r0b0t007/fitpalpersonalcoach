@@ -38,6 +38,7 @@ import Admin from './views/Admin.jsx'
 import CoachToday from './views/coach/CoachToday.jsx'
 import Clients from './views/coach/Clients.jsx'
 import ClientDetail from './views/coach/ClientDetail.jsx'
+import Programs from './views/coach/Programs.jsx'
 import CoachChat from './views/CoachChat.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachSetup from './views/CoachSetup.jsx'
@@ -101,6 +102,7 @@ function CoachRoutes({ user }) {
       <Route path="/today" element={<CoachToday />} />
       <Route path="/clients" element={<Clients />} />
       <Route path="/clients/:id" element={<ClientDetail />} />
+      <Route path="/programs" element={<Programs />} />
       <Route path="/account" element={<Settings />} />
       {/* The operator page stays reachable for the admin account for one release, hidden, while
           the pieces a single coach still needs (activity log, disabling an account) move into

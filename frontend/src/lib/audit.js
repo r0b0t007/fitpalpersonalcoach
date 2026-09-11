@@ -35,6 +35,8 @@ const LABELS = {
   'auth.pair.ok': 'Paired a phone',
   'auth.pair.fail': 'Phone pairing failed',
   // A coach taking a client on, rather than an admin assigning one.
+  'coach.program.save': 'Saved a program',
+  'coach.program.delete': 'Deleted a program',
   'coach.invite.create': 'Created a client code',
   'coach.invite.revoke': 'Revoked a client code'
 }

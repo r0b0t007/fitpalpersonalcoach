@@ -7,10 +7,11 @@ import { fmtDate, todayISO } from '../../lib/format.js'
 import { setShellPref, homeFor } from '../../lib/role.js'
 import { attentionItems } from '../../lib/roster-attention.js'
 import { activityFeed } from '../../lib/roster-activity.js'
+import { fetchPrograms } from '../../lib/programs.js'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { dur, rel } from './parts.jsx'
-import { SendSheet, SaveProgramSheet, InviteSheet, MediaSheet } from './sheets.jsx'
+import { InviteSheet, MediaSheet } from './sheets.jsx'
 
 // The coach's landing screen: what needs me, who is training, what happened. A coach opens the
 // app several times a day to triage, so the list of clients who need something comes first and
@@ -21,7 +22,7 @@ import { SendSheet, SaveProgramSheet, InviteSheet, MediaSheet } from './sheets.j
 export default function CoachToday() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
-  const programs = useStore(s => s.S.programs) || []
+  const [programs, setPrograms] = useState([])
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
   const [members, setMembers] = useState(null)
@@ -32,6 +33,9 @@ export default function CoachToday() {
     const iv = setInterval(load, 15000)   // keeps "training now" live
     return () => clearInterval(iv)
   }, [])
+  // The library lives on the server (lib/programs.js). Today only reads it — the Programs tab
+  // owns saving, deleting and the migration of a pre-server library.
+  useEffect(() => { fetchPrograms().then(d => setPrograms(d.programs)).catch(() => {}) }, [])
 
   const today = todayISO()
   const roster = (members || []).filter(m => !m.disabled)
@@ -92,32 +96,16 @@ export default function CoachToday() {
       </button>)}
     </div>}
 
-    {/* Programs, invites and demos stay here until their own screens land (Programs tab, Account).
-        Below the day's triage rather than above it: these are things a coach sets up, not things
-        they check on. */}
-    <div className="card">
-      <div className="row between"><h2 style={{ margin: 0 }}>Programs</h2>
-        <Button variant="primary" size="sm" icon="plus"
-          onClick={() => openSheet(close => <SaveProgramSheet close={close} />)}>Save a program</Button></div>
-      <div className="small muted" style={{ margin: '6px 0 8px', lineHeight: 1.4 }}>
-        Write the routines in your own Plan, save the ones that make up a program here, then send it.
-        Clients accept before anything is added to theirs.
-      </div>
-      {programs.map(p => <div key={p.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
-        <div><div className="small" style={{ fontWeight: 600 }}>{p.name}</div>
-          <div className="dim" style={{ fontSize: '.72rem' }}>
-            {p.bundle.routines.length} {p.bundle.routines.length === 1 ? 'routine' : 'routines'} · saved {fmtDate(String(p.created).slice(0, 10))}</div></div>
-        <div className="row" style={{ gap: 6 }}>
-          <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} disabled={!roster.length}
-            onClick={() => openSheet(close => <SendSheet members={roster} close={close} program={p} />)}>Send</button>
-          <button className="iconbtn" aria-label="Delete program"
-            onClick={() => useStore.getState().update(s => { s.programs = (s.programs || []).filter(x => x.id !== p.id) })}><Icon name="trash" /></button>
+    {/* Invites and demos stay here until Account lands; Programs has its own tab now, so Today
+        keeps only a way in rather than a second copy of the library. */}
+    <div className="card tappable" style={{ cursor: 'pointer' }} onClick={() => nav('/programs')}>
+      <div className="row between">
+        <div>
+          <div className="lbl2">Programs</div>
+          <div className="ttl">{programs.length ? programs.length + ' in your library' : 'Nothing saved yet'}</div>
         </div>
-      </div>)}
-      {!programs.length && <div className="dim small">No saved programs yet.</div>}
-      <div style={{ height: 10 }} />
-      <Button variant="ghost" className="dim" disabled={!roster.length}
-        onClick={() => openSheet(close => <SendSheet members={roster} close={close} />)}>Send my current plan instead</Button>
+        <Icon name="chevronRight" className="chev" />
+      </div>
     </div>
 
     {roster.length > 0 && <div className="card">

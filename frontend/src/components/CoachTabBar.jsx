@@ -11,6 +11,7 @@ import Icon from './Icon.jsx'
 const CELLS = [
   { k: 'today', icon: 'house', to: '/today', label: 'Today' },
   { k: 'clients', icon: 'people', to: '/clients', label: 'Clients' },
+  { k: 'programs', icon: 'clipboard', to: '/programs', label: 'Programs' },
   { k: 'account', icon: 'personCircle', to: '/account', label: 'Account' },
 ]
 

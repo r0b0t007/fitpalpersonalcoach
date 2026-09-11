@@ -51,7 +51,7 @@ export const DEF = {
   nutriTarget: null,
   // Coaches only: named programs written for clients, kept out of `routines` so that progressing
   // a client never changes what the coach themselves trains tomorrow. Each one is a frozen
-  // snapshot of chosen routines (see views/coach/sheets.jsx), which is why editing your own Plan afterwards
+  // snapshot of chosen routines, which is why editing your own Plan afterwards
   // leaves already-saved programs alone.
   programs: [],
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
