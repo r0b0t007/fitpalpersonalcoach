@@ -329,7 +329,7 @@ excluded routine, through `buildSessionEntries`.
 
 From [ENG-15](https://linear.app/factical/issue/ENG-15). The plan fingerprint is computed in
 two runtimes that share no build step (`frontend/src/lib/coach.js` and `api/coach/core/`) and
-must stay byte-for-byte matched. See `docs/AI_COACH.md` for the feature overview.
+must stay byte-for-byte matched.
 
 **Canonical form** — one string form shared by both runtimes. `canonicalPlan` (both) and
 `cleanPlan` (server) normalise every day to an array:

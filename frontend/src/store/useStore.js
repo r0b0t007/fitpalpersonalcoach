@@ -8,7 +8,6 @@ import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, syncReminder, writeAutoBackup } from '../lib/mobile.js'
 import { loadRemote, chooseLocal, forgetRemote, connect } from '../lib/remote.js'
-import { loadCoachDevice, saveCoachDevice, coachDeviceSettings } from '../lib/coach-device.js'
 import { DEFAULT_LANG } from '../lib/i18n-core.js'
 
 import { WC_DEFAULT } from '../lib/workout-controls.js'
@@ -214,15 +213,11 @@ export const useStore = create((set, get) => {
       catch { /* offline, or an older server without the route — no offers is the safe answer */ }
     },
 
-    /* Instance capabilities from GET /api/config. `config.coach` is present only when the owner
-       has both enabled the Coach and connected a provider — every Coach entry point in the app
-       hangs off it via coachAvailable(), so an unconfigured instance renders exactly what it
-       always did, and a configured one is the only place any of it appears. */
+    /* Instance capabilities from GET /api/config: whether signup needs an invite, whether guests
+       are allowed, whether access can be requested. It used to carry the AI Coach's flag too;
+       that feature is gone. */
     config: null,
     needsMobileOnboarding: false,   // mobile build only — set true by boot() on a genuine first launch
-    // Mobile build only: how the Coach runs on this phone — { mode: 'off'|'server'|'byok',
-    // provider, model, baseUrl } from lib/coach-device.js. Never the key, never a proposal.
-    coachLocal: null,
 
     // Mutate a draft of S via producer fn, then persist + schedule sync.
     update(mut, push = true) {
@@ -372,7 +367,6 @@ export const useStore = create((set, get) => {
       // case it behaves exactly like the signed-in web flow below, straight from here.
       if (MOBILE) {
         const remote = await loadRemote()
-        set({ coachLocal: coachDeviceSettings(await loadCoachDevice()) })
         if (remote?.mode === 'remote') {
           setRemoteAuth(remote.base, remote.token)
           try {

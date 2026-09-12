@@ -11,7 +11,6 @@ import { BRAND } from '../lib/brand.js'
 import { inviteLink } from '../lib/invite.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Stepper } from '../components/ui.jsx'
-import AdminCoach from './AdminCoach.jsx'
 import '../admin.css'
 
 // Admin-only operator dashboard (owner passkey + admin flag; guarded again server-side).
@@ -494,9 +493,6 @@ export default function Admin() {
       </div>)}
     </div>}
 
-    {/* The Coach setup. Renders nothing at all unless the instance offers the Coach, so an admin
-        page on a box that never enabled it is byte-for-byte the page it was before. */}
-    <AdminCoach />
 
     {/* hidden entirely when REQUEST_ACCESS is off and no old requests linger */}
     {requests && (reqEnabled || requests.length > 0) &&

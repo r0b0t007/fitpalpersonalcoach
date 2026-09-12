@@ -13,7 +13,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 const mocks = vi.hoisted(() => {
   const state = { S: null, user: null, syncError: null }
   state.snapshot = () => ({
-    S: state.S, user: state.user, syncError: state.syncError, coachLocal: null,
+    S: state.S, user: state.user, syncError: state.syncError,
     update: vi.fn(), replaceState: vi.fn(), setUser: vi.fn(), pullState: vi.fn(), pushState: vi.fn(),
     signOut: vi.fn(), signOutAll: vi.fn(), resetDemo: vi.fn(), disconnectServer: vi.fn(),
   })
