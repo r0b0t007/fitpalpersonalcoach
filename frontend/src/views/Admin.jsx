@@ -8,6 +8,7 @@ import { auditCat, auditLine, fmtWhen } from '../lib/audit.js'
 import { workoutVolume, setsDone } from '../lib/history.js'
 import { confirmSheet } from '../sheets.jsx'
 import { BRAND } from '../lib/brand.js'
+import { inviteLink } from '../lib/invite.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Stepper } from '../components/ui.jsx'
 import AdminCoach from './AdminCoach.jsx'
@@ -128,11 +129,6 @@ function UserDetail({ id, users, onChanged, close }) {
   </>
 }
 
-// A member joining has to end up on their own device anyway — passkeys can only be created there
-// — so the useful thing to hand them is a link that carries the code, not sixteen hex characters
-// to retype. `?invite=` rather than a hash route: the app is hash-routed and the query survives
-// it untouched, with nothing new to register.
-export const inviteLink = code => `${location.origin}${location.pathname}?invite=${encodeURIComponent(code)}`
 
 function InvitesCard({ invites, inviteOnly, reload }) {
   const toast = useUI(s => s.toast)

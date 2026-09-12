@@ -40,6 +40,8 @@ import Clients from './views/coach/Clients.jsx'
 import ClientDetail from './views/coach/ClientDetail.jsx'
 import Programs from './views/coach/Programs.jsx'
 import ProgramEditShell, { ProgramEdit, ProgramRoutineEdit } from './views/coach/ProgramEdit.jsx'
+import CoachAccount from './views/coach/CoachAccount.jsx'
+import { BusinessAccounts, BusinessActivity } from './views/coach/Business.jsx'
 import CoachChat from './views/CoachChat.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachSetup from './views/CoachSetup.jsx'
@@ -94,9 +96,9 @@ function ClientRoutes() {
   )
 }
 
-// /account is the shared Settings screen until the coach's own lands. /trainer was the old
-// dashboard's address (it could not be /coach — upstream's AI chat owns that path in the client
-// table).
+// /account is the coach's own screen; the shared Settings screen it used to be now sits at
+// /settings, reachable from a row on it. /trainer was the old dashboard's address (it could not
+// be /coach — upstream's AI chat owns that path in the client table).
 function CoachRoutes({ user }) {
   return (
     <Routes>
@@ -110,13 +112,23 @@ function CoachRoutes({ user }) {
         <Route index element={<ProgramEdit />} />
         <Route path="r/:rid" element={<ProgramRoutineEdit />} />
       </Route>
-      <Route path="/account" element={<Settings />} />
+      <Route path="/account" element={<CoachAccount />} />
+      {/* The two operator jobs a single coach keeps, out of the gym dashboard. Both are gated on
+          user.admin inside, so a URL typed by a plain coach lands back on /account rather than on
+          a screen whose every request 403s. */}
+      <Route path="/account/accounts" element={<BusinessAccounts />} />
+      <Route path="/account/activity" element={<BusinessActivity />} />
+      {/* The coach's own training settings — units, language, notifications, rest timers, export —
+          are the same screen a client gets, because they are the same settings. Reached from the
+          "Training settings" row on Account, and named here so a link or a back button that
+          predates the split does not fall through to the catch-all. */}
+      <Route path="/settings" element={<Settings />} />
       {/* The operator page stays reachable for the admin account for one release, hidden, while
           the pieces a single coach still needs (activity log, disabling an account) move into
           Account. Everything else on it — classes, timetable, access requests — is gym-only. */}
       <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/today" replace />} />
-      {/* Settings (shared, mounted at /account) links here on the phone build to choose how the
-          AI coach runs — a device setting, not a coaching feature, so the screen stays reachable. */}
+      {/* Settings (now at /settings) links here on the phone build to choose how the AI coach
+          runs — a device setting, not a coaching feature, so the screen stays reachable. */}
       <Route path="/coach/setup" element={<CoachSetup />} />
       {/* Shared screens still say nav('/you') and nav('/home') — Settings after sign-out or reset,
           Admin's back button. Named here so they land on the coach's equivalents instead of

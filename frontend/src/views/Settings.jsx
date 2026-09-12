@@ -640,7 +640,7 @@ function EquipmentCard({ S, update }) {
 // Lets the mobile app's "connect to my server" mode (lib/remote.js) authenticate without a
 // WebAuthn ceremony of its own — the code is minted here, from an already signed-in session,
 // and redeemed by the app for a bearer token. See /api/pair/create in api/server.js.
-function PairSheet({ close }) {
+export function PairSheet({ close }) {
   const [code, setCode] = useState(null)
   const [err, setErr] = useState(null)
   useEffect(() => { api('/api/pair/create', { method: 'POST', body: '{}' }).then(r => setCode(r.code)).catch(e => setErr(e.message || t('Could not generate a code'))) }, [])
