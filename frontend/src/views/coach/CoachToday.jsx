@@ -112,7 +112,7 @@ export default function CoachToday() {
       <div className="row between"><h2 style={{ margin: 0 }}>Invite a client</h2>
         <Button variant="primary" size="sm" icon="link" onClick={() => openSheet(() => <InviteSheet />)}>Invite</Button></div>
       <div className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.4 }}>
-        Send them a link. They open it and arrive on your roster already yours. Each link works once.
+        Send them a link. They open it, make their profile, and arrive on your roster. Each link works once.
       </div>
     </div>}
 

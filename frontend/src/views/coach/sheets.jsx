@@ -95,7 +95,7 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
       {days ? ' · scheduled on ' + days + (days === 1 ? ' day' : ' days') : ''}
     </div>
     <div className="dim small" style={{ marginBottom: 14, lineHeight: 1.4 }}>
-      Each member is asked to accept before anything is added. Their own routines are never changed or removed.
+      Each client is asked to accept before anything is added. Their own routines are never changed or removed.
     </div>
 
     <input className="input" placeholder="Note (optional) — what this block is for" maxLength={280}
@@ -140,7 +140,7 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
     <h4 className="sec" style={{ marginTop: 16 }}>Check-in day</h4>
     <div className="dim small" style={{ marginBottom: 8, lineHeight: 1.4 }}>
       Which day their weekly check-in falls on. Leave it alone and this program does not touch it —
-      a member who has been answering on a Wednesday stays on Wednesday.
+      a client who has been answering on a Wednesday stays on Wednesday.
     </div>
     <select className="input" value={checkinDay} onChange={e => setCheckinDay(e.target.value)}
       style={{ marginBottom: 10 }}>
@@ -409,7 +409,7 @@ export function MediaSheet() {
   return <>
     <h3>Exercise demos</h3>
     <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-      Your own video of an exercise, shown to every member in place of the stock animation.
+      Your own video of an exercise, shown to every client in place of the stock animation.
       Works for exercises you created yourself, which have never had one. MP4 or MOV, up to 90 MB,
       six per exercise.
     </div>
@@ -491,7 +491,7 @@ export function MediaSheet() {
           {anyRaw && <div className="dim small" style={{ marginTop: 6, lineHeight: 1.45 }}>
             “Needs conversion” means HEVC inside a .mov — what an iPhone records unless you tell it
             otherwise. It is stored, listed and played like any other file, and Safari handles it;
-            Chrome and Firefox usually do not, and a member on one of those quietly sees the stock
+            Chrome and Firefox usually do not, and a client on one of those quietly sees the stock
             animation instead. Nothing converts it for you. Either set the camera to “Most
             Compatible”, or re-export as H.264 MP4 and upload that.
           </div>}
