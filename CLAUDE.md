@@ -175,8 +175,8 @@ output), `api`, `web` (multi-stage build of `frontend/` served by nginx, which a
 ## Guidelines from CONTRIBUTING.md worth knowing before changing code
 
 - **Dependency-light is a hard constraint, not a preference.** Frontend: React + Router + Zustand
-  and nothing else. `api/`: three dependencies total (`@simplewebauthn/server`, `web-push`,
-  `undici`). New dependencies are a hard sell either side.
+  and nothing else. `api/`: two dependencies total (`@simplewebauthn/server`, `web-push`). `undici` was the
+  third until the AI Coach went — its only callers were that feature's HTTP adapters. New dependencies are a hard sell either side.
 - Don't commit `media/` or `data/` (gitignored).
 - Training-logic changes (progression, 1RM, session read-back) need a unit test in `src/lib`
   beside the code, not just manual clicking-through.

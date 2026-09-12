@@ -2540,7 +2540,7 @@ http.createServer(async (req, res) => {
     //
     // Gated on `clientSafe`, NOT on `.status` alone, and the difference is the whole point of
     // the comment that used to sit here. `.status` is a field anyone can put on an Error and is
-    // exactly what an HTTP client library sets: the day any helper here wraps `undici` or a
+    // exactly what an HTTP client library sets: the day any helper here wraps a fetch client or a
     // provider SDK, a 400 from THAT would have relayed its provider-authored message straight to
     // the requester, which is the internal detail this was written to withhold. Only the three
     // places that mint a deliberate refusal — readBody's 413 and 400, streamToFile's — set

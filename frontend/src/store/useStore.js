@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { setShellPref } from '../lib/role.js'
+import { forgetCoachSecrets } from '../lib/forget-coach.js'
 import { api, setRemoteAuth } from '../lib/api.js'
 import { localTZ, todayISO } from '../lib/format.js'
 import { compactMeals } from '../lib/nutrition.js'
@@ -387,6 +388,11 @@ export const useStore = create((set, get) => {
       // device was paired to a server ("connect to my server" mode, lib/remote.js), in which
       // case it behaves exactly like the signed-in web flow below, straight from here.
       if (MOBILE) {
+        // Once, and never again: the provider API key and job file the AI Coach left in the
+        // Keychain and the app data directory, which no surviving screen can reach. Not
+        // awaited — a phone that cannot open its own keystore this morning must not delay
+        // first paint over a feature that no longer exists; it retries next launch.
+        forgetCoachSecrets()
         const remote = await loadRemote()
         if (remote?.mode === 'remote') {
           setRemoteAuth(remote.base, remote.token)

@@ -165,11 +165,8 @@ jobs:
       - run: npm run check:node-loadable
         working-directory: mcp
 
-  # Builds *and runs* both image targets. Building alone would not have caught the api image
-  # The image is built and BOOTED here, not merely built: a missing runtime module makes an
-  # image that builds perfectly and exits on start, which CI cannot see from a build alone.
-  # resolves the Agent SDK's per-platform runtime (musl on this base), which is the one thing
-  # that cannot be checked from the source tree.
+  # Builds *and runs* the images. Building alone would not have caught the api image shipping
+  # without a module it imports: that image built perfectly and exited on boot, with CI green.
   # web/nginx.conf.template had no check of any kind. It is rendered by envsubst at container
   # start, so a typo in it is not a build failure -- it is nginx refusing to start, on every
   # self-hoster's `docker compose up`, after a green pipeline. Booting the image is the check:
