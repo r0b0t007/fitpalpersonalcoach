@@ -110,7 +110,7 @@ notice will be updated once the provenance is settled.
 
 **openGym does not redistribute it.** It is not in this repository, not in its history, and not in
 the published container images or the Android APK. A self-hosted instance downloads it from the
-upstream source on first `docker compose up`; the mobile and demo builds load it from a CDN at
+upstream source by scripts/fetch-media.sh; the mobile and demo builds load it from a CDN at
 runtime.
 
 If you want to reuse the media — in openGym or anywhere else, commercially or not — **clear it with

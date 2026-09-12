@@ -1,4 +1,4 @@
-# Exercise media — fetched on first `docker compose up` (or via scripts/fetch-media.sh)
+# Exercise media — fetched by scripts/fetch-media.sh
 media/img/
 media/gif/
 

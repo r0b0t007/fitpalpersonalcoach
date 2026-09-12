@@ -70,9 +70,9 @@ const MAX_BODY = 5 * 1024 * 1024;
 // video-sized JSON body must not become bufferable in the heap on all forty of them just because
 // one of them legitimately grew.
 //
-// NGINX_MAX_BODY (128m by default, sized for the video cap) already sits above this, so the
-// invariant in web/nginx.conf.template still holds: node's limit is the one meant to fire,
-// because node answers it in JSON the client can read.
+// Whatever proxies this must keep its own body limit ABOVE the video cap, so the invariant
+// holds: node's limit is the one meant to fire, because node answers it in JSON the client can
+// read, while a proxy answers with an HTML page the client cannot parse.
 const STATE_MAX_BODY = 16 * 1024 * 1024;
 // Uploaded media has its own caps and never touches MAX_BODY — the upload routes stream straight
 // to disk instead of calling readBody, so a 90 MB video is never a 90 MB Buffer in the heap and
@@ -82,7 +82,7 @@ const STATE_MAX_BODY = 16 * 1024 * 1024;
 // proxied by Cloudflare, which refuses request bodies over 100 MB on the free and pro tiers, so
 // a cap above that is not a cap: the upload dies at the edge with an HTML error page the client's
 // api() helper cannot parse, and the app reports a limit it never actually enforced. 90 leaves
-// room for the request's own overhead. Self-hosters behind their own nginx can raise it.
+// room for the request's own overhead. Self-hosters behind their own proxy can raise it.
 const mb = n => Math.round(n / (1024 * 1024));
 const MEDIA_MAX_VIDEO = Math.max(1, +(process.env.MEDIA_MAX_VIDEO_MB || 90) || 90) * 1024 * 1024;
 const MEDIA_MAX_PHOTO = Math.max(1, +(process.env.MEDIA_MAX_PHOTO_MB || 12) || 12) * 1024 * 1024;
@@ -269,10 +269,9 @@ function streamToFile(req, tmp, maxBytes, check) {
 /* Serve a stored media file, honouring HTTP range requests.
  *
  * This is the first byte-level READ in the API, and it exists because the deployment that takes
- * real clients has no nginx to hand it off to: coach.fitpal.ma is cPanel + LiteSpeed + Passenger,
- * which never renders web/nginx.conf.template. The original design leaned on X-Accel-Redirect and
- * let nginx do the sendfile; that is a Docker-only optimisation here, not the mechanism, so the
- * fallback is the path and node does the work.
+ * real clients has no nginx to hand it off to: coach.fitpal.ma is cPanel + LiteSpeed + Passenger.
+ * An X-Accel-Redirect design would let nginx do the sendfile, but nothing here runs nginx, so
+ * node does the work itself.
  *
  * Range handling is not optional decoration. <video> seeks by issuing range requests, and a
  * server that answers every one of them with the whole file from byte zero makes scrubbing
@@ -431,8 +430,8 @@ const VAPID_SUBJECT = process.env.VAPID_SUBJECT || (SECURE ? ORIGIN : 'mailto:ad
 webpush.setVapidDetails(VAPID_SUBJECT, vapid.publicKey, vapid.privateKey);
 
 /* A push subscription's `endpoint` is a URL this server connects out to, chosen by whoever is
-   signed in — so without a check /api/push/* is a request-forgery lever, and the api container
-   sits on the same Docker network as the rest of the self-hoster's stack. Three limits below:
+   signed in — so without a check /api/push/* is a request-forgery lever, and the API process
+   sits on the same network as the rest of the self-hoster's machine. Three limits below:
 
    1. PUSH_AGENT rejects any connection to a private/loopback/link-local address at the moment
       the socket is opened. Validating the URL alone would leave a DNS-rebinding window — the
@@ -2494,7 +2493,7 @@ const routes = {
 };
 
 http.createServer(async (req, res) => {
-  // Same-origin (the deployed nginx-proxied web app) never triggers CORS, so this only matters
+  // Same-origin (the deployed web app, proxied to /api) never triggers CORS, so this only matters
   // for the paired mobile app calling in from its own WebView origin. It carries no cookie
   // (auth is the Authorization header instead), so Allow-Credentials is deliberately never set —
   // reflecting the origin here can't expose the cookie session to anyone.

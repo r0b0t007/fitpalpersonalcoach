@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Manually download the exercise images (JPG) and animations (GIF) into ./media.
-# You normally DON'T need this — `docker compose up` fetches them automatically.
+# Run this once after cloning. The app looks for them under ./media.
 # Source: hasaneyldrm/exercises-dataset — MIT for the metadata and instruction text, but the
 # images and GIFs are © Gym visual (https://gymvisual.com/), used under that dataset's terms.
 # openGym does not redistribute or relicense them. See NOTICE.md.
