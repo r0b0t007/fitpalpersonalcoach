@@ -17,9 +17,10 @@ What this fork adds on top of upstream, none of which upstream's notes below des
   `CoachTabBar`; a client gets `/home` and the training app. The dashboard's old address
   `/trainer` redirects. (It could not be `/coach` when the split was made — upstream's AI Coach
   owned that path. That feature has since been removed, but `/today` is what shipped and renaming
-  a live route to reclaim a path buys nothing.) Coach surfaces are deliberately **English-only**,
-  like `Admin.jsx`;
-  they use raw strings, not `t()`.
+  a live route to reclaim a path buys nothing.) Coach surfaces are deliberately **English-only**:
+  they use raw strings, not `t()`. `views/coach/Business.jsx` — the activity log and account
+  disabling — is the operator surface that convention came from, inherited from the gym `Admin.jsx`
+  that P6 deleted.
 - **`StatsPanels`** (`views/Stats.jsx`) is exported and prop-driven so the coach sees a client's
   own charts by passing a different `S`. Keeping panels prop-driven is what makes every new
   client-side metric free on the coach side — do not reach for `useStore` inside one.
@@ -127,7 +128,9 @@ they are separate paths and do not have to match.
     session back, is a pure helper here with a unit test beside it** — not verifiable by
     clicking, and the progression engine has already had two bugs that only a test caught.
 - **`views/`** — one file per screen (Home, Workout, Plan, Library, Stats, History, Settings,
-  Admin, Login, RoutineEdit), routed by `react-router-dom` from `App.jsx`.
+  MyCoach, Login, RoutineEdit), routed by `react-router-dom` from `App.jsx`; `views/coach/` holds
+  the coach shell's own screens. The gym screens — Sessions, CheckIn and the Admin dashboard —
+  were deleted in P6.
 - **`components/`** — shared UI (charts, modals, timers); `instr/` holds per-language exercise
   instruction text; `locales/` is the i18n string catalogue (`lib/i18n.js` / `i18n-core.js`).
 - Mobile: `@capacitor/*` wraps the same web build into native shells under `frontend/android` and

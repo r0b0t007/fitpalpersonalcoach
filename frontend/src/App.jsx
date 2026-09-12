@@ -36,7 +36,6 @@ import Muscles from './views/Muscles.jsx'
 import Settings from './views/Settings.jsx'
 import You from './views/You.jsx'
 import MyCoach from './views/MyCoach.jsx'
-import Admin from './views/Admin.jsx'
 import CoachToday from './views/coach/CoachToday.jsx'
 import Clients from './views/coach/Clients.jsx'
 import ClientDetail from './views/coach/ClientDetail.jsx'
@@ -118,13 +117,9 @@ function CoachRoutes({ user }) {
           "Training settings" row on Account, and named here so a link or a back button that
           predates the split does not fall through to the catch-all. */}
       <Route path="/settings" element={<Settings />} />
-      {/* The operator page stays reachable for the admin account for one release, hidden, while
-          the pieces a single coach still needs (activity log, disabling an account) move into
-          Account. Everything else on it — classes, timetable, access requests — is gym-only. */}
-      <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/today" replace />} />
-      {/* Shared screens still say nav('/you') and nav('/home') — Settings after sign-out or reset,
-          Admin's back button. Named here so they land on the coach's equivalents instead of
-          the catch-all; the catch-all is for paths nobody meant. */}
+      {/* Shared screens still say nav('/you') and nav('/home') — Settings after sign-out or a
+          reset. Named here so they land on the coach's equivalents instead of the catch-all;
+          the catch-all is for paths nobody meant. */}
       <Route path="/you" element={<Navigate to="/account" replace />} />
       <Route path="/home" element={<Navigate to="/today" replace />} />
       <Route path="/trainer" element={<Navigate to="/today" replace />} />

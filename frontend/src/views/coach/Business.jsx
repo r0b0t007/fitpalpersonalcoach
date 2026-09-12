@@ -9,8 +9,8 @@ import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { confirmSheet } from '../../sheets.jsx'
 import { rel } from './parts.jsx'
-// .adm-pill lives here. Imported explicitly rather than relying on Admin.jsx still importing it:
-// that page is on P6's list, and the day it goes these pills would lose their styling silently.
+// .adm-pill lives here. Imported explicitly rather than relying on Admin.jsx still importing it —
+// which is why nothing lost its styling when P6 deleted that page.
 import '../../admin.css'
 
 /* The two operator jobs a single coach still has, taken out of the gym dashboard they were buried

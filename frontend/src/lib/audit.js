@@ -2,12 +2,12 @@
 //
 // The server stores reason codes, not sentences — `{ ev: 'auth.login.fail', msg: 'unknown-credential' }`
 // rather than "someone tried a passkey we don't know". Turning those into English
-// belongs here and not in Admin.jsx: it is the only part of the feature that can be wrong in a way
-// a person sees, and as a plain module it is testable without mounting the dashboard.
+// belongs here and not in the screen: it is the only part of the feature that can be wrong in a
+// way a person sees, and as a plain module it is testable without mounting anything.
 //
-// Like the rest of the admin screen this is English-only — the operator surface deliberately
-// stays out of the per-language string packs (see the header of views/Admin.jsx). Times still
-// follow the UI language, the way numbers and dates already do.
+// Like the rest of the operator surface this is English-only and deliberately stays out of the
+// per-language string packs (see the coach-surface convention in CLAUDE.md). Times still follow
+// the UI language, the way numbers and dates already do.
 import { dateLocale } from './i18n-core.js'
 
 // The first segment of an event name is also the filter chip it belongs to.

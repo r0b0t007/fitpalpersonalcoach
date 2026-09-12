@@ -45,9 +45,10 @@ describe('auditCat', () => {
   it('survives a missing event name', () => {
     expect(auditCat(undefined)).toBe('')
   })
-  // The point is not the number of categories, it is that each one is REACHABLE: Admin.jsx builds
-  // its filter chips from a hardcoded list, so an event in a category with no chip is visible only
-  // under "All". coach.* was exactly that until a chip was added for it.
+  // The point is not the number of categories, it is that each one is REACHABLE: the activity
+  // log (views/coach/Business.jsx) builds its filter chips from a hardcoded list, so an event in a
+  // category with no chip is visible only under "All". coach.* was exactly that until a chip was
+  // added for it.
   it('puts every known event in a category the dashboard has a chip for', () => {
     expect([...new Set(EVENTS.map(auditCat))].sort()).toEqual(['admin', 'auth', 'coach'])
   })
