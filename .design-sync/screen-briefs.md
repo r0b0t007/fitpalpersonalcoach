@@ -445,7 +445,8 @@ Section "Body": Row icon scale "Body weight" value "64.2 kg" chevron; Row icon t
 Section "App": Row icon gear "Settings" chevron (opens P10); Row icon bell "Notifications" value "On" chevron.
 Section: Row icon signOut "Sign out".
 Footer .t-cap dim centred "FitPal Coach · v2.0".
-Rows that must not appear: Staff, Admin, Coach dashboard, Sessions, Gym check-in, and the AI-coach row (it is only shown when available and is not in this artboard). The pending-offer dot lives on the Coach tab cell, not here.
+Rows that must not appear: Staff, Admin, Coach dashboard, Sessions, Gym check-in. The pending-offer dot lives on the Coach tab cell, not here, and neither does the offer itself.
+The AI Coach row IS on this screen, last in Training — it moved here from the banner across the top of the Plan screen in P5 part 2, because "Coach" now means a person and a client's own plan should not advertise an automated one. Still gated on the instance offering the feature.
 ```
 
 ## P10 — Client · Settings
