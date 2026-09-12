@@ -7,7 +7,7 @@ import { fmtNum, fmtDate, todayISO, isoOf, weekKey, weekStartOf, weekDayOffset, 
 import { t, dateLocale } from '../lib/i18n.js'
 import { BRAND } from '../lib/brand.js'
 import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, checkinSheet } from '../sheets.jsx'
-import { checkinStreak, isCheckinDue, periodStart } from '../lib/checkins.js'
+import { checkinStreak, isCheckinDue, periodStart, currentCheckin } from '../lib/checkins.js'
 import { targetOf, totalsFor } from '../lib/nutrition.js'
 import { posesFor, POSES, PHOTOS_REACHABLE } from '../lib/photo.js'
 import { fetchMyPhotos } from '../lib/api.js'
@@ -21,24 +21,25 @@ import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf } from '../lib/glyphs.js'
 
 /**
- * The three angles a coach asked for, when this period's are not filed yet.
+ * "You checked in, but the photos did not go with it."
  *
- * Gated three ways, and each one is load-bearing:
+ * The gate is AFTER the check-in, not before it, and that is the whole point. Photos live in the
+ * three slots inside the check-in sheet, so while one is still due the check-in card is already on
+ * screen asking — a second card with a second button opening the same sheet tells nobody anything.
+ * The state worth naming is the one nothing else covers: the check-in is filed, some or all of the
+ * angles are missing, and no other screen mentions it. An earlier version of this gated on
+ * isCheckinDue and so could only ever appear alongside the card it duplicated, while being hidden
+ * in the one state it was written for.
  *
- * - A COACH. Progress photos exist to be sent to somebody; without one this prompted a solo user
- *   to file images nobody would ever look at. isCheckinDue is true for anyone who has never filed
- *   a check-in — which is every plain openGym user — so without this gate the card mounted for
- *   all of them, and for a guest or signed-out visitor fetchMyPhotos took a 401 on every single
- *   Home mount before offering an Add button whose sheet just says "sign in".
- * - A CHECK-IN ACTUALLY DUE, which is also what keeps the request to once a week rather than once
- *   per launch of the screen this app opens on.
+ * Two other gates, both load-bearing:
+ * - A COACH. Progress photos exist to be sent to somebody. Without one this asked a solo user to
+ *   file images nobody would look at, and for a guest fetchMyPhotos took a 401 on every Home mount
+ *   before offering an Add button whose sheet only says "sign in".
  * - PHOTOS_REACHABLE: on the paired mobile build an <img> resolves against capacitor://localhost
  *   with no Authorization header, so the thumbnails could never render (lib/photo.js).
- *
- * It disappears once all three angles are in, the same way the check-in card does.
  */
 function PhotosDue({ S, today, coached }) {
-  const due = coached && isCheckinDue(S, today) && PHOTOS_REACHABLE
+  const due = coached && !!currentCheckin(S, today) && PHOTOS_REACHABLE
   const [rows, setRows] = useState(null)
   // Re-read whenever every sheet has closed. The check-in sheet is opened FROM this card and the
   // photos go up as part of it, but only SAVING the check-in changes anything this component
@@ -68,7 +69,7 @@ function PhotosDue({ S, today, coached }) {
       <div style={{ minWidth: 0 }}>
         <div className="tt">{t('Progress photos')}</div>
         <div className="ss">{missing.length === POSES.length
-          ? t('None sent this week — they go with your check-in.')
+          ? t('You checked in without photos this week.')
           : t('{0} of {1} sent this week.', POSES.length - missing.length, POSES.length)}</div>
       </div>
       <Button size="sm" icon="camera" onClick={() => checkinSheet()}>{t('Add')}</Button>

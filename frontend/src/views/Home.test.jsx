@@ -23,6 +23,7 @@ vi.mock('../lib/mobile.js', () => ({
 
 const { default: Home } = await import('./Home.jsx')
 const { useStore, DEF } = await import('../store/useStore.js')
+const { periodStart } = await import('../lib/checkins.js')
 
 const routine = { id: 'r1', name: 'Push', emoji: 'barbell', ex: [{ id: '0025', sets: 3, reps: 8 }] }
 
@@ -141,28 +142,32 @@ describe('daily targets', () => {
 })
 
 describe('progress photos', () => {
-  it('are not asked for when no check-in is due', async () => {
-    // Also the only thing stopping a network request on every single app launch.
+  it('stay quiet while a check-in is still due, because that card already asks', async () => {
+    // The photo slots live INSIDE the check-in sheet. A second card opening the same sheet, next
+    // to the card that already says "Check in", tells nobody anything. It is also what keeps this
+    // from firing a request on every launch of the screen the app opens on.
+    setup({ user: { id: 'u1', name: 'Sara', coachName: 'Ahmed' }, S: { routines: [routine] } })
+    await render()
+    expect(text()).toContain('Weekly check-in')       // the check-in card IS asking
+    expect(text()).not.toContain('Progress photos')
+  })
+
+  it('ask once the check-in is filed and the photos did not go with it', async () => {
+    // The state nothing else covers, and the one the first version of this card could not reach.
     setup({
       user: { id: 'u1', name: 'Sara', coachName: 'Ahmed' },
       S: { routines: [routine], checkins: [{ d: todayIso(), answers: { energy: 4 } }] },
     })
     await render()
-    expect(text()).not.toContain('Progress photos')
-  })
-
-  it('are asked for when one is due and none are filed', async () => {
-    setup({ user: { id: 'u1', name: 'Sara', coachName: 'Ahmed' }, S: { routines: [routine] } })
-    await render()
     expect(text()).toContain('Progress photos')
-    expect(text()).toContain('None sent this week')
+    expect(text()).toContain('You checked in without photos this week')
   })
 
   it('are never asked of somebody with no coach — they exist to be sent to one', async () => {
-    // isCheckinDue is true for anyone who has never filed one, i.e. every plain user, so without
-    // this gate the card mounted for all of them — and for a guest, fetchMyPhotos took a 401 on
-    // every Home mount before offering an Add button whose sheet only says "sign in".
-    setup({ user: { id: 'u1', name: 'Karim' }, S: { routines: [routine] } })
+    // Without this gate a solo user was asked to file images nobody would look at, and a guest's
+    // fetchMyPhotos took a 401 on every Home mount before offering an Add button whose sheet only
+    // says "sign in".
+    setup({ user: { id: 'u1', name: 'Karim' }, S: { routines: [routine], checkins: [{ d: todayIso(), answers: { energy: 4 } }] } })
     await render()
     expect(text()).not.toContain('Progress photos')
   })
@@ -171,19 +176,36 @@ describe('progress photos', () => {
     // Offline or a 5xx would otherwise render exactly the card a genuinely empty week does, so a
     // client who had already sent all three got nagged to send them again.
     photosFail = true
-    setup({ user: { id: 'u1', name: 'Sara', coachName: 'Ahmed' }, S: { routines: [routine] } })
+    setup({
+      user: { id: 'u1', name: 'Sara', coachName: 'Ahmed' },
+      S: { routines: [routine], checkins: [{ d: todayIso(), answers: { energy: 4 } }] },
+    })
     await render()
     expect(text()).not.toContain('Progress photos')
   })
 
   it('stop asking once all three are in', async () => {
-    const { periodStart } = await import('../lib/checkins.js')
-    const S = { ...structuredClone(DEF), routines: [routine] }
-    const d = periodStart(S, todayIso())
+    const base = { ...structuredClone(DEF), routines: [routine] }
+    const d = periodStart(base, todayIso())
     PHOTOS = [{ id: 'p1', d, pose: 'front' }, { id: 'p2', d, pose: 'side' }, { id: 'p3', d, pose: 'back' }]
-    setup({ user: { id: 'u1', name: 'Sara', coachName: 'Ahmed' }, S: { routines: [routine] } })
+    setup({
+      user: { id: 'u1', name: 'Sara', coachName: 'Ahmed' },
+      S: { routines: [routine], checkins: [{ d: todayIso(), answers: { energy: 4 } }] },
+    })
     await render()
     expect(text()).not.toContain('Progress photos')
+  })
+
+  it('ask for just the missing ones when some went up', async () => {
+    const base = { ...structuredClone(DEF), routines: [routine] }
+    const d = periodStart(base, todayIso())
+    PHOTOS = [{ id: 'p1', d, pose: 'front' }]
+    setup({
+      user: { id: 'u1', name: 'Sara', coachName: 'Ahmed' },
+      S: { routines: [routine], checkins: [{ d: todayIso(), answers: { energy: 4 } }] },
+    })
+    await render()
+    expect(text()).toContain('1 of 3 sent this week')
   })
 })
 
