@@ -1,18 +1,81 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { BRAND } from '../lib/brand.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, openCoachOffer, checkinSheet } from '../sheets.jsx'
-import { checkinStreak, isCheckinDue } from '../lib/checkins.js'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, checkinSheet } from '../sheets.jsx'
+import { checkinStreak, isCheckinDue, periodStart } from '../lib/checkins.js'
+import { targetOf, totalsFor } from '../lib/nutrition.js'
+import { posesFor, POSES, PHOTOS_REACHABLE } from '../lib/photo.js'
+import { fetchMyPhotos } from '../lib/api.js'
+import { MacroRows } from '../components/MacroRows.jsx'
+import { OfferCard } from './MyCoach.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import InstallCard from '../components/InstallCard.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf } from '../lib/glyphs.js'
+
+/**
+ * The three angles a coach asked for, when this period's are not filed yet.
+ *
+ * Only while a check-in is actually due, which is also the only time the fetch runs — photos are
+ * metadata-light but Home is the screen this app opens on, and a request every launch to answer a
+ * question that changes once a week is not a trade worth making. It disappears the moment all
+ * three are in, the same way the check-in card does.
+ *
+ * Absent on the paired mobile build: an <img> there resolves against capacitor://localhost and
+ * carries no Authorization header, so the thumbnails could never render (lib/photo.js).
+ */
+function PhotosDue({ S, today }) {
+  const due = isCheckinDue(S, today)
+  const [rows, setRows] = useState(null)
+  useEffect(() => {
+    if (!due || !PHOTOS_REACHABLE) return
+    let alive = true
+    fetchMyPhotos().then(r => { if (alive) setRows(r) }).catch(() => { if (alive) setRows([]) })
+    return () => { alive = false }
+  }, [due])
+
+  if (!due || !PHOTOS_REACHABLE || rows === null) return null
+  const have = posesFor(rows, periodStart(S, today))
+  const missing = POSES.filter(p => !have[p.id])
+  if (!missing.length) return null
+
+  return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="row between">
+      <div style={{ minWidth: 0 }}>
+        <div className="tt">{t('Progress photos')}</div>
+        <div className="ss">{missing.length === POSES.length
+          ? t('None sent this week — they go with your check-in.')
+          : t('{0} of {1} sent this week.', POSES.length - missing.length, POSES.length)}</div>
+      </div>
+      <Button size="sm" icon="camera" onClick={() => checkinSheet()}>{t('Add')}</Button>
+    </div>
+  </div>
+}
+
+/**
+ * What the coach asked them to eat, against what they have eaten so far today.
+ *
+ * Only when a target exists, which means only when a coach set one — this is not a nutrition app
+ * and a tracker that opens on food is one people stop opening. It is a statement of where the day
+ * stands, not an invitation to log lunch; tapping goes to the screen that is for that.
+ */
+function TodayTargets({ S, nav, today }) {
+  const target = targetOf(S)
+  if (!target) return null
+  return <div className="card tappable" style={{ marginBottom: 12, cursor: 'pointer' }} {...tappable(() => nav('/nutrition'))}>
+    <div className="row between" style={{ marginBottom: 6 }}>
+      <h2 style={{ margin: 0 }}>{t('Today’s targets')}</h2>
+      <Icon name="chevronRight" className="chev" />
+    </div>
+    <MacroRows totals={totalsFor(S, today)} target={target} />
+  </div>
+}
 
 // Home = what to do now + a quick glance. Deep charts & history live in Stats.
 export default function Home() {
@@ -22,11 +85,11 @@ export default function Home() {
   const assignments = useStore(s => s.assignments)
   const [weekOffset, setWeekOffset] = useState(0)
 
-  // A program a coach sent. Surfaced as a card rather than auto-opening a sheet: arriving to a
-  // modal you didn't ask for is a bad way to be told, and the push notification already got
-  // their attention. The opening itself lives in sheets.jsx because the You hub shows the same
-  // offer — off Home there used to be no sign one was waiting at all.
-  const offer = assignments?.[0]
+  // Programs a coach sent. Cards rather than an auto-opening sheet: arriving to a modal you did
+  // not ask for is a bad way to be told, and the push notification already got their attention.
+  // ALL of them — a coach can send a block and a deload, and this used to read assignments[0] and
+  // silently swallow the rest. The same card as the Coach tab, from one definition.
+  const offers = assignments || []
   const today = new Date()
   // A weekday can hold several routines. `todayRoutines` is the whole day; `routine` is the
   // first, kept for the one-routine glyph. The derived session name joins them (§9).
@@ -75,13 +138,7 @@ export default function Home() {
       <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
     </div>
 
-    {offer && <div className="card" style={{ borderColor: 'var(--acc)' }} onClick={() => openCoachOffer(offer)}>
-      <div className="row between">
-        <div><div className="tt">{t('{0} sent you a program', offer.coachName)}</div>
-          <div className="ss dim">{offer.note || t('Tap to review it.')}</div></div>
-        <Icon name="chevronRight" className="chev" />
-      </div>
-    </div>}
+    {offers.map(o => <OfferCard key={o.id} offer={o} />)}
 
     <div className="card">
       <div className="row between" style={{ marginBottom: 8 }}>
@@ -130,9 +187,28 @@ export default function Home() {
         <Button size="sm" icon="plus" onClick={() => checkinSheet()}>{t('Check in')}</Button>
       </div>
     </div>}
+    <PhotosDue S={S} today={todayISO()} />
+    <TodayTargets S={S} nav={nav} today={todayISO()} />
     <InstallCard />
 
-    {!S.routines.length && !S.active && (
+    {/* Somebody who has a coach and nothing to train has not failed to set the app up — they are
+        waiting on a person. Offering them "Load starter plan" invites them to build something
+        their coach is about to replace. */}
+    {!S.routines.length && !S.active && user?.coachName && !offers.length && (
+      <div className="card">
+        <div className="row" style={{ gap: 10, marginBottom: 6 }}>
+          <span className="lrow-i"><Icon name="clock" /></span>
+          <div className="big" style={{ fontSize: 22 }}>{t('{0} is preparing your program', user.coachName)}</div>
+        </div>
+        <div className="muted small">{t('It will show up here as soon as they send it. Nothing for you to do.')}</div>
+      </div>
+    )}
+
+    {/* Only for somebody with nobody writing for them. Gating this on "no offer waiting" instead
+        meant a client with a coach AND a program sitting unanswered right above was still told to
+        load a starter plan — the same mistake as the waiting state, one card lower. Having a coach
+        is the whole condition: either they have sent something or they are about to. */}
+    {!S.routines.length && !S.active && !user?.coachName && (
       <div className="card">
         <div className="row" style={{ gap: 10, marginBottom: 6 }}>
           <span className="lrow-i"><Icon name="sparkles" /></span>
