@@ -35,11 +35,25 @@ updates:
         patterns: ['*']
         update-types: ['major']
     ignore:
-      # Capacitor 8 needs Node >= 22 (its own `engines` field) and the build host is on 20, and
-      # `frontend/android` + `frontend/ios` are committed, so a major also means migrating the
-      # native projects — Gradle/AGP, the Podfile. That is a deliberate piece of work, not a
-      # dependency bump. Drop this ignore once the build host is on Node 22 and you want it.
+      # `frontend/android` and `frontend/ios` are committed, so a Capacitor major also means
+      # migrating the native projects — Gradle/AGP, the Podfile. That is a deliberate piece of
+      # work, not a dependency bump. Drop this ignore when you actually want to do it.
       - dependency-name: '@capacitor/*'
+        update-types: ['version-update:semver-major']
+      # The two plugins below are Capacitor plugins that live in OTHER npm scopes, so the
+      # pattern above never matched them — which is how PR #54 happened: it offered
+      # @capacitor-mlkit/barcode-scanning 8 and @aparajita/capacitor-secure-storage 8 while
+      # @capacitor/core sat at 7, and `npm ci` could not resolve it at all (their peer is
+      # `@capacitor/core >=8.0.0`). A plugin major is unmergeable until core moves, by
+      # construction, so it is noise rather than a decision.
+      #
+      # Both are also on their way out rather than up: barcode-scanning is reached only from
+      # lib/scan.js via views/CheckIn.jsx, which P6 deletes; secure-storage is reached only
+      # from lib/forget-coach.js, kept one release to wipe the credential the AI Coach left in
+      # the Keychain/Keystore. When those go, so do these two entries.
+      - dependency-name: '@capacitor-mlkit/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@aparajita/*'
         update-types: ['version-update:semver-major']
 
   # Backend — api/package.json (@simplewebauthn/server, web-push)
@@ -71,7 +85,7 @@ updates:
         patterns: ['*']
         update-types: ['minor', 'patch']
       # Action majors are usually a runner or Node-version change and usually harmless — but
-      # these workflows publish the ghcr images and deploy the live demo, so the blast radius
+      # three of these four workflows rsync into the live cPanel account, so the blast radius
       # is real. Separate PR, so a failure has an obvious cause.
       actions-major:
         patterns: ['*']
