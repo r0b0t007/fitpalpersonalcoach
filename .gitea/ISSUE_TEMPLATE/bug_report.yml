@@ -34,7 +34,7 @@ body:
     attributes:
       label: How are you running openGym?
       options:
-        - Self-hosted (docker compose)
+        - Self-hosted
         - Frontend dev server (npm run dev)
         - Other / not sure
     validations:

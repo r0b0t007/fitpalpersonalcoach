@@ -8,12 +8,14 @@ need — what the app protects you from and what it doesn't.
 
 Only the **latest release**. Releases are semver tags (`v1.0.0` → `v1.2.3`, see
 [CHANGELOG.md](CHANGELOG.md)); there is no LTS or maintenance branch and older tags are never
-patched. A fix ships in the next release and in the `latest` images in GitLab's registry.
+patched. A fix ships in the next release.
 
 Updating a self-hosted instance:
 
 ```bash
-git pull && docker compose pull && docker compose up -d
+git pull
+cd api && npm ci                     # then restart the API process
+cd ../frontend && npm ci && npm run build    # then publish dist/ again
 ```
 
 ## Reporting a vulnerability
@@ -52,22 +54,23 @@ in the thread; there's no objection, and no request to sit on it indefinitely.
   being an admin, or creating a profile without a valid code while `INVITE_ONLY=1`.
 - **Frontend** — XSS in the React app, or anything that lets a page on another origin read or
   change a signed-in user's data.
-- **Shipped deployment config** — `docker-compose.yml`, `web/nginx.conf`, the two Dockerfiles:
+- **Shipped deployment config** — `.env.example` and the guidance in `docs/SELF_HOSTING.md`:
   a default that exposes something a self-hoster wouldn't expect to be exposed.
-- **The published images** `registry.gitlab.com/duartesantos8/opengym/api` and `/web`.
 
 ## Out of scope
 
-- Anything that already assumes access to the host, to `./data`, or to the Docker socket. The
+- Anything that already assumes access to the host or to `./data`. The
   operator is trusted by design — see the security model below.
 - Admins reading their users' workout history. That is the documented purpose of the admin
   dashboard, not a leak.
 - **Missing rate limiting**, brute force, or "I sent 100k requests and it got slow". The app
   has no rate limiting at all and doesn't pretend to; that belongs in the reverse proxy you put
   in front of it. Genuine amplification (one small request causing unbounded work) *is* in scope.
-- **Missing security headers.** `web/nginx.conf.template` sets `X-Frame-Options: DENY`,
+- **Missing security headers.** The app ships no web server of its own, so the headers are set
+  by whatever serves `frontend/dist/` — `X-Frame-Options: DENY`,
   `Content-Security-Policy: frame-ancestors 'none'`, `X-Content-Type-Options: nosniff` and
-  `Referrer-Policy: same-origin`. It deliberately does **not** set HSTS or a full CSP: TLS is the
+  `Referrer-Policy: same-origin` are the recommended set, and `docs/SELF_HOSTING.md` says so.
+  HSTS and a full CSP are deliberately **not** recommended blindly: TLS is the
   reverse proxy's job, and a script/style policy tight enough to be worth having needs testing
   against the built app rather than being asserted here. A concrete attack that a header would
   have stopped is still worth reporting.
@@ -111,7 +114,7 @@ Read this before hosting openGym for anyone other than yourself.
   is rejected for a disabled user (`api/server.js:299`, `api/server.js:667`).
 - **Push endpoints cannot be aimed at your network.** A subscription's `endpoint` is a URL the
   server connects out to and it comes from whoever is signed in, so `/api/push/*` would otherwise
-  be a request-forgery lever from inside the Docker network. It must be `https:`, and the
+  be a request-forgery lever from inside the server's own network. It must be `https:`, and the
   connection is refused at socket level if the host resolves to a loopback, private, link-local
   (including cloud metadata) or CGNAT address — enforced in the agent's DNS lookup, not in a
   prior pass, so there is no rebinding window (`api/server.js:86-119`). Sends have a 10 s timeout
@@ -167,8 +170,8 @@ Read this before hosting openGym for anyone other than yourself.
   unless `INVITE_ONLY=1` is set. It also makes them near-invisible in the activity log: a disabled
   account is refused at the session check, so nothing it does produces an entry except the failed
   sign-ins it keeps attempting.
-- **HTTPS is required and the app doesn't provide it.** The API container speaks plain HTTP and
-  nginx listens on `:80` (`web/nginx.conf`); TLS is your reverse proxy's job. Without it,
+- **HTTPS is required and the app doesn't provide it.** The API speaks plain HTTP on `PORT`;
+  TLS is the job of whatever you put in front of it. Without it,
   browsers won't do passkeys at all (except on `http://localhost`) and the session cookie is sent
   in the clear.
 - **No rate limiting anywhere.** Nothing throttles logins, registrations or writes, and

@@ -9,20 +9,20 @@ to keep it that way — easy to read, easy to self-host.
 frontend/  React + Vite app (src/views, src/components, src/store, src/lib). Builds to static files.
            android/ + ios/ are the Capacitor shells for the standalone mobile app (docs/MOBILE.md).
 api/       backend — server.js (Node, no framework), one dependency (@simplewebauthn/server).
-web/       multi-stage Dockerfile (builds frontend → nginx) + nginx.conf (serves app, proxies /api).
 media/     exercise img/gif (gitignored, fetched at runtime).
 docs/      self-hosting guide.
 mcp/       optional Model Context Protocol server — read-only stdio bridge for LLM apps
-           (Claude Desktop, Cursor, …) to query a user's workouts/1RM/muscle balance. Not in
-           the Docker build; only runs when an LLM client spawns it. See mcp/README.md.
+           (Claude Desktop, Cursor, …) to query a user's workouts/1RM/muscle balance. Not part
+           of a deploy; only runs when an LLM client spawns it. See mcp/README.md.
 ```
 
 ## Running for development
 
 ```bash
 cp .env.example .env
-docker compose up -d --build      # api + web + media on :8080
-# frontend hot reload:
+./scripts/fetch-media.sh          # exercise images/GIFs, once
+cd api && npm ci && node server.js       # the API on :3000
+# frontend hot reload, in another terminal (proxies /api to :3000):
 cd frontend && npm install && npm run dev
 # training logic (progression rules, 1RM, how a session is read back):
 cd frontend && npm test

@@ -29,9 +29,7 @@
   "rangeStrategy": "bump",
   "dependencyDashboard": true,
   "enabledManagers": [
-    "npm",
-    "dockerfile",
-    "gitlabci"
+    "npm"
   ],
   "packageRules": [
     {
@@ -97,30 +95,6 @@
         "major"
       ],
       "groupName": "api-major"
-    },
-    {
-      "description": "Base images in api/Dockerfile and web/Dockerfile.",
-      "matchManagers": [
-        "dockerfile"
-      ],
-      "groupName": "base images"
-    },
-    {
-      "description": "Odd-numbered Node majors are 'Current', never LTS — they stop getting fixes in about six months. Dependabot's first run offered 22 → 25, which for something other people self-host is a stability downgrade for nothing. Even majors (22 → 24 → 26) are still proposed, which is the move actually worth reviewing.",
-      "matchDatasources": [
-        "docker"
-      ],
-      "matchPackageNames": [
-        "node"
-      ],
-      "allowedVersions": "/^(\\d*[02468])\\./"
-    },
-    {
-      "description": "The images the pipeline itself runs on. Same reasoning as the GitHub-Actions rule this replaces: these jobs publish the container images and build the signed APK, so the blast radius is real — but they move in lockstep and none is worth an MR of its own.",
-      "matchManagers": [
-        "gitlabci"
-      ],
-      "groupName": "ci images"
     }
   ],
   "vulnerabilityAlerts": {

@@ -8,7 +8,6 @@ on:
       - 'frontend/**'
       - 'api/**'
       - 'mcp/**'
-      - 'web/**'
       - '.github/workflows/test.yml'
   push:
     branches: [main, coach]
@@ -16,7 +15,6 @@ on:
       - 'frontend/**'
       - 'api/**'
       - 'mcp/**'
-      - 'web/**'
       - '.github/workflows/test.yml'
   workflow_dispatch:
 
@@ -32,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # node:22-alpine in web/Dockerfile and api/Dockerfile — CI must match production.
+      # Node 22 — the version the Namecheap cPanel app runs. CI must match production.
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -61,7 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Node 22, matching api/Dockerfile and the Namecheap cPanel app. This used to carry a
+      # Node 22, matching the Namecheap cPanel app this deploys to. This used to carry a
       # warning that newer Node broke the frontend suite via its localStorage global; that is
       # fixed at the source now (frontend/test/setup.js) and verified by frontend-next-node
       # below, so the pin here is production parity and nothing more.
@@ -164,89 +162,3 @@ jobs:
       # module with 33 green tests standing over a server that died on startup.
       - run: npm run check:node-loadable
         working-directory: mcp
-
-  # Builds *and runs* the images. Building alone would not have caught the api image shipping
-  # without a module it imports: that image built perfectly and exited on boot, with CI green.
-  # web/nginx.conf.template had no check of any kind. It is rendered by envsubst at container
-  # start, so a typo in it is not a build failure -- it is nginx refusing to start, on every
-  # self-hoster's `docker compose up`, after a green pipeline. Booting the image is the check:
-  # nginx parses its config before it serves anything.
-  web-image:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      # Context is the repo root, matching docker-publish.yml and docker-compose.yml -- the
-      # image builds the frontend in an earlier stage, so web/ alone is not enough.
-      - run: docker build -f web/Dockerfile -t opengym-web:test .
-
-      - name: the web image boots, parses its rendered config, and serves the app
-        run: |
-          docker run -d --name web-test -p 8080:80 opengym-web:test
-          for i in $(seq 1 30); do
-            curl -fsS http://localhost:8080/ >/dev/null 2>&1 && break
-            sleep 1
-          done
-          curl -fsS http://localhost:8080/ | grep -q '<title'
-          # The rendered config, not the template: envsubst runs at start-up, so this is the
-          # only place the substituted result is ever parsed.
-          docker exec web-test nginx -t
-          # node's own limit must be the one that gets hit, because node can answer it in JSON;
-          # nginx answers with an HTML error page the client's api() helper cannot parse.
-          #
-          # This was pinned as the literal `16m`, which caught the change that broke it but for
-          # the wrong reason: 16m stopped being correct the moment the API's video cap became
-          # 90 MB, and a literal cannot tell "someone lowered nginx" from "someone raised node".
-          # So assert the RELATIONSHIP instead — read the rendered value and require it to clear
-          # the largest thing the API will accept. A literal here is what let the two drift.
-          NGINX_MB=$(docker exec web-test sed -n 's/.*client_max_body_size *\([0-9]*\)m.*/\1/p' /etc/nginx/conf.d/default.conf | head -1)
-          API_MB=$(sed -n 's/.*MEDIA_MAX_VIDEO_MB || \([0-9]*\)).*/\1/p' api/server.js | head -1)
-          echo "nginx allows ${NGINX_MB}m; the API caps one video at ${API_MB}m"
-          # An unsubstituted ${NGINX_MAX_BODY} would fail `nginx -t` above, but an empty capture
-          # here would silently make the comparison below vacuous, so say so explicitly.
-          test -n "$NGINX_MB" && test -n "$API_MB" || { echo "::error::could not read both limits (nginx='$NGINX_MB' api='$API_MB')"; exit 1; }
-          test "$NGINX_MB" -gt "$API_MB" || { echo "::error::nginx ($NGINX_MB m) does not clear the API's video cap ($API_MB m) — nginx becomes the limit and refuses in HTML"; exit 1; }
-          # /api/media/ repeats /api/'s proxy_set_header block, and has to: a location that sets
-          # any header of its own inherits none of them, so the alternative is hoisting every
-          # header to server level and changing what unrelated locations receive. Repetition
-          # nobody checks is repetition that drifts — and the drift is silent, because the app
-          # keeps working while X-Forwarded-For or CF-Connecting-IP quietly stops being set on
-          # uploads, which is what the audit log records. So compare the two blocks.
-          # index(), not a /regex/ range: the location prefixes contain slashes, which awk reads
-          # as its own regex delimiters. A literal substring match needs no escaping at all.
-          hdrs() { docker exec web-test awk -v p="location ^~ $1 {" 'index($0,p),/^    \}/' /etc/nginx/conf.d/default.conf | grep proxy_set_header | sed 's/^ *//' | sort; }
-          hdrs '/api/' > /tmp/api-headers
-          hdrs '/api/media/' > /tmp/media-headers
-          test -s /tmp/api-headers || { echo "::error::found no proxy_set_header lines for /api/ — the block matcher is broken, not the config"; exit 1; }
-          diff -u /tmp/api-headers /tmp/media-headers || { echo "::error::the /api/ and /api/media/ proxy_set_header blocks have drifted apart"; exit 1; }
-          docker rm -f web-test
-
-  api-image:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      # No --target, exactly like docker-publish.yml: that workflow names no stage, so what it
-      # ships is whatever Dockerfile stage happens to be last, and that is the image every
-      # self-hoster pulls as :latest. Build it the same way here.
-      - run: docker build -t opengym-api:published ./api
-
-      - name: the published image boots and serves
-        run: |
-          docker run -d --name api-published -e DATA_DIR=/data -p 3000:3000 opengym-api:published
-          for i in $(seq 1 30); do
-            curl -fsS http://localhost:3000/api/config >/dev/null 2>&1 && break
-            sleep 1
-          done
-          curl -fsS http://localhost:3000/api/config | tee /dev/stderr | grep -q '"invite_only"'
-          docker rm -f api-published
-
-      # The AI Coach is gone: no Agent SDK, no Codex CLI, no bubblewrap sandbox, and no second
-      # image target that carried them. Asserted rather than assumed — "we deleted the source" and
-      # "it is absent from the artifact" are different claims, and only the second one ships.
-      - name: no AI runtime survives anywhere in the image
-        run: |
-          docker run --rm opengym-api:published node -e \
-            'import("@anthropic-ai/claude-agent-sdk").then(()=>{console.error("AI runtime present in the published image");process.exit(1)},()=>process.exit(0))'
-          ! docker run --rm opengym-api:published codex --version 2>/dev/null
-          ! docker run --rm opengym-api:published bwrap --version 2>/dev/null

@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Docs — openGym</title>
-<meta name="description" content="The complete openGym reference: every feature, installing on Android and iPhone, self-hosting with Docker, every .env setting, importing from FitNotes/Strong/Hevy, backups, the MCP server, and how it's built.">
+<meta name="description" content="The complete openGym reference: every feature, installing on Android and iPhone, self-hosting, every .env setting, importing from FitNotes/Strong/Hevy, backups, the MCP server, and how it's built.">
 <meta name="theme-color" content="#000000">
 <meta property="og:title" content="openGym Docs — the complete reference">
-<meta property="og:description" content="The complete openGym reference: every feature, self-hosting with Docker, every setting, imports, backups, MCP, troubleshooting.">
+<meta property="og:description" content="The complete openGym reference: every feature, self-hosting, every setting, imports, backups, MCP, troubleshooting.">
 <meta property="og:image" content="https://opengym.duarte-santos.ch/img/banner.png">
 <meta property="og:url" content="https://opengym.duarte-santos.ch/docs.html">
 <meta property="og:type" content="website">
@@ -24,7 +24,7 @@
 <!-- Umami web analytics for opengym.duarte-santos.ch (self-hosted, cookieless). -->
 <script defer src="https://stats.duarte-santos.ch/script.js" data-website-id="db36019e-50f4-453c-9c56-d0588aefe233"></script>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is openGym really free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes — free as in cost and as in freedom (AGPL-3.0). No pro tier, no locked features, no ads, and the license keeps every fork open source too."}}, {"@type": "Question", "name": "Why isn't openGym on the Play Store or App Store?", "acceptedAnswer": {"@type": "Answer", "text": "By choice (and on iOS, by Apple's rules for sideloading). Store accounts cost money, impose terms that sit badly with the AGPL, and put a gatekeeper between you and an app whose whole point is that your data is yours. The signed Android APK is a direct download."}}, {"@type": "Question", "name": "Should I pick the mobile app or self-host?", "acceptedAnswer": {"@type": "Answer", "text": "To simply track your training: the mobile app. For data on your own hardware, synced across devices, with profiles for the people you train with: self-host with Docker. The backup file migrates everything between the two, or pair the app to your server."}}, {"@type": "Question", "name": "What's on the openGym roadmap?", "acceptedAnswer": {"@type": "Answer", "text": "Percentage/training-max programming (5/3/1-style), more starter plans, body measurements alongside weight, per-exercise notes and a plate calculator, more instruction languages. Community-driven — ideas and merge requests welcome."}}, {"@type": "Question", "name": "Where does the exercise database come from?", "acceptedAnswer": {"@type": "Answer", "text": "From hasaneyldrm/exercises-dataset: 1,324 exercises with animations and instructions. The metadata and instruction text are MIT; the images and animations are third-party media that openGym never redistributes — your instance downloads them from upstream on first run."}}, {"@type": "Question", "name": "What does the AGPL license mean for me?", "acceptedAnswer": {"@type": "Answer", "text": "You can self-host, use, modify and share openGym freely. Only if you run a modified version as a network service must you offer that version's source under the same license. Using or self-hosting it unmodified obliges you to nothing."}}]}
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is openGym really free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes — free as in cost and as in freedom (AGPL-3.0). No pro tier, no locked features, no ads, and the license keeps every fork open source too."}}, {"@type": "Question", "name": "Why isn't openGym on the Play Store or App Store?", "acceptedAnswer": {"@type": "Answer", "text": "By choice (and on iOS, by Apple's rules for sideloading). Store accounts cost money, impose terms that sit badly with the AGPL, and put a gatekeeper between you and an app whose whole point is that your data is yours. The signed Android APK is a direct download."}}, {"@type": "Question", "name": "Should I pick the mobile app or self-host?", "acceptedAnswer": {"@type": "Answer", "text": "To simply track your training: the mobile app. For data on your own hardware, synced across devices, with profiles for the people you train with: self-host it. The backup file migrates everything between the two, or pair the app to your server."}}, {"@type": "Question", "name": "What's on the openGym roadmap?", "acceptedAnswer": {"@type": "Answer", "text": "Percentage/training-max programming (5/3/1-style), more starter plans, body measurements alongside weight, per-exercise notes and a plate calculator, more instruction languages. Community-driven — ideas and merge requests welcome."}}, {"@type": "Question", "name": "Where does the exercise database come from?", "acceptedAnswer": {"@type": "Answer", "text": "From hasaneyldrm/exercises-dataset: 1,324 exercises with animations and instructions. The metadata and instruction text are MIT; the images and animations are third-party media that openGym never redistributes — your instance downloads them from upstream on first run."}}, {"@type": "Question", "name": "What does the AGPL license mean for me?", "acceptedAnswer": {"@type": "Answer", "text": "You can self-host, use, modify and share openGym freely. Only if you run a modified version as a network service must you offer that version's source under the same license. Using or self-hosting it unmodified obliges you to nothing."}}]}
 </script>
 </head>
 <body class="topnav">
@@ -186,7 +186,7 @@
      section says otherwise.</p>
   <table class="cfg">
     <tr><td><b>Mobile app</b></td><td>A sideloadable Android APK (and a buildable iOS app). No account, no server, no sync — the phone <i>is</i> the account, data lives in the app's private storage, workout-day reminders are native notifications. Install-and-done.</td></tr>
-    <tr><td><b>Self-hosted</b></td><td>Two Docker containers on your own machine. Adds passkey profiles, sync across devices, installable as a home-screen PWA, optional admin dashboard, web push notifications. The flavor for households and training groups.</td></tr>
+    <tr><td><b>Self-hosted</b></td><td>A Node process and a folder of static files on your own machine. Adds passkey profiles, sync across devices, installable as a home-screen PWA, optional admin dashboard, web push notifications. The flavor for households and training groups.</td></tr>
     <tr><td><b>Demo</b></td><td><a href="/demo/">The in-browser demo</a> — the real app seeded with example data, storing everything in your browser only. Useful to try before installing, and as a free plan editor (see <a href="#import">Import</a>).</td></tr>
   </table>
   <p>You can start with the mobile app and move to a server later (or the other way round) —
@@ -417,31 +417,30 @@
         it opens full-screen with its own icon.</li>
   </ul>
 
-  <h2 id="selfhost">Self-host with Docker</h2>
-  <p>The self-hosted flavor is two small containers (web + API) and a folder of your data.
-     You need <a href="https://docs.docker.com/get-docker/" rel="noopener">Docker</a> with
-     Compose:</p>
+  <h2 id="selfhost">Self-host it</h2>
+  <p>A Node process and a folder of static files, plus a folder of your data. You need
+     Node&nbsp;22 or newer:</p>
   <pre><code>git clone https://gitlab.com/DuarteSantos8/opengym
 cd openGym
 cp .env.example .env
-docker compose pull    # prebuilt images (amd64 + arm64) — skip to build from source
-docker compose up -d</code></pre>
-  <p>Open <code>http://localhost:8080</code>, tap <b>Create profile</b>, and you're in. The
-     first launch downloads the exercise media (~140&nbsp;MB) once into <code>media/img</code>
-     and <code>media/gif</code>. Check it's healthy:</p>
-  <pre><code>docker compose ps
-curl http://localhost:8080/api/health      # {"ok":true,...}</code></pre>
-  <p>Logs: <code>docker compose logs -f</code> · stop: <code>docker compose down</code> ·
-     build from source instead of pulling: skip the <code>pull</code> and run
-     <code>docker compose up -d --build</code> — no Node needed locally either way.</p>
+./scripts/fetch-media.sh                     # exercise media (~140 MB), once
+
+cd api      &amp;&amp; npm ci &amp;&amp; node server.js &amp;    # the API, on :3000
+cd frontend &amp;&amp; npm install &amp;&amp; npm run dev    # the app, on :5173</code></pre>
+  <p>Open <code>http://localhost:5173</code>, tap <b>Create profile</b>, and you're in.
+     Check it's healthy:</p>
+  <pre><code>curl http://localhost:3000/api/health      # {"ok":true,...}</code></pre>
+  <p>For a real deployment, build the frontend once with <code>npm run build</code> and have
+     your web server hand out <code>frontend/dist/</code> while proxying <code>/api</code> to
+     the Node process — one origin, which passkeys require.</p>
 
   <h3 id="sh-passkey">The passkey rule (read this before opening a port)</h3>
   <p>openGym signs you in with <b>passkeys</b> (WebAuthn — Face ID, fingerprint, or your
      password manager). Browsers enforce two rules: a passkey is bound to an exact
      <b>hostname</b>, and it only works over <b>HTTPS</b> — with one exception,
      <code>http://localhost</code>.</p>
-  <p>So <code>http://localhost:8080</code> works on the Docker machine, but your phone
-     <b>cannot</b> use <code>http://192.168.x.x:8080</code> — that's neither localhost nor
+  <p>So <code>http://localhost:5173</code> works on the machine running it, but your phone
+     <b>cannot</b> use <code>http://192.168.x.x:5173</code> — that's neither localhost nor
      HTTPS, and the passkey prompt won't appear. To use openGym from your phone you need a
      real HTTPS hostname (below). Until then, LAN devices can still use <b>guest mode</b>
      (data stays in that browser) or the <a href="#mobile-server">mobile app's pairing
@@ -452,17 +451,17 @@ curl http://localhost:8080/api/health      # {"ok":true,...}</code></pre>
      whichever you already run:</p>
   <ul>
     <li><b>Cloudflare Tunnel</b> (no open ports): route <code>gym.example.com</code> →
-        <code>http://&lt;docker-host&gt;:8080</code>. HTTPS comes with it.</li>
-    <li><b>Caddy</b> (automatic Let's Encrypt): <code>gym.example.com { reverse_proxy localhost:8080 }</code></li>
+        <code>http://localhost:3000</code>. HTTPS comes with it.</li>
+    <li><b>Caddy</b> (automatic Let's Encrypt): <code>gym.example.com { reverse_proxy localhost:3000 }</code></li>
     <li><b>Traefik / nginx / Nginx Proxy Manager:</b> route the HTTPS hostname to
-        <code>web:80</code> or <code>&lt;docker-host&gt;:8080</code>. Any proxy works.</li>
+        your web server. Any proxy works.</li>
   </ul>
   <p>Then set the domain in <code>.env</code> and apply it:</p>
   <pre><code># .env
 RP_ID=gym.example.com
 ORIGIN=https://gym.example.com
 
-docker compose up -d   # restart alone does NOT re-read .env</code></pre>
+# then restart the API — it reads .env once, at startup</code></pre>
   <p>Visit your domain, create your profile, add it to the home screen (iOS: Share → Add to
      Home Screen · Android: ⋮ → Add to Home screen).</p>
   <div class="note">Changing <code>RP_ID</code> later invalidates existing passkeys — they
@@ -471,7 +470,7 @@ docker compose up -d   # restart alone does NOT re-read .env</code></pre>
   <p>Want a valid certificate <b>without</b> exposing anything to the internet — HTTPS on a
      LAN-only address? That works too (wildcard cert via a DNS challenge, Caddy in front):
      <a href="https://gitlab.com/DuarteSantos8/opengym/-/blob/main/docs/SELF_HOSTING_HTTPS.md" rel="noopener">docs/SELF_HOSTING_HTTPS.md</a>.
-     A VPN or an auth proxy (Authelia, Cloudflare Access…) in front composes with all of
+     A VPN or an auth proxy (Authelia, Cloudflare Access…) in front works with all of
      this.</p>
 
   <h3 id="sh-notify">Notifications</h3>
@@ -485,16 +484,15 @@ docker compose up -d   # restart alone does NOT re-read .env</code></pre>
 
   <h3 id="sh-stack">Fitting it into an existing stack</h3>
   <p>The defaults assume openGym is alone: a service called <code>api</code> on port 3000,
-     nginx on 80 inside the web container. Merging into a compose file that already has an
-     <code>api</code>, or fronting it with your own proxy on another port, is four
-     <code>.env</code> settings — <code>WEB_PORT</code>, <code>NGINX_PORT</code>,
-     <code>BACKEND</code>, <code>PORT</code>. The web image renders its nginx config from
-     these <i>at container start</i>, so they work on a prebuilt image, no rebuild.</p>
+     your own web server in front. Merging into a stack that already has an
+     <code>api</code>, or fronting it with your own proxy on another port, is one
+     <code>.env</code> setting — <code>PORT</code> — plus the matching upstream address in
+     whatever proxies <code>/api</code>.</p>
 
   <h3 id="sh-update">Updating</h3>
-  <pre><code>git pull                  # picks up compose/config changes
-docker compose pull       # (or: docker compose up -d --build, if building from source)
-docker compose up -d</code></pre>
+  <pre><code>git pull
+cd api      &amp;&amp; npm ci    # then restart the API process
+cd frontend &amp;&amp; npm ci &amp;&amp; npm run build</code></pre>
   <p>Your <code>./data</code> and the downloaded media are untouched; the app shell is
      versioned so clients pick up changes on next load. Releases are announced on
      <a href="https://gitlab.com/DuarteSantos8/opengym/-/releases" rel="noopener">GitLab</a>
@@ -508,12 +506,10 @@ docker compose up -d</code></pre>
      defaults are what you get if you touch nothing.</p>
   <table class="cfg">
     <tr><td><code>RP_ID</code></td><td>Hostname passkeys are bound to. A <b>bare hostname</b>: no scheme, no port, no slash. Default <code>localhost</code>.</td></tr>
-    <tr><td><code>ORIGIN</code></td><td>Full URL the app is served from — <i>with</i> scheme, <i>without</i> trailing slash. Must match the address bar exactly. Default <code>http://localhost:8080</code>.</td></tr>
+    <tr><td><code>ORIGIN</code></td><td>Full URL the app is served from — <i>with</i> scheme, <i>without</i> trailing slash. Must match the address bar exactly. Default <code>http://localhost:5173</code>.</td></tr>
     <tr><td><code>RP_NAME</code></td><td>Name shown in the passkey prompt. Default <code>openGym</code>.</td></tr>
-    <tr><td><code>WEB_PORT</code></td><td>Host port for the web UI. Default <code>8080</code>.</td></tr>
-    <tr><td><code>NGINX_PORT</code></td><td>Port the web container listens on, inside the container. Default <code>80</code>.</td></tr>
-    <tr><td><code>BACKEND</code></td><td>Name of the API service <code>/api</code> is proxied to — change it if yours isn't called <code>api</code>.</td></tr>
-    <tr><td><code>PORT</code></td><td>Port the API listens on; the web container proxies to the same value. Default <code>3000</code>.</td></tr>
+    <tr><td><code>PORT</code></td><td>Port the API listens on — point your web server's <code>/api</code> proxy at the same value. Default <code>3000</code>.</td></tr>
+    <tr><td><code>DATA_DIR</code></td><td>Folder the API keeps everything in. Default <code>./data</code>.</td></tr>
     <tr><td><code>SESSION_DAYS</code></td><td>How long a sign-in lasts, in days. Default <code>90</code>.</td></tr>
     <tr><td><code>ADMIN_UIDS</code></td><td>Comma-separated user ids that get the <a href="#admin">admin dashboard</a>. Default: none — a fresh instance has no admin.</td></tr>
     <tr><td><code>INVITE_ONLY</code></td><td>Set <code>1</code> and new profiles need an invite code you generate from the dashboard. Existing accounts keep working. Default: off.</td></tr>
@@ -525,10 +521,10 @@ docker compose up -d</code></pre>
     <tr><td><code>VAPID_SUBJECT</code></td><td>Contact URL sent with push notifications. Default: your <code>ORIGIN</code>.</td></tr>
   </table>
   <p>Two things that look like settings but aren't: <code>DATA_DIR</code> is pinned to
-     <code>/data</code> by <code>docker-compose.yml</code> and mapped to <code>./data</code> —
+     <code>./data</code> beside the API —
      change the host side of that volume, not the variable. And
      <code>VITE_IMG_BASE</code>/<code>VITE_GIF_BASE</code> are <b>build-time</b> values baked
-     into the frontend bundle — setting them next to <code>docker compose</code> does nothing
+     into the frontend bundle by <code>npm run build</code> — changing them later does nothing
      to a prebuilt image (see <a href="#troubleshoot">Troubleshooting</a>).</p>
 
   <h2 id="admin">Multiple users, admin &amp; the activity log</h2>
@@ -598,7 +594,7 @@ ALLOW_GUEST=0              # remove "Continue without account"</code></pre>
     <tr><td><code>estimate_1rm</code></td><td>Best 1RM for an exercise + trend, or a PR table across all.</td></tr>
     <tr><td><code>muscle_balance</code></td><td>Muscles trained this week/month/all-time, ranked — and the neglected ones.</td></tr>
   </table>
-  <p>It is <b>not part of the Docker build</b> — if you don't use an AI assistant, it simply
+  <p>It is <b>not part of a deploy</b> — if you don't use an AI assistant, it simply
      isn't there. No new auth (the filesystem is the boundary), no telemetry, no network; the
      LLM never sees passkeys or session secrets. Setup is <code>cd mcp &amp;&amp; npm
      install</code> plus a few lines of client config:
@@ -673,11 +669,11 @@ Leg Day,Leg Press,2026-08-21,200,1</code></pre>
      to a backup service you don't run. Restore by unpacking into the project folder.</p>
 
   <h2 id="arch">How it's built</h2>
-  <p>Two containers, one folder, no database server:</p>
+  <p>Two processes, one folder, no database server:</p>
   <ul>
-    <li><b>frontend/</b> — React 19 + Vite (React Router, Zustand), built to static files
-        <i>inside Docker</i>. The app ships no runtime dependencies beyond React, the router
-        and Zustand.</li>
+    <li><b>frontend/</b> — React 19 + Vite (React Router, Zustand), built once to static
+        files that any web server hands out. The app ships no runtime dependencies beyond
+        React, the router and Zustand.</li>
     <li><b>api/</b> — Node with <b>no framework</b> and two dependencies
         (<code>@simplewebauthn/server</code> for passkeys, <code>web-push</code> for
         notifications), storing everything as plain JSON files under <code>./data</code>.</li>
@@ -701,7 +697,7 @@ Leg Day,Leg Press,2026-08-21,200,1</code></pre>
   <h2 id="build">Build it yourself</h2>
   <p>Everything on this page is built from the public repo:</p>
   <ul>
-    <li><b>Web / self-host:</b> <code>docker compose up -d --build</code> builds the frontend
+    <li><b>Web / self-host:</b> <code>npm run build</code> in <code>frontend/</code> builds the frontend
         inside the container — no local Node needed.</li>
     <li><b>Android APK:</b> <code>npm run build:mobile</code> in <code>frontend/</code>, then
         Gradle + <code>zipalign</code> + <code>apksigner</code> with your own keystore
@@ -719,10 +715,9 @@ Leg Day,Leg Press,2026-08-21,200,1</code></pre>
   <p>The most common support question — work through these in order:</p>
   <ol>
     <li><b>Ask the server what it actually loaded:</b>
-        <code>docker compose logs api | grep 'gym-api on'</code> prints the
+        the API prints on every start the
         <code>rpID</code>/<code>origin</code> it runs with. If that disagrees with your
-        <code>.env</code>: <code>docker compose restart</code> does <b>not</b> re-read
-        <code>.env</code> — use <code>docker compose up -d</code>.</li>
+        <code>.env</code>: the process reads it once, at startup — restart it.</li>
     <li><b>Check the exact shape:</b> <code>RP_ID</code> is a bare hostname
         (<code>gym.example.com</code> — no <code>https://</code>, no port, no slash);
         <code>ORIGIN</code> is the full origin with scheme and without trailing slash. Both
@@ -739,13 +734,12 @@ Leg Day,Leg Press,2026-08-21,200,1</code></pre>
   <table class="cfg">
     <tr><td>No passkey prompt on my phone</td><td>You're on <code>http://</code> or a bare IP. Passkeys need HTTPS or localhost — set up a domain, or use guest mode / the mobile app.</td></tr>
     <tr><td>"verification failed" on login</td><td><code>RP_ID</code>/<code>ORIGIN</code> don't match the address bar — see the checklist above, starting with what the server logged.</td></tr>
-    <tr><td>Media didn't download</td><td><code>docker compose logs media</code>, re-run <code>docker compose up -d</code>, or run <code>./scripts/fetch-media.sh</code>.</td></tr>
-    <tr><td>Port 8080 already used</td><td><code>WEB_PORT=9090</code> in <code>.env</code> (and update <code>ORIGIN</code> for local testing).</td></tr>
+    <tr><td>Media didn't download</td><td>Run <code>./scripts/fetch-media.sh</code> — safe to re-run, it skips what is there.</td></tr>
+    <tr><td>Port 3000 already used</td><td><code>PORT=3100</code> in <code>.env</code>, and point your web server's <code>/api</code> proxy at the new port.</td></tr>
     <tr><td>No "Notifications" option in Settings</td><td>Needs a signed-in profile and HTTPS (or localhost) — guest mode and plain HTTP over LAN can't subscribe.</td></tr>
     <tr><td>Day reminder fires at the wrong time</td><td>Toggle it off and on so it re-detects your browser's timezone (also happens on every app load).</td></tr>
     <tr><td>"Keep screen awake" shows as unsupported</td><td>The Wake Lock API needs HTTPS or localhost; iOS also refuses it in Low Power Mode.</td></tr>
     <tr><td>Want to reset a stuck login</td><td>Delete the cookie — sessions are just signed cookies. "Sign out everywhere" in Settings ends every session (and paired apps) at once.</td></tr>
-    <tr><td><code>docker compose pull</code> says "denied"</td><td>Build from source instead: <code>docker compose up -d --build</code>.</td></tr>
     <tr><td>Exercise images blank in an old build</td><td>Fixed in current images. <code>VITE_IMG_BASE</code>/<code>VITE_GIF_BASE</code> are <b>build-time</b>: they're baked into the bundle when the frontend compiles, so setting them at runtime does nothing to a prebuilt image — redirect media in your reverse proxy instead, or rebuild.</td></tr>
   </table>
   <p>Still stuck? The <a href="https://discord.gg/e62jY6fwVb" rel="noopener">Discord</a> is

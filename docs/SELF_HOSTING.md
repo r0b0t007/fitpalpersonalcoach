@@ -1,33 +1,43 @@
-# Self-hosting openGym
+# Self-hosting FitPal Coach
 
-openGym is two small containers (a web server and an API) plus a folder of your data.
-This guide takes you from "just cloned it" to "using it from my phone over the internet".
+Two processes and a folder of your data: an API (Node, no framework) and a static frontend that
+any web server can hand out. This guide takes you from "just cloned it" to "using it from my phone
+over the internet".
+
+> There used to be a Docker path here — two images and a compose file. It was removed: this
+> product deploys to a cPanel account over rsync, so the images were maintained, built in CI and
+> published, and never run. What follows is what actually runs it.
 
 ## 1. Run it locally (5 minutes)
 
-Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plugin.
+Requirements: Node 22 or newer, and git.
 
 ```bash
 git clone https://gitlab.com/DuarteSantos8/opengym
 cd openGym
 cp .env.example .env
-docker compose pull   # prebuilt images from GitLab (amd64 + arm64) — or skip and build from source
-docker compose up -d
+./scripts/fetch-media.sh          # exercise images/GIFs (~140 MB), once
 ```
 
-- First start downloads the exercise images/GIFs (~140 MB) once into `media/img` and `media/gif`.
-- Open **http://localhost:8080** and create a profile with a passkey.
-- Rather build from source than pull prebuilt images? Skip `docker compose pull` and run
-  `docker compose up -d --build` instead — no Node needed locally either way.
+Two processes. The API:
+
+```bash
+cd api && npm ci && node server.js          # :3000
+```
+
+The frontend, in another terminal:
+
+```bash
+cd frontend && npm install && npm run dev    # :5173, proxies /api to :3000
+```
+
+Open **http://localhost:5173** and create a profile with a passkey.
 
 Check it's healthy:
 
 ```bash
-docker compose ps
-curl http://localhost:8080/api/health      # {"ok":true,...}
+curl http://localhost:3000/api/health      # {"ok":true,...}
 ```
-
-Logs: `docker compose logs -f`. Stop: `docker compose down`.
 
 ## 2. Understand the passkey requirement (important)
 
@@ -36,8 +46,8 @@ openGym signs you in with **passkeys** (WebAuthn). Browsers enforce two rules:
 1. Passkeys are bound to an exact **hostname** (`RP_ID`).
 2. They only work over **HTTPS** — with one exception: `http://localhost`.
 
-So `http://localhost:8080` works on the machine running Docker, but **another device (your
-phone) cannot use `http://<your-LAN-ip>:8080`** — that's neither localhost nor HTTPS, so the
+So `http://localhost:5173` works on the machine running it, but **another device (your
+phone) cannot use `http://<your-LAN-ip>:5173`** — that's neither localhost nor HTTPS, so the
 passkey prompt won't appear. To use openGym from your phone you need a real HTTPS hostname.
 
 (You can still open it over LAN in **guest mode**, which stores data only in that browser.)
@@ -61,46 +71,53 @@ you're poking at the API directly:
 
 > Want HTTPS **without** exposing anything to the internet — a valid certificate on a LAN-only address? See [SELF_HOSTING_HTTPS.md](./SELF_HOSTING_HTTPS.md) (wildcard cert via a DNS challenge, Caddy in front).
 
-Put openGym behind something that terminates TLS for a hostname you control, then point it at
-the `web` container. Pick whichever you already run:
+Two things have to be true, and the second is the one people get wrong:
 
-### Option A — Cloudflare Tunnel (no open ports)
+1. A hostname you control, served over HTTPS.
+2. **The app and the API on the same origin.** `https://coach.example.com/` serves the built
+   frontend, and `https://coach.example.com/api/*` reaches the API process. Not a second
+   hostname, not a different port — passkeys are bound to the origin, and the session cookie is
+   scoped to it.
 
-1. Create a tunnel and route `gym.example.com` → `http://<docker-host>:8080`.
-2. Cloudflare gives you HTTPS automatically.
+Build the frontend once:
 
-### Option B — Caddy (automatic Let's Encrypt)
+```bash
+cd frontend && npm ci && npm run build      # → frontend/dist/
+```
+
+Then serve `frontend/dist/` as the document root and proxy `/api` to the API. Any web server
+does this. Caddy, with automatic Let's Encrypt:
 
 ```caddy
-gym.example.com {
-    reverse_proxy localhost:8080
+coach.example.com {
+    handle /api/* {
+        reverse_proxy localhost:3000
+    }
+    handle {
+        root * /srv/fitpal/frontend/dist
+        try_files {path} /index.html      # the app is hash-routed; serve index.html for the rest
+        file_server
+    }
 }
 ```
 
-### Option C — Traefik / nginx / Nginx Proxy Manager
+nginx, Apache and Cloudflare Tunnel all do the same job — one origin, `/api` to the API process,
+everything else to `dist/`. On the cPanel account this product actually deploys to, that is
+Apache with an `.htaccess`; see [DEPLOY_NAMECHEAP.md](./DEPLOY_NAMECHEAP.md).
 
-Route `gym.example.com` (HTTPS) → `web:80` (or `<docker-host>:8080`). Any reverse proxy works —
-openGym only needs the browser to reach it over `https://gym.example.com`.
-
-Then set your domain in `.env` and restart:
+Set your domain in `.env` and restart the API:
 
 ```bash
 # .env
-RP_ID=gym.example.com
-ORIGIN=https://gym.example.com
-WEB_PORT=8080
-RP_NAME=openGym
+RP_ID=coach.example.com
+ORIGIN=https://coach.example.com
+RP_NAME=FitPal Coach
 ```
 
-```bash
-docker compose up -d
-```
-
-Visit `https://gym.example.com`, create your profile, and add it to your home screen
+Visit `https://coach.example.com`, create your profile, and add it to your home screen
 (iOS: Share → Add to Home Screen · Android: ⋮ → Add to Home screen).
 
 > Changing `RP_ID` later invalidates existing passkeys (they were bound to the old hostname).
-> Pick your domain before people register.
 
 ## 4. Multiple users
 
@@ -158,22 +175,13 @@ same device.
 Prefer to keep the whole thing off the open internet? A VPN or an auth proxy (Authelia, Cloudflare
 Access…) in front still works, and composes with the above.
 
-## 5. Fitting it into an existing stack
-
-The defaults assume openGym is the only thing here: a service called `api` on port 3000, and nginx
-on port 80 inside its container. If you are merging this into a compose file that already has an
-`api`, or you put the web container behind your own reverse proxy on a different port, four
-settings in `.env` move those without editing any config file:
+## 5. Limits and sizes
 
 ```bash
-WEB_PORT=8080              # host port — what you browse to
-NGINX_PORT=80              # port the web container listens on, inside the container
-BACKEND=api                # name of the API service that /api is proxied to
-PORT=3000                  # port the API listens on; web proxies to the same value
+PORT=3000                  # port the API listens on; your web server proxies /api here
 SESSION_DAYS=90            # how long a sign-in lasts
 MEDIA_MAX_VIDEO_MB=90      # coach exercise demos (see below)
 MEDIA_MAX_PHOTO_MB=12      # a client's own progress photos (see below)
-NGINX_MAX_BODY=128m        # the web container's own limit — keep it ABOVE the video cap
 ```
 
 The two media caps are separate from the 5 MB JSON body limit because uploads stream straight to
@@ -196,27 +204,23 @@ pixels and no metadata. It is a property of the app, **not** a guarantee this se
 nothing in `api/` parses EXIF, and anything can post raw bytes at the route. Do not describe it to
 clients as a server-side promise.
 
-**Whatever sits in front of the app is the limit that actually fires.** nginx's
-`client_max_body_size` defaults to 1 MB, and Cloudflare refuses bodies over 100 MB on its free and
-pro plans. A node cap above the proxy's is not a cap: the upload dies out there, usually with an
-HTML error page the app cannot parse, and the app reports a limit it never enforced. `NGINX_MAX_BODY`
-exists so the shipped web container does not become that proxy — it must stay above
-`MEDIA_MAX_VIDEO_MB`, and node's is the limit meant to be hit, because node can answer it in JSON.
+**Whatever sits in front of the app is the limit that actually fires, and it is yours to set.**
+nginx's `client_max_body_size` defaults to 1 MB, Apache and Cloudflare have their own ceilings
+(Cloudflare refuses bodies over 100 MB on free and pro), and a node cap above the proxy's is not
+a cap at all: the upload dies out there, usually with an HTML error page the app cannot parse, and
+the app reports a limit it never enforced. Raise your proxy's limit above `MEDIA_MAX_VIDEO_MB` so
+node's is the one that gets hit — node can answer it in JSON, which is what the app knows how to
+read.
 
-One behavioural difference worth knowing between the two deployments: nginx buffers a request body
-to disk before passing it upstream (`proxy_request_buffering` is on by default), so behind the
-compose stack the API sees an upload only once it has fully arrived. The API's early rejection —
-it identifies a file from its first 64 bytes and refuses before writing the rest — therefore only
-takes effect on a deployment that streams to it directly. The refusal is identical either way; the
-bytes are simply already spent.
-
-The web image renders its nginx config from these when the container starts, so they take effect
-on a **prebuilt image** — no rebuild. `BACKEND` and `PORT` together are what `/api` is proxied to,
-so they have to name a service the web container can actually reach on your compose network.
+Whether the API can refuse an upload *early* depends on the same proxy. It identifies a file from
+its first 64 bytes and refuses before writing the rest, which only happens on a deployment that
+streams to it. A proxy that buffers the whole body first — nginx does, by default — means the API
+sees the upload only once it has fully arrived. The refusal is identical either way; the bytes are
+simply already spent.
 
 Note the difference from `VITE_IMG_BASE` / `VITE_GIF_BASE` (see Troubleshooting): those are
-build-time values baked into the frontend bundle, and setting them next to `docker compose` does
-nothing to an image you pulled.
+build-time values baked into the frontend bundle by `npm run build`, so changing them means
+rebuilding `dist/`, not restarting anything.
 
 ## 6. Backups
 
@@ -268,23 +272,18 @@ in `.env` if you would rather they had an inbox.
 
 ## 8. Updating
 
-Running prebuilt images:
-
-```bash
-git pull                    # picks up compose/config changes
-docker compose pull
-docker compose up -d
-```
-
-Building from source instead:
-
 ```bash
 git pull
-docker compose up -d --build
+cd api      && npm ci && <restart the API process>
+cd frontend && npm ci && npm run build      # → dist/, which your web server already serves
 ```
 
 The app shell is versioned (`?v=N`) so clients pick up changes on next load. Your `./data` and the
 downloaded media are untouched.
+
+How you restart the API is yours: `systemd`, a process manager, or cPanel's "Restart" button. The
+API holds nothing in memory that matters — state is on disk — so a hard restart is safe at any
+moment.
 
 ## Passkeys fail even though `RP_ID` looks right
 
@@ -294,12 +293,12 @@ these in order — the first two account for most of it.
 **1. Ask the server what it actually loaded.** It prints both values on startup:
 
 ```
-docker compose logs api | grep 'gym-api on'
-# gym-api on :3000 (rpID=gym.example.com, origin=https://gym.example.com)
+# in the API's own log, on every start:
+# gym-api on :3000 (rpID=coach.example.com, origin=https://coach.example.com)
 ```
 
-If that disagrees with your `.env`, the container is still running the old environment.
-`docker compose restart` does **not** re-read `.env` — use `docker compose up -d`.
+If that disagrees with your `.env`, the process is still running the old environment — it reads
+the file once, at startup. Restart it.
 
 **2. Check the exact shape of each value.** They are not the same kind of string:
 
@@ -313,7 +312,7 @@ If that disagrees with your `.env`, the container is still running the old envir
 
 **3. Behind a tunnel or reverse proxy, use the public hostname.** With Cloudflare Tunnel,
 Traefik, nginx or Caddy in front, the browser only ever sees the public name — so that is what
-both values must be. Not the container name, not the LAN IP, not the internal port:
+both values must be. Not the LAN IP, not the internal port:
 
 ```env
 RP_ID=gym.example.com
@@ -339,20 +338,24 @@ everybody registers again — which is why it pays to settle the domain before o
 |---|---|
 | No passkey prompt on my phone | You're on `http://` or an IP, not HTTPS. Set up a domain (section 3). |
 | "verification failed" on login | `RP_ID`/`ORIGIN` don't match the URL in the address bar. See the section above — start with what the server logged on startup. |
-| Media didn't download | `docker compose logs media`. Re-run `docker compose up -d`, or run `./scripts/fetch-media.sh`. |
-| Port 8080 already used | Set `WEB_PORT=9090` in `.env` (and update `ORIGIN` for local testing). |
+| Media didn't download | Run `./scripts/fetch-media.sh`. It is safe to re-run — it skips what is already there. |
+| Port 3000 already used | Set `PORT=3001` in `.env` and point your web server's `/api` proxy at the new one. |
 | No "Notifications" option in Settings | Requires a signed-in profile and HTTPS (or `localhost`) — guest mode and plain HTTP over LAN can't subscribe. |
 | Day reminder fires at the wrong time | Toggle it off and on in Settings so it re-detects your browser's timezone (also happens automatically on every app load — see section 7). |
 | Want to reset a stuck login | Delete the cookie in your browser; sessions are just signed cookies. |
-| `docker compose pull` fails with "denied" / "unauthorized" | The prebuilt images aren't published yet, or need to be, or the GHCR package is still private — build from source instead (`docker compose up -d --build`). |
-| Exercise images/GIFs blank when a routine is open | Fixed in current images (issue #79). On an older build, see the note below. |
+| Exercise images/GIFs blank when a routine is open | The media never downloaded, or `VITE_IMG_BASE` points somewhere unreachable — see the note below. |
 
 ### `VITE_IMG_BASE` / `VITE_GIF_BASE` are build-time, not run-time
 
-These two are read by Vite when the frontend is **compiled**, so their values are baked into
-the shipped JavaScript bundle. Setting them in the `.env` next to `docker compose` has no
-effect on an already-built image — the bundle has already made up its mind.
+These two are read by Vite when the frontend is **compiled**, so their values are baked into the
+shipped JavaScript bundle. Changing them in `.env` does nothing to a `dist/` that already exists —
+the bundle has already made up its mind.
 
-They are only useful if you build the frontend yourself (`docker compose up -d --build`, or a
-`npm run build` with the variables exported). If you need to redirect media on a prebuilt
-image, do it in your reverse proxy instead.
+Export them and rebuild:
+
+```bash
+cd frontend
+VITE_IMG_BASE=https://media.example.com/img npm run build
+```
+
+If you would rather not rebuild, redirect the media path in your web server instead.

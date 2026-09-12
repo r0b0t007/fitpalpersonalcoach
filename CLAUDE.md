@@ -32,7 +32,7 @@ Upstream's description of the product follows, and still holds for the shared pa
 
 ## What this is
 
-openGym is a self-hosted gym & body-weight tracker PWA. Two containers (`api` + `web`) plus a
+openGym is a self-hosted gym & body-weight tracker PWA. A Node API and a folder of static files, plus a
 `./data` folder the user owns — no third-party account, no telemetry. Passkey (WebAuthn) login,
 installable as a home-screen app, optional Capacitor shells for standalone Android/iOS builds.
 License: AGPL-3.0-or-later.
@@ -43,21 +43,23 @@ License: AGPL-3.0-or-later.
 frontend/  React 19 + Vite app (src/views, src/components, src/store, src/lib). Builds to static files.
            android/ + ios/ are the Capacitor shells for the standalone mobile app (docs/MOBILE.md).
 api/       backend — server.js (Node, no framework), deps: @simplewebauthn/server, web-push.
-web/       multi-stage Dockerfile (builds frontend → nginx) + nginx.conf.template (serves app, proxies /api).
 mcp/       optional MCP server — read-only stdio bridge exposing a user's workouts/1RM/muscle
-           balance to LLM clients (Claude Desktop, Cursor…). Not part of the Docker build; only
+           balance to LLM clients (Claude Desktop, Cursor…). Not part of a deploy; only
            runs when an LLM client spawns it.
-media/     exercise img/gif, gitignored, fetched at runtime by the `media` compose service.
-website/   static marketing site (plain HTML/CSS/JS), deployed separately by .gitlab-ci.yml.
+media/     exercise img/gif, gitignored, fetched by scripts/fetch-media.sh.
+website/   static marketing site (plain HTML/CSS/JS), deployed separately.
 docs/      SELF_HOSTING.md, MOBILE.md.
 ```
 
 ## Commands
 
 ```bash
-# Local stack (api + web + media, prebuilt or built from source)
+# Exercise media (~140 MB, once)
 cp .env.example .env
-docker compose up -d --build
+./scripts/fetch-media.sh
+
+# The API
+cd api && npm ci && node server.js       # :3000
 
 # Frontend dev server (hot reload), proxies /api to :3000
 cd frontend && npm install && npm run dev
@@ -85,11 +87,11 @@ merge from. The paragraph upstream has here — that GitLab is canonical and the
 are dormant mirrors — is false for this repo and inverted: nothing runs on GitLab, and GitHub is
 both the test gate and the deploy path.
 
-Seven jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
-(`coach-smoke.sh`), `mcp`, `api-image` and `web-image` — the last two build *and boot*
-the containers, which is the only place a broken image or an unparseable rendered nginx config is
-caught. **`test.yml` has path filters**; anything outside `frontend/`, `api/`, `mcp/`, `web/` and
-those two scripts runs no checks at all, and GitHub reports "no checks" rather than failing.
+Five jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
+(`coach-smoke.sh`) and `mcp`. There used to be `api-image` and `web-image` too, which built and
+booted the Docker images; those images were never part of how this deploys and are gone.
+**`test.yml` has path filters**; anything outside `frontend/`, `api/`, `mcp/` and those two
+scripts runs no checks at all, and GitHub reports "no checks" rather than failing.
 
 Several `check-*.mjs` scripts guard things a test cannot see, and are wired into CI:
 
@@ -150,7 +152,7 @@ auto-generated into `data/vapid.json`) drives rest-timer-over and day-reminder n
 
 Read-only stdio MCP bridge (`@modelcontextprotocol/sdk`) that lets an LLM client read a single
 user's routines/workouts/body-weight/1RM/muscle-balance directly from the same `DATA_DIR` the API
-writes to — no network call, no extra container. `state.js` loads/derives the data, `tools.js`
+writes to — no network call, no extra process to run. `state.js` loads/derives the data, `tools.js`
 defines the exposed MCP tools (zod-validated schemas), `labels.js` maps internal keys to
 human-readable labels, `index.js` wires it together. See `mcp/README.md` for the client-config
 side (Claude Desktop / Cursor).
@@ -161,16 +163,20 @@ WebAuthn passkeys are bound to an exact hostname (`RP_ID`) and require HTTPS (lo
 — this shapes a lot of the API and Settings code (`RP_ID`/`ORIGIN` env vars, guest-mode fallback
 when neither is available). Read `docs/SELF_HOSTING.md` before touching auth, session, or
 notification code; it documents the exact env-var contract (`RP_ID`, `ORIGIN`, `PORT`,
-`WEB_PORT`, `NGINX_PORT`, `BACKEND`, `SESSION_DAYS`, `ADMIN_UIDS`, `INVITE_ONLY`, `ALLOW_GUEST`,
+`DATA_DIR`, `SESSION_DAYS`, `ADMIN_UIDS`, `INVITE_ONLY`, `ALLOW_GUEST`,
 `AUDIT_*`, `VAPID_SUBJECT`) that real deployments depend on.
 
-### Docker / deploy
+### Deploy
 
-`docker-compose.yml` has three services: `media` (one-shot exercise-asset downloader, gitignored
-output), `api`, `web` (multi-stage build of `frontend/` served by nginx, which also proxies
-`/api` → `api` and serves the shared media volume — single origin, required for passkeys).
-`web/nginx.conf.template` is rendered from env vars at container start (`NGINX_PORT`, `BACKEND`,
-`PORT`), so host/port remapping works against prebuilt images without a rebuild.
+Two rsync workflows onto one cPanel account: `deploy-api.yml` sends the API as source plus
+`node_modules`, `deploy-web.yml` sends `frontend/dist/`. There is no container runtime anywhere in
+this — shared hosting does not offer one, which is why the Docker images that used to live here
+were built by CI, published, and never run. `docs/DEPLOY_COACH_SUBDOMAIN.md` is required reading
+before touching either workflow.
+
+The app and the API must be served from ONE origin: Apache hands out `dist/` and proxies `/api` to
+the Node process. Passkeys are bound to the origin and the session cookie is scoped to it, so two
+hostnames or two ports breaks both.
 
 ## Guidelines from CONTRIBUTING.md worth knowing before changing code
 
