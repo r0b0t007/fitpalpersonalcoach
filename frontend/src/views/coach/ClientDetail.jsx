@@ -80,8 +80,8 @@ export default function ClientDetail() {
     .catch(e => toast(e.message))
   // The sheet needs the roster row for everyone it lists, and the request for it can still be in
   // flight (or have failed) while this page is already drawn from its own payload. Falling back to
-  // a row built from what we do have keeps the sheet honest: it would otherwise say "no members
-  // assigned to you yet" underneath a primary button reading "Send to 1 client".
+  // a row built from what we do have keeps the sheet honest: it would otherwise say "no clients yet"
+  // underneath a primary button reading "Send to 1 client".
   const sendTo = roster?.length ? roster.filter(m => !m.disabled) : [{ id, name: d.user.name, workouts: d.workouts.length, lastSync: d.lastSync }]
   const open = program => openSheet(close => <SendSheet members={sendTo} close={close} program={program} preselect={[id]} onSent={load} />)
   // "Send a program" has to be able to send a saved one, not silently always the coach's current

@@ -77,7 +77,7 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
         note, schedule: schedule && days > 0
       })
     })
-      .then(({ sent }) => { toast('Sent to ' + sent + (sent === 1 ? ' member' : ' members')); close(); onSent?.() })
+      .then(({ sent }) => { toast('Sent to ' + sent + (sent === 1 ? ' client' : ' clients')); close(); onSent?.() })
       .catch(e => { toast(e.message); setBusy(false) })
   }
 
@@ -158,10 +158,10 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
           <div className="dim" style={{ fontSize: '.72rem' }}>{m.workouts} workouts · synced {rel(m.lastSync)}</div></div>
         <input type="checkbox" checked={picked.includes(m.id)} onChange={() => toggle(m.id)} />
       </label>)}
-    </div> : <div className="empty small">No members assigned to you yet.</div>}
+    </div> : <div className="empty small">No clients yet.</div>}
 
     <Button variant="primary" style={{ marginTop: 14 }} disabled={!picked.length || busy} onClick={send}>
-      {busy ? 'Sending…' : picked.length ? 'Send to ' + picked.length + (picked.length === 1 ? ' member' : ' members') : 'Pick at least one member'}
+      {busy ? 'Sending…' : picked.length ? 'Send to ' + picked.length + (picked.length === 1 ? ' client' : ' clients') : 'Pick at least one client'}
     </Button>
   </>
 }
@@ -292,7 +292,7 @@ export function InviteSheet() {
   const atCap = !!state && open.length >= state.max
 
   return <>
-    <h3>Take a client on</h3>
+    <h3>Invite a client</h3>
     <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
       Send them a link. They open it, make their profile, and arrive already on your roster —
       nobody has to assign them afterwards. Each link works once.
@@ -467,7 +467,7 @@ export function MediaSheet() {
 
     <h4 className="sec">Already uploaded</h4>
     {rows == null ? <div className="dim small">Loading…</div>
-      : !rows.length ? <div className="empty small">Nothing yet. Members see the stock animation until you upload one.</div>
+      : !rows.length ? <div className="empty small">Nothing yet. Clients see the stock animation until you upload one.</div>
         : <>
           {Object.keys(byEx).sort((a, b) => exName(a).localeCompare(exName(b))).map(exId => <div key={exId} style={{ marginBottom: 10 }}>
             <div className="small capitalize" style={{ fontWeight: 600, marginBottom: 2 }}>{exName(exId)}</div>
