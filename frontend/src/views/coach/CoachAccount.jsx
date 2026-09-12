@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../../store/useStore.js'
+import { MOBILE } from '../../lib/mobile.js'
+import { t } from '../../lib/i18n.js'
 import { useUI } from '../../store/useUI.js'
 import { setShellPref } from '../../lib/role.js'
 import { ACCENTS } from '../../lib/format.js'
@@ -20,9 +22,9 @@ import { PairSheet } from '../Settings.jsx'
  * English-only raw strings, like every coach surface (CLAUDE.md) — the client side of this app is
  * translated, the operator side is not.
  *
- * Appearance is the exception and stays translated, because it is the same `S` the client shell
- * reads: a coach who flips to Train myself sees their own choice, and the two screens would
- * otherwise disagree about what "Dark" is called.
+ * Appearance is the exception and IS translated, because it is the same `S` the client shell
+ * reads: a coach with S.lang = 'fr' who flips to Train myself would otherwise be told the same
+ * setting is called "Sombre" on one screen and "Dark" on the other.
  */
 export default function CoachAccount() {
   const nav = useNavigate()
@@ -31,6 +33,7 @@ export default function CoachAccount() {
   const update = useStore(s => s.update)
   const signOut = useStore(s => s.signOut)
   const signOutAll = useStore(s => s.signOutAll)
+  const disconnectServer = useStore(s => s.disconnectServer)
   const openSheet = useUI(s => s.openSheet)
   const toast = useUI(s => s.toast)
   const syncError = useStore(s => s.syncError)
@@ -71,17 +74,37 @@ export default function CoachAccount() {
       {syncError && <Row icon="warning" iconTint="var(--red)" title="This device could not save to the server" subtitle={syncError} />}
       <Row icon="personCircle" iconTint="var(--grey)" title={user?.name || 'Signed in'}
         subtitle="Signed in with a passkey." />
-      <Row icon="link" iconTint="var(--blue)" title="Pair the mobile app"
-        subtitle="Connect the app on your phone to this account." accessory="chevron"
-        onClick={() => openSheet(close => <PairSheet close={close} />)} />
-      <Row icon="signOut" iconTint="var(--red)" title="Sign out" danger onClick={() => confirmSheet({
-        title: 'Sign out?',
-        message: 'Your data is synced to your profile first, then cleared from this device. Your clients are not affected.',
-        confirmText: 'Sign out', danger: true,
-        onConfirm: () => { signOut(); nav('/home') },
-      })} />
-      <Row icon="shield" iconTint="var(--red)" title="Sign out everywhere"
-        subtitle="Ends this profile’s sessions on all your devices." danger onClick={signOutEverywhere} />
+      {/* Your own training settings — unit, language, notifications, rest timers, export. They are
+          the client screen's, because they are the same settings a client has, and the coach shell
+          would otherwise have no door to them at all. */}
+      <Row icon="gear" iconTint="var(--grey)" title="Training settings"
+        subtitle="Units, language, notifications, and how a workout behaves." accessory="chevron"
+        onClick={() => nav('/settings')} />
+      {/* The paired mobile build is a different account screen. Offering to pair the phone you are
+          holding is nonsense, and a plain sign-out there is a dead end: it clears the session but
+          leaves the paired-server record, so the app lands on a passkey screen bound to
+          capacitor://localhost — which cannot sign in to the coach's server — until the app is
+          restarted. disconnectServer is the one that also forgets the pairing. */}
+      {MOBILE
+        ? <Row icon="signOut" iconTint="var(--red)" title="Disconnect from my server" danger onClick={() => confirmSheet({
+          title: 'Disconnect from your server?',
+          message: 'Your data is synced to your server first, then this device switches back to local-only. Your clients are not affected.',
+          confirmText: 'Disconnect', danger: true,
+          onConfirm: async () => { await disconnectServer(); nav('/home'); toast('Disconnected — back to local-only') },
+        })} />
+        : <>
+          <Row icon="link" iconTint="var(--blue)" title="Pair the mobile app"
+            subtitle="Connect the app on your phone to this account." accessory="chevron"
+            onClick={() => openSheet(close => <PairSheet close={close} />)} />
+          <Row icon="signOut" iconTint="var(--red)" title="Sign out" danger onClick={() => confirmSheet({
+            title: 'Sign out?',
+            message: 'Your data is synced to your profile first, then cleared from this device. Your clients are not affected.',
+            confirmText: 'Sign out', danger: true,
+            onConfirm: () => { signOut(); nav('/home') },
+          })} />
+          <Row icon="shield" iconTint="var(--red)" title="Sign out everywhere"
+            subtitle="Ends this profile’s sessions on all your devices." danger onClick={signOutEverywhere} />
+        </>}
     </Section>
 
     <Section title="Coaching" footer="Everything you do for clients lives on the other three tabs. These are the pieces that belong to you rather than to one of them.">
@@ -96,18 +119,18 @@ export default function CoachAccount() {
         onClick={trainMyself} />
     </Section>
 
-    <Section title="Appearance" footer="synced with your profile">
-      <Row icon="moon" iconTint="var(--indigo)" title="Theme">
+    <Section title={t('Appearance')} footer={t('synced with your profile')}>
+      <Row icon="moon" iconTint="var(--indigo)" title={t('Theme')}>
         <Segmented className="seg-inline"
           options={[
-            { value: 'dark', icon: 'moon', label: 'Dark' },
-            { value: 'light', icon: 'sun', label: 'Light' },
-            { value: 'system', icon: 'gear', label: 'System' },
+            { value: 'dark', icon: 'moon', label: t('Dark') },
+            { value: 'light', icon: 'sun', label: t('Light') },
+            { value: 'system', icon: 'gear', label: t('System') },
           ]}
           value={S.theme || 'dark'} onChange={v => update(s => { s.theme = v })} />
       </Row>
       <div className="lrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12, paddingTop: 13, paddingBottom: 14 }}>
-        <span className="lrow-t">Accent color</span>
+        <span className="lrow-t">{t('Accent color')}</span>
         <div className="swatches">
           {Object.entries(ACCENTS).map(([k, c]) => (
             <button key={k} className={'swatch' + ((S.accent || 'gold') === k ? ' on' : '')}

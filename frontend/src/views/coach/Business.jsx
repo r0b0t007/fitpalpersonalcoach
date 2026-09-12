@@ -9,6 +9,9 @@ import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { confirmSheet } from '../../sheets.jsx'
 import { rel } from './parts.jsx'
+// .adm-pill lives here. Imported explicitly rather than relying on Admin.jsx still importing it:
+// that page is on P6's list, and the day it goes these pills would lose their styling silently.
+import '../../admin.css'
 
 /* The two operator jobs a single coach still has, taken out of the gym dashboard they were buried
  * in. Everything else on that page — classes, the timetable, access requests, assigning members to
@@ -44,9 +47,10 @@ function AdminOnly({ title, children }) {
 }
 /* ---------------------------------------------------------------- accounts -- */
 
-function AccountSheet({ id, onChanged, close }) {
+export function AccountSheet({ id, onChanged, close }) {
   const [d, setD] = useState(null)
   const toast = useUI(s => s.toast)
+  const me = useStore(s => s.user)
   const load = () => api('/api/admin/user?id=' + encodeURIComponent(id)).then(setD).catch(e => toast(e.message))
   useEffect(() => { load() }, [id])
   if (!d) return <div className="muted small">Loading…</div>
@@ -60,7 +64,8 @@ function AccountSheet({ id, onChanged, close }) {
   return <>
     <h3 className="capitalize">{u.name}</h3>
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '8px 0 12px' }}>
-      {u.admin && <span className="tag acc">you</span>}
+      {u.id === me?.id && <span className="tag acc">you</span>}
+      {u.admin && u.id !== me?.id && <span className="tag acc">admin</span>}
       {u.coach && !u.admin && <span className="tag acc">coach</span>}
       {u.disabled && <span className="tag" style={{ color: 'var(--red)' }}>disabled</span>}
       <span className="tag">joined {u.created ? fmtDate(u.created.slice(0, 10)) : '—'}</span>
@@ -75,12 +80,17 @@ function AccountSheet({ id, onChanged, close }) {
     {/* Their training is on the client's own page, not here. This screen is about whether an
         account can sign in at all — the workout list that used to sit under these tiles is the
         same data Clients → someone → Overview already shows, in a place that knows whose it is. */}
-    {u.coachId && <div className="dim small" style={{ margin: '12px 0 0', lineHeight: 1.45 }}>
+    {/* `=== me.id`, not merely "has a coach": an admin can still assign a member to one of several
+        coaches from the legacy page, and telling them to look under Clients for somebody who is
+        not theirs sends them to a list that person is not on. */}
+    {u.coachId === me?.id && <div className="dim small" style={{ margin: '12px 0 0', lineHeight: 1.45 }}>
       One of your clients. Their training, check-ins and programs are on their page under Clients.
     </div>}
 
     {/* Not offered for your own account: disabling yourself signs you out of the screen you are
         standing on, with nobody left who can turn it back on. */}
+    {/* The server refuses to disable any admin (server.js), so the button is hidden for all of
+        them — not only for the viewer. */}
     {!u.admin && <button className={'btn ' + (u.disabled ? 'primary' : 'danger')} style={{ margin: '12px 0 4px' }}
       onClick={() => u.disabled ? setDisabled(false) : confirmSheet({
         title: 'Disable ' + u.name + '?',
@@ -90,13 +100,16 @@ function AccountSheet({ id, onChanged, close }) {
       })}>
       {u.disabled ? 'Enable account' : 'Disable account'}</button>}
     {u.admin && <div className="dim small" style={{ marginTop: 12 }}>
-      This is you. Disabling it would sign you out with nobody able to undo it.
+      {u.id === me?.id
+        ? 'This is you. Disabling it would sign you out with nobody able to undo it.'
+        : 'This account runs the instance and cannot be disabled from here.'}
     </div>}
   </>
 }
 
 export function BusinessAccounts() {
   const isAdmin = useAdminOnly()
+  const me = useStore(s => s.user)
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
   const [users, setUsers] = useState(null)
@@ -122,7 +135,8 @@ export function BusinessAccounts() {
           onClick={() => openSheet(close => <AccountSheet id={u.id} onChanged={load} close={close} />)}>
           <div className="grow">
             <div className="tt">{u.name}
-              {u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>you</span>}
+              {u.id === me?.id && <span className="tag acc" style={{ marginLeft: 4 }}>you</span>}
+              {u.admin && u.id !== me?.id && <span className="tag acc" style={{ marginLeft: 4 }}>admin</span>}
               {u.coach && !u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>coach</span>}
               {u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>off</span>}</div>
             <div className="ss">{u.workouts} workouts · synced {rel(u.lastSync)}</div>
