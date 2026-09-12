@@ -89,21 +89,19 @@ export const DEF = {
   // lib/bar.js). Personal equipment, so it syncs with the account but never travels in a
   // shared plan. Logged weights stay the total — this only feeds the plate math.
   barWeights: {},
-  // Gym check-in cards (see views/CheckIn.jsx). Each is a membership
-  // code shown as a QR/barcode at the gym's turnstile — added by typing it, importing a photo
-  // of the card, or scanning it. We only ever keep the code's VALUE, never a photo: the image
-  // is regenerated from `value` every time it's shown (lib/qr.js). `fmt` is the barcode symbology
-  // ('qrcode' | 'ean13' | 'code128' | … — lower-cased BarcodeFormat) so it renders as the same
-  // kind of code the gym issued. Just data, so it syncs and backs up like everything else.
-  //   [{ id, label, value, fmt }]
+  // Gym membership codes: [{ id, label, value, fmt }], `fmt` being the barcode symbology the
+  // gym issued ('qrcode' | 'ean13' | 'code128' | …). The screen that displayed them as a
+  // scannable card is gone — this fork coaches people, it does not run a turnstile.
+  //
+  // The DATA the screen wrote stays, for two reasons. It is listed in DATA_KEYS below, which is
+  // what `hasData` asks before letting a server copy overwrite a device wholesale; drop it and a
+  // profile whose only records are gym cards reads as empty and gets replaced. And it is a code
+  // somebody typed in by hand, still in every backup `doExport` writes, so it is theirs to
+  // retrieve — unlike the AI Coach blob in GONE below, which nothing could reach.
+  //
+  // Nothing writes these three any more. They are kept, not revived: no screen reads them.
   gymCards: [],
-  // The card the check-in screen last settled on, so it reopens where you left it (handy when
-  // you have more than one gym). Holds a gymCards id, or null before any card exists / is chosen;
-  // a stale id (card since removed) is simply ignored by the view.
   lastGymCardId: null,
-  // Whether the check-in feature is on at all (Settings toggle). Off hides the Home
-  // card and the /checkin route; the saved gymCards stay so turning it back on restores them.
-  // Defaults on; an older profile without the key reads as on (`!== false`).
   checkIn: true,
 }
 const clone = o => JSON.parse(JSON.stringify(o))

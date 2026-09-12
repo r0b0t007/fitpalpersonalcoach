@@ -104,9 +104,8 @@ function decode(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const img = new Image()
-    // Revoked on BOTH paths. lib/scan-web.js's equivalent never revokes its object URL, which is
-    // survivable for a one-shot QR import and is not here: a photo picked, rejected and picked
-    // again would pin every attempt's full-resolution bitmap for the life of the tab.
+    // Revoked on BOTH paths, success and failure. A photo picked, rejected and picked again
+    // would otherwise pin every attempt's full-resolution bitmap for the life of the tab.
     img.onload = () => { URL.revokeObjectURL(url); resolve(img) }
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That image could not be read.')) }
     img.src = url

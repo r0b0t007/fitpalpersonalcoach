@@ -47,10 +47,13 @@ updates:
       # `@capacitor/core >=8.0.0`). A plugin major is unmergeable until core moves, by
       # construction, so it is noise rather than a decision.
       #
-      # Both are also on their way out rather than up: barcode-scanning is reached only from
-      # lib/scan.js via views/CheckIn.jsx, which P6 deletes; secure-storage is reached only
-      # from lib/forget-coach.js, kept one release to wipe the credential the AI Coach left in
-      # the Keychain/Keystore. When those go, so do these two entries.
+      # Both are also on their way out rather than up. P6 deleted views/CheckIn.jsx and
+      # lib/scan.js, so barcode-scanning now has no importer at all — it stays installed only
+      # because frontend/android and frontend/ios reference it in capacitor.build.gradle,
+      # capacitor.settings.gradle and the Podfile, and removing it means regenerating those
+      # with `npx cap sync` on a machine that has the native toolchains. secure-storage is
+      # reached only from lib/forget-coach.js, kept one release to wipe the credential the AI
+      # Coach left in the Keychain/Keystore. When both packages go, so do these two entries.
       - dependency-name: '@capacitor-mlkit/*'
         update-types: ['version-update:semver-major']
       - dependency-name: '@aparajita/*'
