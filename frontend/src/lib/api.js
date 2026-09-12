@@ -18,6 +18,10 @@ export const webauthnOK = () => typeof window.PublicKeyCredential !== 'undefined
 let remoteBase = ''
 let remoteToken = null
 export function setRemoteAuth(base, token) { remoteBase = base || ''; remoteToken = token || null }
+// Where the server actually is, for the one case that needs to say it out loud rather than call
+// it: an invite link the coach hands to somebody else (lib/invite.js). On the paired mobile build
+// the WebView's own origin is capacitor://localhost, which is not a place anyone else can open.
+export const serverBase = () => remoteBase
 
 export async function api(path, opts) {
   const headers = Object.assign({ 'Content-Type': 'application/json' }, opts && opts.headers)

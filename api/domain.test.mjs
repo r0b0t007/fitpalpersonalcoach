@@ -11,7 +11,7 @@ import {
   pendingAssignmentsFor, ASSIGN_MAX_ROUTINES, ASSIGN_MAX_EX, ASSIGN_PENDING_DAYS,
   ASSIGN_NOTE_MAX, NUTRI_MAX_KCAL, NUTRI_MAX_MACRO,
   sessionsOverlap, findSessionConflicts,
-  sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, coachBinding,
+  sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, coachBinding, redeemableInvite,
   checkinReminderDue, checkinPeriodStart, checkinDayOf, DEFAULT_CHECKIN_DAY, safeMediaFile,
   cleanProgram, upsertProgram, COACH_MAX_PROGRAMS, PROGRAM_NAME_MAX
 } from './domain.mjs'
@@ -559,6 +559,50 @@ test('safeMediaFile refuses everything that is not a plain stored file', () => {
 /* ---------- taking a client on ---------- */
 // This decides whether redeeming an invite puts someone on a coach's roster, and no smoke test can
 // reach it — registration needs a real passkey. So the rules live here.
+
+/* ---------- is this code still good? ---------- */
+// Four callers share this answer — both halves of registration, the landing screen that asks whose
+// invite it is, and redeeming one from an account that already exists. They each used to spell the
+// check out, which is four chances for the one that drifts to be the one that readmits a spent code.
+
+const INVITES = [
+  { code: 'OPEN000000000000' },
+  { code: 'USED000000000000', usedBy: 'mem1', usedAt: '2026-01-02T00:00:00.000Z' },
+  { code: 'DEAD000000000000', revoked: true },
+]
+
+test('an unused, unrevoked code is redeemable', () => {
+  assert.equal(redeemableInvite(INVITES, 'OPEN000000000000').code, 'OPEN000000000000')
+})
+
+test('a code that has been used or revoked is not', () => {
+  assert.equal(redeemableInvite(INVITES, 'USED000000000000'), null)
+  assert.equal(redeemableInvite(INVITES, 'DEAD000000000000'), null)
+})
+
+// The gate compared the code raw, so whether a real invite worked came down to the sender's
+// keyboard — a link pasted through something that lower-cased it, or a code copied with the space
+// after it, read as "no such code" to someone holding a perfectly good one.
+test('it is found however it was typed, pasted or lower-cased on the way', () => {
+  for (const v of ['open000000000000', '  OPEN000000000000  ', 'Open000000000000\n'])
+    assert.equal(redeemableInvite(INVITES, v)?.code, 'OPEN000000000000', JSON.stringify(v))
+})
+
+test('nothing, or nothing matching, is not an error', () => {
+  for (const v of [null, undefined, '', '   ', 'NOSUCHCODE', 0, {}])
+    assert.equal(redeemableInvite(INVITES, v), null, JSON.stringify(v))
+  assert.equal(redeemableInvite(null, 'OPEN000000000000'), null)
+  assert.equal(redeemableInvite([null, undefined], 'OPEN000000000000'), null)
+})
+
+// Minted codes are 16 hex characters, but BOOTSTRAP_CODE is whatever the operator exported and
+// older databases carry hand-written ones. A format check here would invalidate codes that are
+// already sitting in somebody's messages.
+test('it does not judge the shape of a code', () => {
+  assert.equal(redeemableInvite([{ code: 'LET-ME-IN' }], 'let-me-in').code, 'LET-ME-IN')
+})
+
+/* ---------- who does redeeming it put them with? ---------- */
 
 const INVITER = { id: 'c1', name: 'Ahmed', coach: true }
 

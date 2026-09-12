@@ -18,7 +18,9 @@ cat > "$D/db.json" <<'JSON'
   {"id":"mem1","name":"Mine","coachId":"coachA","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem2","name":"Theirs","coachId":"coachB","created":"2026-01-01T00:00:00.000Z"},
   {"id":"mem3","name":"Unassigned","created":"2026-01-01T00:00:00.000Z"},
-  {"id":"mem4","name":"Disabled","coachId":"coachA","disabled":true,"created":"2026-01-01T00:00:00.000Z"}
+  {"id":"mem4","name":"Disabled","coachId":"coachA","disabled":true,"created":"2026-01-01T00:00:00.000Z"},
+  {"id":"mem5","name":"Solo","created":"2026-01-01T00:00:00.000Z"},
+  {"id":"mem6","name":"Also solo","created":"2026-01-01T00:00:00.000Z"}
 ],"creds":[],"subs":[],"requests":[],"sessions":[],"assignments":[],
 "media":[{"id":"brokenrow","exId":"0099","coachId":"coachA","mime":"video/mp4","status":"ready"}],
 "invites":[
@@ -68,6 +70,9 @@ const p='$1:'+(Date.now()+86400000)+':0';
 process.stdout.write('gymsid='+p+'.'+c.createHmac('sha256','$SECRET').update(p).digest('base64url'));
 "; }
 ADMIN=$(cook adminX); CA=$(cook coachA); CB=$(cook coachB); M1=$(cook mem1); M2=$(cook mem2)
+# Two accounts with no coach: joining one by link is a thing an EXISTING user does, and it
+# needs a second to prove a spent code cannot be used twice.
+M5=$(cook mem5); M6=$(cook mem6)
 
 pass=0; fail=0
 chk() { # chk <label> <expected> <actual>
@@ -655,6 +660,68 @@ chk "a bundle that omits it carries nothing"   200 "$(sendday none)"
 chk "...and the key is simply absent"       absent "$(lastday)"
 chk "a day that is not a weekday is refused"   400 "$(sendday 9)"
 chk "and neither is an empty array"            400 "$(sendday '[]')"
+
+echo "== an invite link, before you have an account =="
+# The sign-in screen asks this with no session at all, which is the whole point of the route.
+NEWCODE=$(get -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"note":"link test"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "an open coach code names the coach"      200 "$(code "$B/api/invite?code=$NEWCODE")"
+chk "...and it is the right coach"      "Coach A" "$(get "$B/api/invite?code=$NEWCODE" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).coachName)")"
+# Codes travel by message and come back lower-cased, or with the space after them.
+chk "a lower-cased code still resolves"       200 "$(code "$B/api/invite?code=$(echo "$NEWCODE" | tr 'A-Z' 'a-z')")"
+# The same 404 for spent, revoked and never-existed: anything else is a scanner.
+chk "a redeemed code is 404"                  404 "$(code "$B/api/invite?code=REDEEMEDMINE0000")"
+chk "a code nobody minted is 404"             404 "$(code "$B/api/invite?code=NOSUCHCODE000000")"
+chk "no code at all is 404, not a crash"      404 "$(code "$B/api/invite")"
+# An admin's general invite is a real, live code that binds nobody. It must not name a coach.
+GEN=$(get -X POST "$B/api/admin/invites/new" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"note":"general"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "a general invite names nobody"          null "$(get "$B/api/invite?code=$GEN" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).coachName)")"
+
+echo "== redeeming one from an account you already have =="
+chk "anonymous cannot redeem"                 401 "$(code -X POST "$B/api/invite/redeem" -H 'Content-Type: application/json' -d "{\"code\":\"$NEWCODE\"}")"
+# mem1 is already coachA's. Being handed a link must never move a client between coaches — that
+# is a decision with a person on the other end of it.
+chk "someone who has a coach is refused"      409 "$(code -X POST "$B/api/invite/redeem" -H 'Content-Type: application/json' -H "Cookie: $M1" -d "{\"code\":\"$NEWCODE\"}")"
+# A general code binds nobody, so redeeming it would burn somebody's signup code for nothing.
+chk "a code belonging to no coach is refused" 400 "$(code -X POST "$B/api/invite/redeem" -H 'Content-Type: application/json' -H "Cookie: $M5" -d "{\"code\":\"$GEN\"}")"
+chk "...and that code is still live"          200 "$(code "$B/api/invite?code=$GEN")"
+chk "an unassigned member joins the coach"    200 "$(code -X POST "$B/api/invite/redeem" -H 'Content-Type: application/json' -H "Cookie: $M5" -d "{\"code\":\"$NEWCODE\"}")"
+chk "...and is on the roster now"               1 "$(get -H "Cookie: $CA" "$B/api/coach/members" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).members.filter(m=>m.id==='mem5').length")"
+chk "...and the code is spent"                404 "$(code "$B/api/invite?code=$NEWCODE")"
+chk "so a second person cannot reuse it"      404 "$(code -X POST "$B/api/invite/redeem" -H 'Content-Type: application/json' -H "Cookie: $M6" -d "{\"code\":\"$NEWCODE\"}")"
+
+echo "== releasing a client =="
+chk "coach cannot release another's client"   403 "$(code -X POST "$B/api/coach/member/release" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"mem2"}')"
+chk "...nor somebody who does not exist"      403 "$(code -X POST "$B/api/coach/member/release" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"nobody"}')"
+chk "a member cannot release anyone"          403 "$(code -X POST "$B/api/coach/member/release" -H 'Content-Type: application/json' -H "Cookie: $M1" -d '{"id":"mem5"}')"
+# A pending offer must not outlive the relationship: it stays acceptable for ASSIGN_DECIDED_DAYS
+# with an ex-coach's name on the card, and eats the per-member pending cap while it sits there.
+chk "coachA sends mem5 a program first"       200 "$(send "$CA" '["mem5"]')"
+chk "...mem5 has it pending"                    1 "$(get -H "Cookie: $M5" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+chk "coach releases their own client"         200 "$(code -X POST "$B/api/coach/member/release" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"id":"mem5"}')"
+chk "...they leave the roster"                  0 "$(get -H "Cookie: $CA" "$B/api/coach/members" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).members.filter(m=>m.id==='mem5').length")"
+chk "...the pending offer goes with it"         0 "$(get -H "Cookie: $M5" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+chk "...and the coach can no longer read them" 403 "$(code -H "Cookie: $CA" "$B/api/coach/member?id=mem5")"
+# An ADMIN releasing another coach's client is the case that exposed whose offers get expired:
+# requireCoach admits admins and canCoachMember lets them act on anyone, so a route that expired
+# by the CALLER's id detached the member and left every offer behind — acceptable for a month with
+# the ex-coach's name on it, and eating the per-member cap so the next coach is blocked with
+# "already has N programs waiting" and nobody can clear it.
+chk "coachA sends mem1 a program"             200 "$(send "$CA" '["mem1"]')"
+# "some", not a count: mem1 has collected offers earlier in this suite and pinning the exact
+# number here would break every time a check above it sends one more.
+chk "...mem1 has offers pending"             some "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length ? 'some' : 'none'")"
+chk "an admin can release another's client"   200 "$(code -X POST "$B/api/coach/member/release" -H 'Content-Type: application/json' -H "Cookie: $ADMIN" -d '{"id":"mem1"}')"
+chk "...and THAT coach's offers go too"         0 "$(get -H "Cookie: $M1" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments.length")"
+
+# A coach opening their own link would otherwise end up coaching themselves, with no way out:
+# the code is spent, release 403s on self, and every later redeem answers 409.
+SELF=$(get -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"note":"self"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "a coach cannot redeem their own link"    400 "$(code -X POST "$B/api/invite/redeem" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "{\"code\":\"$SELF\"}")"
+chk "...and the link is not burnt by trying"  200 "$(code "$B/api/invite?code=$SELF")"
+
+# Released, not disabled: they keep their account and can join someone else.
+CODE2=$(get -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"note":"again"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "a released client can join again"        200 "$(code -X POST "$B/api/invite/redeem" -H 'Content-Type: application/json' -H "Cookie: $M5" -d "{\"code\":\"$CODE2\"}")"
 
 echo ""
 echo "passed $pass, failed $fail"

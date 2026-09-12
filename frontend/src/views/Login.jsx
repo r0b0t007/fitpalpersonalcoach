@@ -42,6 +42,35 @@ function RequestAccessSheet({ close }) {
   </>
 }
 
+/**
+ * Who sent this link, according to the server.
+ *
+ * `undefined` while asking, `null` for "nobody / not a live invite". The distinction matters: a
+ * screen that renders "someone invited you" before the answer arrives, and then takes it back,
+ * is worse than one that waits a beat. GET /api/invite deliberately 404s for a spent, revoked or
+ * unknown code, so a stale link quietly falls back to the ordinary sign-up.
+ */
+let inviterAsked = null
+function useInviter() {
+  const code = pendingInvite()
+  const [name, setName] = useState(undefined)
+  useEffect(() => {
+    if (!code || DEMO) { setName(null); return }
+    let alive = true
+    // Asked once per code, not once per component. The register sheet auto-opens OVER the rendered
+    // Login and both want the answer, which was two identical unauthenticated requests on every
+    // single arrival from a link — the one request shape anybody can make without an account.
+    if (!inviterAsked) inviterAsked = api('/api/invite?code=' + encodeURIComponent(code))
+      .then(d => d.coachName || null)
+      // Offline, or the code is spent. Either way there is nobody to name, and registration is
+      // still perfectly possible — the code rides along and the server decides.
+      .catch(() => null)
+    inviterAsked.then(n => { if (alive) setName(n) })
+    return () => { alive = false }
+  }, [code])
+  return name
+}
+
 function RegisterSheet({ close }) {
   const { setUser, pushState, pullState, loadConfig } = useStore()
   const config = useStore(s => s.config)
@@ -51,6 +80,7 @@ function RegisterSheet({ close }) {
   const fromLink = pendingInvite()
   const [code, setCode] = useState(fromLink)
   const inviteOnly = !!config?.invite_only
+  const inviter = useInviter()
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
   // Boot already fetched this; retry here only if that attempt failed, so the invite field still
@@ -61,7 +91,7 @@ function RegisterSheet({ close }) {
     if (!n) { useUI.getState().toast(t('Enter a name')); return }
     if (inviteOnly && !code.trim()) { useUI.getState().toast(t('An invite code is required')); return }
     try {
-      const u = await passkeyRegister(n, code.trim())
+      const u = await passkeyRegister(n, (inviter ? fromLink : code).trim())
       clearInvite()   // redeemed: drop it from memory and from the address bar
       setUser(u); close()
       if (hasData(useStore.getState().S)) { await pushState(); useUI.getState().toast(t('Profile created — data from this device moved into it')) }
@@ -69,17 +99,33 @@ function RegisterSheet({ close }) {
     } catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Registration failed')) }
   }
   return <>
-    <h3>{t('Create your profile')}</h3>
-    <div className="muted small" style={{ marginBottom: 14 }}>{t('Pick a name, then confirm with {0}. The passkey is saved in your device — no password needed.', BIO)}</div>
+    <h3>{inviter ? t('{0} invited you', inviter) : t('Create your profile')}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>
+      {inviter
+        ? t('Pick a name and confirm with {0}. You will arrive on {1}’s client list — they can see your training and send you programs.', BIO, inviter)
+        : t('Pick a name, then confirm with {0}. The passkey is saved in your device — no password needed.', BIO)}
+    </div>
     <input ref={ref} className="input" placeholder={t('Your name')} maxLength={40} value={name} onChange={e => setName(e.target.value)} />
-    {inviteOnly && <>
+    {/* Read-only once the link has been checked and a coach named: there is nothing to decide,
+        and an editable field invites someone to "fix" a code that is already right. It is still
+        shown rather than hidden, so what is about to happen is visible. */}
+    {(inviteOnly || inviter) && <>
       <div style={{ height: 10 }} />
-      <input className="input" placeholder={t('Invite code')} maxLength={40} value={code}
-        onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
+      {/* `fromLink`, not `code`, whenever a coach was named: this sheet auto-opens the moment
+          config lands, while GET /api/invite is still in flight, so anything typed in that window
+          would otherwise be frozen into a read-only field captioned "From your invite link" —
+          registration then fails with "invite code is no longer valid" and nothing on the screen
+          can put it right. What the link carries is what gets sent. */}
+      <input className="input" placeholder={t('Invite code')} maxLength={40}
+        value={inviter ? fromLink : code}
+        readOnly={!!inviter} onChange={e => setCode(e.target.value.toUpperCase())}
+        style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center', ...(inviter ? { opacity: .7 } : {}) }} />
       <div className="dim small" style={{ marginTop: 6 }}>
-        {fromLink && code === fromLink
-          ? t('Invite code filled in from your link.')
-          : t('This app is invite-only — enter the code you were given.')}
+        {inviter
+          ? t('From your invite link.')
+          : fromLink && code === fromLink
+            ? t('Invite code filled in from your link.')
+            : t('This app is invite-only — enter the code you were given.')}
       </div>
     </>}
     <div style={{ height: 12 }} />
@@ -96,6 +142,7 @@ export default function Login() {
   const { setUser, pullState, setGuest } = useStore()
   const config = useStore(s => s.config)
   const canGuest = guestAllowed(config)
+  const inviter = useInviter()
   // Arriving from an invite link means the intent is already clear, so open the sheet rather than
   // leaving a prefilled field behind a button nobody was told to press. Waits for config, since
   // that decides whether the code field renders at all; DEMO has no backend to join.
@@ -131,7 +178,9 @@ export default function Login() {
   return (
     <div className="narrow" style={wrap}>
       {head}
-      <div className="muted" style={{ marginBottom: 34 }}>{t('Your workouts. Your weights. Your profile.')}</div>
+      <div className="muted" style={{ marginBottom: 34 }}>
+        {inviter ? t('{0} invited you to train with them.', inviter) : t('Your coach. Your plan. Your progress.')}
+      </div>
       {webauthnOK() ? <>
         <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
         <div style={{ height: 10 }} />
