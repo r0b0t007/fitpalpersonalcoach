@@ -12,6 +12,7 @@
 // check-bundle-complete.mjs is deliberately absent — it needs a built deploy bundle, which is a
 // CI-only artifact.
 import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -24,7 +25,6 @@ const GUARDS = [
   ['check-audit-labels.mjs', ['api/server.js', 'frontend/src/lib/audit.js']],
   ['check-adherence-window.mjs', ['api/server.js', 'frontend/src/lib/adherence.js']],
   ['check-checkin-day.mjs', ['api/domain.mjs', 'frontend/src/lib/checkins.js']],
-  ['check-core-loadable.mjs', ['api/server.js', 'api/domain.mjs']],
 ]
 
 const read = () => new Promise(resolve => {
@@ -46,7 +46,16 @@ let rel
 try { rel = relative(root, file).split(sep).join('/') } catch { process.exit(0) }
 if (!rel || rel.startsWith('..')) process.exit(0)
 
-const due = GUARDS.filter(([, files]) => files.includes(rel)).map(([script]) => script)
+// A guard that is no longer in the repo is skipped, not treated as a failure. This table once
+// listed check-core-loadable.mjs, the script deleted along with the AI Coach, and the throw from
+// the missing file was collected as a failure like any other — so every edit to api/server.js and
+// api/domain.mjs was rejected with a MODULE_NOT_FOUND stack. A hook that blocks work because a
+// check it names has been retired gets switched off within a day, which costs more than the
+// checks are worth.
+const due = GUARDS
+  .filter(([, files]) => files.includes(rel))
+  .map(([script]) => script)
+  .filter(script => existsSync(join(scripts, script)))
 if (!due.length) process.exit(0)
 
 const failures = []

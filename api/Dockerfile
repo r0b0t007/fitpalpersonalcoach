@@ -1,15 +1,7 @@
-# Two targets from one file.
-#
-#   default (built when no --target is given) — what every instance has always got. No AI
-#           runtime, no AI dependency: `npm ci --omit=optional` skips the Agent SDK and its
-#           platform runtime entirely, so an owner who never wanted the Coach carries none of it.
-#   coach                                     — the same image plus the Claude Agent SDK.
-#
-# Build the opt-in one with:  docker build --target coach ./api
-# or through compose with:    API_TARGET=coach docker compose up --build
-#
-# The stage order matters: Docker builds the *last* stage when none is named, so `default` is
-# deliberately last and `coach` sits above it.
+# One image. There used to be two targets — a default one and a `coach` one carrying the Claude
+# Agent SDK, the Codex CLI and a bubblewrap sandbox for the AI Coach. That feature is gone, and
+# with it the optional dependency, the second npm install, the global CLI, the sandbox, the
+# unprivileged `coach` user and the /coach-auth volume.
 
 FROM node:26-alpine AS base
 
@@ -36,27 +28,15 @@ WORKDIR /app
 # build time keeps the published image at alpine's current state without waiting for node.
 RUN apk upgrade --no-cache
 
-# The unprivileged user Coach jobs drop to. Its uid cannot read /data, which is the control that
-# keeps a provider runtime away from users, passkeys and the session secret.
-#
-# Not optional, and not only for the real providers: canDropPrivileges() fails closed on Linux,
-# so in an image without this user *every* job is refused with "no `coach` user exists in this
-# image" — including the fixture provider that exists precisely so the loop can be walked before
-# an account is connected. It costs one line and no bytes worth measuring.
-RUN adduser -D -H -s /sbin/nologin coach
-
 COPY package.json package-lock.json* ./
-# `npm ci` rather than `npm install`: the lockfile is the point of committing one, and the SDK's
-# per-platform runtime is resolved from it (musl on this base) rather than from whatever the
-# build host happened to be.
-RUN npm ci --omit=dev --omit=optional && npm cache clean --force
+# `npm ci` rather than `npm install`: the lockfile is the point of committing one.
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Every top-level runtime module, not a hand-maintained list. This file carried such a list and
 # a module was left out of it twice — the image builds clean and the container dies at boot on
 # ERR_MODULE_NOT_FOUND, with CI green, because CI runs from the repo where the file is present.
 # api/.dockerignore is what keeps the wildcard from dragging tests and scripts in with it.
 COPY *.js *.mjs ./
-COPY coach ./coach
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
@@ -68,31 +48,10 @@ HEALTHCHECK --interval=5m \
             CMD wget --spider -q "http://127.0.0.1:${PORT}/api/health" || exit 1
 
 # ---------------------------------------------------------------------------------------------
-# The opt-in target. Dropping --omit=optional is the whole difference: it pulls in
-# @anthropic-ai/claude-agent-sdk together with the one platform runtime this base needs
-# (linux-*-musl), both pinned by the lockfile.
-FROM base AS coach
-RUN npm ci --omit=dev && npm cache clean --force
-
-# Codex ships as a CLI rather than a library, so it is installed rather than resolved, and
-# bubblewrap is its sandbox — a Codex requirement, which is why neither appears in the default
-# target or anywhere in this tree until now.
-RUN apk add --no-cache bubblewrap \
- && npm install -g @openai/codex \
- && npm cache clean --force
-
-# Where Codex keeps its refreshable login cache. Deliberately a sibling of /data rather than a
-# path inside it: docs/SELF_HOSTING tells owners to back up with `tar czf … data/`, and a live
-# refresh token has no business riding along in every archive that instruction produces. Owned
-# by `coach` because the job that writes it has already dropped to that user.
-RUN mkdir -p /coach-auth && chown coach:coach /coach-auth && chmod 700 /coach-auth
-VOLUME ["/coach-auth"]
-
-# ---------------------------------------------------------------------------------------------
-# Last, so that a plain `docker build ./api` keeps producing the runtime-free image.
+# Kept as a named stage so `--target default` still works for anyone whose CI names it.
 FROM base AS default
 # npm itself is only a build-time tool here: the server is started with `node server.js` and
 # nothing in it spawns npm. Its bundled dependency tree (tar, brace-expansion, ...) is where
 # every vulnerability the image scan ever reported lived — none of them was in a package the
-# app uses. Gone from the published image; the coach target keeps npm for the Codex CLI.
+# app uses, so it goes.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx

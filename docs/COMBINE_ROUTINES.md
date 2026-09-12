@@ -325,79 +325,22 @@ excluded routine, through `buildSessionEntries`.
 
 ---
 
-## 7. Coach — read-context & plan fingerprint
+## 7. Coach — read-context & plan fingerprint *(removed)*
 
-From [ENG-15](https://linear.app/factical/issue/ENG-15). The plan fingerprint is computed in
-two runtimes that share no build step (`frontend/src/lib/coach.js` and `api/coach/core/`) and
-must stay byte-for-byte matched. See `docs/AI_COACH.md` for the feature overview.
+This section specified the plan fingerprint that the AI Coach computed in two runtimes —
+`frontend/src/lib/coach.js` and `api/coach/core/` — which had to stay byte-for-byte matched
+because the server and the client each hashed the plan independently.
 
-**Canonical form** — one string form shared by both runtimes. `canonicalPlan` (both) and
-`cleanPlan` (server) normalise every day to an array:
+That feature has been removed, and with it every module this section named: `canonicalPlan`,
+`cleanPlan`, `hashPlan`, `payload.js`, `plan-hash.js`, `validate.js`, the prompt files and the
+job runner. None of them exists in the tree any more.
 
-```js
-week: Object.fromEntries(
-  [1,2,3,4,5,6,0].filter(d => S.week?.[d]?.length).map(d => [d, [].concat(S.week[d])])
-)
-```
+Kept as a heading rather than deleted so the numbering of sections 8-11 still matches the
+Linear issues (ENG-14, ENG-15) and every link into this document from elsewhere.
 
-Bare string `'r1'` and `['r1']` both normalise to `['r1']` — legacy and new-shape values are
-indistinguishable downstream. `?.length` replaces the old truthiness filter so a stray `[]`
-cannot leak in. Insertion order is preserved and **never sorted** (it is the merge order).
-
-**`hashPlan`** (both runtimes) joins each day's list explicitly:
-
-```js
-week: Object.keys(plan?.week || {}).sort().map(k => k + '=' + plan.week[k].join('+'))
-```
-
-`{1:['r1']}` → `"1=r1"` — **byte-identical to the pre-upgrade fingerprint** for every
-existing single-routine plan, so no false-stale storm on the first load after the update.
-`{3:['r2','r3']}` → `"3=r2+r3"`. The outer `Object.keys().sort()` still sorts the weekday
-keys; only the inner routine list is order-significant. `+` matches the ENG-12 display join.
-
-**Model payload.** `build()` sends `plan: cleanPlan(S)`, so `p.plan.week` values become
-`string[]`. The model is told, and told it still cannot compose a combined day:
-
-- `api/coach/prompts/common.md`, plan-reading notes — add: *"`plan.week` maps a weekday to
-  the list of routine ids trained that day — usually one; a combined day lists several, in
-  training order."*
-- `api/coach/prompts/review.md`, the `week` change-op row — add: a proposed `week` change
-  names **exactly one** routine (or `"rest"` / `null`) and **replaces** the day; the Coach
-  can move a day's routine but cannot build a combined day. On a combined day, `before` is
-  the list, `after` is a single id.
-
-**`api/` change list:**
-
-| File | Change |
-|---|---|
-| `api/coach/core/payload.js` — `canonicalPlan` | day value → `[].concat(S.week[d])`; filter `S.week?.[d]?.length` |
-| `api/coach/core/payload.js` — `cleanPlan` | same normalisation (stays ≡ `canonicalPlan` — the parity `coach.test.js` pins) |
-| `api/coach/core/payload.js` — `aggregates` | `plannedDays`: `filter(k => S.week[k]?.length)` — a combined day already counts as 1 |
-| `api/coach/core/plan-hash.js` — `hashPlan` | week join → `k + '=' + plan.week[k].join('+')` |
-| `api/coach/prompts/common.md` | one plan-reading bullet |
-| `api/coach/prompts/review.md` | `week` change-op clause |
-
-`api/coach/jobs.js:315` (calls the fixed helpers), `api/coach/core/validate.js` (validates
-the model's scalar proposed `week`; an array `beforeValue` for a combined day is
-display-only), the `api/coach/routes.js` handlers, and `cadence.js` (reads `cadence.weekly`)
-all need **no change**.
-
-**Frontend `lib/coach.js` change list:**
-
-| Function | Change |
-|---|---|
-| `canonicalPlan` / `hashPlan` | mirror the two server changes above |
-| `currentValue` `case 'week'` (`:143`) | `return [].concat(S.week?.[wd] ?? [])` (empty array = rest) |
-| `markStale` (`:168`) | `week` branch: stale when `norm(cur).join('+') !== norm(before).join('+')` |
-| `CHANGE_APPLY.week` (`:506-509`) | `else s.week[d] = [c.after]` — single-routine op, slot stays an array; collapses a combined day to one routine (same limitation as `DayOverride`, §8) |
-| `changeValues.fmt` (`:610-618`) | handle `c.type === 'week'` **before** the generic `Array.isArray` branch — render an array as `" + "`-joined routine names, `null` / empty as *Rest* |
-
-`markStale`'s `planMoved` check needs nothing (the stable canonical form means an untouched
-legacy plan hashes the same after the upgrade). Revert needs nothing — `snapshotPlan` /
-`revertLast` deep-clone the whole `{ routines, week }`. The `week` change op stays **strictly
-scalar**.
-
----
+The one rule here that outlived the feature is the week shape itself, and it is stated where it
+is enforced: a weekday maps to a LIST of routine ids, `[].concat()` normalises the legacy scalar,
+and an empty day is absent rather than `[]`. See §5 `lib/plan-share.js` and §8.
 
 ## 8. Data-model invariants
 
@@ -549,14 +492,8 @@ helper in `lib/` with a unit test beside it**. New/changed helpers and their cov
 
 ### Coach — `api/test/jobs.test.js` + frontend `coach.test.js`
 
-23. Shared fixture with a combined day (`week: {1:['r1','r2']}`) — client `hashPlan` ===
-    server `hashPlan`.
-24. Legacy fixture: `week: {1:'r1'}` vs `week: {1:['r1']}` — identical fingerprint (upgrade
-    stability).
-25. `canonicalPlan` / `cleanPlan`: a `[]` day is omitted; order preserved
-    (`['r2','r3']` ≠ `['r3','r2']`).
-26. `CHANGE_APPLY.week`: `after:'r3'` onto `['r1','r2']` → `['r3']`; `after:null` deletes the
-    key.
+23-26. *(removed)* — the plan-fingerprint checks. They pinned `hashPlan`, `canonicalPlan`,
+    `cleanPlan` and `CHANGE_APPLY.week`, all of which went with the AI Coach (see §7).
 27. `markStale`: `before:['r1','r2']`, live `['r1','r2']` → not stale; live
     `['r1','r2','r4']` → stale.
 28. `changeValues`: `before:['r1','r2']` renders as `"Rehab + Core"`, not `"2"`.

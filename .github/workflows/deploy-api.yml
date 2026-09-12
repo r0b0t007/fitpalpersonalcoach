@@ -91,7 +91,9 @@ jobs:
           cp -r node_modules package.json package-lock.json ../deploy/
           # Every top-level runtime module, not a hand-maintained list. Twice a new module was
           # added to the repo and not to that list: the container crashed on domain.mjs and the
-          # subdomain served a 503 for coach/config.js, both with CI green.
+          # subdomain served a 503 for a module under the old coach/ tree, both with CI green.
+          # That tree is gone with the AI Coach, so there is no directory left to copy — but the
+          # wildcard stays, because the reason it replaced a hand-written list has not changed.
           for f in *.js *.mjs; do
             # An unmatched glob arrives as its own literal, and `cp '*.mjs'` under `bash -e`
             # would kill the deploy with an error that points nowhere near the cause.
@@ -99,7 +101,6 @@ jobs:
             case "$f" in *.test.js|*.test.mjs) continue ;; esac
             cp "$f" ../deploy/
           done
-          cp -r coach ../deploy/
           date -u +'%Y-%m-%dT%H:%M:%SZ' > ../deploy/tmp/restart.txt
 
       # The bundle is the only place a missing module exists, so it is the only place worth

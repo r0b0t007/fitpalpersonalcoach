@@ -15,8 +15,10 @@ What this fork adds on top of upstream, none of which upstream's notes below des
 - **A human coach role, with its own shell.** `App.jsx` renders one of two route tables from
   `lib/role.js`: a coach gets `/today` (the dashboard, `views/Coach.jsx`) and `/account` with
   `CoachTabBar`; a client gets `/home` and the training app. The dashboard's old address
-  `/trainer` redirects (it could never be `/coach` — upstream took that for its AI Coach during
-  the 401-commit merge). Coach surfaces are deliberately **English-only**, like `Admin.jsx`;
+  `/trainer` redirects. (It could not be `/coach` when the split was made — upstream's AI Coach
+  owned that path. That feature has since been removed, but `/today` is what shipped and renaming
+  a live route to reclaim a path buys nothing.) Coach surfaces are deliberately **English-only**,
+  like `Admin.jsx`;
   they use raw strings, not `t()`.
 - **`StatsPanels`** (`views/Stats.jsx`) is exported and prop-driven so the coach sees a client's
   own charts by passing a different `S`. Keeping panels prop-driven is what makes every new
@@ -96,7 +98,6 @@ Several `check-*.mjs` scripts guard things a test cannot see, and are wired into
   never see it; this has taken the API down twice.
 - `api/scripts/check-adherence-window.mjs` — ties `ADHERENCE_SEND_DAYS` (api) to
   `ADHERENCE_WINDOW_DAYS` (frontend) across a boundary neither side can import across.
-- `api/scripts/check-core-loadable.mjs`, `scripts/build-coach-assets.mjs --check`.
 
 Node in the images is **26** (`node:26-alpine`), but the live cPanel deployment runs Node 22 —
 they are separate paths and do not have to match.
@@ -174,8 +175,8 @@ output), `api`, `web` (multi-stage build of `frontend/` served by nginx, which a
 ## Guidelines from CONTRIBUTING.md worth knowing before changing code
 
 - **Dependency-light is a hard constraint, not a preference.** Frontend: React + Router + Zustand
-  and nothing else. `api/`: three dependencies total (`@simplewebauthn/server`, `web-push`,
-  `undici`). New dependencies are a hard sell either side.
+  and nothing else. `api/`: two dependencies total (`@simplewebauthn/server`, `web-push`). `undici` was the
+  third until the AI Coach went — its only callers were that feature's HTTP adapters. New dependencies are a hard sell either side.
 - Don't commit `media/` or `data/` (gitignored).
 - Training-logic changes (progression, 1RM, session read-back) need a unit test in `src/lib`
   beside the code, not just manual clicking-through.

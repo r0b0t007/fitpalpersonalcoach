@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { setShellPref } from '../lib/role.js'
+import { forgetCoachSecrets } from '../lib/forget-coach.js'
 import { api, setRemoteAuth } from '../lib/api.js'
 import { localTZ, todayISO } from '../lib/format.js'
 import { compactMeals } from '../lib/nutrition.js'
@@ -8,7 +9,6 @@ import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, syncReminder, writeAutoBackup } from '../lib/mobile.js'
 import { loadRemote, chooseLocal, forgetRemote, connect } from '../lib/remote.js'
-import { loadCoachDevice, saveCoachDevice, coachDeviceSettings } from '../lib/coach-device.js'
 import { DEFAULT_LANG } from '../lib/i18n-core.js'
 
 import { WC_DEFAULT } from '../lib/workout-controls.js'
@@ -108,10 +108,30 @@ export const DEF = {
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 
+/**
+ * Keys from features that no longer exist.
+ *
+ * `coach` held the AI Coach's conversation, its proposal log, its snapshots and the consent
+ * record — up to ~75 KB by its own accounting. Nothing reads it now, but `S` is pushed WHOLE on
+ * every sync, so without this it would ride along for ever on every device of everyone who ever
+ * used the feature.
+ *
+ * The stronger reason is not bytes. That blob is a transcript of someone's conversation about
+ * their own training, and the only screens that could show or clear it are gone — leaving it
+ * would mean keeping a log the person can no longer read or delete. Dropped on the way in and on
+ * the way out, so a device that still has it discards it, and the next push writes the cleaned
+ * state back to the server.
+ *
+ * Deliberately not a general "unknown key" sweep: `S` is the client's own, and an older build
+ * must be able to hold a key a newer one has not learned about yet without a downgrade eating it.
+ */
+const GONE = ['coach']
+const forget = s => { for (const k of GONE) delete s[k]; return s }
+
 function loadState() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return Object.assign(clone(DEF), JSON.parse(raw))
+    if (raw) return forget(Object.assign(clone(DEF), JSON.parse(raw)))
   } catch (e) { /* ignore */ }
   return clone(DEF)
 }
@@ -153,6 +173,7 @@ export const useStore = create((set, get) => {
   }
 
   const persist = (S, push = true) => {
+    forget(S)
     S._ts = Date.now()
     registerCustom(S.customEx)
     localStorage.setItem(KEY, JSON.stringify(S))
@@ -214,15 +235,11 @@ export const useStore = create((set, get) => {
       catch { /* offline, or an older server without the route — no offers is the safe answer */ }
     },
 
-    /* Instance capabilities from GET /api/config. `config.coach` is present only when the owner
-       has both enabled the Coach and connected a provider — every Coach entry point in the app
-       hangs off it via coachAvailable(), so an unconfigured instance renders exactly what it
-       always did, and a configured one is the only place any of it appears. */
+    /* Instance capabilities from GET /api/config: whether signup needs an invite, whether guests
+       are allowed, whether access can be requested. It used to carry the AI Coach's flag too;
+       that feature is gone. */
     config: null,
     needsMobileOnboarding: false,   // mobile build only — set true by boot() on a genuine first launch
-    // Mobile build only: how the Coach runs on this phone — { mode: 'off'|'server'|'byok',
-    // provider, model, baseUrl } from lib/coach-device.js. Never the key, never a proposal.
-    coachLocal: null,
 
     // Mutate a draft of S via producer fn, then persist + schedule sync.
     update(mut, push = true) {
@@ -371,8 +388,12 @@ export const useStore = create((set, get) => {
       // device was paired to a server ("connect to my server" mode, lib/remote.js), in which
       // case it behaves exactly like the signed-in web flow below, straight from here.
       if (MOBILE) {
+        // Once, and never again: the provider API key and job file the AI Coach left in the
+        // Keychain and the app data directory, which no surviving screen can reach. Not
+        // awaited — a phone that cannot open its own keystore this morning must not delay
+        // first paint over a feature that no longer exists; it retries next launch.
+        forgetCoachSecrets()
         const remote = await loadRemote()
-        set({ coachLocal: coachDeviceSettings(await loadCoachDevice()) })
         if (remote?.mode === 'remote') {
           setRemoteAuth(remote.base, remote.token)
           try {

@@ -9,7 +9,13 @@
 import { describe, it, expect } from 'vitest'
 
 describe('the coach modules load and export what the screens import', () => {
-  it('parts, sheets and the three screens import cleanly', async () => {
+  // 30s, not the 5s default. This deliberately imports the WHOLE coach graph for real —
+  // parts, sheets, six screens, the routine editor and the client Settings screen it reaches
+  // into — and on a cold transform cache that lands either side of 5s. A test that fails
+  // once in a few runs for a reason that is not the code gets ignored, then deleted, and this
+  // one exists because a helper left behind in another module was a ReferenceError nothing
+  // else caught.
+  it('parts, sheets and the three screens import cleanly', { timeout: 30000 }, async () => {
     const parts = await import('./parts.jsx')
     const sheets = await import('./sheets.jsx')
     for (const n of ['rel', 'dur', 'memberState', 'memberAdherence', 'RosterAdherence', 'CheckinsCard', 'PhotosCard', 'AdherenceCard'])

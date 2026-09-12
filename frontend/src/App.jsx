@@ -44,9 +44,6 @@ import Programs from './views/coach/Programs.jsx'
 import ProgramEditShell, { ProgramEdit, ProgramRoutineEdit } from './views/coach/ProgramEdit.jsx'
 import CoachAccount from './views/coach/CoachAccount.jsx'
 import { BusinessAccounts, BusinessActivity } from './views/coach/Business.jsx'
-import CoachChat from './views/CoachChat.jsx'
-import CoachIntake from './views/CoachIntake.jsx'
-import CoachSetup from './views/CoachSetup.jsx'
 
 // last known scrollY per route, so back-navigation can put the page where it was
 const scrollPositions = new Map()
@@ -89,13 +86,6 @@ function ClientRoutes() {
       <Route path="/mycoach" element={<MyCoach />} />
       <Route path="/you" element={<You />} />
       <Route path="/settings" element={<Settings />} />
-      {/* The AI Coach screens gate themselves on the instance config; the routes exist
-          unconditionally so a deep link from a notification lands somewhere sane
-          rather than on the catch-all. */}
-      <Route path="/coach" element={<CoachChat />} />
-      <Route path="/coach/intake" element={<CoachIntake />} />
-      <Route path="/coach/proposal" element={<Navigate to="/coach" replace />} />
-      <Route path="/coach/setup" element={<CoachSetup />} />
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
   )
@@ -132,9 +122,6 @@ function CoachRoutes({ user }) {
           the pieces a single coach still needs (activity log, disabling an account) move into
           Account. Everything else on it — classes, timetable, access requests — is gym-only. */}
       <Route path="/admin" element={user?.admin ? <Admin /> : <Navigate to="/today" replace />} />
-      {/* Settings (now at /settings) links here on the phone build to choose how the AI coach
-          runs — a device setting, not a coaching feature, so the screen stays reachable. */}
-      <Route path="/coach/setup" element={<CoachSetup />} />
       {/* Shared screens still say nav('/you') and nav('/home') — Settings after sign-out or reset,
           Admin's back button. Named here so they land on the coach's equivalents instead of
           the catch-all; the catch-all is for paths nobody meant. */}
@@ -240,7 +227,7 @@ function Shell() {
         </ErrorBoundary>
       </div>
       {/* The chat owns the bottom of the screen: its composer sits where the tabs would be. */}
-      {loc.pathname !== '/coach' && (shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
+      {(shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
       <RestTimer />
       <Modals />
       <Toast />

@@ -231,16 +231,19 @@ on, `audit.log` with everyone's sign-in times. Worth knowing before you ship the
 backup service you don't run. Restore by unpacking it back into the project folder. (Individual
 users can also export their own data as JSON from Settings.)
 
-If you enabled the AI Coach with the Codex provider, note what this archive deliberately does
-**not** contain: `./coach-auth`, where that provider keeps its refreshable sign-in. It is a
-sibling of `./data` rather than a folder inside it precisely so that a live credential does not
-end up in every backup you are told to make — an archive like this gets copied to laptops and
-cloud drives, and a refresh token keeps working wherever it lands. Nothing in `./coach-auth`
-needs backing up: if you lose it, sign the provider in again.
+### Upgrading from a version that had the AI Coach
 
-API keys for the HTTPS providers (Anthropic, OpenAI, Gemini, a compatible endpoint) are the
-other way round: they are in `./data/coach.json`, encrypted with `./data/secret`, so they *are*
-in this archive — and unreadable without the secret next to them, like everything else in it.
+That feature has been removed. Nothing in the app reads its files any more, but nothing deletes
+them either, and two of them hold credentials:
+
+- `./data/coach.json` — your provider API keys, encrypted with `./data/secret`. Still in every
+  backup archive you take, and still decryptable by anyone holding both files.
+- `./coach-auth/` — the Codex provider's refresh-token cache, if you ever connected it.
+
+Delete both, and revoke the keys at the provider while you are there — a key that is no longer
+used by anything is still a live key. The app will not miss them:
+
+    rm -f data/coach.json && rm -rf coach-auth
 
 ## 7. Notifications
 

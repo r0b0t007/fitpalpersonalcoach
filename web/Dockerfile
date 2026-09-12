@@ -8,17 +8,18 @@
 # specific native binaries, which is what breaks `vite build` with unrelated-looking
 # module-resolution errors.
 FROM --platform=$BUILDPLATFORM node:26-alpine AS build
-# The frontend sits at /app/frontend, not /app: the Coach's runtime-neutral core lives in
-# api/coach/core and is imported from frontend/src as ../../../api/coach/core/*, so the two
-# have to keep the same relative position they have in the repository. Copying frontend/ alone
-# is exactly what made the v1.2.15 web image fail to build.
+# The frontend sits at /app/frontend rather than /app. That layout was forced by the AI Coach:
+# its runtime-neutral core lived in api/coach/core and frontend/src imported it as
+# ../../../api/coach/core/*, so the two had to keep the relative position they have in the repo —
+# copying frontend/ alone is what made the v1.2.15 web image fail to build. That feature is gone
+# and nothing in frontend/src reaches outside itself any more, but the path stays: it costs
+# nothing, and moving it would rewrite every layer below for no gain.
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json* ./
 # --ignore-scripts: the web image only needs `vite build`; the one heavy postinstall in this tree
 # (@capacitor/assets -> sharp, a libvips download from GitHub) is for drawing app icons and has
 # timed out on the shared runners — a lockfile-ignoring `npm install` fallback is no answer to that.
 RUN npm ci --ignore-scripts
-COPY api/coach/core/ /app/api/coach/core/
 COPY frontend/ ./
 RUN npm run build
 
