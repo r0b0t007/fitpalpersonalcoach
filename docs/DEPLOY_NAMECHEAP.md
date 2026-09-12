@@ -160,10 +160,19 @@ so no `.htaccess` rewrites are needed.
 
 ## Inherited upstream workflows
 
-`pages.yml` comes from upstream openGym and doesn't apply to this deployment (no GitHub Pages
-demo). It is **disabled in the repository's Actions settings** rather than deleted, so upstream
-merges stay conflict-free. Re-enable it from the Actions tab if that ever changes.
+There are none left. Two used to sit here, both described as "disabled in the repository's
+Actions settings rather than deleted, so upstream merges stay conflict-free" — and at least one
+of them was not actually disabled.
 
-`docker-publish.yml` used to sit here too. Docker was removed from the repo — nothing this
-product deploys ever ran a container — so the workflow, both Dockerfiles and the compose file
-are gone rather than disabled.
+`pages.yml` published upstream's browser-only demo to `duartesantos8.github.io/openGym/`. It ran
+on every push to `main` in this fork and failed every time (`Get Pages site failed … Not Found` —
+Pages is not enabled here, and the destination is upstream's site, not ours), putting a red X
+next to every green deploy. Deleted.
+
+`docker-publish.yml` built and pushed the two container images. Docker was removed from the repo
+— nothing this product deploys ever ran a container — so the workflow, both Dockerfiles and the
+compose file are gone with it.
+
+The lesson worth keeping: a workflow believed to be disabled in a settings page nobody looks at
+is not disabled. The three `deploy-*.yml` files are the only workflows here that touch the
+server, and `test.yml` is the only other one that runs at all.
