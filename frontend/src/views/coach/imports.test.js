@@ -16,7 +16,7 @@ describe('the coach modules load and export what the screens import', () => {
       expect(typeof parts[n], n).toMatch(/function/)
     for (const n of ['SendSheet', 'InviteSheet', 'MediaSheet'])
       expect(typeof sheets[n], n).toBe('function')
-    for (const m of ['./CoachToday.jsx', './Clients.jsx', './ClientDetail.jsx', './Programs.jsx', './ProgramEdit.jsx'])
+    for (const m of ['./CoachToday.jsx', './Clients.jsx', './ClientDetail.jsx', './Programs.jsx', './ProgramEdit.jsx', './CoachAccount.jsx'])
       expect(typeof (await import(m)).default, m).toBe('function')
     // The program editor reaches across into the client-side routine editor and the context that
     // lets it bind somewhere other than the store. Both are exactly the kind of cross-module
@@ -28,5 +28,12 @@ describe('the coach modules load and export what the screens import', () => {
     const target = await import('../../components/RoutineTarget.jsx')
     for (const n of ['RoutineTarget', 'StoreRoutineTarget', 'useRoutineTarget'])
       expect(typeof target[n], n).toBe('function')
+    // Account reaches across into the client Settings screen for the pairing sheet, and Business
+    // pulls the audit formatters and `rel` out of two other modules — the same cross-module shape
+    // that has already cost this branch one ReferenceError nothing else caught.
+    const business = await import('./Business.jsx')
+    for (const n of ['BusinessAccounts', 'BusinessActivity'])
+      expect(typeof business[n], n).toBe('function')
+    expect(typeof (await import('../Settings.jsx')).PairSheet).toBe('function')
   })
 })

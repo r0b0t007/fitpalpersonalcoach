@@ -40,6 +40,8 @@ import Clients from './views/coach/Clients.jsx'
 import ClientDetail from './views/coach/ClientDetail.jsx'
 import Programs from './views/coach/Programs.jsx'
 import ProgramEditShell, { ProgramEdit, ProgramRoutineEdit } from './views/coach/ProgramEdit.jsx'
+import CoachAccount from './views/coach/CoachAccount.jsx'
+import { BusinessAccounts, BusinessActivity } from './views/coach/Business.jsx'
 import CoachChat from './views/CoachChat.jsx'
 import CoachIntake from './views/CoachIntake.jsx'
 import CoachSetup from './views/CoachSetup.jsx'
@@ -110,7 +112,16 @@ function CoachRoutes({ user }) {
         <Route index element={<ProgramEdit />} />
         <Route path="r/:rid" element={<ProgramRoutineEdit />} />
       </Route>
-      <Route path="/account" element={<Settings />} />
+      <Route path="/account" element={<CoachAccount />} />
+      {/* The two operator jobs a single coach keeps, out of the gym dashboard. Both are gated on
+          user.admin inside, so a URL typed by a plain coach lands back on /account rather than on
+          a screen whose every request 403s. */}
+      <Route path="/account/accounts" element={<BusinessAccounts />} />
+      <Route path="/account/activity" element={<BusinessActivity />} />
+      {/* The coach's own training settings — rest timers, units, equipment — still live on the
+          shared Settings screen. It is reachable from Train myself, and named here so a link or a
+          back button that predates the split does not fall through to the catch-all. */}
+      <Route path="/settings" element={<Settings />} />
       {/* The operator page stays reachable for the admin account for one release, hidden, while
           the pieces a single coach still needs (activity log, disabling an account) move into
           Account. Everything else on it — classes, timetable, access requests — is gym-only. */}
