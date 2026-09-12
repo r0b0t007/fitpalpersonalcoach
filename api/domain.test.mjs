@@ -313,6 +313,41 @@ test('pruneAssignments drops the long-expired and keeps the fresh', () => {
   assert.equal(pruneAssignments(null, now).length, 0)
 })
 
+// The window exists so answered offers do not pile up. But the newest ACCEPTED row is not an
+// answered offer, it is the plan the person is training — and a client on a twelve-week block
+// would have watched "Your program" become "Nothing accepted yet" a month in, while still doing
+// that plan every week. This prune runs on every assign by any coach, so it does not even wait
+// for them to do something.
+test('pruneAssignments keeps the program a member is currently on, however old', () => {
+  const now = Date.parse('2026-09-01T00:00:00Z')
+  const iso = d => new Date(now - d * 86400000).toISOString()
+  const kept = pruneAssignments([
+    { memberId: 'm1', status: 'accepted', created: iso(400), decidedAt: iso(80) },   // week 11 of a block
+    { memberId: 'm1', status: 'declined', created: iso(400), decidedAt: iso(80) },   // same age, not current
+  ], now)
+  assert.deepEqual(kept.map(a => a.status), ['accepted'])
+})
+
+test('...only the newest one, so a member who moved on does not accumulate blocks', () => {
+  const now = Date.parse('2026-09-01T00:00:00Z')
+  const iso = d => new Date(now - d * 86400000).toISOString()
+  const kept = pruneAssignments([
+    { memberId: 'm1', status: 'accepted', decidedAt: iso(200), name: 'old' },
+    { memberId: 'm1', status: 'accepted', decidedAt: iso(90), name: 'current' },
+  ], now)
+  assert.deepEqual(kept.map(a => a.name), ['current'])
+})
+
+test('...and it is per member, not one across the whole instance', () => {
+  const now = Date.parse('2026-09-01T00:00:00Z')
+  const iso = d => new Date(now - d * 86400000).toISOString()
+  const kept = pruneAssignments([
+    { memberId: 'm1', status: 'accepted', decidedAt: iso(90) },
+    { memberId: 'm2', status: 'accepted', decidedAt: iso(200) },
+  ], now)
+  assert.equal(kept.length, 2)
+})
+
 /* ---------- timetable clashes ---------- */
 // A club running spin, yoga and Zumba in separate studios needs exactly two rules: one room
 // holds one class, and one coach teaches one class. Nothing enforced either before.

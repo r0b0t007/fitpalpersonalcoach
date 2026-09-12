@@ -747,6 +747,13 @@ chk "...carrying the program name"      "Block A" "$(get -H "Cookie: $M6" "$B/ap
 # back to a screen that shows a name and a date would put it on the tab they open most.
 chk "...but NOT the bundle"           undefined "$(get -H "Cookie: $M6" "$B/api/assignments/history" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).assignments[0].bundle)")"
 chk "one member cannot read another's"          0 "$(HIST "$M2")"
+# A withdrawn offer is one the coach took back before the member acted on it — sent to the wrong
+# client, say. Serving it back with its name and note hands over something nobody decided to
+# share, so "decided" here means accepted or declined, the same as memberCard uses.
+chk "coachA sends mem6 a second program"      200 "$(send "$CA" '["mem6"]')"
+WID2=$(get -H "Cookie: $M6" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments[0].id")
+chk "coachA withdraws it"                     200 "$(code -X POST "$B/api/coach/assignments/withdraw" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "{\"id\":\"$WID2\"}")"
+chk "...and it is not in their history"         1 "$(HIST "$M6")"
 
 echo ""
 echo "passed $pass, failed $fail"

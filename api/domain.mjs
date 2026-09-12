@@ -453,8 +453,34 @@ export function upsertProgram(programs, { id, name, bundle }, now) {
 export const pendingAssignmentsFor = (assignments, memberId) =>
   (assignments || []).filter(a => a.memberId === memberId && a.status === 'pending')
 
+/**
+ * Drop rows nobody needs any more — with one exception that the 30-day window would otherwise
+ * break: the program a member is CURRENTLY ON.
+ *
+ * ASSIGN_DECIDED_DAYS exists so answered offers do not accumulate for ever, and for declined and
+ * superseded rows that is exactly right. But the newest accepted row is not history, it is the
+ * plan the person is training: a client on an eight- or twelve-week block would watch "Your
+ * program" turn into "Nothing accepted yet" about a month in, while still doing that exact plan
+ * every week. This runs on every assign by any coach, so it does not even wait for them to do
+ * anything.
+ *
+ * Keeping one row per member is bounded by the number of members, which is the same bound
+ * db.users already has — it is not a leak in the shape this window was written to prevent.
+ */
 export function pruneAssignments(assignments, now = Date.now()) {
-  return (assignments || []).filter(a => {
+  const list = assignments || []
+  // The newest accepted row per member, by decidedAt. Computed first so the filter below can
+  // exempt it by identity rather than by re-deriving the rule per row.
+  const current = new Map()
+  for (const a of list) {
+    if (!a || a.status !== 'accepted') continue
+    const t = Date.parse(a.decidedAt || a.created || '') || 0
+    const held = current.get(a.memberId)
+    if (!held || t > held.t) current.set(a.memberId, { a, t })
+  }
+  const keep = new Set([...current.values()].map(x => x.a))
+  return list.filter(a => {
+    if (keep.has(a)) return true
     const days = a.status === 'pending' ? ASSIGN_PENDING_DAYS : ASSIGN_DECIDED_DAYS
     const t = Date.parse((a.status === 'pending' ? a.created : a.decidedAt || a.created) || '') || 0
     return now - t < days * 86400000

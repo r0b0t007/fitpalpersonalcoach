@@ -4,8 +4,8 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api, fetchMyPhotos } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
-import { fmtDate, todayISO } from '../lib/format.js'
-import { isCheckinDue, checkinDayOf, periodStart, scoreOf, QUESTIONS } from '../lib/checkins.js'
+import { fmtDate, todayISO, isoOf } from '../lib/format.js'
+import { isCheckinDue, checkinDayOf, scoreOf, QUESTIONS } from '../lib/checkins.js'
 import { targetOf } from '../lib/nutrition.js'
 import { photosByPeriod, photoSrc, PHOTOS_REACHABLE } from '../lib/photo.js'
 import { pendingInvite, clearInvite } from '../lib/invite.js'
@@ -15,6 +15,22 @@ import { TargetRows } from '../components/MacroRows.jsx'
 import { openCoachOffer, checkinSheet } from '../sheets.jsx'
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+// A real <button>, not a div with role="button": that shape only fired on Enter, so a keyboard or
+// switch-control user pressing Space on the focused card scrolled the page — and this is the one
+// action on the screen. Nothing here needs a div; a button gets Space, Enter and focus for free.
+const OfferCard = ({ offer }) => (
+  <button className="card" style={{ borderColor: 'var(--acc)', marginBottom: 12, width: '100%', textAlign: 'left', display: 'block' }}
+    onClick={() => openCoachOffer(offer)}>
+    <div className="row between">
+      <div style={{ minWidth: 0 }}>
+        <div className="tt">{t('{0} sent you a program', offer.coachName)}</div>
+        <div className="ss dim">{offer.note || t('Tap to review it.')}</div>
+      </div>
+      <Icon name="chevronRight" className="chev" />
+    </div>
+  </button>
+)
 
 /**
  * The client's side of the relationship, which until now had no screen at all.
@@ -32,7 +48,6 @@ export default function MyCoach() {
   const user = useStore(s => s.user)
   const S = useStore(s => s.S)
   const assignments = useStore(s => s.assignments)
-  const openSheet = useUI(s => s.openSheet)
   const today = todayISO()
 
   const coachName = user?.coachName
@@ -66,17 +81,7 @@ export default function MyCoach() {
 
     {/* Every pending offer, not just the first. A coach can send two — a training block and a
         deload, say — and the old Home card showed assignments[0] and silently swallowed the rest. */}
-    {offers.map(o => <div key={o.id} className="card" style={{ borderColor: 'var(--acc)', marginBottom: 12 }}
-      role="button" tabIndex={0} onClick={() => openCoachOffer(o)}
-      onKeyDown={e => { if (e.key === 'Enter') openCoachOffer(o) }}>
-      <div className="row between">
-        <div style={{ minWidth: 0 }}>
-          <div className="tt">{t('{0} sent you a program', o.coachName)}</div>
-          <div className="ss dim">{o.note || t('Tap to review it.')}</div>
-        </div>
-        <Icon name="chevronRight" className="chev" />
-      </div>
-    </div>)}
+    {offers.map(o => <OfferCard key={o.id} offer={o} />)}
 
     <CurrentProgram />
     <CheckIn S={S} today={today} />
@@ -127,15 +132,7 @@ function NoCoach({ offers }) {
 
     {/* An offer can exist with no coach bound: an admin can assign one by hand without the
         invite flow. Shown first, because answering it is the thing to do. */}
-    {offers.map(o => <div key={o.id} className="card" style={{ borderColor: 'var(--acc)', marginBottom: 12 }}
-      role="button" tabIndex={0} onClick={() => openCoachOffer(o)}
-      onKeyDown={e => { if (e.key === 'Enter') openCoachOffer(o) }}>
-      <div className="row between">
-        <div><div className="tt">{t('{0} sent you a program', o.coachName)}</div>
-          <div className="ss dim">{o.note || t('Tap to review it.')}</div></div>
-        <Icon name="chevronRight" className="chev" />
-      </div>
-    </div>)}
+    {offers.map(o => <OfferCard key={o.id} offer={o} />)}
 
     <div className="card">
       <div className="tt">{t('You’re training on your own')}</div>
@@ -158,11 +155,16 @@ function NoCoach({ offers }) {
 
 function CurrentProgram() {
   const [rows, setRows] = useState(null)
+  // Keyed on the pending count, not []. openCoachOffer resolves in a SHEET, which is a sibling of
+  // the route — this screen never unmounts — so a one-shot fetch meant accepting the offer made
+  // the card vanish while "Your program" went on saying "Nothing accepted yet" until you navigated
+  // away and back. That is the exact sequence this screen exists to serve.
+  const pendingCount = (useStore(s => s.assignments) || []).length
   useEffect(() => {
     // Not worth a toast if it fails: this is one card on a screen that still says everything
     // else, and an empty state reads the same as an old account with nothing decided.
     api('/api/assignments/history').then(d => setRows(d.assignments || [])).catch(() => setRows([]))
-  }, [])
+  }, [pendingCount])
 
   if (rows === null) return null
   const current = rows.find(a => a.status === 'accepted')
@@ -174,7 +176,10 @@ function CurrentProgram() {
         title={current.name || t('Program from {0}', current.coachName)}
         subtitle={[
           current.routines ? t(current.routines === 1 ? '{0} routine' : '{0} routines', current.routines) : null,
-          current.decidedAt ? t('started {0}', fmtDate(String(current.decidedAt).slice(0, 10))) : null,
+          // isoOf, not a slice of the ISO string: decidedAt is the server's UTC instant, and
+          // slicing it hands a client in UTC+13 yesterday's date and one in UTC-8 tomorrow's.
+          // Every other date in the app is a local calendar day.
+          current.decidedAt ? t('started {0}', fmtDate(isoOf(new Date(current.decidedAt)))) : null,
         ].filter(Boolean).join(' · ')} />
       : <Row icon="clipboard" iconTint="var(--grey)" title={t('Nothing accepted yet')}
         subtitle={t('Programs you accept show up here.')} />}
@@ -222,7 +227,11 @@ function CheckIn({ S, today }) {
 function Photos({ userId }) {
   const [rows, setRows] = useState(null)
   const openSheet = useUI(s => s.openSheet)
-  useEffect(() => { fetchMyPhotos().then(setRows).catch(() => setRows([])) }, [])
+  // Re-read when a check-in is filed, because the check-in sheet is opened FROM this screen and
+  // uploads the photos as part of filing. A one-shot fetch meant the three angles someone had
+  // just sent did not appear — and, on a first check-in, the whole section stayed hidden.
+  const filed = (useStore(s => s.S.checkins) || []).length
+  useEffect(() => { fetchMyPhotos().then(setRows).catch(() => setRows([])) }, [filed])
 
   const weeks = photosByPeriod(rows || [])
   if (rows === null || !weeks.length) return null

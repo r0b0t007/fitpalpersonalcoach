@@ -2169,7 +2169,11 @@ const routes = {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
     const mine = db.assignments
-      .filter(a => a.memberId === user.id && a.status !== 'pending')
+      // accepted/declined only — the same narrow definition of "decided" memberCard uses. A
+      // WITHDRAWN row is one the coach took back before the member acted on it (sent to the wrong
+      // client, say), and an EXPIRED one is an offer the relationship outlived; serving either
+      // back with its name and note would hand over something nobody decided to share.
+      .filter(a => a.memberId === user.id && (a.status === 'accepted' || a.status === 'declined'))
       // Newest first: the one thing this screen states is the CURRENT program, which is the most
       // recent accepted row. Sorted on decidedAt rather than created — a coach can send two and
       // have them answered out of order.
