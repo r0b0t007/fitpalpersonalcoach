@@ -5,6 +5,7 @@ import { MOBILE } from '../lib/mobile.js'
 import { DEMO } from '../lib/demo.js'
 import { Section, Row } from '../components/ui.jsx'
 import { isCoach, setShellPref, homeFor } from '../lib/role.js'
+import { coachAvailable } from '../lib/coach.js'
 
 // The hub the tab bar gained when it lost two of its six cells.
 //
@@ -15,6 +16,9 @@ import { isCoach, setShellPref, homeFor } from '../lib/role.js'
 export default function You() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
+  const config = useStore(s => s.config)
+  const coachMode = useStore(s => s.coachLocal?.mode)
+  const showAICoach = coachAvailable(config, user, { demo: DEMO, mobile: MOBILE, coachMode })
 
   return <div className="narrow">
     <div className="hdr">
@@ -46,6 +50,13 @@ export default function You() {
           1,324-entry one that people do browse. */}
       <Row icon="list" iconTint="var(--teal)" title={t('Exercises')}
         accessory="chevron" onClick={() => nav('/library')} />
+      {/* The AI Coach. It used to be a banner across the top of the Plan screen, which is the
+          wrong place now that "Coach" means a person: a client's plan carried an offer of a
+          second, automated one to design it. Here, one tap from a tab, and still only when the
+          instance actually offers the feature — an unconfigured one sees nothing, as before. */}
+      {showAICoach && <Row icon="sparkles" iconTint="var(--acc)" title={t('AI Coach')}
+        subtitle={t('Plan design and reviews, from your own training')}
+        accessory="chevron" onClick={() => nav('/coach')} />}
     </Section>
 
     <Section>

@@ -19,7 +19,10 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 // A real <button>, not a div with role="button": that shape only fired on Enter, so a keyboard or
 // switch-control user pressing Space on the focused card scrolled the page — and this is the one
 // action on the screen. Nothing here needs a div; a button gets Space, Enter and focus for free.
-const OfferCard = ({ offer }) => (
+//
+// Exported because Home shows the same offers. One definition, so the two screens cannot drift
+// into describing the same waiting program differently.
+export const OfferCard = ({ offer }) => (
   <button className="card" style={{ borderColor: 'var(--acc)', marginBottom: 12, width: '100%', textAlign: 'left', display: 'block' }}
     onClick={() => openCoachOffer(offer)}>
     <div className="row between">
