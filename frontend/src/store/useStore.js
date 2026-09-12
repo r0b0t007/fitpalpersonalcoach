@@ -107,10 +107,30 @@ export const DEF = {
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 
+/**
+ * Keys from features that no longer exist.
+ *
+ * `coach` held the AI Coach's conversation, its proposal log, its snapshots and the consent
+ * record — up to ~75 KB by its own accounting. Nothing reads it now, but `S` is pushed WHOLE on
+ * every sync, so without this it would ride along for ever on every device of everyone who ever
+ * used the feature.
+ *
+ * The stronger reason is not bytes. That blob is a transcript of someone's conversation about
+ * their own training, and the only screens that could show or clear it are gone — leaving it
+ * would mean keeping a log the person can no longer read or delete. Dropped on the way in and on
+ * the way out, so a device that still has it discards it, and the next push writes the cleaned
+ * state back to the server.
+ *
+ * Deliberately not a general "unknown key" sweep: `S` is the client's own, and an older build
+ * must be able to hold a key a newer one has not learned about yet without a downgrade eating it.
+ */
+const GONE = ['coach']
+const forget = s => { for (const k of GONE) delete s[k]; return s }
+
 function loadState() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return Object.assign(clone(DEF), JSON.parse(raw))
+    if (raw) return forget(Object.assign(clone(DEF), JSON.parse(raw)))
   } catch (e) { /* ignore */ }
   return clone(DEF)
 }
@@ -152,6 +172,7 @@ export const useStore = create((set, get) => {
   }
 
   const persist = (S, push = true) => {
+    forget(S)
     S._ts = Date.now()
     registerCustom(S.customEx)
     localStorage.setItem(KEY, JSON.stringify(S))
