@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation, useNavigationType } from 'react-router-dom'
 import { useStore } from './store/useStore.js'
+import { pendingInvite } from './lib/invite.js'
 import { useUI } from './store/useUI.js'
 import { bindUI } from './components/ui.jsx'
 import { ACCENTS } from './lib/format.js'
@@ -34,6 +35,7 @@ import Library from './views/Library.jsx'
 import Muscles from './views/Muscles.jsx'
 import Settings from './views/Settings.jsx'
 import You from './views/You.jsx'
+import MyCoach from './views/MyCoach.jsx'
 import Admin from './views/Admin.jsx'
 import CoachToday from './views/coach/CoachToday.jsx'
 import Clients from './views/coach/Clients.jsx'
@@ -82,6 +84,9 @@ function ClientRoutes() {
       <Route path="/history" element={<History />} />
       <Route path="/library" element={<Library />} />
       <Route path="/muscles" element={<Muscles />} />
+      {/* /mycoach, not /coach — upstream's AI chat took that path during the 401-commit merge,
+          and it is the client table so both have to coexist. */}
+      <Route path="/mycoach" element={<MyCoach />} />
       <Route path="/you" element={<You />} />
       <Route path="/settings" element={<Settings />} />
       {/* The AI Coach screens gate themselves on the instance config; the routes exist
@@ -152,6 +157,20 @@ function Shell() {
   const shellPref = useShellPref()
   const shell = shellFor(user, shellPref)
   useEffect(() => { setNav(navigate) }, [navigate])
+  // Somebody already signed in who taps their coach's invite link.
+  //
+  // The link carries ?invite= and the app is hash-routed, so it opens on whatever screen they
+  // were last on — and every other reader of pendingInvite() is on the signed-OUT path (the
+  // sign-in screen, the register sheet). So a client of six months following a link landed on
+  // Home with nothing changed: no prompt, no dot, and the code they were sent visible only if
+  // they happened to think of opening the Coach tab. Once, to the one screen that can act on it;
+  // a client who already has a coach is left alone, because redeeming would be refused anyway.
+  const sentInvite = useRef(false)
+  useEffect(() => {
+    if (sentInvite.current || !ready || !user || user.coachName || !pendingInvite()) return
+    sentInvite.current = true
+    navigate('/mycoach')
+  }, [ready, user, navigate])
   useEffect(() => { applyPrefs(S.theme, S.accent) }, [S.theme, S.accent])
   // 'system' needs to react live if the OS theme flips while the app is open, not just on
   // the next mount — a fixed 'dark'/'light' choice never re-fires this since matchMedia

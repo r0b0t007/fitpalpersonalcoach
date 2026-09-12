@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
-import { openCoachOffer } from '../sheets.jsx'
 import { MOBILE } from '../lib/mobile.js'
 import { DEMO } from '../lib/demo.js'
 import { Section, Row } from '../components/ui.jsx'
@@ -16,8 +15,6 @@ import { isCoach, setShellPref, homeFor } from '../lib/role.js'
 export default function You() {
   const nav = useNavigate()
   const user = useStore(s => s.user)
-  const assignments = useStore(s => s.assignments)
-  const offer = assignments?.[0]
 
   return <div className="narrow">
     <div className="hdr">
@@ -33,15 +30,6 @@ export default function You() {
       <Section>
         <Row icon="figureStrength" iconTint="var(--acc)" title={t('Back to coaching')}
           accessory="chevron" onClick={() => { setShellPref('coach'); nav(homeFor(user, 'coach')) }} />
-      </Section>
-    )}
-
-    {/* Before this the offer existed only as a card on Home, so a member anywhere else in the app
-        had no idea one was waiting. The tab carries a dot for the same reason. */}
-    {offer && (
-      <Section title={t('Waiting for you')}>
-        <Row icon="clipboard" iconTint="var(--acc)" title={t('{0} sent you a program', offer.coachName)}
-          subtitle={offer.note || t('Tap to review it.')} accessory="chevron" onClick={() => openCoachOffer(offer)} />
       </Section>
     )}
 

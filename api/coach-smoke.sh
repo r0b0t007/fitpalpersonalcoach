@@ -723,6 +723,38 @@ chk "...and the link is not burnt by trying"  200 "$(code "$B/api/invite?code=$S
 CODE2=$(get -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"note":"again"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
 chk "a released client can join again"        200 "$(code -X POST "$B/api/invite/redeem" -H 'Content-Type: application/json' -H "Cookie: $M5" -d "{\"code\":\"$CODE2\"}")"
 
+echo "== what a client can see about programs they already answered =="
+# GET /api/assignments returns only PENDING rows, so before this the moment somebody accepted a
+# program it vanished from every screen they had — including the one that is supposed to say which
+# program they are on.
+chk "anonymous cannot read a history"         401 "$(code "$B/api/assignments/history")"
+# mem6 is an unassigned account by this point in the suite, so put them on the roster first —
+# through the link flow, which is how anyone joins now.
+M6CODE=$(get -X POST "$B/api/coach/invites/new" -H 'Content-Type: application/json' -H "Cookie: $CA" -d '{"note":"history test"}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).invite.code")
+chk "mem6 joins coachA by link"               200 "$(code -X POST "$B/api/invite/redeem" -H 'Content-Type: application/json' -H "Cookie: $M6" -d "{\"code\":\"$M6CODE\"}")"
+HIST() { get -H "Cookie: $1" "$B/api/assignments/history" | node -pe "
+  const d=JSON.parse(require('fs').readFileSync(0,'utf8'));String((d.assignments||[]).length)"; }
+chk "mem6 has answered nothing yet"             0 "$(HIST "$M6")"
+chk "coachA sends mem6 a program"             200 "$(send "$CA" '["mem6"]')"
+# Still pending: it belongs in the inbox, not in the history.
+chk "...a pending offer is not history"         0 "$(HIST "$M6")"
+AID=$(get -H "Cookie: $M6" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments[0].id")
+chk "mem6 accepts it"                         200 "$(code -X POST "$B/api/assignments/decide" -H 'Content-Type: application/json' -H "Cookie: $M6" -d "{\"id\":\"$AID\",\"accept\":true}")"
+chk "...and now it is in their history"         1 "$(HIST "$M6")"
+chk "...marked accepted"               accepted "$(get -H "Cookie: $M6" "$B/api/assignments/history" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments[0].status")"
+chk "...carrying the program name"      "Block A" "$(get -H "Cookie: $M6" "$B/api/assignments/history" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments[0].name")"
+# The bundle is the largest field in the database and the client already merged it. Sending it
+# back to a screen that shows a name and a date would put it on the tab they open most.
+chk "...but NOT the bundle"           undefined "$(get -H "Cookie: $M6" "$B/api/assignments/history" | node -pe "String(JSON.parse(require('fs').readFileSync(0,'utf8')).assignments[0].bundle)")"
+chk "one member cannot read another's"          0 "$(HIST "$M2")"
+# A withdrawn offer is one the coach took back before the member acted on it — sent to the wrong
+# client, say. Serving it back with its name and note hands over something nobody decided to
+# share, so "decided" here means accepted or declined, the same as memberCard uses.
+chk "coachA sends mem6 a second program"      200 "$(send "$CA" '["mem6"]')"
+WID2=$(get -H "Cookie: $M6" "$B/api/assignments" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).assignments[0].id")
+chk "coachA withdraws it"                     200 "$(code -X POST "$B/api/coach/assignments/withdraw" -H 'Content-Type: application/json' -H "Cookie: $CA" -d "{\"id\":\"$WID2\"}")"
+chk "...and it is not in their history"         1 "$(HIST "$M6")"
+
 echo ""
 echo "passed $pass, failed $fail"
 [ "$fail" = "0" ] || { echo "--- server log ---"; tail -20 "$D/log"; }
