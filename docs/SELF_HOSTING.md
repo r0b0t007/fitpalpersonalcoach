@@ -19,6 +19,10 @@ cp .env.example .env
 ./scripts/fetch-media.sh          # exercise images/GIFs (~140 MB), once
 ```
 
+`.env` is read by the API at startup, from the repo root. Anything already set in the
+environment wins over the file, which is how deployments that configure variables in a hosting
+panel (this product's own, for one) run with no `.env` at all.
+
 Two processes. The API:
 
 ```bash
@@ -90,20 +94,46 @@ does this. Caddy, with automatic Let's Encrypt:
 
 ```caddy
 coach.example.com {
+    header {
+        # The app ships no web server of its own, so these are yours to set. SECURITY.md
+        # treats a missing one as a self-hosting bug, not an app bug.
+        X-Frame-Options "DENY"
+        Content-Security-Policy "frame-ancestors 'none'"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "same-origin"
+    }
+
     handle /api/* {
         reverse_proxy localhost:3000
     }
+
+    # Exercise images and GIFs, from ./scripts/fetch-media.sh. The app asks for them at /img
+    # and /gif relative to the page, so they have to be served from this same origin — miss
+    # this and the app works perfectly with every exercise picture broken.
+    handle /img/* {
+        root * /srv/fitpal
+        file_server
+    }
+    handle /gif/* {
+        root * /srv/fitpal
+        file_server
+    }
+
     handle {
         root * /srv/fitpal/frontend/dist
-        try_files {path} /index.html      # the app is hash-routed; serve index.html for the rest
         file_server
     }
 }
 ```
 
+(`/srv/fitpal` being the clone, so `/img/*` resolves to `/srv/fitpal/media/img/…` — move the
+`media/` folder wherever you like and point `root` at its parent. No `try_files` rewrite is
+needed: the app is hash-routed, so the server only ever sees `/`.)
+
 nginx, Apache and Cloudflare Tunnel all do the same job — one origin, `/api` to the API process,
-everything else to `dist/`. On the cPanel account this product actually deploys to, that is
-Apache with an `.htaccess`; see [DEPLOY_NAMECHEAP.md](./DEPLOY_NAMECHEAP.md).
+`/img` and `/gif` to `media/`, everything else to `dist/`. On the cPanel account this product
+actually deploys to, that is Apache with an `.htaccess`, and the media comes from a CDN instead
+(`VITE_IMG_BASE`); see [DEPLOY_NAMECHEAP.md](./DEPLOY_NAMECHEAP.md).
 
 Set your domain in `.env` and restart the API:
 
@@ -338,7 +368,8 @@ everybody registers again — which is why it pays to settle the domain before o
 |---|---|
 | No passkey prompt on my phone | You're on `http://` or an IP, not HTTPS. Set up a domain (section 3). |
 | "verification failed" on login | `RP_ID`/`ORIGIN` don't match the URL in the address bar. See the section above — start with what the server logged on startup. |
-| Media didn't download | Run `./scripts/fetch-media.sh`. It is safe to re-run — it skips what is already there. |
+| Media didn't download | Run `./scripts/fetch-media.sh`. It is safe to re-run — it skips a folder that already has files in it (`--force` re-downloads). |
+| Exercise pictures are all broken | The media is there but nothing is serving it. `/img` and `/gif` have to come from the same origin as the app — see the web-server config in section 3. |
 | Port 3000 already used | Set `PORT=3001` in `.env` and point your web server's `/api` proxy at the new one. |
 | No "Notifications" option in Settings | Requires a signed-in profile and HTTPS (or `localhost`) — guest mode and plain HTTP over LAN can't subscribe. |
 | Day reminder fires at the wrong time | Toggle it off and on in Settings so it re-detects your browser's timezone (also happens automatically on every app load — see section 7). |

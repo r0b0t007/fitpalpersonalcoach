@@ -279,7 +279,8 @@ All via `.env` (see `.env.example`):
 | `VAPID_SUBJECT` | Contact URL sent with push notifications           | your `ORIGIN`           |
 
 Push notification keys are generated on first run and saved to `./data/vapid.json` — nothing to set.
-`DATA_DIR` defaults to `./data` beside the API. Point it wherever you back up.
+`DATA_DIR` defaults to `data/` at the repo root, whatever directory you started the API from.
+Point it wherever you back up.
 
 ## Roadmap
 
