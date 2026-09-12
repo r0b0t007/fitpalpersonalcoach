@@ -6,6 +6,15 @@
 # openGym does not redistribute or relicense them. See NOTICE.md.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# Skipping what is already downloaded used to be the compose `media` service's job; it checked
+# `ls -A /out/img` before cloning. Docker is gone and the guide still tells people this is safe
+# to re-run, so the check lives here now — ~140 MB is not something to re-fetch by accident.
+if [ "${1:-}" != "--force" ] && [ -n "$(ls -A media/img 2>/dev/null)" ] && [ -n "$(ls -A media/gif 2>/dev/null)" ]; then
+  echo "✓ Exercise media already present ($(ls media/img | wc -l) images, $(ls media/gif | wc -l) GIFs). Re-run with --force to download it again."
+  exit 0
+fi
+
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 cat <<'EOF'

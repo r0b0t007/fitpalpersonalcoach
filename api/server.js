@@ -25,10 +25,29 @@ import {
 import { checkinReminderPush, dayReminderPush, restTimerPush, testPush } from './push-messages.js';
 import { verifyError } from './verify-error.js';
 
+// The repo root, one level up from api/ — the anchor for both the .env file and the default
+// data directory, so neither depends on which directory the process was started from.
+const ROOT = path.join(import.meta.dirname, '..');
+
+// docker compose used to pass .env in through `env_file:`, and that was the ONLY thing that
+// ever read it. Nothing does now, so the file the guide tells self-hosters to fill in has to be
+// loaded here or its whole contract (RP_ID, ORIGIN, DATA_DIR…) silently does nothing — a
+// hostname change that appears to apply and then fails every passkey. Real deployments set the
+// variables in their own panel and ship no .env at all, so a missing file is normal, not an
+// error. A variable already in the environment wins: loadEnvFile does not overwrite.
+for (const envFile of [path.join(ROOT, '.env'), path.join(ROOT, 'api', '.env')]) {
+  try { process.loadEnvFile(envFile); } catch { /* no .env here — fine */ }
+}
+
 const PORT = +(process.env.PORT || 3000);
-const DATA = process.env.DATA_DIR || '/data';
+// Was '/data', which only ever worked because compose bind-mounted ./data there. Without a
+// container that path is the filesystem root, which an unprivileged account cannot create —
+// so the default is now the ./data the guide, the backup instructions and .gitignore all name.
+const DATA = process.env.DATA_DIR || path.join(ROOT, 'data');
 const RP_ID = process.env.RP_ID || 'localhost';
-const ORIGIN = process.env.ORIGIN || 'http://localhost:8080';
+// The dev server's port. The old default (:8080) was the nginx container's, and nothing listens
+// there any more — a wrong ORIGIN fails registration inside @simplewebauthn, not at startup.
+const ORIGIN = process.env.ORIGIN || 'http://localhost:5173';
 const RP_NAME = process.env.RP_NAME || 'openGym';
 // Admin dashboard (issue): admins are matched by uid; INVITE_ONLY gates new signups behind a
 // code the admin generates. Both default off so a fresh self-hosted instance stays open.

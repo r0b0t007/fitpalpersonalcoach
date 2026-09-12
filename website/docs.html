@@ -447,15 +447,24 @@ cd frontend &amp;&amp; npm install &amp;&amp; npm run dev    # the app, on :5173
      mode</a>.</p>
 
   <h3 id="sh-https">HTTPS on your own domain</h3>
-  <p>Put anything that terminates TLS in front of the <code>web</code> container. Pick
-     whichever you already run:</p>
-  <ul>
-    <li><b>Cloudflare Tunnel</b> (no open ports): route <code>gym.example.com</code> →
-        <code>http://localhost:3000</code>. HTTPS comes with it.</li>
-    <li><b>Caddy</b> (automatic Let's Encrypt): <code>gym.example.com { reverse_proxy localhost:3000 }</code></li>
-    <li><b>Traefik / nginx / Nginx Proxy Manager:</b> route the HTTPS hostname to
-        your web server. Any proxy works.</li>
-  </ul>
+  <p>One web server has to hand out <code>frontend/dist/</code>, send <code>/api</code> to the
+     Node process on <code>:3000</code>, and serve <code>media/</code> at <code>/img</code> and
+     <code>/gif</code> — all on the <b>same origin</b>, because that is what passkeys and the
+     session cookie require. Caddy, with automatic Let's Encrypt:</p>
+  <pre><code>gym.example.com {
+    handle /api/* { reverse_proxy localhost:3000 }
+    handle /img/* { root * /srv/opengym
+                    file_server }
+    handle /gif/* { root * /srv/opengym
+                    file_server }
+    handle        { root * /srv/opengym/frontend/dist
+                    file_server }
+}</code></pre>
+  <p>nginx, Apache, Traefik and Cloudflare Tunnel all do the same job — point the tunnel or
+     proxy at that web server, not at <code>:3000</code>, which serves the API and nothing
+     else. Set the security headers there too:
+     <code>X-Frame-Options: DENY</code>, <code>Content-Security-Policy: frame-ancestors 'none'</code>,
+     <code>X-Content-Type-Options: nosniff</code>, <code>Referrer-Policy: same-origin</code>.</p>
   <p>Then set the domain in <code>.env</code> and apply it:</p>
   <pre><code># .env
 RP_ID=gym.example.com
@@ -483,7 +492,7 @@ ORIGIN=https://gym.example.com
      reach an inbox than your origin URL.</p>
 
   <h3 id="sh-stack">Fitting it into an existing stack</h3>
-  <p>The defaults assume openGym is alone: a service called <code>api</code> on port 3000,
+  <p>The defaults assume openGym is alone: the API on port 3000,
      your own web server in front. Merging into a stack that already has an
      <code>api</code>, or fronting it with your own proxy on another port, is one
      <code>.env</code> setting — <code>PORT</code> — plus the matching upstream address in
@@ -496,10 +505,7 @@ cd frontend &amp;&amp; npm ci &amp;&amp; npm run build</code></pre>
   <p>Your <code>./data</code> and the downloaded media are untouched; the app shell is
      versioned so clients pick up changes on next load. Releases are announced on
      <a href="https://gitlab.com/DuarteSantos8/opengym/-/releases" rel="noopener">GitLab</a>
-     and <a href="https://discord.gg/e62jY6fwVb" rel="noopener">Discord</a>; container images
-     (amd64 + arm64) are published to
-     <a href="https://gitlab.com/DuarteSantos8/opengym/container_registry" rel="noopener">GitLab's registry</a>
-     on every release.</p>
+     and <a href="https://discord.gg/e62jY6fwVb" rel="noopener">Discord</a>.</p>
 
   <h2 id="env">Every setting</h2>
   <p>All configuration is one <code>.env</code> file (see <code>.env.example</code>); the
@@ -520,12 +526,10 @@ cd frontend &amp;&amp; npm ci &amp;&amp; npm run build</code></pre>
     <tr><td><code>AUDIT_IP</code></td><td>Record the caller's address: <code>off</code>, <code>net</code> (network only, e.g. <code>203.0.113.0/24</code>) or <code>full</code>. Default <code>off</code>.</td></tr>
     <tr><td><code>VAPID_SUBJECT</code></td><td>Contact URL sent with push notifications. Default: your <code>ORIGIN</code>.</td></tr>
   </table>
-  <p>Two things that look like settings but aren't: <code>DATA_DIR</code> is pinned to
-     <code>./data</code> beside the API —
-     change the host side of that volume, not the variable. And
+  <p>One thing that looks like a setting but isn't:
      <code>VITE_IMG_BASE</code>/<code>VITE_GIF_BASE</code> are <b>build-time</b> values baked
-     into the frontend bundle by <code>npm run build</code> — changing them later does nothing
-     to a prebuilt image (see <a href="#troubleshoot">Troubleshooting</a>).</p>
+     into the frontend bundle by <code>npm run build</code> — changing them afterwards does
+     nothing to a build that already exists (see <a href="#troubleshoot">Troubleshooting</a>).</p>
 
   <h2 id="admin">Multiple users, admin &amp; the activity log</h2>
   <p>Anyone who can reach the URL can create their own profile — each gets isolated data.
@@ -697,8 +701,8 @@ Leg Day,Leg Press,2026-08-21,200,1</code></pre>
   <h2 id="build">Build it yourself</h2>
   <p>Everything on this page is built from the public repo:</p>
   <ul>
-    <li><b>Web / self-host:</b> <code>npm run build</code> in <code>frontend/</code> builds the frontend
-        inside the container — no local Node needed.</li>
+    <li><b>Web / self-host:</b> <code>npm run build</code> in <code>frontend/</code>, with
+        Node&nbsp;22 or newer. Output is <code>dist/</code>, a folder of static files.</li>
     <li><b>Android APK:</b> <code>npm run build:mobile</code> in <code>frontend/</code>, then
         Gradle + <code>zipalign</code> + <code>apksigner</code> with your own keystore
         (keep it — updates must carry the same signature). Step-by-step:
@@ -722,7 +726,7 @@ Leg Day,Leg Press,2026-08-21,200,1</code></pre>
         (<code>gym.example.com</code> — no <code>https://</code>, no port, no slash);
         <code>ORIGIN</code> is the full origin with scheme and without trailing slash. Both
         must match the address bar exactly.</li>
-    <li><b>Behind a tunnel/proxy, use the public hostname</b> — never the container name,
+    <li><b>Behind a tunnel/proxy, use the public hostname</b> — never the
         LAN IP or internal port. The tunnel's own route may point wherever it likes.</li>
     <li><b><code>www.</code> is a different host.</b> A passkey registered on
         <code>gym.example.com</code> won't work on <code>www.gym.example.com</code> — pick
@@ -734,13 +738,14 @@ Leg Day,Leg Press,2026-08-21,200,1</code></pre>
   <table class="cfg">
     <tr><td>No passkey prompt on my phone</td><td>You're on <code>http://</code> or a bare IP. Passkeys need HTTPS or localhost — set up a domain, or use guest mode / the mobile app.</td></tr>
     <tr><td>"verification failed" on login</td><td><code>RP_ID</code>/<code>ORIGIN</code> don't match the address bar — see the checklist above, starting with what the server logged.</td></tr>
-    <tr><td>Media didn't download</td><td>Run <code>./scripts/fetch-media.sh</code> — safe to re-run, it skips what is there.</td></tr>
+    <tr><td>Media didn't download</td><td>Run <code>./scripts/fetch-media.sh</code> — safe to re-run, it skips a folder that already has files in it (<code>--force</code> re-downloads).</td></tr>
+    <tr><td>Every exercise image is broken</td><td>The files are there but nothing serves them. <code>/img</code> and <code>/gif</code> have to come from the same origin as the app — see the web-server config above.</td></tr>
     <tr><td>Port 3000 already used</td><td><code>PORT=3100</code> in <code>.env</code>, and point your web server's <code>/api</code> proxy at the new port.</td></tr>
     <tr><td>No "Notifications" option in Settings</td><td>Needs a signed-in profile and HTTPS (or localhost) — guest mode and plain HTTP over LAN can't subscribe.</td></tr>
     <tr><td>Day reminder fires at the wrong time</td><td>Toggle it off and on so it re-detects your browser's timezone (also happens on every app load).</td></tr>
     <tr><td>"Keep screen awake" shows as unsupported</td><td>The Wake Lock API needs HTTPS or localhost; iOS also refuses it in Low Power Mode.</td></tr>
     <tr><td>Want to reset a stuck login</td><td>Delete the cookie — sessions are just signed cookies. "Sign out everywhere" in Settings ends every session (and paired apps) at once.</td></tr>
-    <tr><td>Exercise images blank in an old build</td><td>Fixed in current images. <code>VITE_IMG_BASE</code>/<code>VITE_GIF_BASE</code> are <b>build-time</b>: they're baked into the bundle when the frontend compiles, so setting them at runtime does nothing to a prebuilt image — redirect media in your reverse proxy instead, or rebuild.</td></tr>
+    <tr><td>Exercise images blank in an old build</td><td><code>VITE_IMG_BASE</code>/<code>VITE_GIF_BASE</code> are <b>build-time</b>: they're baked into the bundle when the frontend compiles, so setting them at runtime does nothing to a build you already have — redirect media in your reverse proxy instead, or rebuild.</td></tr>
   </table>
   <p>Still stuck? The <a href="https://discord.gg/e62jY6fwVb" rel="noopener">Discord</a> is
      the quickest way to get an answer;
