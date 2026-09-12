@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
+import { useUI } from '../store/useUI.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
@@ -22,25 +23,42 @@ import { glyphOf } from '../lib/glyphs.js'
 /**
  * The three angles a coach asked for, when this period's are not filed yet.
  *
- * Only while a check-in is actually due, which is also the only time the fetch runs — photos are
- * metadata-light but Home is the screen this app opens on, and a request every launch to answer a
- * question that changes once a week is not a trade worth making. It disappears the moment all
- * three are in, the same way the check-in card does.
+ * Gated three ways, and each one is load-bearing:
  *
- * Absent on the paired mobile build: an <img> there resolves against capacitor://localhost and
- * carries no Authorization header, so the thumbnails could never render (lib/photo.js).
+ * - A COACH. Progress photos exist to be sent to somebody; without one this prompted a solo user
+ *   to file images nobody would ever look at. isCheckinDue is true for anyone who has never filed
+ *   a check-in — which is every plain openGym user — so without this gate the card mounted for
+ *   all of them, and for a guest or signed-out visitor fetchMyPhotos took a 401 on every single
+ *   Home mount before offering an Add button whose sheet just says "sign in".
+ * - A CHECK-IN ACTUALLY DUE, which is also what keeps the request to once a week rather than once
+ *   per launch of the screen this app opens on.
+ * - PHOTOS_REACHABLE: on the paired mobile build an <img> resolves against capacitor://localhost
+ *   with no Authorization header, so the thumbnails could never render (lib/photo.js).
+ *
+ * It disappears once all three angles are in, the same way the check-in card does.
  */
-function PhotosDue({ S, today }) {
-  const due = isCheckinDue(S, today)
+function PhotosDue({ S, today, coached }) {
+  const due = coached && isCheckinDue(S, today) && PHOTOS_REACHABLE
   const [rows, setRows] = useState(null)
+  // Re-read whenever every sheet has closed. The check-in sheet is opened FROM this card and the
+  // photos go up as part of it, but only SAVING the check-in changes anything this component
+  // watches — somebody who uploads all three angles and dismisses without saving would otherwise
+  // be told "none sent this week" with three of them already on the server.
+  const sheetsOpen = useUI(s => s.sheets.length)
   useEffect(() => {
-    if (!due || !PHOTOS_REACHABLE) return
+    if (!due || sheetsOpen) return
     let alive = true
-    fetchMyPhotos().then(r => { if (alive) setRows(r) }).catch(() => { if (alive) setRows([]) })
+    fetchMyPhotos()
+      .then(r => { if (alive) setRows(r) })
+      // Left null, not []. Offline, a 401 or a 5xx would otherwise render exactly the same card as
+      // a genuinely empty week, so a client who had already sent all three got nagged to send them
+      // again every time the request failed. No answer means no card — the same call loadAssignments
+      // makes about offers.
+      .catch(() => {})
     return () => { alive = false }
-  }, [due])
+  }, [due, sheetsOpen])
 
-  if (!due || !PHOTOS_REACHABLE || rows === null) return null
+  if (!due || rows === null) return null
   const have = posesFor(rows, periodStart(S, today))
   const missing = POSES.filter(p => !have[p.id])
   if (!missing.length) return null
@@ -99,6 +117,21 @@ export default function Home() {
   const todayOvr = S.dayPlan[todayISO()] !== undefined
   // On a rest day, saying when you train next beats leaving the row as a full stop.
   const next = !S.active && !todayRoutines.length ? nextTrainingDay(S, todayISO()) : null
+  /**
+   * What to say to somebody with nothing to train — one value, not two conditions.
+   *
+   * Three states that must be mutually exclusive, and writing them as two independent booleans is
+   * how this went wrong twice: first the welcome ignored offers, then it ignored offers from a
+   * coach who is not bound yet (an admin can assign one by hand, without the invite flow, so
+   * coachName is null while a real program sits unanswered). Both times Home showed the offer AND
+   * told them to load a starter plan. Deriving it once makes that shape unrepresentable.
+   *
+   * An offer outranks both: it IS the message, and answering it is the thing to do.
+   */
+  const emptyState = S.routines.length || S.active ? null
+    : offers.length ? null
+      : user?.coachName ? 'waiting'
+        : 'welcome'
   const bw = lastBW(S)
   const prevBW = S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null
   const delta = bw && prevBW ? bw.w - prevBW.w : null
@@ -187,14 +220,11 @@ export default function Home() {
         <Button size="sm" icon="plus" onClick={() => checkinSheet()}>{t('Check in')}</Button>
       </div>
     </div>}
-    <PhotosDue S={S} today={todayISO()} />
+    <PhotosDue S={S} today={todayISO()} coached={!!user?.coachName} />
     <TodayTargets S={S} nav={nav} today={todayISO()} />
     <InstallCard />
 
-    {/* Somebody who has a coach and nothing to train has not failed to set the app up — they are
-        waiting on a person. Offering them "Load starter plan" invites them to build something
-        their coach is about to replace. */}
-    {!S.routines.length && !S.active && user?.coachName && !offers.length && (
+    {emptyState === 'waiting' && (
       <div className="card">
         <div className="row" style={{ gap: 10, marginBottom: 6 }}>
           <span className="lrow-i"><Icon name="clock" /></span>
@@ -204,11 +234,7 @@ export default function Home() {
       </div>
     )}
 
-    {/* Only for somebody with nobody writing for them. Gating this on "no offer waiting" instead
-        meant a client with a coach AND a program sitting unanswered right above was still told to
-        load a starter plan — the same mistake as the waiting state, one card lower. Having a coach
-        is the whole condition: either they have sent something or they are about to. */}
-    {!S.routines.length && !S.active && !user?.coachName && (
+    {emptyState === 'welcome' && (
       <div className="card">
         <div className="row" style={{ gap: 10, marginBottom: 6 }}>
           <span className="lrow-i"><Icon name="sparkles" /></span>

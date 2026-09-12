@@ -11,10 +11,11 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 let PHOTOS = []
+let photosFail = false
 vi.mock('../lib/api.js', async importOriginal => ({
   ...await importOriginal(),
   api: async () => ({}),
-  fetchMyPhotos: async () => PHOTOS,
+  fetchMyPhotos: async () => { if (photosFail) throw new Error('offline'); return PHOTOS },
 }))
 vi.mock('../lib/mobile.js', () => ({
   MOBILE: false, initReminderSync: () => {}, writeAutoBackup: () => {}, nativeLoad: async () => null, nativeSave: () => {}, syncReminder: () => {},
@@ -39,6 +40,7 @@ const text = () => container.textContent
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true
   PHOTOS = []
+  photosFail = false
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
@@ -73,6 +75,18 @@ describe('somebody whose coach has not sent anything yet', () => {
     expect(text()).toContain('Ahmed sent you a program')
     expect(text()).not.toContain('is preparing your program')
     expect(text()).not.toContain('Load starter plan')
+  })
+
+  it('and an offer from a coach who is not bound yet still silences it', async () => {
+    // An admin can assign a program by hand, without the invite flow, so coachName is null while
+    // a real offer sits unanswered. Gating the welcome on coachName alone put "Load starter plan"
+    // directly beneath that offer — the same bug as before, one field over. Hence one derived
+    // state rather than two conditions that can both be true.
+    setup({ user: { id: 'u1', name: 'Karim' }, assignments: [{ id: 'a1', coachName: 'Ahmed', note: 'Block A' }] })
+    await render()
+    expect(text()).toContain('Ahmed sent you a program')
+    expect(text()).not.toContain('Load starter plan')
+    expect(text()).not.toContain('is preparing your program')
   })
 
   it('and once they have routines, neither state applies', async () => {
@@ -142,6 +156,24 @@ describe('progress photos', () => {
     await render()
     expect(text()).toContain('Progress photos')
     expect(text()).toContain('None sent this week')
+  })
+
+  it('are never asked of somebody with no coach — they exist to be sent to one', async () => {
+    // isCheckinDue is true for anyone who has never filed one, i.e. every plain user, so without
+    // this gate the card mounted for all of them — and for a guest, fetchMyPhotos took a 401 on
+    // every Home mount before offering an Add button whose sheet only says "sign in".
+    setup({ user: { id: 'u1', name: 'Karim' }, S: { routines: [routine] } })
+    await render()
+    expect(text()).not.toContain('Progress photos')
+  })
+
+  it('say nothing at all when the request fails, rather than "none sent"', async () => {
+    // Offline or a 5xx would otherwise render exactly the card a genuinely empty week does, so a
+    // client who had already sent all three got nagged to send them again.
+    photosFail = true
+    setup({ user: { id: 'u1', name: 'Sara', coachName: 'Ahmed' }, S: { routines: [routine] } })
+    await render()
+    expect(text()).not.toContain('Progress photos')
   })
 
   it('stop asking once all three are in', async () => {
