@@ -389,6 +389,7 @@ Same shell as P1, Coach cell on. .hdr h1 "Coach", .sub "Ahmed".
 5. .card "Progress photos": .t-sub muted "Sun 24 Aug", a .row of three 3:4 tiles (--surface-2, radius 8) captioned .t-cap Front / Side / Back, then a plain Button "Gallery" (opens P8, Photos segment).
 6. .card "Daily targets": TargetRows — Calories 1,420 of 2,100 kcal, Protein 96 of 150 g, Carbs 140 of 220 g, Fat 48 of 70 g.
 7. Reserved row, last: Section with one Row — icon bell in --label-3, title "Messages" in --label-3, and a .tag "Coming soon" in --label-3; no chevron, not tappable. It is a placeholder for later, not a feature; draw nothing else about chat.
+   NOTE for the P7 parity pass: this row is DELIBERATELY on the artboard and NOT in the app. The shipped Coach tab (views/MyCoach.jsx) has no messaging row, by the plan's own decision that messaging is out of scope and appears in mockups only. Do not resolve this difference in either direction — neither build the row nor delete it from the artboard.
 ```
 
 ## P5 — Client · Coach tab, no coach
@@ -486,5 +487,5 @@ Paste once at the start of the session, before the first brief.
 7. Type only from the scale: h1 34/700, .big 30/600, body 17, .item .tt 16, .ss and .sect-t 13, .tag 12, tab label 10. No in-between sizes.
 8. Radii: .card 14, buttons 12 (.sm 8), .sheet 22 at the top, tiles and thumbs 12. No other radius values.
 9. Sheets are drawn open over the screen they belong to, on a dimmed .mback, with the .grab handle and an <h3> title; the sheet surface is --bg-el.
-10. Coach copy is English, plain and short; client copy is written so it translates cleanly (no puns, no idioms). One coach, no admin role, no gym concepts (classes, timetable, QR check-in, access requests), no AI chat; messaging exists only as the "Coming soon" row on P4.
+10. Coach copy is English, plain and short; client copy is written so it translates cleanly (no puns, no idioms). One coach, no admin role, no gym concepts (classes, timetable, QR check-in, access requests). The AI Coach is not a COACH surface and never appears on one — but it does appear on the client's You hub (P9), where it moved from the banner it used to occupy above the Plan screen. Messaging exists only as the "Coming soon" row on P4; see the note there.
 ```
