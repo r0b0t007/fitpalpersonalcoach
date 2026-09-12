@@ -216,9 +216,6 @@ export default function Settings() {
             pieces a coach still needs move into Account. It lives in the coach shell, hence the
             preference reset — from "Train myself" the client table has no /admin. */}
         {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => { setShellPref('coach'); nav('/admin') }} />}
-        {/* Told, not hidden: a coach can read this member's training history, and the person being
-            read should never have to discover that from somewhere else. */}
-        {user.coachName && <Row icon="personCircle" iconTint="var(--grey)" title={t('Your coach')} subtitle={t('{0} can see your training and send you programs.', user.coachName)} />}
         <Row icon="link" iconTint="var(--blue)" title={t('Pair the mobile app')} subtitle={t('Connect the openGym app on your phone to this account.')} accessory="chevron"
           onClick={() => useUI.getState().openSheet(close => <PairSheet close={close} />)} />
         <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />

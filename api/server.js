@@ -2158,6 +2158,33 @@ const routes = {
     json(res, 200, { assignments: mine });
   },
 
+  // What this member has already answered. The Coach tab needs one fact from it — which program
+  // they are actually on — and there was no way to ask: GET /api/assignments returns only PENDING
+  // rows, so the moment somebody accepted a program it vanished from every screen they have.
+  //
+  // Deliberately WITHOUT the bundle. A decided row's plan is already merged into their own state;
+  // sending it again would put the largest field in the database on a screen that shows a name and
+  // a date, on the tab a client opens most.
+  'GET /api/assignments/history': async (req, res) => {
+    const user = readSession(req);
+    if (!user) return json(res, 401, { error: 'not signed in' });
+    const mine = db.assignments
+      .filter(a => a.memberId === user.id && a.status !== 'pending')
+      // Newest first: the one thing this screen states is the CURRENT program, which is the most
+      // recent accepted row. Sorted on decidedAt rather than created — a coach can send two and
+      // have them answered out of order.
+      .sort((a, b) => String(b.decidedAt || b.created || '').localeCompare(String(a.decidedAt || a.created || '')))
+      .map(a => ({
+        id: a.id, coachName: a.coachName, note: a.note,
+        created: a.created, decidedAt: a.decidedAt || null, status: a.status,
+        name: (a.bundle && a.bundle.name) || '',
+        routines: (a.bundle && Array.isArray(a.bundle.routines) ? a.bundle.routines.length : 0)
+      }));
+    // Already pruned at ASSIGN_DECIDED_DAYS by pruneAssignments on write, so this is the whole
+    // history there is — no limit, and nothing here grows without bound.
+    json(res, 200, { assignments: mine });
+  },
+
   'POST /api/assignments/decide': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });

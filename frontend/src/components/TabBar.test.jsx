@@ -49,10 +49,11 @@ afterEach(() => {
 })
 
 describe('the bar itself', () => {
-  it('is four cells: Home, Plan, the Start action and You — in that order', () => {
+  it('is five cells: Home, Plan, the Start action, Coach and You — in that order', () => {
     // Sessions left with the gym timetable; the coach dashboards moved to CoachTabBar.jsx.
+    // Coach is the client's side of the relationship — /mycoach, not the AI chat at /coach.
     render('/home')
-    expect(cells().map(b => b.textContent.trim())).toEqual(['Home', 'Plan', 'Start', 'You'])
+    expect(cells().map(b => b.textContent.trim())).toEqual(['Home', 'Plan', 'Start', 'Coach', 'You'])
   })
 
   it('the centre cell is the raised action, not a destination', () => {
@@ -66,7 +67,7 @@ describe('what the You hub owns', () => {
   for (const [path, label] of [
     ['/you', 'You'], ['/stats', 'You'], ['/history', 'You'], ['/library', 'You'], ['/nutrition', 'You'],
     ['/settings', 'You'], ['/coach', 'You'],
-    ['/home', 'Home'], ['/plan', 'Plan'],
+    ['/home', 'Home'], ['/plan', 'Plan'], ['/mycoach', 'Coach'],
   ]) {
     it(`${path} lights ${label}`, () => {
       render(path)
@@ -89,12 +90,15 @@ describe('the pending-program dot', () => {
     expect(container.querySelector('.tb-dot')).toBeNull()
   })
 
-  it('appears on You when one is', () => {
+  it('appears on Coach when one is, which is where the offer now lives', () => {
     state.assignments = [{ id: 'a1', coachName: 'Coach B' }]
     render('/home')
     const dot = container.querySelector('.tb-dot')
     expect(dot).not.toBeNull()
-    expect(labelled('You').contains(dot)).toBe(true)
+    expect(labelled('Coach').contains(dot)).toBe(true)
+    // And NOT on You: the offer moved off that hub, so a dot there pointed at a screen that no
+    // longer carries it.
+    expect(labelled('You').contains(dot)).toBe(false)
   })
 })
 

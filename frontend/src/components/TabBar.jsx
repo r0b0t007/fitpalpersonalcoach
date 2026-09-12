@@ -8,6 +8,7 @@ import Icon from './Icon.jsx'
 // Everything the You hub owns. /stats and /library lost their own cells; /settings, /history and
 // the AI coach never had one. The two dashboards used to be here too — they now live in the
 // coach shell (CoachTabBar.jsx), which this bar never renders alongside.
+// 'coach' is the AI chat, which has no cell either. 'mycoach' is NOT here — it has its own cell.
 const YOU_ROUTES = ['you', 'stats', 'history', 'library', 'muscles', 'nutrition', 'settings', 'coach']
 
 export default function TabBar({ onStart }) {
@@ -49,7 +50,11 @@ export default function TabBar({ onStart }) {
         <span className="cir"><Icon name={S.active ? (cur === 'workout' ? 'dumbbell' : 'play') : 'dumbbell'} /></span>
         <span>{S.active ? (cur === 'workout' ? t('Workout') : t('Resume')) : t('Start')}</span>
       </button>
-      <Tab k="you" icon="personCircle" to="/you" label={t('You')} dot={!!assignments?.length} />
+      {/* The dot moved here from You with the offers themselves: an unanswered program is the one
+          thing on this tab that is waiting on the client, and a dot on the hub pointed at a screen
+          that no longer carries it. */}
+      <Tab k="mycoach" icon="people" to="/mycoach" label={t('Coach')} dot={!!assignments?.length} />
+      <Tab k="you" icon="personCircle" to="/you" label={t('You')} />
     </nav>
   )
 }

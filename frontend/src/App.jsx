@@ -34,6 +34,7 @@ import Library from './views/Library.jsx'
 import Muscles from './views/Muscles.jsx'
 import Settings from './views/Settings.jsx'
 import You from './views/You.jsx'
+import MyCoach from './views/MyCoach.jsx'
 import Admin from './views/Admin.jsx'
 import CoachToday from './views/coach/CoachToday.jsx'
 import Clients from './views/coach/Clients.jsx'
@@ -82,6 +83,9 @@ function ClientRoutes() {
       <Route path="/history" element={<History />} />
       <Route path="/library" element={<Library />} />
       <Route path="/muscles" element={<Muscles />} />
+      {/* /mycoach, not /coach — upstream's AI chat took that path during the 401-commit merge,
+          and it is the client table so both have to coexist. */}
+      <Route path="/mycoach" element={<MyCoach />} />
       <Route path="/you" element={<You />} />
       <Route path="/settings" element={<Settings />} />
       {/* The AI Coach screens gate themselves on the instance config; the routes exist
