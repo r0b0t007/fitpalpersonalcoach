@@ -12,7 +12,7 @@
 ### Setup
 
 - openGym version or commit:
-- How you run it (docker compose / dev server / APK):
+- How you run it (self-hosted / dev server / APK):
 - If it is about login or passkeys — `RP_ID`, `ORIGIN`, and what sits in front of the app:
 
 *Login trouble is an `RP_ID`/`ORIGIN` mismatch far more often than not:*

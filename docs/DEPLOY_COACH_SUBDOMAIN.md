@@ -167,13 +167,13 @@ Two things are worth knowing so nobody "fixes" this again in the wrong place:
 Hashed files under `assets/` are deliberately untouched — their names change every build, so
 they should be cached hard.
 
-This file exists only because the cPanel deployment serves the static build through LiteSpeed
-and never renders `web/nginx.conf.template`. The two paths are **not** equivalent, and it is
-worth knowing which way they differ before reconciling one to the other: nginx matches
-`location ~* \.(js|css|json|html)$`, so on Docker *every* `.js` gets `no-cache` — including the
-hashed `assets/index-<hash>.js`, which this `.htaccess` deliberately leaves cacheable. Narrowing
-the nginx regex, or widening the `FilesMatch`, is a real change to how the bundle caches on one
-of the two deployments, not the no-op that "make them the same" implies.
+This file exists because the cPanel deployment serves the static build through LiteSpeed, and
+the `.htaccess` above is the only place its cache headers are set. There used to be a second
+path — an nginx config in a `web/` container, which matched `location ~* \.(js|css|json|html)$`
+and so gave *every* `.js` `no-cache`, including the hashed `assets/index-<hash>.js` that this
+`.htaccess` deliberately leaves cacheable. Docker is gone and this is now the only path, but the
+distinction is worth keeping in mind: widening the `FilesMatch` to cover hashed assets would be a
+real change to how the bundle caches, not a tidy-up.
 
 A one-off purge was needed when these headers were first added, because the edge was still
 holding the pre-fix copy: Caching → Configuration → Custom Purge → **URL**, one line,

@@ -28,7 +28,7 @@ npm install
 
 ### 2. Point it at your data
 
-The MCP server reads the same `./data` directory `docker compose up` creates. Pick the profile
+The MCP server reads the same `./data` directory the API writes to. Pick the profile
 to answer for — its user id is in `./data/db.json` under `users[].id`:
 
 ```bash
@@ -107,9 +107,9 @@ dependencies landed in `frontend/`, no public exports changed.
 ## Design constraints honoured
 
 - **One runtime dependency beyond the MCP SDK:** none. No database driver, no HTTP framework.
-- **No new container.** stdio transport is spawned by the LLM client; nothing to add to
-  `docker-compose.yml`.
-- **No new auth.** The filesystem is the boundary — same as `docker compose` running on the
+- **No new process to run.** stdio transport is spawned by the LLM client; nothing extra to
+  deploy or keep alive.
+- **No new auth.** The filesystem is the boundary — same as the API running on the
   user's box. No passkey material, VAPID keys, or session secrets ever cross it.
 - **No telemetry, no network.** Reads `./data/*.json` and exits when the LLM client
   disconnects.
@@ -136,7 +136,7 @@ their own 92 tests in `frontend/src/lib/*.test.js`.
   admin dashboard (new `./data/tokens.json`) and a write-lock against the web UI's read-modify-
   write of `state-<uid>.json`. Tools: `log_workout`, `add_bodyweight`, `edit_routine`,
   `assign_weekday`, `override_day`.
-- **Phase 3:** Streamable HTTP transport, opt-in 4th container in `docker-compose.yml`. Same
+- **Phase 3:** Streamable HTTP transport, opt-in second listener beside the API. Same
   tool implementations, second transport — the MCP SDK supports both behind one tool registration.
 
 ## License

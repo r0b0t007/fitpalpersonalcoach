@@ -125,7 +125,7 @@ is modified, renamed or removed, and declining leaves their plan untouched.
 Members are told who their coach is in Settings. Someone reading your training history should
 never be invisible to you.
 Hosting and pipeline specifics: **[docs/DEPLOY_NAMECHEAP.md](docs/DEPLOY_NAMECHEAP.md)**;
-generic self-hosting (Docker, HTTPS, passkeys): **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
+generic self-hosting (HTTPS, passkeys): **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
 
 ---
 
@@ -183,23 +183,24 @@ as a home-screen app, passkey sign-in, offline support, sync across your phone a
 - 🌍 **14 languages** — full UI translation (EN, DE, ES, FR, IT, PT (Portugal), PT (Brazil), PL, TR, RU, ZH, KO, HI, TH, HU); exercise instructions localized in 12 of them and built-in exercise names shown bilingually in PT-BR and HU, all loaded on demand so the app stays fast
 - 📥 **Bring your history with you** — import from **FitNotes** (Android and iOS), **Strong** and **Hevy** (CSV or directly with a [Hevy Pro API key](https://hevy.com/settings?developer)), or body weight straight out of an **Apple Health** export. Exercise names are matched against the library and anything unrecognised becomes one of your own exercises, so nothing in the file is dropped
 - 📦 **Yours to keep** — one-tap JSON export/import, guest mode, **no telemetry**; switching kg ↔ lb offers to convert every stored number
-- 🤖 **Ask an AI about your training** (optional) — an [MCP server](mcp/README.md) lets a client like Claude Desktop or Cursor read your history in your own words: *"what did I bench last week?"*. Read-only, spawned locally by the client, nothing leaves your box. Not in the Docker build — if you don't use an AI assistant, it isn't there
+- 🤖 **Ask an AI about your training** (optional) — an [MCP server](mcp/README.md) lets a client like Claude Desktop or Cursor read your history in your own words: *"what did I bench last week?"*. Read-only, spawned locally by the client, nothing leaves your box — if you don't use an AI assistant, it never runs
 - 📱 **Standalone Android app** — the whole tracker as a sideloadable APK: no account, no server, data on the phone, native workout reminders, and an **in-app update check** that downloads the next signed APK and verifies its checksum ([download](https://opengym.duarte-santos.ch))
 
 ## Quick start (self-host)
 
-You need [Docker](https://docs.docker.com/get-docker/) with Compose.
+You need Node 22 or newer.
 
 ```bash
 git clone https://gitlab.com/DuarteSantos8/opengym
 cd openGym
 cp .env.example .env
-docker compose pull   # grab prebuilt images (amd64 + arm64) — skip to build from source instead
-docker compose up -d
+./scripts/fetch-media.sh                     # exercise media (~140 MB), once
+
+cd api      && npm ci && node server.js &    # the API, on :3000
+cd frontend && npm install && npm run dev    # the app, on :5173
 ```
 
-Open **http://localhost:8080**, tap **Create profile**, and you're in. First launch downloads
-the exercise media (~140 MB) once.
+Open **http://localhost:5173**, tap **Create profile**, and you're in.
 
 > **About that media:** it reaches openGym through
 > [hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset), which
@@ -208,10 +209,6 @@ the exercise media (~140 MB) once.
 > openGym's AGPL, and their ownership is currently disputed between Gym visual and ExerciseDB.
 > openGym ships none of it: your instance downloads it from upstream. Reusing it yourself,
 > commercially or not, means clearing it with the rights holder — see [NOTICE.md](NOTICE.md).
- Prefer building the images yourself instead of pulling from
-GitLab's registry? Drop the `pull` step and run `docker compose up -d --build` — you don't need Node or
-a build step locally either way.
-
 > Want it reachable from your phone over the internet with passkeys? You'll need an HTTPS
 > domain — a two-line change in `.env`. See **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
 
@@ -234,8 +231,8 @@ mobile app is the install-and-done flavor.
 
 ```
 ┌─────────────┐        ┌──────────────────────────────┐
-│  Your phone │──HTTPS─▶│  web  (nginx)                │
-│  / laptop   │        │   ├─ serves the built app    │
+│  Your phone │──HTTPS─▶│  your web server             │
+│  / laptop   │        │   ├─ serves frontend/dist/   │
 └─────────────┘        │   └─ proxies /api ──────────┐│
                        └──────────────────────────────┘│
                                                         ▼
@@ -245,9 +242,9 @@ mobile app is the install-and-done flavor.
                                         └──────────────────────────┘
 ```
 
-- **frontend/** — React + Vite (React Router + Zustand), built to static files **inside Docker**
+- **frontend/** — React + Vite (React Router + Zustand), built with `npm run build` to static files in `dist/`
 - **api/** — Node with no framework, two dependencies (`@simplewebauthn/server` for passkeys, `web-push` for notifications), storing everything as plain JSON files under `./data`
-- **web/** — a multi-stage image that builds the frontend and serves it with nginx, proxying `/api` to the backend so it's all on **one origin** (passkeys require this)
+- Whatever serves it — Apache, nginx, Caddy — hands out `dist/` and proxies `/api` to the API, so it is all **one origin**. Passkeys require that.
 
 The full HTTP API is documented as an OpenAPI spec in [`api/openapi.yaml`](api/openapi.yaml) — browsable at [opengym.duarte-santos.ch/api.html](https://opengym.duarte-santos.ch/api.html).
 
@@ -266,11 +263,8 @@ All via `.env` (see `.env.example`):
 | Variable      | What it is                                           | Default                 |
 |---------------|------------------------------------------------------|-------------------------|
 | `RP_ID`       | Hostname passkeys are bound to                       | `localhost`             |
-| `ORIGIN`      | Full URL the app is served from                      | `http://localhost:8080` |
-| `WEB_PORT`    | Host port for the web UI                             | `8080`                  |
-| `NGINX_PORT`  | Port the web container listens on, inside the container | `80`                 |
-| `BACKEND`     | Name of the API service that `/api` is proxied to — change it if yours isn't called `api` | `api` |
-| `PORT`        | Port the API listens on; the web container proxies to the same value | `3000`  |
+| `ORIGIN`      | Full URL the app is served from                      | `http://localhost:5173` |
+| `PORT`        | Port the API listens on; your web server proxies `/api` to it | `3000`  |
 | `RP_NAME`     | Name shown in the passkey prompt                     | `openGym`               |
 | `SESSION_DAYS`| How long a sign-in lasts, in days                    | `90`                    |
 | `ADMIN_UIDS`  | User ids that get the admin dashboard (comma-separated) | *(none)*             |
@@ -285,8 +279,8 @@ All via `.env` (see `.env.example`):
 | `VAPID_SUBJECT` | Contact URL sent with push notifications           | your `ORIGIN`           |
 
 Push notification keys are generated on first run and saved to `./data/vapid.json` — nothing to set.
-`DATA_DIR` is pinned to `/data` by `docker-compose.yml` and mapped to `./data` on the host; change the
-host side of that volume, not the variable.
+`DATA_DIR` defaults to `data/` at the repo root, whatever directory you started the API from.
+Point it wherever you back up.
 
 ## Roadmap
 
@@ -300,11 +294,11 @@ waiting for a test on the staging instance.
 
 ## Tech
 
-React 19 + Vite (React Router, Zustand) · Node (no framework) · nginx · Docker Compose ·
-WebAuthn · exercise data from [hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset)
+React 19 + Vite (React Router, Zustand) · Node (no framework) · WebAuthn · exercise data from
+[hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset)
 (MIT metadata and instructions; media © Gym visual — see [License](#license)).
-No database server, no cloud dependencies — the frontend builds inside Docker, so self-hosting
-stays a one-command `docker compose up`.
+No database server, no cloud dependencies, and no container runtime: the API is a Node process and
+the frontend is a folder of static files, which is all the shared hosting this deploys to allows.
 
 The training logic — progression rules, 1RM estimation, how a logged session is read back —
 lives in pure functions under `frontend/src/lib/` with tests next to them: `npm test` in
@@ -314,7 +308,7 @@ React, the router and Zustand.
 
 The same pure helpers power an optional MCP server (`mcp/`) that lets an LLM client like
 Claude Desktop read your data over stdio — see [mcp/README.md](mcp/README.md). Opt-in, not
-in the Docker build.
+part of a deploy.
 
 ## Community
 

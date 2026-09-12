@@ -20,7 +20,7 @@
 
 ### How are you running openGym?
 
-*Pick one: self-hosted (docker compose) · frontend dev server (`npm run dev`) · Android APK ·
+*Pick one: self-hosted · frontend dev server (`npm run dev`) · Android APK ·
 other / not sure*
 
 ### Version & environment
