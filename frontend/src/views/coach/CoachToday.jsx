@@ -63,9 +63,9 @@ export default function CoachToday() {
     {members && !roster.length && <div className="card">
       <h2 style={{ margin: '0 0 6px' }}>Invite your first client</h2>
       <div className="small muted" style={{ marginBottom: 10, lineHeight: 1.4 }}>
-        Make a code, give it to whoever is joining, and they arrive on your roster the moment they sign up.
+        Send them a link. They open it, make their profile, and arrive on your roster — nobody has to assign them afterwards.
       </div>
-      <Button variant="primary" icon="plus" onClick={() => openSheet(() => <InviteSheet />)}>Invite a client</Button>
+      <Button variant="primary" icon="link" onClick={() => openSheet(() => <InviteSheet />)}>Invite a client</Button>
     </div>}
 
     {roster.length > 0 && <div className="card">
@@ -109,10 +109,10 @@ export default function CoachToday() {
     </div>
 
     {roster.length > 0 && <div className="card">
-      <div className="row between"><h2 style={{ margin: 0 }}>Take a client on</h2>
-        <Button variant="primary" size="sm" icon="plus" onClick={() => openSheet(() => <InviteSheet />)}>Make a code</Button></div>
+      <div className="row between"><h2 style={{ margin: 0 }}>Invite a client</h2>
+        <Button variant="primary" size="sm" icon="link" onClick={() => openSheet(() => <InviteSheet />)}>Invite</Button></div>
       <div className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.4 }}>
-        Give the code to whoever is joining. They enter it when they sign up and arrive already on your roster.
+        Send them a link. They open it and arrive on your roster already yours. Each link works once.
       </div>
     </div>}
 

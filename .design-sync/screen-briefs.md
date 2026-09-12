@@ -447,7 +447,7 @@ Section "App": Row icon gear "Settings" chevron (opens P10); Row icon bell "Noti
 Section: Row icon signOut "Sign out".
 Footer .t-cap dim centred "FitPal Coach · v2.0".
 Rows that must not appear: Staff, Admin, Coach dashboard, Sessions, Gym check-in. The pending-offer dot lives on the Coach tab cell, not here, and neither does the offer itself.
-The AI Coach row IS on this screen, last in Training — it moved here from the banner across the top of the Plan screen in P5 part 2, because "Coach" now means a person and a client's own plan should not advertise an automated one. Still gated on the instance offering the feature.
+There is no AI Coach row. An earlier revision of this brief put one here, last in Training, after P5 part 2 moved it off the banner above the Plan screen. The whole feature was removed afterwards, so the row does not exist on any screen — "Coach" means a person, and nothing on a client's plan advertises an automated one.
 ```
 
 ## P10 — Client · Settings
@@ -459,7 +459,7 @@ Section "Appearance": Row icon moon "Theme" value "Dark" chevron; Row icon spark
 Section "Data": Row icon download "Export my data" chevron; Row icon upload "Import" chevron; Row icon qr "Pair mobile" subtitle "Sign the app in with this phone" chevron.
 Section "Account": Row icon key "Passkeys" value "2" chevron; Row icon signOut "Sign out everywhere"; .lrow.danger "Delete my account".
 Footer .t-cap dim centred "FitPal Coach · v2.0".
-Rows that must not appear: Admin, Coach dashboard, "Your coach", Gym check-in / QR toggle, AI coach, Sessions. Every row is at least 44px; values right-aligned in .lrow-v.
+Rows that must not appear: Admin, Coach dashboard, "Your coach", Gym check-in / QR toggle, AI coach, Sessions — the last three are gone from the codebase entirely, not merely hidden here. Every row is at least 44px; values right-aligned in .lrow-v.
 ```
 
 ## P11 — Client · Today, light theme
@@ -487,5 +487,5 @@ Paste once at the start of the session, before the first brief.
 7. Type only from the scale: h1 34/700, .big 30/600, body 17, .item .tt 16, .ss and .sect-t 13, .tag 12, tab label 10. No in-between sizes.
 8. Radii: .card 14, buttons 12 (.sm 8), .sheet 22 at the top, tiles and thumbs 12. No other radius values.
 9. Sheets are drawn open over the screen they belong to, on a dimmed .mback, with the .grab handle and an <h3> title; the sheet surface is --bg-el.
-10. Coach copy is English, plain and short; client copy is written so it translates cleanly (no puns, no idioms). One coach, no admin role, no gym concepts (classes, timetable, QR check-in, access requests). The AI Coach is not a COACH surface and never appears on one — but it does appear on the client's You hub (P9), where it moved from the banner it used to occupy above the Plan screen. Messaging exists only as the "Coming soon" row on P4; see the note there.
+10. Coach copy is English, plain and short; client copy is written so it translates cleanly (no puns, no idioms). One coach, no admin role, no gym concepts (classes, timetable, QR check-in, access requests) and no AI Coach — all of those have been deleted from the codebase, so a screen that shows one is drawing something that cannot exist. The action of taking someone on is called "Invite a client" on every surface, and it is a LINK you send, not a code they type; the code is only the fallback you can read down a phone. The people on a roster are "clients", never "members". Messaging exists only as the "Coming soon" row on P4; see the note there.
 ```

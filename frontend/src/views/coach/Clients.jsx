@@ -40,7 +40,7 @@ export default function Clients() {
     <div className="hdr">
       <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>Clients</h1>
         <div className="sub">{members ? active.length + (active.length === 1 ? ' client' : ' clients') : 'Loading…'}</div></div>
-      <Button variant="tinted" size="sm" icon="plus" onClick={() => openSheet(() => <InviteSheet />)}>Invite</Button>
+      <Button variant="tinted" size="sm" icon="link" onClick={() => openSheet(() => <InviteSheet />)}>Invite</Button>
     </div>
 
     {active.length > 6 && <div style={{ marginBottom: 12 }}>
@@ -66,7 +66,7 @@ export default function Clients() {
         <Icon name="chevronRight" className="chev" />
       </button>)}
       {members && !active.length && <div className="empty">
-        No clients yet. Make an invite code and give it to whoever is joining — they arrive on your roster the moment they sign up.
+        No clients yet. Send someone an invite link — they open it, make their profile, and arrive on your roster.
       </div>}
       {members && active.length > 0 && !rows.length && <div className="empty">Nobody matches “{q}”.</div>}
     </div>
