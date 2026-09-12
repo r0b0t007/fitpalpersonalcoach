@@ -11,8 +11,9 @@ Not in this folder (added at deploy time):
 - `openGym.apk` — the signed release build (see `../docs/MOBILE.md`)
 - `demo/` — the browser-only demo build of the app, embedded in the `#demo` section and
   reachable on its own at `/demo/`. Built from `../frontend` with `VITE_DEMO=1` and the
-  jsDelivr media bases (see the `pages` job in `../.gitlab-ci.yml`), so the ~140 MB
-  of exercise media stays out of it. It has to live on this host: the site frames it, and
+  jsDelivr media bases (`VITE_IMG_BASE`/`VITE_GIF_BASE`), so the ~140 MB
+  of exercise media stays out of it. Built by hand now — the `pages` job that used to do it
+  lived in `.gitlab-ci.yml`, which went with the Docker removal. It has to live on this host: the site frames it, and
   `X-Frame-Options: SAMEORIGIN` would block it from anywhere else.
 
 Navigation is a topic rail (`.side`): one title/subtitle list of everything on the
