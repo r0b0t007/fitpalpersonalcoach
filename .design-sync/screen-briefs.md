@@ -10,32 +10,42 @@
 
 ## S1 — Login
 
+> Rewritten to match what shipped (PR #45). The earlier draft invented a "Sign in" card and a
+> "Have an invite link?" row; neither exists. An invite arrives as a link that opens the app, and
+> an existing account joins a coach from the Coach tab (P5), not from here.
+
 ```
-Frame: phone 390×844, dark theme. No tab bar. Wrap everything in #app.
-Top third: the Logo component centred (the "FitPal ⚡ Coach" wordmark — the bolt is the only gold on the upper half), then one .t-title2 line in --label-2, centred: "Your coach. Your plan. Your progress."
-Middle: a .card with a .t-head "Sign in", a .t-sub muted line "Use the passkey saved on this phone.", then Button variant primary, icon key, full width, label "Sign in with passkey". Under it Button variant tinted, icon person, full width, "Create account" (opens S3).
-Below the card a .divider, then a Section with one Row: icon link, iconTint var(--acc), title "Have an invite link?", subtitle "Open it on this phone or paste the code", accessory chevron (leads to S2).
-Very bottom: .t-cap dim centred "coach.fitpal.ma".
-Rules for this screen: no username or password field — sign-in is passkey only. Keep the wordmark clear of the notch, 12px between card and section, 44px button heights. Nothing gold except the bolt in the wordmark, the primary button and the invite row's icon.
+Frame: phone 390x844, dark theme. No tab bar. Wrap everything in #app, vertically centred, text-align centre, min-height 78vh.
+Top: the Logo component (the "FitPal (bolt) Coach" wordmark, bolt in gold), then one muted line 10px under it: "Your coach. Your plan. Your progress."
+34px gap, then three stacked full-width controls:
+  1. Button variant primary, icon person, "Sign in with passkey".
+  2. 10px gap. Button (plain), icon sparkles, "Create new profile".
+  3. 10px gap. Button variant ghost, dim, "Continue without account".
+20px gap, then the InstallCard: a .card with a gold rounded-square download icon, .tt "Install FitPal Coach", .ss "Get the full-screen app on your home screen.", a full-width primary "Install" button and a plain "Not now" beneath it.
+26px gap, then two centred .dim .small lines: "Passkeys use fingerprint, face or PIN - no passwords." and "Each profile keeps its own plan, workouts & body weight."
+Rules: no username or password field anywhere - sign-in is passkey only. Gold appears on the bolt, the primary button and the Install button, nothing else.
 ```
 
 ## S2 — Invite landing
 
 ```
-Frame: phone 390×844, dark. Same base layout as S1 with two changes, then a sheet open on top.
-Base screen (dimmed by .mback): under the Logo replace the tagline with a .t-title "Amine invited you" and a .t-sub muted "Create your account and you're on his roster right away." The Sign in card stays underneath.
-Sheet (.sheet, .grab handle, <h3> "Create your account"): a TextField labelled "Your name", empty, placeholder "Sara Benali". Below it a Section titled "Invite" with one Row: icon lock, iconTint var(--acc), title "Invite code", value "K7F2-9QDM" in .lrow-v, no chevron — read-only, value in --label-2. A .t-foot muted line under the section: "Filled in from your link. You can't change it here."
-Then Button primary, icon key, full width, "Continue with passkey". Under it a plain Button "I already have an account" that dismisses the sheet.
-Sheet height about 60% of the frame; the code row is not tappable; the name field is the only input. Nothing here mentions an admin or a gym.
+Frame: phone 390x844, dark. The S1 screen with two changes, and the register sheet already open on top of it.
+Base screen (dimmed behind .mback): the tagline under the wordmark reads "Amine invited you to train with them." instead of the usual one. Everything else is S1 unchanged.
+Sheet (.sheet with .grab handle): <h3> "Amine invited you". Under it a muted paragraph: "Pick a name and confirm with fingerprint, face or PIN. You will arrive on Amine's client list - they can see your training and send you programs."
+Then a TextField, placeholder "Your name", empty, focused.
+10px gap, then the invite code as a READ-ONLY .input: centred text, letter-spacing .14em, font-weight 600, value "K7F29QDM", opacity .7. A .dim .small caption under it: "From your invite link."
+12px gap, then Button variant primary, full width, "Create passkey".
+Rules: the code field is not editable and carries no chevron or clear button - what the link carries is what gets sent. Nothing on this screen mentions an admin, a gym or a role choice; every account made here is a client.
 ```
 
 ## S3 — Register (no invite)
 
 ```
-Frame: phone 390×844, dark. The S1 base (Logo + tagline, Sign in card) dimmed by .mback, with the register sheet open.
-Sheet (.sheet, .grab, <h3> "Create your account"): TextField labelled "Your name", empty, placeholder "Your name". Then a Section titled "Invite" containing a TextField labelled "Invite code (optional)", placeholder "From your coach, if you have one", empty. Under the section a .t-foot muted: "No code? You can still train on your own and add a coach later."
-Then Button primary, icon key, full width, "Continue with passkey"; beneath it a plain Button "I already have an account".
-Sheet about 60% height. Difference from S2: the code field is editable and empty, and there is no coach name in the header. Do not draw a role picker — every account created here is a client; the coach account already exists.
+Frame: phone 390x844, dark. The S1 screen dimmed behind .mback, with the register sheet open.
+Sheet (.sheet, .grab): <h3> "Create your profile", then a muted paragraph "Pick a name, then confirm with fingerprint, face or PIN. The passkey is saved in your device - no password needed."
+A TextField, placeholder "Your name", empty, focused. That is the ONLY field.
+12px gap, Button variant primary, full width, "Create passkey".
+Rules: no invite-code field. This instance does not gate signup on codes, which is the normal case since PR #45 - a code is honoured whenever one is supplied but never required. The field appears only on an invite-only instance (then it is editable and captioned "This app is invite-only - enter the code you were given") or when a link supplied one (S2, read-only). Do not draw a role picker.
 ```
 
 ## C1 — Coach · Today
@@ -82,7 +92,7 @@ Nine rows; the list scrolls under the tab bar. Rows are 60px minimum.
 
 ```
 Same shell as C1, Clients cell on (client detail is a route under Clients, not a sheet). .hdr: left .iconbtn chevronLeft, h1 "Sara Benali", .sub "Client since March · 24 workouts"; right .iconbtn more (overflow, closed here).
-Segmented (.seg) full width under the header: Overview (selected) · Program · Check-ins · Photos · Stats · Notes.
+Segmented (.seg) full width under the header, FIVE tabs and no more: Overview (selected) · Program · Check-ins · Photos · Stats. There is no Notes tab — that route was written and removed during P3 review because nothing ever read it back.
 Content:
 1. .tiles: .l "Adherence" .v "61%" in var(--yellow); "Last check-in" "9 d" in var(--red); "Workouts" "24"; "Routines" "3".
 2. .card "Adherence · last 28 days": .row.between with h2 and "61%" in var(--yellow); .t-sub muted "Trained 11 of 18 planned days · 1 unplanned"; then 28 squares of 14px in a row (var(--green) trained, var(--red) missed, var(--teal) unplanned, --surface-2 rest at 45% opacity, --sep for today).
@@ -138,13 +148,26 @@ Same screen as C4, Segmented on Stats. This is StatsPanels in read-only mode aga
 No Log, Goal or Add buttons anywhere on this tab.
 ```
 
-## C9 — Coach · Client · Notes + overflow menu
+## C9 — Coach · Client · overflow menu
+
+> Rewritten. The earlier draft gave this screen a **Notes** tab; there is no such thing. The
+> coach-private notes route was written and then removed during P3 review — it was write-only,
+> nothing ever read it back — so a Notes tab on an artboard would send P7 off to build a feature
+> that was deliberately deleted. The shipped tabs are Overview, Program, Check-ins, Photos, Stats
+> and nothing else.
+>
+> What this artboard is FOR is the overflow menu, which is still unbuilt: `POST
+> /api/coach/member/release` shipped in PR #45 and has no entry point anywhere in the UI.
 
 ```
-Same screen as C4, Segmented on Notes, with the header overflow menu open.
-Notes content: a TextArea full width, about 200px tall, containing coach-private text: "Knee history — avoid deep lunges. Prefers morning sessions. Wants to reach 60 kg by December." Under it a .t-foot muted "Only you can see this. Saved automatically." and a .t-cap dim right-aligned "Saved 2 min ago".
-Overflow menu: anchored under the .iconbtn more at the top right, drawn as a small .card (radius 12, background --surface-2, width about 240) containing a Section of three Rows without icons: "Send a program" with chevron; "Release from my clients" with the title in var(--yellow); "Disable account" as .lrow.danger. The rest of the screen is dimmed by .mback; the tab bar stays visible.
-No "Reassign coach" item — there is one coach. No "Delete" — disabling keeps the data.
+Same screen as C4 (Segmented on Overview, dimmed by .mback), with the header overflow menu open.
+Overflow menu: anchored under the .iconbtn "more" at the top right, drawn as a small .card (radius 12, background var(--surface-2), width about 240) containing a Section of three Rows without icons:
+- "Send a program", accessory chevron.
+- "Release from my clients", title in var(--yellow).
+- "Disable account", as .lrow.danger.
+The rest of the screen is dimmed; the tab bar stays visible.
+Releasing is the coach's half of a relationship ending. It is not disabling: the client keeps their account, their history and their own plan, and can join someone else with a new link. Any program still waiting for them is withdrawn at the same moment.
+No "Reassign coach" item - there is one coach. No "Delete" - disabling keeps the data. No Notes anywhere.
 ```
 
 ## C10 — Coach · Programs library
@@ -300,10 +323,10 @@ Cards keep the 14px radius; no hover states drawn; numbers tabular.
 ```
 Frame: desktop 1200×800, dark. Same left rail as D1 with Clients active.
 Header: .iconbtn chevronLeft, h1 "Sara Benali", .sub "Client since March · 24 workouts"; right side a .row of Button tinted sm icon clipboard "Send a program" and an .iconbtn more.
-Under it the Segmented (Overview selected · Program · Check-ins · Photos · Stats · Notes) spanning the main width.
+Under it the Segmented (Overview selected · Program · Check-ins · Photos · Stats — five tabs, no Notes) spanning the main width.
 .cols, two columns:
 Left (wider): .tiles four — Adherence "61%" in var(--yellow), Last check-in "9 d" in var(--red), Workouts "24", Routines "3"; the Adherence .card with the 28 squares from C4; the pending-offer .card with border var(--acc) and Button size sm "Withdraw"; Section "Last workouts" with five Rows and .lrow-v volumes.
-Right: .card "Body weight" with .big "64.2 kg" and a LineChart with goal 62; .card "Latest check-in" with .t-sub "Sun 24 Aug", score "3.4" and "/5" in --label-3, the five .tag pills, the note in .t-body; .card "Notes" with three lines of the private note from C9 and .t-cap dim "Saved 2 min ago".
+Right: .card "Body weight" with .big "64.2 kg" and a LineChart with goal 62; .card "Latest check-in" with .t-sub "Sun 24 Aug", score "3.4" and "/5" in --label-3, the five .tag pills, the note in .t-body; .card "Adherence" repeating the 28-day strip from the Overview tab, since a desktop column has the room for it. (The earlier draft put a private-notes card here; there are no notes.)
 Everything on this screen is read-only except Send a program and Withdraw. No messaging panel, no chat column.
 ```
 
