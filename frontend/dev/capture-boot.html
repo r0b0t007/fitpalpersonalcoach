@@ -27,10 +27,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const hit = (doc, text) => {
   let root = doc;
   if (text.startsWith('sheet:')) { root = doc.querySelector('.sheet') || doc; text = text.slice(6); }
+  // A name may also be prefixed "=" for an exact match. Substring matching alone picked the
+  // header's "Send a program" button when the step asked for the "Program" tab, and filmed the
+  // send sheet instead of the tab.
+  let exact = false;
+  if (text.startsWith('=')) { exact = true; text = text.slice(1); }
   const t = text.toLowerCase();
   return [...root.querySelectorAll('button,a,[role=button],input,.item,.lrow,.row,h1,h2,h3,h4')]
-    .find(el => (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '')
-      .trim().toLowerCase().includes(t));
+    .find(el => {
+      const s = (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '').trim().toLowerCase();
+      return exact ? s === t : s.includes(t);
+    });
 };
 
 async function run() {
@@ -97,6 +104,12 @@ async function run() {
   }));
   document.title = 'capture-ready';
 }
-run();
+// A step that throws must not leave the page silently blank: a shot filmed while this file was
+// not being served came back as the app's landing route with no clue why, because nothing ever
+// recorded that the harness had not run at all.
+run().catch(e => {
+  document.documentElement.setAttribute('data-dbg', JSON.stringify({ error: String((e && e.stack) || e) }));
+  document.title = 'capture-error';
+});
 </script>
 </body></html>
