@@ -66,11 +66,16 @@ const seeded = db.users.filter(u => isDemo(u.id));
 
 /* ---------- dates ---------- */
 const DAY = 86400000;
-const iso = d => new Date(d).toISOString().slice(0, 10);
+// LOCAL calendar dates, not UTC. A client's device stamps `d` with its own local day
+// (lib/format.js todayISO), and the coach's screens compare against local today — a seed
+// written in UTC reads as "yesterday" for the first hours after midnight anywhere east of
+// Greenwich, which turns every fresh check-in into "overdue" on the dashboard.
+const pad = n => String(n).padStart(2, '0');
+const iso = d => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
 const daysAgo = n => iso(Date.now() - n * DAY);
 const at = (n, hour = 18) => Date.now() - n * DAY + (hour - 12) * 3600000;
-// Weekday index for an ISO date, Monday = 1, matching S.week's keys.
-const dayIndexOf = isoDate => { const d = new Date(isoDate + 'T00:00:00Z').getUTCDay(); return d === 0 ? 7 : d; };
+// Weekday index for a local ISO date, Monday = 1, matching S.week's keys.
+const dayIndexOf = isoDate => { const d = new Date(isoDate + 'T12:00:00').getDay(); return d === 0 ? 7 : d; };
 
 /* ---------- exercises (real ids from lib/exercises-data.js) ---------- */
 const EX = {
