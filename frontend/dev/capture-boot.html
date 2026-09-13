@@ -30,6 +30,9 @@ const hit = (doc, text) => {
   // A name may also be prefixed "=" for an exact match. Substring matching alone picked the
   // header's "Send a program" button when the step asked for the "Program" tab, and filmed the
   // send sheet instead of the tab.
+  // "css:<selector>" addresses an element directly, for the containers a text match cannot
+  // reach — a tile grid, a segmented control, a card with no heading of its own.
+  if (text.startsWith('css:')) return root.querySelector(text.slice(4));
   let exact = false;
   if (text.startsWith('=')) { exact = true; text = text.slice(1); }
   const t = text.toLowerCase();
