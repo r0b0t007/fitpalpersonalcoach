@@ -36,6 +36,27 @@ const localMedia = {
   }
 }
 
+// The filming harness for the tutorial series (docs/VIDEO_CAPTURE.md). Headless Chrome cannot
+// pass the app's passkey sign-in and the screenshots have to be the exact size of the video's
+// device frame, so this page plants a session cookie, opens the app in an iframe of that size,
+// and clicks its way to the state being filmed.
+//
+// Served from frontend/dev/ rather than public/, and only by the dev server: anything in public/
+// is copied into dist/ and rsynced to coach.fitpal.ma, and a page that takes a session cookie
+// from a query string and drives the app inside an iframe has no business on a production origin.
+const captureHarness = {
+  name: 'capture-harness',
+  apply: 'serve',
+  configureServer(server) {
+    const file = fileURLToPath(new URL('./dev/capture-boot.html', import.meta.url))
+    server.middlewares.use((req, res, next) => {
+      if (!/^\/capture-boot\.html(\?|$)/.test(req.url || '')) return next()
+      res.setHeader('Content-Type', 'text/html; charset=utf-8')
+      createReadStream(file).pipe(res)
+    })
+  }
+}
+
 // Optional web analytics (Umami). Injected only when BOTH vars are set at build time,
 // so a plain `npm run build` — and every self-hosted install — stays telemetry-free.
 // Set for the public instance: VITE_UMAMI_SRC=https://stats.example/script.js VITE_UMAMI_ID=<uuid>
@@ -61,7 +82,7 @@ const pkgVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(pkgVersion) },
-  plugins: [react(), umami, localMedia],
+  plugins: [react(), umami, localMedia, captureHarness],
   base: './',
   server: {
     // The workspace is wider than frontend/ — ../media is served from here, and the mobile
