@@ -1,0 +1,102 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>capture boot</title>
+<!-- Filming harness for the tutorial series (dev only, never shipped).
+     Headless Chrome cannot get past the app's passkey sign-in, and the extension's screenshot
+     path gave a viewport shorter than the 776 px screen the video's device frame expects. So the
+     shots are taken by a headless Chrome sized exactly 359x776: this page plants the capture
+     instance's session cookie, opens the app, and optionally clicks its way to the state being
+     filmed before the screenshot is taken.
+       ?c=<cookie>  session cookie value
+       ?u=<hash>    app route, e.g. #/clients
+       ?do=<steps>  ;-separated steps: click:<text> | type:<sel>|<text> | scroll:<px> | wait:<ms>
+-->
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
+iframe{border:0;display:block;width:359px;height:776px}</style>
+</head><body><iframe id="f"></iframe>
+<script>
+const q = new URLSearchParams(location.search);
+if (q.get('c')) document.cookie = q.get('c') + '; path=/; max-age=7776000; SameSite=Lax';
+const f = document.getElementById('f');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Visible text of an element, trimmed — matching on text is what keeps these steps readable
+// ("click:Invite") and survives the class churn a copy pass causes.
+// A name may be prefixed "sheet:" to scope the search inside the open sheet — without it,
+// "Omar Tazi" matches the roster row still visible behind the backdrop rather than the Joined
+// row being measured. Placeholder counts as text, since an empty input has neither.
+const hit = (doc, text) => {
+  let root = doc;
+  if (text.startsWith('sheet:')) { root = doc.querySelector('.sheet') || doc; text = text.slice(6); }
+  const t = text.toLowerCase();
+  return [...root.querySelectorAll('button,a,[role=button],input,.item,.lrow,.row,h1,h2,h3,h4')]
+    .find(el => (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || '')
+      .trim().toLowerCase().includes(t));
+};
+
+async function run() {
+  f.src = q.get('u') || '/#/today';
+  await new Promise(r => f.addEventListener('load', r, { once: true }));
+  await sleep(900);                       // the SPA's first data fetch
+  const doc = f.contentDocument;
+
+  // Freeze motion. Chrome's --virtual-time-budget fires the screenshot on a clock that CSS
+  // transitions do not follow, so a sheet filmed right after it opens was captured mid-slide —
+  // backdrop already opaque, panel still off the bottom of the screen, shot entirely black.
+  // Snapping every transition and animation to its end state makes each shot deterministic.
+  const still = doc.createElement('style');
+  still.textContent = '*,*::before,*::after{animation-duration:0s!important;animation-delay:0s!important;transition-duration:0s!important;transition-delay:0s!important}';
+  doc.head.appendChild(still);
+  for (const step of (q.get('do') || '').split(';').filter(Boolean)) {
+    const [verb, ...rest] = step.split(':');
+    const arg = rest.join(':');
+    if (verb === 'click') { const el = hit(doc, arg); if (el) el.click(); else console.warn('no hit for ' + arg); await sleep(700); }
+    else if (verb === 'type') {
+      const [sel, text] = arg.split('|');
+      const el = doc.querySelector(sel);
+      if (el) {
+        // React listens for an input event carrying a value set through the native setter; a plain
+        // el.value = x is invisible to it and the field snaps back on the next render.
+        const set = Object.getOwnPropertyDescriptor(f.contentWindow.HTMLInputElement.prototype, 'value').set;
+        set.call(el, text);
+        el.dispatchEvent(new f.contentWindow.Event('input', { bubbles: true }));
+      }
+      await sleep(400);
+    }
+    else if (verb === 'scroll') {
+      const box = doc.querySelector('.sheet') || doc.scrollingElement;
+      box.scrollTop = +arg; await sleep(500);
+    }
+    else if (verb === 'wait') await sleep(+arg);
+  }
+  // --dump-dom can read an attribute but not into the iframe, so the state being filmed is
+  // mirrored onto <html> for debugging a shot that comes back blank.
+  // ?rect=a|b|c — the on-screen box of each named element, in the screen's own
+  // 359x776 pixels and as percentages of it, so a frame's marker overlays can be
+  // placed from measurements instead of guessed off a screenshot.
+  const rects = {};
+  for (const name of (q.get('rect') || '').split('|').filter(Boolean)) {
+    const el = hit(doc, name);
+    if (!el) { rects[name] = null; continue; }
+    const r = el.getBoundingClientRect();
+    rects[name] = {
+      px: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
+      pct: [+(r.x / 359 * 100).toFixed(2), +(r.y / 776 * 100).toFixed(2),
+            +(r.width / 359 * 100).toFixed(2), +(r.height / 776 * 100).toFixed(2)],
+    };
+  }
+
+  document.documentElement.setAttribute('data-dbg', JSON.stringify({
+    rects,
+    hash: f.contentWindow.location.hash,
+    sheet: (() => { const el = doc.querySelector('.sheet'); if (!el) return null;
+      const r = el.getBoundingClientRect(), c = f.contentWindow.getComputedStyle(el);
+      return { rect: [r.x | 0, r.y | 0, r.width | 0, r.height | 0], op: c.opacity, tf: c.transform, vis: c.visibility, bg: c.backgroundColor }; })(),
+    over: [...doc.body.children].map(el => { const r = el.getBoundingClientRect(), c = f.contentWindow.getComputedStyle(el);
+      return el.tagName + '.' + el.className + ' ' + [r.x | 0, r.y | 0, r.width | 0, r.height | 0].join(',') + ' op=' + c.opacity + ' bg=' + c.backgroundColor; }),
+    text: (doc.body.innerText || '').replace(/\s+/g, ' ').slice(0, 500),
+  }));
+  document.title = 'capture-ready';
+}
+run();
+</script>
+</body></html>
