@@ -7,8 +7,16 @@
      instance's session cookie, opens the app, and optionally clicks its way to the state being
      filmed before the screenshot is taken.
        ?c=<cookie>  session cookie value
-       ?u=<hash>    app route, e.g. #/clients
-       ?do=<steps>  ;-separated steps: click:<text> | type:<sel>|<text> | scroll:<px> | wait:<ms>
+       ?u=<path>    app route, same-origin, e.g. /#/clients
+       ?do=<steps>  ;-separated steps: click:<name> | type:<sel>|<text> | scroll:<px> | wait:<ms>
+       ?rect=<names>  |-separated; reports each element's box in the screen's own pixels and as
+                      a percentage of it, for placing a video's callouts from measurements
+
+     A <name> (in click: and rect=) is matched against an element's visible text, and may carry
+     any of these prefixes, applied in this order:
+       sheet:  search only inside the open sheet
+       css:    treat the rest as a CSS selector instead of text
+       =       require an exact text match rather than a substring
 -->
 <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
 iframe{border:0;display:block;width:359px;height:776px}</style>
@@ -43,9 +51,23 @@ const hit = (doc, text) => {
     });
 };
 
+// Resolved against this page's own origin and rejected if it leaves it. Dev-only or not, a page
+// that frames whatever a query string names is one copy-paste away from being a real hole.
+function sameOriginPath(raw) {
+  const url = new URL(raw || '/#/today', location.href);
+  if (url.origin !== location.origin) throw new Error('?u must stay on this origin: ' + raw);
+  return url.pathname + url.search + url.hash;
+}
+
 async function run() {
-  f.src = q.get('u') || '/#/today';
-  await new Promise(r => f.addEventListener('load', r, { once: true }));
+  f.src = sameOriginPath(q.get('u'));
+  // Raced against a deadline. A load event that never arrives is indistinguishable on the
+  // screenshot from a page that rendered nothing, and it is the one failure the error handler
+  // below cannot report, because a hang never throws.
+  await Promise.race([
+    new Promise(r => f.addEventListener('load', r, { once: true })),
+    sleep(15000).then(() => { throw new Error('iframe never loaded: ' + f.src); }),
+  ]);
   await sleep(900);                       // the SPA's first data fetch
   const doc = f.contentDocument;
 
@@ -88,10 +110,14 @@ async function run() {
     const el = hit(doc, name);
     if (!el) { rects[name] = null; continue; }
     const r = el.getBoundingClientRect();
+    // Measured against the iframe's actual size, not a hardcoded 359x776: those percentages go
+    // straight into a composition's marker geometry, and a stale constant would not fail here —
+    // it would put every ring slightly off in the finished video.
+    const W = f.clientWidth, H = f.clientHeight;
     rects[name] = {
       px: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
-      pct: [+(r.x / 359 * 100).toFixed(2), +(r.y / 776 * 100).toFixed(2),
-            +(r.width / 359 * 100).toFixed(2), +(r.height / 776 * 100).toFixed(2)],
+      pct: [+(r.x / W * 100).toFixed(2), +(r.y / H * 100).toFixed(2),
+            +(r.width / W * 100).toFixed(2), +(r.height / H * 100).toFixed(2)],
     };
   }
 
