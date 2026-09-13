@@ -9,6 +9,7 @@
        ?c=<cookie>  session cookie value
        ?u=<path>    app route, same-origin, e.g. /#/clients
        ?do=<steps>  ;-separated steps: click:<name> | type:<sel>|<text> | scroll:<px> | wait:<ms>
+                    | js:<expression>, evaluated in the app's window
        ?rect=<names>  |-separated; reports each element's box in the screen's own pixels and as
                       a percentage of it, for placing a video's callouts from measurements
 
@@ -99,6 +100,10 @@ async function run() {
       box.scrollTop = +arg; await sleep(500);
     }
     else if (verb === 'wait') await sleep(+arg);
+    // js:<expression> — evaluated inside the app's own window. The escape hatch for state a click
+    // cannot reach: a <video> showing its first black frame is indistinguishable from a broken
+    // player in a screenshot, and seeking one is not something the UI exposes.
+    else if (verb === 'js') { f.contentWindow.eval(arg); await sleep(500); }
   }
   // --dump-dom can read an attribute but not into the iframe, so the state being filmed is
   // mirrored onto <html> for debugging a shot that comes back blank.
