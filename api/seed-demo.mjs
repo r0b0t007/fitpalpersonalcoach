@@ -200,7 +200,15 @@ function buildState(p) {
       }
       return { id: e.id, sets };
     });
-    workouts.push({ d: date, start: at(d), name: routine.name, entries });
+    // A session needs an `end` as well as a `start`. Without one the coach's client page reads
+    // "0 min" against every workout it lists (fmtDur of end-start, and `end || start` makes that
+    // zero rather than blank) — which is what the whole roster looked like on camera. Modelled
+    // from the work actually done: a short warm-up, then roughly a working set and its rest per
+    // set, with enough jitter that six clients do not all train for exactly the same length.
+    const setCount = entries.reduce((n, e) => n + e.sets.length, 0);
+    const minutes = 4 + setCount * 2.3 + (rand() - 0.5) * 6;
+    const start = at(d);
+    workouts.push({ d: date, start, end: start + Math.round(minutes) * 60000, name: routine.name, entries });
   }
 
   // Body weight, one reading a week, drifting from startBw to endBw with a little noise.
