@@ -11,7 +11,6 @@ group-session timetable, and a test-gated CI/CD pipeline deploying to Namecheap 
 
 <br>
 
-[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-D4AF37?style=flat-square)](LICENSE)
 ![Built on openGym](https://img.shields.io/badge/built%20on-openGym-000000?style=flat-square)
 ![PWA](https://img.shields.io/badge/PWA-installable-a78bfa?style=flat-square)
 ![React](https://img.shields.io/badge/React-19-38bdf8?style=flat-square&logo=react&logoColor=white)
@@ -130,8 +129,7 @@ generic self-hosting (HTTPS, passkeys): **[docs/SELF_HOSTING.md](docs/SELF_HOSTI
 ---
 
 Everything below is the upstream **openGym** documentation — it all still applies to this
-deployment. FIT'ONE is built on openGym (AGPL v3) and keeps its
-[source attribution](#license).
+deployment. FIT'ONE is built on openGym and keeps its source attribution.
 
 ## Why
 
@@ -206,7 +204,7 @@ Open **http://localhost:5173**, tap **Create profile**, and you're in.
 > [hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset), which
 > redistributes [ExerciseDB v1](https://exercisedb.dev/) — its metadata and instruction text are
 > MIT, but the images and animations are third-party content under *neither* that MIT license nor
-> openGym's AGPL, and their ownership is currently disputed between Gym visual and ExerciseDB.
+> openGym's project terms, and their ownership is currently disputed between Gym visual and ExerciseDB.
 > openGym ships none of it: your instance downloads it from upstream. Reusing it yourself,
 > commercially or not, means clearing it with the rights holder — see [NOTICE.md](NOTICE.md).
 > Want it reachable from your phone over the internet with passkeys? You'll need an HTTPS
@@ -296,7 +294,7 @@ waiting for a test on the staging instance.
 
 React 19 + Vite (React Router, Zustand) · Node (no framework) · WebAuthn · exercise data from
 [hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset)
-(MIT metadata and instructions; media © Gym visual — see [License](#license)).
+(MIT metadata and instructions; media © Gym visual — see [NOTICE.md](NOTICE.md)).
 No database server, no cloud dependencies, and no container runtime: the API is a Node process and
 the frontend is a folder of static files, which is all the shared hosting this deploys to allows.
 
@@ -335,8 +333,8 @@ part of a deploy.
 Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Good first issues: more starter
 plans, exercise-data languages, import from other trackers. **A ⭐ helps more people find it.**
 
-openGym is free and stays free: AGPL, no subscription, no paid tier, nothing held back for
-sponsors. If it replaced a paid tracker for you and you want to chip in, there's a coffee button
+openGym is free and stays free: no subscription, no paid tier, nothing held back for sponsors.
+If it replaced a paid tracker for you and you want to chip in, there's a coffee button
 below (and a badge at the top) — a star, a bug report or a merge request is worth just as much.
 
 <!-- GitLab has no Sponsor button the way GitHub's FUNDING.yml gave one, so the link has to
@@ -348,18 +346,13 @@ below (and a badge at the top) — a star, a bug report or a merge request is wo
        style="height: 60px !important;width: 217px !important;">
 </a>
 
-## License
-
-**openGym's own code** is [GNU AGPL v3.0](LICENSE) — free and open source. You can self-host,
-use, modify and share it; if you run a modified version as a network service, you must offer that
-version's source under the same license. Nobody can turn openGym into a closed, proprietary
-product.
+## Third-party content
 
 **Third-party content is not, and openGym cannot sublicense it.** The exercise metadata and
 instruction text originate from [ExerciseDB v1](https://exercisedb.dev/) and reach openGym through
 [hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset) under the
 **MIT** license. The exercise images and animations are third-party content covered by neither
-that license nor the AGPL, and their ownership is **currently unresolved** — the upstream dataset
+that license, and their ownership is **currently unresolved** — the upstream dataset
 attributes them to [Gym visual](https://gymvisual.com/) under a non-transferable permission, while
 [ExerciseDB/AscendAPI](https://exercisedb.io/faq) claims to be their creator and owner. A
 clarification has been requested. openGym does not redistribute them (your instance fetches them

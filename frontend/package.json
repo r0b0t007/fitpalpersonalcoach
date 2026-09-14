@@ -13,7 +13,6 @@
     "test:watch": "vitest",
     "test:fatigue-probe": "node scripts/fatigue-monotonic-probe.mjs"
   },
-  "license": "AGPL-3.0-or-later",
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "^7.1.6",
     "@capacitor-mlkit/barcode-scanning": "^7.5.0",
