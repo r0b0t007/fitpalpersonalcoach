@@ -44,8 +44,7 @@ fitpal.ma. Every value below is verified against WCAG 2.2 AA, not estimated.
 | `--ink` | `#14120F` | `oklch(0.183 0.007 78.1)` | Deepest ground, footer, inset wells |
 | `--graphite` | `#1C1A17` | `oklch(0.219 0.007 78.2)` | Page ground |
 | `--raised` | `#26231F` | `oklch(0.258 0.009 75.2)` | Raised surface, spec blocks |
-| `--rule` | `#38342E` | `oklch(0.327 0.012 78.1)` | Decorative hairline |
-| `--rule-strong` | `#746C62` | `oklch(0.536 0.018 73.5)` | Load-bearing boundary, 3:1 on both grounds |
+| `--rule-strong` | `#746C62` | `oklch(0.536 0.018 73.5)` | Every rule on the page. 3:1 on both grounds |
 | `--bone` | `#F2EDE4` | `oklch(0.948 0.013 82.4)` | Primary text on dark; ground of the light section |
 | `--muted` | `#A9A198` | `oklch(0.713 0.016 70.8)` | Secondary text on dark |
 | `--mute-bone` | `#5E574E` | `oklch(0.461 0.017 74.2)` | Secondary text on bone |
@@ -71,8 +70,10 @@ fitpal.ma. Every value below is verified against WCAG 2.2 AA, not estimated.
 ```
 
 **Rules that follow from the measurements.** Gold fills always take a dark label (`--ink`), never
-bone: bone on gold is 1.80:1 and fails badly. Never use `--rule` to carry meaning; it is
-decorative only and sits at 1.40:1.
+bone: bone on gold is 1.80:1 and fails badly. There is only one rule token, `--rule-strong`,
+and it clears 3:1 on both dark grounds. A decorative `--rule` at 1.40:1 used to sit beside it
+and was deleted: in practice it had ended up carrying every boundary on the page, which is
+exactly what it was documented never to do.
 
 **The accent needs no lighter variant for small text, and that is the main gain over the orange
 it replaced.** `--gold` is 8.26:1 on the page ground and 7.44:1 on a card, so it carries every
@@ -151,7 +152,8 @@ content is laid out as ruled rows, not as a repeating icon-heading-text grid.
 - **Section head.** Gold numeral, full-width rule, then the h2 beneath. One consistent object
   repeated six times, which is a deliberate system rather than scaffolding.
 - **Spec row.** Label left in `--t-label` `--muted`, value right in tabular numerals. Separated
-  by `--rule`, not by boxes.
+  by a `--mute-bone` tint at 28%, not by boxes. The light section needs its own value; the
+  dark-ground rule token would be invisible on bone.
 - **Device frame.** Every app screen on the site sits inside a phone: a 1px `--rule-strong`
   outline, an `--ink` bezel, `--dev-radius` corners, a small speaker slot, and a screen at
   `aspect-ratio: 9 / 19.5`. That ratio is the app's own phone viewport, so the body shape is
@@ -206,8 +208,18 @@ Decorative and abstract imagery (the OG cards, any texture or diagram where noth
 exists) is generated. The bolt mark is the one asset shared with the sibling brand, drawn as
 inline SVG from `frontend/resources/icon.svg`, recolored to `--gold`.
 
-**Photography is illustrative, and is marked as such.** Two photographs appear on the site: the
-portrait beside the hero headline, and the full-bleed band between the argument and the ask.
+**Photography is illustrative, and is marked as such — with one deliberate exception.** Two
+stock photographs appear on the site: the portrait beside the hero headline, and the full-bleed
+band between the argument and the ask.
+
+The exception is the signature at the ask: a real, named photograph of the person a visitor will
+actually speak to. It carries no "stock photograph" caption, because it is not one and the
+disclosure would be false. It is square rather than round — a circular avatar is the most
+template-looking object a landing page can carry, and nothing else here is pill-shaped — and it
+is graded so its background lands on `--ink`, so it reads as a photo affixed to the gold band
+rather than a hole punched in it.
+
+The rule the other two follow still holds for them:
 Neither carries a name, a quote, a claimed result or a product claim: a stock portrait captioned
 as a named customer would be fabricated social proof, and a photograph is the easiest place to do
 that by accident. Both are licensed stock, recorded in `NOTICE.md` with source and licence.
