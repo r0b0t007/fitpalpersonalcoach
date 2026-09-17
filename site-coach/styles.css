@@ -577,8 +577,19 @@ p { max-width: 68ch; }
 }
 
 /* A device in a wide feature column is constrained rather than blown up to the column width,
-   which would render 17px UI text at twice its real size. --dev-w carries that now. */
-.feat .shot-wrap { --dev-w: 290px; }
+   which would render the app's UI text larger than life. --dev-w carries that.
+
+   Sizing this correctly turns on one fact that is easy to get wrong: the captures are 720px
+   wide but were shot at a 360 CSS px viewport with --force-device-scale-factor=2, so those
+   720 pixels encode 360 CSS px of UI, not 720. The life-size ratio is therefore
+   (--dev-w - 2 * --dev-bezel) / 360, NOT / 720. Reading it as /720 makes the type look half
+   as big as it is and invites a "fix" that doubles every feature row's height for nothing.
+
+   At 360px the screen is 338px, a ratio of 0.94 — near life-size, so the app's 17px body text
+   lands at ~16px, in the same register as this page's own 17px body. The row runs ~780px tall
+   at 9:19.5, which the two-column feature grid absorbs (each column is ~560px at the 1200px
+   container). */
+.feat .shot-wrap { --dev-w: 360px; }
 
 /* ---------------------------------------------------------------- problem rows */
 
@@ -936,5 +947,8 @@ p { max-width: 68ch; }
 /* Smallest screens: shrink again so nothing dominates a real phone. */
 @media (max-width: 420px) {
   .hero-media video { max-height: 44svh; }
-  .feat .shot-wrap { --dev-w: min(230px, 64vw); }
+  /* No narrowing here. `.device` is already `width: min(100%, var(--dev-w))`, so on a phone
+     the column caps it at roughly 350px, which is ~0.97 life-size — the app rendered at
+     very nearly the size it actually runs at on the reader's own phone. Capping it at
+     230px made the one context where the capture can be life-size the blurriest. */
 }
