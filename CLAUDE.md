@@ -52,6 +52,9 @@ site-coach/ THIS product's marketing site → **fitpal.ma** (the apex), Cloudfla
 site/      FitPal, the white-label GYM product's site → gym.fitpal.ma, Pages project
            `fitpal`, gated by DEPLOY_SITE. A different product to a different buyer.
 website/   openGym upstream's inherited site. Not deployed from here.
+email/     branded outbound email templates. Deliberately NOT under site-coach/, because
+           that directory is the Pages deploy root and everything in it is served publicly
+           - no ignore file or redirect can prevent it. See email/README.md.
 docs/      SELF_HOSTING.md, MOBILE.md.
 ```
 
