@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
-<link rel="stylesheet" href="styles.css?v=12">
+<link rel="stylesheet" href="styles.css?v=13">
 
 <script>
 /* Pre-paint: arm the intro before first paint so the hero never shows and then hides.
@@ -60,7 +60,7 @@
   "url": "https://fitpal.ma/",
   "inLanguage": ["fr", "en", "de", "es"],
   "description": "Logiciel de coaching pour coachs sportifs indépendants. Programmes, suivi d'assiduité et app d'entraînement pour vos clients.",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MAD", "description": "Tarif sur devis, établi pendant l'appel." }
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MAD", "description": "Forfait mensuel fixe plus mise en place, sans abonnement par client. Montant fixé pendant l'appel." }
 }
 </script>
 </head>
@@ -268,8 +268,25 @@
         <div class="spec-row"><dt>Notifications</dt><dd>Fin de repos et rappel de séance, par Web Push.</dd></div>
         <div class="spec-row"><dt>Hébergement</dt><dd>Votre instance, votre domaine, vos données. Aucune télémétrie.</dd></div>
         <div class="spec-row"><dt>Export</dt><dd>Les données client sont exportables à tout moment, en JSON.</dd></div>
-        <div class="spec-row"><dt>Tarif</dt><dd>Sur devis, fixé pendant l'appel. Pas d'abonnement par client.</dd></div>
+        <div class="spec-row"><dt>Tarif</dt><dd>Forfait mensuel fixe, plus une mise en place payée une fois. Pas d'abonnement par client. Le montant est fixé pendant l'appel.</dd></div>
       </dl>
+
+      <!-- The two facts most likely to close this buyer used to live only inside collapsed FAQ
+           items at ~85% scroll, while the feature list sat open: the objection-handling was
+           hidden and the features were not. They close the spec sheet now, which is the most
+           credible object on the page and the right place for terms. -->
+      <ol class="rows rv terms">
+        <li class="row">
+          <span class="n label">Sortie</span>
+          <div><h3>Vous repartez avec vos données</h3></div>
+          <p>Exportables en JSON à tout moment. L'instance est la vôtre, pas la nôtre.</p>
+        </li>
+        <li class="row">
+          <span class="n label">Prix</span>
+          <div><h3>Pas d'abonnement par client</h3></div>
+          <p>Votre facture n'augmente pas parce que votre activité marche.</p>
+        </li>
+      </ol>
     </div>
   </section>
 
@@ -330,7 +347,7 @@
       </details>
       <details>
         <summary>Combien ça coûte ?</summary>
-        <p>Le tarif est fixé pendant l'appel, en fonction du nombre de clients et de l'hébergement. Il n'y a pas d'abonnement par client : votre facture n'augmente pas parce que votre activité marche.</p>
+        <p>Un forfait mensuel fixe, plus une mise en place payée une seule fois. Pas d'abonnement par client : votre facture n'augmente pas parce que votre activité marche. Le montant dépend du nombre de clients et de l'hébergement, et il est fixé pendant l'appel.</p>
       </details>
     </div>
   </section>

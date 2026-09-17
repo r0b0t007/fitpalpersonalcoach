@@ -31,7 +31,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
-<link rel="stylesheet" href="../styles.css?v=12">
+<link rel="stylesheet" href="../styles.css?v=13">
 
 <script>
 /* Pre-paint: arm the intro before first paint so the hero never shows and then hides.
@@ -60,7 +60,7 @@
   "url": "https://fitpal.ma/en/",
   "inLanguage": ["fr", "en", "de", "es"],
   "description": "Coaching software for independent personal trainers. Programs, adherence tracking, and a training app for your clients.",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MAD", "description": "Priced on the call." }
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MAD", "description": "Flat monthly fee plus one-off setup, no per-client subscription. Amount set on the call." }
 }
 </script>
 </head>
@@ -267,8 +267,25 @@
         <div class="spec-row"><dt>Notifications</dt><dd>Rest-timer and session reminders, over Web Push.</dd></div>
         <div class="spec-row"><dt>Hosting</dt><dd>Your instance, your domain, your data. No telemetry.</dd></div>
         <div class="spec-row"><dt>Export</dt><dd>Client data exports at any time, as JSON.</dd></div>
-        <div class="spec-row"><dt>Price</dt><dd>Quoted on the call. No per-client subscription.</dd></div>
+        <div class="spec-row"><dt>Price</dt><dd>A flat monthly fee, plus a one-off setup. No per-client subscription. The amount is set on the call.</dd></div>
       </dl>
+
+      <!-- The two facts most likely to close this buyer used to live only inside collapsed FAQ
+           items at ~85% scroll, while the feature list sat open: the objection-handling was
+           hidden and the features were not. They close the spec sheet now, which is the most
+           credible object on the page and the right place for terms. -->
+      <ol class="rows rv terms">
+        <li class="row">
+          <span class="n label">Exit</span>
+          <div><h3>You leave with your data</h3></div>
+          <p>Exportable as JSON at any time. The instance is yours, not ours.</p>
+        </li>
+        <li class="row">
+          <span class="n label">Price</span>
+          <div><h3>No per-client subscription</h3></div>
+          <p>Your bill does not grow because your business is working.</p>
+        </li>
+      </ol>
     </div>
   </section>
 
@@ -329,7 +346,7 @@
       </details>
       <details>
         <summary>What does it cost?</summary>
-        <p>Priced on the call, based on client count and hosting. There is no per-client subscription: your bill does not grow because your business is working.</p>
+        <p>A flat monthly fee, plus a one-off setup. No per-client subscription: your bill does not grow because your business is working. The amount depends on client count and hosting, and is set on the call.</p>
       </details>
     </div>
   </section>

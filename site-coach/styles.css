@@ -654,6 +654,20 @@ p { max-width: 68ch; }
 .spec .sec-head .rule .k { color: var(--mute-bone); }
 .spec .lead { color: var(--mute-bone); }
 
+/* The two terms rows closing the spec sheet. Same .rows object as section 01, restated for the
+   bone ground: --gold measures 1.80:1 on bone and --muted is a dark-ground token, so both would
+   fail here. --gold-deep (5.71:1) and --mute-bone are the documented light-ground values, and
+   the separator matches the spec table's own tint rather than the dark-ground rule token. */
+.spec .terms {
+  border-top: 1px solid var(--mute-bone);
+  margin-top: var(--sp-7);
+}
+.spec .terms .row { border-bottom-color: rgba(94, 87, 78, 0.28); }
+.spec .terms .row:last-child { border-bottom: 0; }
+.spec .terms .row .n { color: var(--gold-deep); }
+.spec .terms .row h3 { color: var(--graphite); }
+.spec .terms .row p { color: var(--mute-bone); }
+
 .spec-table {
   border-top: 1px solid var(--mute-bone);
   margin-top: var(--sp-7);
