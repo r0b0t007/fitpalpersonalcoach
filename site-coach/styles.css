@@ -795,31 +795,16 @@ p { max-width: 68ch; }
 .cta .btn.line:hover { background: rgba(20, 18, 15, 0.12); }
 .cta :focus-visible { outline-color: var(--ink); }
 
-/* The signature at the ask: a named, pictured human where the page previously had nobody.
+/* The signature at the ask: a named human where the page previously had nobody.
 
-   The portrait is graded so its studio background lands on --ink rather than the light grey it
-   was shot against. On the gold band that reads as a deliberate dark stamp, the way a photo is
-   affixed to a document — a light-grey square would have read as a hole punched in the gold.
-
-   Square, not round: nothing on this page is pill-shaped, and a circular avatar is the single
-   most template-looking object a landing page can carry. */
+   Text only. A portrait was here and was removed at the owner's request; if one ever returns,
+   note that it has to be graded so its background lands on --ink, because a light studio
+   backdrop reads as a hole punched in the gold band. */
 .signed {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: var(--sp-5);
-  align-items: center;
   margin-top: var(--sp-7);
   padding-top: var(--sp-6);
   border-top: 1px solid rgba(20, 18, 15, 0.28);
   max-width: 62ch;
-}
-
-.signed img {
-  display: block;
-  width: 96px;
-  height: 96px;
-  border-radius: var(--r);
-  background: var(--ink);
 }
 
 .signed p {
@@ -839,10 +824,6 @@ p { max-width: 68ch; }
 
 /* Ink on gold, underlined, because colour alone cannot carry a link on a single-accent band. */
 .signed a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
-
-@media (max-width: 520px) {
-  .signed { grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); }
-}
 /* Section 06 completes the 01-06 system, which previously stopped at 05 at the one section
    that matters most. On the gold ground the numeral and the rule take ink: gold on gold is
    invisible, and bone on gold is 1.80:1. */

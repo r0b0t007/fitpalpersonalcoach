@@ -114,33 +114,15 @@ the source files.
 
 ## Marketing photography
 
-Three photographs appear on the FitPal Coach marketing site. Two are licensed stock, used
+Two photographs appear on the FitPal Coach marketing site. Both are licensed stock, used
 illustratively: neither carries a name, a quote or a claimed result, and neither makes a product
 claim. `DESIGN.md` states that rule. Both are under **the Pexels License**, which permits free
 commercial use and modification and does not require attribution — recorded here anyway, because
 a file whose provenance is not written down is a file nobody can re-licence or replace later.
 
-The third is **not** stock and is deliberately the opposite: a photograph of a named real person,
-supplied by him, identifying who a visitor will actually be speaking to.
-
-**`site-coach/img/ahmed-chioua.jpg`** — the signature at the ask.
-
-- **Source**: supplied by the subject, Ahmed Chioua, who is the owner of this project. Not
-  licensed stock, and it carries no third-party rights.
-- **Modifications**: cropped square to head and shoulders, then graded so the light studio
-  background lands near `--ink`, which is what lets it sit on the gold CTA band without reading
-  as a hole punched in it. Recipe:
-
-  ```
-  crop=700:700:160:120,scale=600:600:flags=lanczos
-  eq=brightness=-0.20:saturation=0.38:contrast=1.22
-  colorbalance=rs=.05:rm=.03:bs=-.07:bm=-.05
-  vignette=angle=PI/3.2
-  ```
-
-- **Why it is captioned differently from the other two**: the stock photographs carry a visible
-  "photo d'illustration" disclosure precisely so they are not mistaken for real people. This one
-  is a real person and is named, so the disclosure would be false.
+A third, a portrait of the project's owner used at the ask, was added and then removed at his
+request. No third-party rights were ever involved and the file is gone; this note exists only so
+the removal does not read as an oversight later.
 
 **`site-coach/img/coaches.jpg`** — the full-bleed band.
 
