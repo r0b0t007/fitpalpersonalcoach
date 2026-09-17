@@ -1,12 +1,73 @@
 /* FitPal Coach marketing site (fitpal.ma).
    Field-manual register: warm graphite ground, the app's gold, one family pushed hard on both
-   weight and width axes, visible rules as grammar. One stylesheet for both locales, no build.
+   weight and width axes, visible rules as grammar. One stylesheet for both locales.
+   Authored here and read here; scripts/build-site-coach.mjs minifies it into dist/ for
+   deployment, so comment freely - none of this reaches the wire.
 
    Palette is verified, not estimated: `node scripts/check-site-coach-contrast.mjs` reads the
    hexes below and fails on any pair that drops under WCAG 2.2 AA. DESIGN.md explains the roles.
 
    This is NOT site/ (fitpal.ma, gold on black) and NOT frontend/ (the app). Different buyer,
    deliberately different look. */
+
+/* ---------------------------------------------------------------- type */
+
+/* Archivo, self-hosted. Was two render-blocking requests to fonts.googleapis.com plus a
+   third-party connection to fonts.gstatic.com; now one same-origin file the document can
+   preload. Rebuild with `python scripts/build-fonts.py`, which also limits the variable axes
+   to the range below and prints the metrics the fallback override is derived from.
+
+   The axes are baked to wght 400-800 / wdth 68-100. 400 is the floor because body copy
+   declares no font-weight and so resolves to the CSS initial value; a 500 floor would render
+   every paragraph a step heavier. `node scripts/check-font-axes.mjs` fails if this file ever
+   asks for a value outside the baked range - the font would silently clamp instead of erroring. */
+
+@font-face {
+  font-family: Archivo;
+  font-style: normal;
+  font-weight: 400 800;
+  font-stretch: 68% 100%;
+  font-display: swap;
+  src: url(fonts/archivo-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Archivo;
+  font-style: normal;
+  font-weight: 400 800;
+  font-stretch: 68% 100%;
+  font-display: swap;
+  src: url(fonts/archivo-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Every font stack in this file already named 'Archivo Fallback' but nothing ever defined it,
+   so until now the swap went to whatever the platform chose at that font's own metrics and
+   the text reflowed. These overrides make the fallback occupy Archivo's box exactly:
+
+     ascent/descent/line-gap  measured from the shipped face (878/-210/0 per 1000 upem),
+                              so line boxes are identical and nothing moves vertically.
+     size-adjust              103%, from the average advance width over the Latin set the site
+                              uses. Archivo is 0.5390 em against Roboto and SF Pro at ~0.522
+                              (the fallbacks that matter on mobile) and Arial at 0.5340, so one
+                              number cannot be exact everywhere: 103% is right for Android and
+                              iOS and about 2% wide on Arial. Horizontal only - it cannot
+                              reintroduce vertical shift. */
+
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Roboto'), local('Segoe UI'), local('Helvetica Neue'), local('Arial'),
+       local('Liberation Sans');
+  ascent-override: 87.8%;
+  descent-override: 21%;
+  line-gap-override: 0%;
+  size-adjust: 103%;
+}
 
 /* ---------------------------------------------------------------- tokens */
 

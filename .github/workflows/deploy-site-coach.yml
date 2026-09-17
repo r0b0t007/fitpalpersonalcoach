@@ -1,8 +1,15 @@
-# Deploys the FitPal Coach marketing site (static, no build step) to Cloudflare Pages.
+# Deploys the FitPal Coach marketing site to Cloudflare Pages.
+#
+# site-coach/ is SOURCE. scripts/build-site-coach.mjs produces dist/site-coach/, which is
+# what gets uploaded: minified CSS/JS under content-hashed filenames, every reference
+# rewritten, and the immutable cache block in _headers regenerated from those names.
+# Deploying site-coach/ directly would ship a 48%-comment stylesheet and would make the
+# immutable cache policy a lie.
 #
 # This is a SEPARATE Pages project from deploy-site.yml. That workflow publishes `site/` to
-# fitpal.ma (the white-label gym product); this one publishes `site-coach/` to coach.fitpal.ma
-# (the software sold to independent coaches). Two products, two audiences, two projects — the
+# gym.fitpal.ma (the white-label gym product); this one publishes `site-coach/` to fitpal.ma,
+# the apex (the software sold to independent coaches). coach.fitpal.ma is the APP, on cPanel,
+# and is not served by either of these. Two products, two audiences, two projects — the
 # only thing they share is ownership. Pointing either workflow at the other's directory or
 # project name would replace a live site with the wrong product.
 #
@@ -24,12 +31,16 @@ on:
     paths:
       - 'site-coach/**'
       - 'scripts/check-site-coach-contrast.mjs'
+      - 'scripts/check-font-axes.mjs'
+      - 'scripts/build-site-coach.mjs'
       - '.github/workflows/deploy-site-coach.yml'
   push:
     branches: [main]
     paths:
       - 'site-coach/**'
       - 'scripts/check-site-coach-contrast.mjs'
+      - 'scripts/check-font-axes.mjs'
+      - 'scripts/build-site-coach.mjs'
       - '.github/workflows/deploy-site-coach.yml'
   workflow_dispatch:
 
@@ -57,6 +68,12 @@ jobs:
       - name: Palette contrast (WCAG 2.2 AA)
         # Reads the hexes out of site-coach/styles.css, so this cannot drift from what ships.
         run: node scripts/check-site-coach-contrast.mjs
+
+      - name: Font axes are inside the self-hosted subset
+        # Archivo ships as a partial instance (wght 400-800, wdth 68-100). Asking for a value
+        # outside that range does not error: the browser clamps and the type renders wrong in
+        # production. Same shape of guard as the contrast check - read what actually ships.
+        run: node scripts/check-font-axes.mjs
 
       - name: SEO regression grep
         run: |
@@ -88,12 +105,23 @@ jobs:
       - name: Every referenced local asset exists
         # A screenshot renamed but not re-referenced ships as a broken image and no other check
         # in this job would notice.
+        #
+        # This must read srcset and data-src as well as the plain attributes, because that is
+        # where most assets now live: the responsive <picture> variants are in srcset (28 refs
+        # against 12 plain ones on the FR page), and the video's sources are in data-src so the
+        # browser cannot fetch them before site.js decides the visitor should pay for them.
+        # Checking only src/href/poster would leave the majority of the page unguarded.
         run: |
           fail=0
           for f in site-coach/index.html site-coach/en/index.html; do
             dir=$(dirname "$f")
-            for src in $(grep -oE '(src|href|poster)="[^"]+\.(png|jpe?g|webp|svg|mp4|css|js)"' "$f" \
-                         | sed -E 's/.*="([^"]+)".*/\1/' | grep -v '^https\?:' | sed 's/?.*//'); do
+            refs=$( { grep -oE '(src|href|poster|data-src)="[^"]+\.(png|jpe?g|webp|avif|svg|mp4|webm|css|js)"' "$f" \
+                        | sed -E 's/.*="([^"]+)".*/\1/'
+                      grep -oE 'srcset="[^"]+"' "$f" \
+                        | sed -E 's/srcset="([^"]*)"/\1/' | tr ',' '\n' \
+                        | sed -E 's/^[[:space:]]*//; s/[[:space:]]+[0-9]+[wx][[:space:]]*$//'
+                    } | grep -v '^https\?:' | grep -v '^$' | sed 's/?.*//' | sort -u )
+            for src in $refs; do
               case "$src" in
                 /*) p="site-coach$src" ;;
                 *)  p="$dir/$src" ;;
@@ -159,6 +187,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # site-coach/ is source, not the deployable. The build minifies the CSS and JS, renames
+      # them to <name>.<contenthash>.<ext>, rewrites every reference across the five pages, and
+      # regenerates the immutable block in _headers from those names. Deploying site-coach/
+      # directly would ship a stylesheet that is 48% comments and would break the cache policy,
+      # which promises that the bytes at a URL never change.
+      - name: Build
+        run: node scripts/build-site-coach.mjs
+
       - name: Deploy to Cloudflare Pages
         id: pages
         uses: cloudflare/wrangler-action@v4
@@ -166,7 +206,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: >-
-            pages deploy site-coach
+            pages deploy dist/site-coach
             --project-name=fitpal-coach
             --branch=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'main' }}
 
