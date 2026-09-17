@@ -16,9 +16,16 @@
   --graphite:     #1C1A17;
   --raised:       #26231F;
 
-  /* lines. --rule is decorative (1.40:1); --rule-strong is the only one allowed to carry
-     meaning, and clears 3:1 on both --graphite and --raised. */
-  --rule:         #38342E;
+  /* lines. One token, because every rule on this page turned out to be load-bearing.
+
+     There was a decorative --rule (#38342E) alongside this, at 1.40:1 on the ground. The
+     intent was a quiet hairline for ornament; what actually happened is that it ended up
+     carrying every boundary on the site — row separators, feature separators, the FAQ
+     question edges, the sticky header's edge, the open mobile menu's bottom edge — which
+     DESIGN.md explicitly forbade it from doing. At 1.40:1 on a dim phone, the structure the
+     page calls its grammar was close to invisible, and hero copy showed through the open
+     menu. All nine were promoted here and the decorative token was deleted rather than left
+     lying about for someone to reach for again. */
   --rule-strong:  #746C62;
 
   /* text */
@@ -193,7 +200,7 @@ p { max-width: 68ch; }
 .hdr {
   position: sticky; top: 0; z-index: 50;
   background: var(--graphite);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule-strong);
 }
 
 .hdr-in {
@@ -593,14 +600,14 @@ p { max-width: 68ch; }
 
 /* ---------------------------------------------------------------- problem rows */
 
-.rows { border-top: 1px solid var(--rule); }
+.rows { border-top: 1px solid var(--rule-strong); }
 
 .row {
   display: grid;
   grid-template-columns: 3.5rem minmax(0, 1fr) minmax(0, 1.1fr);
   gap: var(--sp-5);
   padding-block: var(--sp-6);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule-strong);
   align-items: start;
 }
 .row .n { color: var(--gold); padding-top: 0.35em; }
@@ -616,7 +623,7 @@ p { max-width: 68ch; }
   gap: clamp(32px, 5vw, 80px);
   align-items: center;
   padding-block: var(--sp-9);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule-strong);
 }
 .feat:last-child { border-bottom: 0; }
 .feat:nth-child(even) .feat-body { order: 2; }
@@ -665,23 +672,55 @@ p { max-width: 68ch; }
 
 /* ---------------------------------------------------------------- steps */
 
+/* Four graduations on one rule, not four cards.
+
+   DESIGN.md: "Cards are used once, for the spec block... Feature content is laid out as ruled
+   rows, not as a repeating icon-heading-text grid." This was the single place that broke that,
+   and it was the one section a visitor would have called generic SaaS — which is the exact
+   anti-reference PRODUCT.md names first.
+
+   Drawing it as a scale is also what the content means. "De l'appel au premier lundi" is a
+   sequence in time, not four peers, and a ruled scale with four ticks says so without a word. */
 .steps {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1px;
-  background: var(--rule);
-  border: 1px solid var(--rule);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(20px, 2.6vw, 44px);
+  border-top: 1px solid var(--rule-strong);
 }
+
 .step {
-  background: var(--raised);
-  padding: var(--sp-6);
+  position: relative;
+  padding-top: var(--sp-5);
 }
+
+/* The graduation itself: a tick standing on the rule. Square-ended, like everything else in
+   this system — a round dot would be the one pill-shaped object on the page. */
+.step::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 2px;
+  height: 10px;
+  background: var(--gold);
+}
+
 .step .n {
   display: block; color: var(--gold);
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-3);
 }
-.step h3 { margin-bottom: var(--sp-2); font-size: 1.0625rem; }
+/* Was hard-coded to 1.0625rem, exactly body size, so the heading was distinguished from its
+   own paragraph by weight alone. It is a heading; it takes the heading step. */
+.step h3 { margin-bottom: var(--sp-2); font-size: var(--t-h3); }
 .step p { color: var(--muted); font-size: var(--t-small); }
+
+@media (max-width: 760px) {
+  /* Stacked, a horizontal scale stops meaning anything, so each step carries its own rule and
+     the object degrades into exactly the ruled rows the rest of the page is built from. */
+  .steps { grid-template-columns: minmax(0, 1fr); gap: 0; border-top: 0; }
+  .step { border-top: 1px solid var(--rule-strong); padding-block: var(--sp-5); }
+  .step::before { top: -1px; }
+}
 
 /* ---------------------------------------------------------------- people */
 
@@ -781,8 +820,8 @@ p { max-width: 68ch; }
 
 /* ---------------------------------------------------------------- faq */
 
-.faq { border-top: 1px solid var(--rule); }
-.faq details { border-bottom: 1px solid var(--rule); }
+.faq { border-top: 1px solid var(--rule-strong); }
+.faq details { border-bottom: 1px solid var(--rule-strong); }
 .faq summary {
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
   padding-block: var(--sp-5);
@@ -803,7 +842,7 @@ p { max-width: 68ch; }
 
 .ftr {
   background: var(--ink);
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--rule-strong);
   padding-block: var(--sp-8);
   padding-bottom: calc(var(--sp-8) + env(safe-area-inset-bottom));
 }
@@ -835,7 +874,7 @@ p { max-width: 68ch; }
     position: absolute; left: 0; right: 0; top: 100%;
     flex-direction: column; gap: 0;
     background: var(--graphite);
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule-strong);
     padding: var(--sp-3) var(--gutter) var(--sp-5);
   }
   .nav.open { display: flex; }
@@ -938,7 +977,7 @@ p { max-width: 68ch; }
   margin-top: var(--sp-7);
   margin-bottom: var(--sp-3);
   padding-top: var(--sp-4);
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--rule-strong);
 }
 .doc p { color: var(--muted); margin-bottom: var(--sp-4); }
 .doc a { color: var(--gold); }
