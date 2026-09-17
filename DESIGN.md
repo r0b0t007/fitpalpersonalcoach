@@ -208,8 +208,18 @@ Decorative and abstract imagery (the OG cards, any texture or diagram where noth
 exists) is generated. The bolt mark is the one asset shared with the sibling brand, drawn as
 inline SVG from `frontend/resources/icon.svg`, recolored to `--gold`.
 
-**Photography is illustrative, and is marked as such.** Two photographs appear on the site: the
-portrait beside the hero headline, and the full-bleed band between the argument and the ask.
+**Photography is illustrative, and is marked as such — with one deliberate exception.** Two
+stock photographs appear on the site: the portrait beside the hero headline, and the full-bleed
+band between the argument and the ask.
+
+The exception is the signature at the ask: a real, named photograph of the person a visitor will
+actually speak to. It carries no "stock photograph" caption, because it is not one and the
+disclosure would be false. It is square rather than round — a circular avatar is the most
+template-looking object a landing page can carry, and nothing else here is pill-shaped — and it
+is graded so its background lands on `--ink`, so it reads as a photo affixed to the gold band
+rather than a hole punched in it.
+
+The rule the other two follow still holds for them:
 Neither carries a name, a quote, a claimed result or a product claim: a stock portrait captioned
 as a named customer would be fabricated social proof, and a photograph is the easiest place to do
 that by accident. Both are licensed stock, recorded in `NOTICE.md` with source and licence.
