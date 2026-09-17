@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitPal Coach — le logiciel des coachs indépendants</title>
+<meta name="description" content="Le logiciel qui remplace les DM, les notes vocales et le tableur. Vos clients reçoivent une vraie app d'entraînement, vous voyez qui s'entraîne et qui décroche. Réservez un appel de 20 minutes.">
+<meta name="theme-color" content="#1C1A17">
+
+<link rel="canonical" href="https://fitpal.ma/">
+<link rel="alternate" hreflang="fr" href="https://fitpal.ma/">
+<link rel="alternate" hreflang="en" href="https://fitpal.ma/en/">
+<link rel="alternate" hreflang="x-default" href="https://fitpal.ma/">
+
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_MA">
+<meta property="og:url" content="https://fitpal.ma/">
+<meta property="og:title" content="FitPal Coach — le logiciel des coachs indépendants">
+<meta property="og:description" content="Le logiciel qui remplace les DM, les notes vocales et le tableur. Vos clients reçoivent une vraie app d'entraînement, vous voyez qui décroche.">
+<meta property="og:image" content="https://fitpal.ma/img/og-fr.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FitPal Coach — le logiciel des coachs indépendants">
+<meta name="twitter:description" content="Le logiciel qui remplace les DM, les notes vocales et le tableur.">
+<meta name="twitter:image" content="https://fitpal.ma/img/og-fr.png">
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<link rel="stylesheet" href="styles.css?v=10">
+
+<script>
+/* Pre-paint: arm the intro before first paint so the hero never shows and then hides.
+   Skipped entirely when the visitor asks for reduced motion, and only on the first visit
+   of a session, so navigating back does not replay the choreography. */
+(function () {
+  var r = document.documentElement
+  r.className += ' js'
+  try {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!reduce && !sessionStorage.getItem('fpc-intro')) {
+      sessionStorage.setItem('fpc-intro', '1')
+      r.className += ' intro'
+    }
+  } catch (e) { /* private mode: no intro, page still correct */ }
+})()
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "FitPal Coach",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web, Android, iOS",
+  "url": "https://fitpal.ma/",
+  "inLanguage": ["fr", "en", "de", "es"],
+  "description": "Logiciel de coaching pour coachs sportifs indépendants. Programmes, suivi d'assiduité et app d'entraînement pour vos clients.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MAD", "description": "Tarif sur devis, établi pendant l'appel." }
+}
+</script>
+</head>
+
+<body>
+<a class="skip" href="#main">Aller au contenu</a>
+
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M291 64 L136 288 L236 288 L221 448 L376 224 L276 224 Z"/>
+      </svg>
+      FitPal&nbsp;<b>Coach</b>
+    </a>
+
+    <button class="burger" type="button" aria-expanded="false" aria-controls="nav" aria-label="Ouvrir le menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="nav" id="nav" aria-label="Principal">
+      <a href="#probleme">Le problème</a>
+      <a href="#produit">Le produit</a>
+      <a href="#fiche">Fiche technique</a>
+      <a href="#demarrage">Mise en route</a>
+      <a href="#questions">Questions</a>
+      <a class="lang" href="/en/" hreflang="en" lang="en">EN</a>
+    </nav>
+
+    <a class="btn primary sm" href="#appel">Réserver un appel</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- hero -->
+  <section class="hero wrap">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <p class="label eyebrow"><span>Logiciel de coaching · 5 à 40 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
+        <h1 class="display"><span>L'admin</span><span>vous coûte</span><span>des clients.</span></h1>
+        <p class="lead">
+          FitPal Coach remplace les DM, les notes vocales et le tableur. Vos clients reçoivent
+          une vraie app d'entraînement. Vous voyez qui s'entraîne, qui décroche, et qui est sur
+          le point d'arrêter.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="#appel">Réserver un appel</a>
+          <a class="btn ghost" href="#produit">Voir le produit</a>
+        </div>
+        <p class="note">Appel de 20 minutes. Pas de démo automatisée, pas de carte bancaire.</p>
+      </div>
+
+      <figure class="hero-portrait">
+        <img src="img/coach-hero.jpg" alt="Une coach et sa cliente en pleine séance, dans une salle de sport."
+             width="1100" height="1375" decoding="async">
+        <figcaption class="label">Photo d'illustration</figcaption>
+      </figure>
+
+      <div class="hero-stage">
+        <div class="hero-media">
+          <video data-autoplay poster="img/promo-poster-fr.jpg" muted playsinline preload="none" controls
+                 width="1920" height="1080"
+                 aria-label="FitPal Coach en dix-sept secondes : le coût de l'admin, puis le tableau de bord qui le supprime.">
+            <source src="assets/promo-fr.mp4" type="video/mp4">
+            </video>
+        </div>
+        <p class="shot-cap label"><span>Lundi 08:12</span><span class="num">Capture réelle</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01 -->
+  <section class="sec wrap" id="probleme">
+    <div class="sec-head rv">
+      <div class="rule label"><span class="n num">01</span><span class="k">Le problème</span></div>
+      <h2>Ce que l'admin vous prend</h2>
+    </div>
+
+    <ol class="rows rv">
+      <li class="row">
+        <span class="n label num">01</span>
+        <div><h3>Le programme vit dans un tableur</h3></div>
+        <p>Vous le refaites à la main pour chaque client, puis vous l'envoyez en capture d'écran. Une correction et tout recommence.</p>
+      </li>
+      <li class="row">
+        <span class="n label num">02</span>
+        <div><h3>Le suivi vit dans les DM</h3></div>
+        <p>Un client envoie une note vocale à 22h. Elle est enterrée trois jours plus tard, sous vingt autres conversations.</p>
+      </li>
+      <li class="row">
+        <span class="n label num">03</span>
+        <div><h3>Le décrochage se voit trop tard</h3></div>
+        <p>Quand vous réalisez qu'un client ne s'entraîne plus, il a déjà décidé d'arrêter. Le mois est perdu.</p>
+      </li>
+      <li class="row">
+        <span class="n label num">04</span>
+        <div><h3>Vous plafonnez</h3></div>
+        <p>Ce n'est pas le nombre d'heures de coaching qui limite votre roster. C'est tout le reste.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 02 -->
+  <section class="sec wrap" id="produit">
+    <div class="sec-head rv">
+      <div class="rule label"><span class="n num">02</span><span class="k">Le produit</span></div>
+      <h2>Deux applications, un seul compte</h2>
+      <p class="lead">
+        Vous travaillez dans le tableau de bord coach. Vos clients ont l'app d'entraînement.
+        Les captures ci-dessous viennent du produit tel qu'il tourne, pas d'une maquette.
+      </p>
+    </div>
+
+    <div class="feat rv">
+      <div class="feat-body">
+        <h3>Le tableau de bord du matin</h3>
+        <p>Une page qui répond à la seule question qui compte avant votre premier client : qui a besoin de vous aujourd'hui.</p>
+        <ul>
+          <li><span>Qui s'entraîne en ce moment, en direct</span></li>
+          <li><span>Qui n'a rien fait depuis sept jours</span></li>
+          <li><span>Qui attend une réponse de votre part</span></li>
+        </ul>
+      </div>
+      <figure class="shot-wrap">
+        <div class="device">
+          <div class="device-screen"><img src="img/screens/coach-today.png" alt="Tableau de bord coach : les compteurs Clients 6, En séance 2 et Actifs 7j 5, une carte « à traiter » nommant trois clients, puis la carte « en séance » avec la progression en direct de deux clients." width="720" height="1560" loading="lazy"></div>
+        </div>
+        <p class="shot-cap label"><span>Tableau de bord</span><span class="num">Capture réelle</span></p>
+      </figure>
+    </div>
+
+    <div class="feat rv">
+      <div class="feat-body">
+        <h3>Votre roster, sur une page</h3>
+        <p>L'assiduité de chaque client sur 28 jours, la couleur avant le chiffre. Celui qui décroche se voit avant qu'il ne parte.</p>
+        <ul>
+          <li><span>Assiduité sur 28 jours, client par client</span></li>
+          <li><span>Point vert : en séance en ce moment</span></li>
+          <li><span>Programme envoyé, accepté, ou resté sans réponse</span></li>
+        </ul>
+      </div>
+      <figure class="shot-wrap">
+        <div class="device">
+          <div class="device-screen"><img src="img/screens/coach-clients.png" alt="Liste des clients : six fiches, chacune avec son taux d'assiduité sur 28 jours en couleur, de 42 % en rouge à 100 % en vert, et une pastille verte sur les deux clients en séance." width="720" height="1560" loading="lazy"></div>
+        </div>
+        <p class="shot-cap label"><span>Liste des clients</span><span class="num">Capture réelle</span></p>
+      </figure>
+    </div>
+
+    <div class="feat rv">
+      <div class="feat-body">
+        <h3>Ce que voit votre client</h3>
+        <p>Une vraie app, à votre nom, installable sur l'écran d'accueil. Pas un PDF, pas un lien vers un tableur.</p>
+        <ul>
+          <li><span>La séance du jour, et la semaine devant</span></li>
+          <li><span>Son poids et sa courbe, contre son objectif</span></li>
+          <li><span>Fonctionne hors-ligne, se synchronise après</span></li>
+        </ul>
+      </div>
+      <figure class="shot-wrap">
+        <div class="device">
+          <div class="device-screen"><img src="img/screens/client-home.png" alt="Accueil côté client : la bande de la semaine, la séance du jour marquée « Done », puis la courbe de poids corporel et une série de 21 semaines." width="720" height="1560" loading="lazy"></div>
+        </div>
+        <p class="shot-cap label"><span>Accueil client</span><span class="num">Capture réelle</span></p>
+      </figure>
+    </div>
+
+    <div class="feat rv">
+      <div class="feat-body">
+        <h3>Les chiffres, quand vous en avez besoin</h3>
+        <p>L'assiduité par rapport au plan, pas une moyenne flatteuse. De quoi tenir une conversation difficile avec des faits.</p>
+        <ul>
+          <li><span>Assiduité mesurée contre les jours prévus</span></li>
+          <li><span>Charge estimée au 1RM par exercice</span></li>
+          <li><span>Poids, mensurations, équilibre musculaire</span></li>
+        </ul>
+      </div>
+      <figure class="shot-wrap">
+        <div class="device">
+          <div class="device-screen"><img src="img/screens/client-stats.png" alt="Écran statistiques : 80 séances et 21 semaines de série, la carte de chaleur des douze derniers mois, et la carte musculaire avant et arrière." width="720" height="1560" loading="lazy"></div>
+        </div>
+        <p class="shot-cap label"><span>Statistiques client</span><span class="num">Capture réelle</span></p>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section class="sec spec" id="fiche">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">03</span><span class="k">Fiche technique</span></div>
+        <h2>Ce que vous achetez</h2>
+        <p class="lead">Ce qui est prêt, et ce qui ne l'est pas.</p>
+      </div>
+
+      <dl class="spec-table rv">
+        <div class="spec-row"><dt>Plateformes</dt><dd>Web, Android, iOS. Installable depuis le navigateur, sans passer par un store.</dd></div>
+        <div class="spec-row"><dt>Langues de l'app client</dt><dd class="num">4 (français, anglais, allemand, espagnol)</dd></div>
+        <div class="spec-row"><dt>Langue du tableau de bord coach</dt><dd>Anglais uniquement <span class="y">pour l'instant</span></dd></div>
+        <div class="spec-row"><dt>Connexion</dt><dd>Passkey (WebAuthn). Pas de mot de passe à réinitialiser.</dd></div>
+        <div class="spec-row"><dt>Bibliothèque d'exercices</dt><dd class="num">1 324 exercices illustrés, plus les vôtres</dd></div>
+        <div class="spec-row"><dt>Progression des charges</dt><dd>Linéaire, Greyskull LP ou double progression, au choix par exercice.</dd></div>
+        <div class="spec-row"><dt>Hors-ligne</dt><dd>La séance se déroule et s'enregistre sans réseau, la synchronisation suit.</dd></div>
+        <div class="spec-row"><dt>Notifications</dt><dd>Fin de repos et rappel de séance, par Web Push.</dd></div>
+        <div class="spec-row"><dt>Hébergement</dt><dd>Votre instance, votre domaine, vos données. Aucune télémétrie.</dd></div>
+        <div class="spec-row"><dt>Export</dt><dd>Les données client sont exportables à tout moment, en JSON.</dd></div>
+        <div class="spec-row"><dt>Tarif</dt><dd>Sur devis, fixé pendant l'appel. Pas d'abonnement par client.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section class="sec wrap" id="demarrage">
+    <div class="sec-head rv">
+      <div class="rule label"><span class="n num">04</span><span class="k">Mise en route</span></div>
+      <h2>De l'appel au premier lundi</h2>
+    </div>
+
+    <ol class="steps rv">
+      <li class="step">
+        <span class="n label num">01</span>
+        <h3>L'appel</h3>
+        <p>Vingt minutes. Vous montrez comment vous travaillez aujourd'hui, on regarde si l'outil correspond.</p>
+      </li>
+      <li class="step">
+        <span class="n label num">02</span>
+        <h3>L'instance</h3>
+        <p>Votre domaine est configuré et votre compte coach ouvert. Rien à installer de votre côté.</p>
+      </li>
+      <li class="step">
+        <span class="n label num">03</span>
+        <h3>Vos programmes</h3>
+        <p>On reprend vos séances existantes et on les met dans l'éditeur, avec vous, une fois.</p>
+      </li>
+      <li class="step">
+        <span class="n label num">04</span>
+        <h3>Vos clients</h3>
+        <p>Ils reçoivent une invitation, installent l'app, et leur séance les attend lundi matin.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 05 -->
+  <section class="sec tight wrap" id="questions">
+    <div class="sec-head rv">
+      <div class="rule label"><span class="n num">05</span><span class="k">Questions</span></div>
+      <h2>Ce qu'on nous demande</h2>
+    </div>
+
+    <div class="faq rv">
+      <details>
+        <summary>Je n'ai que huit clients. C'est trop peu ?</summary>
+        <p>Non. L'outil est construit pour une personne seule avec un téléphone, pas pour une salle avec un accueil. C'est à huit clients que le temps gagné se voit le plus, parce que vous n'avez personne à qui déléguer l'admin.</p>
+      </details>
+      <details>
+        <summary>Mes clients doivent télécharger une application ?</summary>
+        <p>Ils ouvrent un lien et l'ajoutent à leur écran d'accueil. Pas de store, pas de compte à créer, pas de mot de passe. Des versions Android et iOS natives existent si vous les préférez.</p>
+      </details>
+      <details>
+        <summary>Qu'est-ce qui se passe si j'arrête ?</summary>
+        <p>Vous repartez avec vos données, exportées en JSON. L'instance est la vôtre, pas la nôtre.</p>
+      </details>
+      <details>
+        <summary>Le tableau de bord coach est en anglais. Pourquoi ?</summary>
+        <p>Parce que l'app client a été traduite en premier, et qu'annoncer une traduction non faite serait malhonnête. Les quatre langues concernent ce que vos clients voient. La traduction du tableau de bord est prévue.</p>
+      </details>
+      <details>
+        <summary>Combien ça coûte ?</summary>
+        <p>Le tarif est fixé pendant l'appel, en fonction du nombre de clients et de l'hébergement. Il n'y a pas d'abonnement par client : votre facture n'augmente pas parce que votre activité marche.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- The one photograph on the site. Illustrative: no name, no quote, no claimed result.
+       Placed between the argument and the ask, unnumbered and unmatted. -->
+  <section class="people">
+    <div class="people-img">
+      <img src="img/coaches.jpg" width="1800" height="750" loading="lazy" decoding="async"
+           alt="Deux coachs sportifs, une femme et un homme, se parlent au milieu d'un plateau de musculation, entre les cages à squat et les anneaux.">
+    </div>
+    <p class="wrap label people-cap">
+      <span>Votre métier se passe ici. L'admin, non.</span>
+      <span>Photo d'illustration</span>
+    </p>
+  </section>
+
+  <!-- 06 -->
+  <section class="sec tight cta" id="appel">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">06</span><span class="k">Réserver</span></div>
+        <h2>Vingt minutes, et vous saurez</h2>
+      </div>
+      <p class="rv">Montrez comment vous travaillez aujourd'hui. Si l'outil ne correspond pas, on vous le dira pendant l'appel.</p>
+      <div class="actions rv">
+        <a class="btn solid" href="https://wa.me/212626410690?text=Bonjour%2C%20je%20suis%20coach%20ind%C3%A9pendant(e).%20Je%20voudrais%20r%C3%A9server%20un%20appel%20de%2020%20minutes%20au%20sujet%20de%20FitPal%20Coach.">Réserver sur WhatsApp</a>
+        <a class="btn line" href="tel:+212626410690">+212&nbsp;626&nbsp;410&nbsp;690</a>
+      </div>
+      <p class="note rv">Appel de 20 minutes. Pas de démo automatisée, pas de carte bancaire.</p>
+    </div>
+  </section>
+
+</main>
+
+<div class="ask-bar">
+  <a class="btn primary" href="#appel">Réserver un appel</a>
+</div>
+
+<footer class="ftr">
+  <div class="wrap ftr-in">
+    <div>
+      <a class="brand" href="/">
+        <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M291 64 L136 288 L236 288 L221 448 L376 224 L276 224 Z"/>
+        </svg>
+        FitPal&nbsp;<b>Coach</b>
+      </a>
+      <p class="fine">Le logiciel des coachs sportifs indépendants. Bâti sur openGym.</p>
+    </div>
+    <ul>
+      <li><a href="#produit">Le produit</a></li>
+      <li><a href="#fiche">Fiche technique</a></li>
+      <li><a href="#questions">Questions</a></li>
+      <li><a href="/mentions-legales">Mentions légales</a></li>
+    </ul>
+    <ul>
+      <li><a href="/en/" hreflang="en" lang="en">English</a></li>
+      <li><a href="https://gym.fitpal.ma">FitPal pour les salles</a></li>
+      <li><a href="mailto:contact@fitpal.ma">contact@fitpal.ma</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script src="site.js?v=5" defer></script>
+</body>
+</html>

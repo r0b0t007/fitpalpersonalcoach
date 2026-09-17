@@ -2,27 +2,27 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://fitpal.ma/</loc>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.ma/en/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/"/>
+    <loc>https://gym.fitpal.ma/</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://gym.fitpal.ma/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gym.fitpal.ma/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gym.fitpal.ma/"/>
   </url>
   <url>
-    <loc>https://fitpal.ma/en/</loc>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.ma/en/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/"/>
+    <loc>https://gym.fitpal.ma/en/</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://gym.fitpal.ma/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gym.fitpal.ma/en/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gym.fitpal.ma/"/>
   </url>
   <url>
-    <loc>https://fitpal.ma/mentions-legales</loc>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/mentions-legales"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.ma/en/legal"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/mentions-legales"/>
+    <loc>https://gym.fitpal.ma/mentions-legales</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://gym.fitpal.ma/mentions-legales"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gym.fitpal.ma/en/legal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gym.fitpal.ma/mentions-legales"/>
   </url>
   <url>
-    <loc>https://fitpal.ma/en/legal</loc>
-    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/mentions-legales"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://fitpal.ma/en/legal"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/mentions-legales"/>
+    <loc>https://gym.fitpal.ma/en/legal</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://gym.fitpal.ma/mentions-legales"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://gym.fitpal.ma/en/legal"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gym.fitpal.ma/mentions-legales"/>
   </url>
 </urlset>

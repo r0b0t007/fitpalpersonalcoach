@@ -12,6 +12,9 @@
                     | js:<expression>, evaluated in the app's window
        ?rect=<names>  |-separated; reports each element's box in the screen's own pixels and as
                       a percentage of it, for placing a video's callouts from measurements
+       ?w= ?h=      iframe size, default 359x776 (the video's phone box). The marketing site
+                    films the same states wider, and ?rect= already measures against the
+                    iframe's real size, so percentages stay correct at any size.
 
      A <name> (in click: and rect=) is matched against an element's visible text, and may carry
      any of these prefixes, applied in this order:
@@ -26,6 +29,14 @@ iframe{border:0;display:block;width:359px;height:776px}</style>
 const q = new URLSearchParams(location.search);
 if (q.get('c')) document.cookie = q.get('c') + '; path=/; max-age=7776000; SameSite=Lax';
 const f = document.getElementById('f');
+// Size override. The default stays the video's 359x776 so every existing shot is unchanged; the
+// marketing site films the same states wider. Clamped, so a bad query string cannot produce a
+// 0 px iframe that screenshots as an empty black PNG.
+{
+  const n = (v, d) => { const x = parseInt(v, 10); return Number.isFinite(x) && x >= 200 && x <= 4000 ? x : d; };
+  f.style.width = n(q.get('w'), 359) + 'px';
+  f.style.height = n(q.get('h'), 776) + 'px';
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // Visible text of an element, trimmed — matching on text is what keeps these steps readable

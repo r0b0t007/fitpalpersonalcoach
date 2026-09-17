@@ -1,17 +1,24 @@
-# FitPal marketing site — fitpal.ma
+# FitPal marketing site — gym.fitpal.ma
 
 Static, no build step: hand-written HTML/CSS + one tiny JS file (mobile nav toggle).
 FR is the primary locale at the root; EN lives under `/en/` with full reciprocal
 hreflang (x-default → FR). Implements the validated Claude Design (black `#000`,
-gold `#D4AF37`, no card icons, two trust cards). Canonical domain: **https://fitpal.ma**
+gold `#D4AF37`, no card icons, two trust cards). Canonical domain: **https://gym.fitpal.ma**
 (baked into canonicals, hreflang, OG/Twitter tags, JSON-LD, sitemap, robots).
 
 ## Remaining placeholders — complete before going live
 
 - **WhatsApp number**: `wa.me/212600000000` in both landing pages is a placeholder —
   replace with the real number (international format, no `+` in `wa.me` links).
-- **Contact mailbox**: create `contact@fitpal.ma` in cPanel (Email Accounts) — the
-  mailto links and JSON-LD already point at it.
+- **Contact mailbox**: create `contact@fitpal.ma` in **Namecheap Private Email**, NOT in
+  cPanel. `fitpal.ma`'s `MX` points at `mx1/2/3-hosting.jellyfish.systems`
+  (162.255.118.28/29), which is Private Email, a different service from the cPanel hosting.
+  A forwarder defined in cPanel for this domain is inert: mail never reaches that box.
+  cPanel's own Email Routing screen reports `fitpal.ma` as *Automatically Detect
+  Configuration : Remote*, which is correct and is the quickest way to confirm this.
+  (`pawpawcare.app` on the same account is the contrast: its `MX` is `mail.pawpawcare.app`,
+  which does resolve to the hosting box, so cPanel forwarders work there.)
+  The mailto links and JSON-LD already point at the address.
 - **Legal pages**: complete the *(to be completed)* blocks (company name, address,
   registration number) in `mentions-legales.html` and `en/legal.html`.
 
@@ -57,7 +64,8 @@ One-time setup:
    to root** template (301, keep *Preserve query string*), which matches the canonical
    tags — they are apex-only. Without it `www` inherits the apex CNAME, chains into
    Pages and serves a 522.
-   **Status:** already done for `fitpal.ma`; redo only when re-pointing to a new domain.
+   **Status:** the apex was handed to the FitPal Coach site (project `fitpal-coach`); this
+   project now serves `gym.fitpal.ma`. Redo only when re-pointing again.
 3. Flip the `DEPLOY_SITE` repository variable to `true`.
 
 > **The zone is on Cloudflare nameservers** (`braden`/`natasha.ns.cloudflare.com`),
@@ -67,6 +75,12 @@ One-time setup:
 > Cloudflare's proxy carries HTTP(S) only and would black-hole IMAP/SMTP and the cPanel
 > ports. The `MX` records and the SPF `TXT` are unproxied by nature and were preserved
 > through the migration.
+>
+> **The `MX` records do not point at the hosting box.** They resolve to
+> `mx1/2/3-hosting.jellyfish.systems` — Namecheap **Private Email**. Inbound mail for
+> `fitpal.ma` is handled there and never touches cPanel, so mailboxes, aliases and
+> forwarders for this domain all live in Private Email. Verified 2026-09-17 against a
+> public resolver.
 >
 > One consequence worth knowing: the SPF record still starts `v=spf1 +a …`, and `+a`
 > now resolves to Cloudflare's Pages IPs rather than the mail server. Delivery still
@@ -82,5 +96,5 @@ One-time setup:
 `site/**`: HTML/SEO check job → `production`-environment approval → `wrangler pages
 deploy` → health check on `/`, `/en/` and `/sitemap.xml`. Pull requests get their own
 preview deployment (commented on the PR) without touching production. After the first
-production deploy, submit `https://fitpal.ma/sitemap.xml` in Google Search Console and
+production deploy, submit `https://gym.fitpal.ma/sitemap.xml` in Google Search Console and
 Bing Webmaster Tools.

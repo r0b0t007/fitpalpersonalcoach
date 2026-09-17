@@ -47,7 +47,11 @@ mcp/       optional MCP server — read-only stdio bridge exposing a user's work
            balance to LLM clients (Claude Desktop, Cursor…). Not part of a deploy; only
            runs when an LLM client spawns it.
 media/     exercise img/gif, gitignored, fetched by scripts/fetch-media.sh.
-website/   static marketing site (plain HTML/CSS/JS), deployed separately.
+site-coach/ THIS product's marketing site → **fitpal.ma** (the apex), Cloudflare Pages
+           project `fitpal-coach`, gated by DEPLOY_SITE_COACH. Plain HTML/CSS/JS.
+site/      FitPal, the white-label GYM product's site → gym.fitpal.ma, Pages project
+           `fitpal`, gated by DEPLOY_SITE. A different product to a different buyer.
+website/   openGym upstream's inherited site. Not deployed from here.
 docs/      SELF_HOSTING.md, MOBILE.md.
 ```
 
