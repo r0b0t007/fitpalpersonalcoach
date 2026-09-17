@@ -216,8 +216,8 @@ real change to how the bundle caches, not a tidy-up.
 A one-off purge was needed when these headers were first added, because the edge was still
 holding the pre-fix copy: Caching → Configuration → Custom Purge → **URL**, one line,
 `https://coach.fitpal.ma/sw.js`. Purge by URL rather than *Purge Everything* — the zone also
-serves `fitpal.ma` and `app.fitpal.ma`. No purge is needed after later deploys; that is the whole
-point of `REVALIDATED`.
+serves `fitpal.ma`, `gym.fitpal.ma` and `app.fitpal.ma`. No purge is needed after later
+deploys; that is the whole point of `REVALIDATED`.
 
 ## Checking it worked
 
