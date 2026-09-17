@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page introuvable — FitPal Coach</title>
+<meta name="description" content="Cette page n'existe pas.">
+<!-- The one page on the site that must NOT be indexed. Without this file Cloudflare Pages
+     falls back to index.html for every unmatched path and returns 200, so an infinite number
+     of URLs would each be indexed as a duplicate of the homepage. -->
+<meta name="robots" content="noindex, follow">
+<meta name="theme-color" content="#1C1A17">
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<link rel="stylesheet" href="/styles.css?v=15">
+<script>document.documentElement.className += ' js'</script>
+</head>
+
+<body>
+<a class="skip" href="#main">Aller au contenu</a>
+
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M291 64 L136 288 L236 288 L221 448 L376 224 L276 224 Z"/>
+      </svg>
+      FitPal&nbsp;<b>Coach</b>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a href="/">Accueil</a>
+      <a class="lang" href="/en/" hreflang="en" lang="en">EN</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="wrap doc">
+  <p class="label eyebrow"><span>Erreur 404</span></p>
+  <h1>Cette page n'existe pas.</h1>
+  <p>
+    Le lien est peut-être périmé, ou l'adresse mal recopiée. Rien n'est cassé de votre côté.
+  </p>
+
+  <h2>Où aller</h2>
+  <ul>
+    <li><a href="/">Le logiciel des coachs indépendants</a> — la page d'accueil</li>
+    <li><a href="/#produit">Le produit</a> — les captures de l'app telle qu'elle tourne</li>
+    <li><a href="/#fiche">La fiche technique</a> — ce qui est prêt, et ce qui ne l'est pas</li>
+    <li><a href="/#appel">Réserver un appel</a> — vingt minutes, sans démo automatisée</li>
+  </ul>
+
+  <p><a href="/en/" hreflang="en" lang="en">This page in English</a></p>
+</main>
+
+<footer class="ftr">
+  <div class="wrap ftr-in">
+    <div>
+      <a class="brand" href="/">
+        <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M291 64 L136 288 L236 288 L221 448 L376 224 L276 224 Z"/>
+        </svg>
+        FitPal&nbsp;<b>Coach</b>
+      </a>
+      <p class="fine">Le logiciel des coachs sportifs indépendants. Bâti sur openGym.</p>
+    </div>
+    <ul>
+      <li><a href="/#produit">Le produit</a></li>
+      <li><a href="/#fiche">Fiche technique</a></li>
+      <li><a href="/mentions-legales">Mentions légales</a></li>
+    </ul>
+    <ul>
+      <li><a href="/en/" hreflang="en" lang="en">English</a></li>
+      <li><a href="https://gym.fitpal.ma">FitPal pour les salles</a></li>
+      <li><a href="mailto:contact@fitpal.ma">contact@fitpal.ma</a></li>
+    </ul>
+  </div>
+</footer>
+</body>
+</html>
