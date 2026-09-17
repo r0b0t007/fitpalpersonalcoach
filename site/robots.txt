@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://fitpal.ma/sitemap.xml
+Sitemap: https://gym.fitpal.ma/sitemap.xml

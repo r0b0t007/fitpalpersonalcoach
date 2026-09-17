@@ -1,0 +1,201 @@
+# Deploys the FitPal Coach marketing site (static, no build step) to Cloudflare Pages.
+#
+# This is a SEPARATE Pages project from deploy-site.yml. That workflow publishes `site/` to
+# fitpal.ma (the white-label gym product); this one publishes `site-coach/` to coach.fitpal.ma
+# (the software sold to independent coaches). Two products, two audiences, two projects — the
+# only thing they share is ownership. Pointing either workflow at the other's directory or
+# project name would replace a live site with the wrong product.
+#
+# Guardrails, same shape as the sibling pipeline:
+#   1. The check job must pass in THIS run — HTML validity, an SEO regression grep, and the
+#      palette contrast check, so a refactor cannot silently strip the tags the site exists for
+#      or drop a colour pair below WCAG AA.
+#   2. Opt-in: deploy only runs while the repository variable DEPLOY_SITE_COACH is 'true'.
+#   3. `production` environment — required reviewers gate every production deploy.
+#   4. One deploy at a time, never cancelled mid-upload.
+#   5. Post-deploy checks fail loudly: /, /en/ and /sitemap.xml must all serve.
+#
+# Secrets: CLOUDFLARE_API_TOKEN (Pages:Edit), CLOUDFLARE_ACCOUNT_ID.
+# Vars: DEPLOY_SITE_COACH, SITE_COACH_URL.
+name: Deploy Site Coach (Cloudflare Pages)
+
+on:
+  pull_request:
+    paths:
+      - 'site-coach/**'
+      - 'scripts/check-site-coach-contrast.mjs'
+      - '.github/workflows/deploy-site-coach.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'site-coach/**'
+      - 'scripts/check-site-coach-contrast.mjs'
+      - '.github/workflows/deploy-site-coach.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+concurrency:
+  group: deploy-site-coach-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Validate HTML
+        run: npx --yes html-validate "site-coach/**/*.html"
+
+      - name: Palette contrast (WCAG 2.2 AA)
+        # Reads the hexes out of site-coach/styles.css, so this cannot drift from what ships.
+        run: node scripts/check-site-coach-contrast.mjs
+
+      - name: SEO regression grep
+        run: |
+          fail=0
+          for f in site-coach/index.html site-coach/en/index.html \
+                   site-coach/mentions-legales.html site-coach/en/legal.html; do
+            for tag in 'rel="canonical"' 'hreflang="fr"' 'hreflang="en"' 'hreflang="x-default"'; do
+              grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
+            done
+          done
+          for f in site-coach/index.html site-coach/en/index.html; do
+            for tag in 'og:image' 'twitter:card' 'application/ld+json' '<h1'; do
+              grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
+            done
+          done
+          grep -q 'Sitemap:' site-coach/robots.txt || { echo "::error::robots.txt missing Sitemap"; fail=1; }
+          # Cloudflare Pages serves /foo.html at /foo — canonicals/sitemap must use the
+          # extensionless form or every legal-page URL resolves through a 308.
+          # Host-loose on purpose, matching the sibling workflow: 'fitpal.ma' is a
+          # substring of every subdomain spelling, so this keeps working wherever the
+          # site lives. The anchored 'coach.fitpal.ma' form this replaced matched
+          # nothing once the site moved to the apex, and passed vacuously instead of
+          # failing — a guard that cannot fail is not a guard.
+          grep -rq 'fitpal\.ma/[a-z-]*\.html' \
+            site-coach/*.html site-coach/en/*.html site-coach/sitemap.xml \
+            && { echo "::error::.html URLs found — Pages redirects those, use extensionless"; fail=1; }
+          exit $fail
+
+      - name: Every referenced local asset exists
+        # A screenshot renamed but not re-referenced ships as a broken image and no other check
+        # in this job would notice.
+        run: |
+          fail=0
+          for f in site-coach/index.html site-coach/en/index.html; do
+            dir=$(dirname "$f")
+            for src in $(grep -oE '(src|href|poster)="[^"]+\.(png|jpe?g|webp|svg|mp4|css|js)"' "$f" \
+                         | sed -E 's/.*="([^"]+)".*/\1/' | grep -v '^https\?:' | sed 's/?.*//'); do
+              case "$src" in
+                /*) p="site-coach$src" ;;
+                *)  p="$dir/$src" ;;
+              esac
+              p=$(printf '%s' "$p" | sed 's|/\./|/|g')
+              # Resolve one level of ../
+              p=$(printf '%s' "$p" | sed -E 's|[^/]+/\.\./||g')
+              [ -f "$p" ] || { echo "::error file=$f::missing asset $src (looked for $p)"; fail=1; }
+            done
+          done
+          exit $fail
+
+      - name: No placeholder contact details
+        # The page's only conversion is a call, booked through the WhatsApp number and the
+        # mailbox in the CTA band. Ship a placeholder there and every visitor who reaches the
+        # ask lands on a dead end — the one failure that costs a lead outright, and the one no
+        # other check here can see. This stays a hard failure.
+        run: |
+          fail=0
+          for pat in '212600000000' 'coach@fitpal\.ma'; do
+            hits=$(grep -rlE "$pat" site-coach --include='*.html' --include='*.xml' || true)
+            if [ -n "$hits" ]; then
+              for f in $hits; do
+                echo "::error file=$f::placeholder contact detail still present ($pat)"
+              done
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Unfinished legal copy (WARNING ONLY - see TODO)
+        # TEMPORARILY NON-BLOCKING, at the owner's explicit instruction, to allow the site to
+        # ship before the company details exist. It was a hard failure and MUST become one
+        # again: a published legal notice whose company name reads "[raison sociale a
+        # completer]" is both a Moroccan compliance gap and the precise opposite of the
+        # spec-sheet honesty the whole page sells.
+        #
+        # Restore by deleting the `|| true` and the `continue-on-error` below once the four
+        # fields are filled in mentions-legales.html and en/legal.html.
+        continue-on-error: true
+        run: |
+          fail=0
+          for pat in '\[[^]]*compl[^]]*\]' '\[[^]]*capital\]'; do
+            hits=$(grep -rlE "$pat" site-coach --include='*.html' --include='*.xml' || true)
+            if [ -n "$hits" ]; then
+              for f in $hits; do
+                echo "::warning file=$f::unfinished legal copy is PUBLICLY VISIBLE ($pat)"
+              done
+              fail=1
+            fi
+          done
+          [ "$fail" = "0" ] || echo "::warning::Legal pages ship with visible [to be completed] markers."
+          exit 0
+
+  deploy:
+    needs: check
+    if: vars.DEPLOY_SITE_COACH == 'true'
+    runs-on: ubuntu-latest
+    # PR previews deploy without the production gate; only main needs approval.
+    environment: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
+    outputs:
+      url: ${{ steps.pages.outputs.deployment-url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Deploy to Cloudflare Pages
+        id: pages
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy site-coach
+            --project-name=fitpal-coach
+            --branch=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'main' }}
+
+      - name: Comment preview URL on the PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const url = '${{ steps.pages.outputs.deployment-url }}';
+            if (!url) return;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🔧 Coach site preview: ${url}`
+            });
+
+      - name: Health check
+        if: github.event_name != 'pull_request' && vars.SITE_COACH_URL != ''
+        run: |
+          base="${{ vars.SITE_COACH_URL }}"
+          base="${base%/}"
+          for path in "/" "/en/" "/sitemap.xml"; do
+            ok=0
+            for i in 1 2 3; do
+              if curl -fsS --max-time 15 "$base$path" > /tmp/out; then ok=1; break; fi
+              sleep 5
+            done
+            [ "$ok" = "1" ] || { echo "::error::$path did not serve"; exit 1; }
+          done
+          curl -fsS "$base/" | grep -q "<title>" || { echo "::error::landing page has no title"; exit 1; }
+          echo "Coach site healthy."

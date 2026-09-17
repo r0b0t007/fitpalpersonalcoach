@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitPal Coach — software for independent coaches</title>
+<meta name="description" content="The software that replaces the DMs, the voice notes and the spreadsheet. Your clients get a real training app, you see who trained and who is dropping off. Book a 20 minute call.">
+<meta name="theme-color" content="#1C1A17">
+
+<link rel="canonical" href="https://fitpal.ma/en/">
+<link rel="alternate" hreflang="fr" href="https://fitpal.ma/">
+<link rel="alternate" hreflang="en" href="https://fitpal.ma/en/">
+<link rel="alternate" hreflang="x-default" href="https://fitpal.ma/">
+
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en">
+<meta property="og:url" content="https://fitpal.ma/en/">
+<meta property="og:title" content="FitPal Coach — software for independent coaches">
+<meta property="og:description" content="The software that replaces the DMs, the voice notes and the spreadsheet. Your clients get a real training app, you see who is dropping off.">
+<meta property="og:image" content="https://fitpal.ma/img/og-en.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FitPal Coach — software for independent coaches">
+<meta name="twitter:description" content="The software that replaces the DMs, the voice notes and the spreadsheet.">
+<meta name="twitter:image" content="https://fitpal.ma/img/og-en.png">
+
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icon-180.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<link rel="stylesheet" href="../styles.css?v=10">
+
+<script>
+/* Pre-paint: arm the intro before first paint so the hero never shows and then hides.
+   Skipped entirely when the visitor asks for reduced motion, and only on the first visit
+   of a session, so navigating back does not replay the choreography. */
+(function () {
+  var r = document.documentElement
+  r.className += ' js'
+  try {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!reduce && !sessionStorage.getItem('fpc-intro')) {
+      sessionStorage.setItem('fpc-intro', '1')
+      r.className += ' intro'
+    }
+  } catch (e) { /* private mode: no intro, page still correct */ }
+})()
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "FitPal Coach",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web, Android, iOS",
+  "url": "https://fitpal.ma/en/",
+  "inLanguage": ["fr", "en", "de", "es"],
+  "description": "Coaching software for independent personal trainers. Programs, adherence tracking, and a training app for your clients.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MAD", "description": "Priced on the call." }
+}
+</script>
+</head>
+
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="hdr">
+  <div class="wrap hdr-in">
+    <a class="brand" href="/en/">
+      <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M291 64 L136 288 L236 288 L221 448 L376 224 L276 224 Z"/>
+      </svg>
+      FitPal&nbsp;<b>Coach</b>
+    </a>
+
+    <button class="burger" type="button" aria-expanded="false" aria-controls="nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="#problem">The problem</a>
+      <a href="#product">The product</a>
+      <a href="#spec">Spec sheet</a>
+      <a href="#setup">Getting set up</a>
+      <a href="#questions">Questions</a>
+      <a class="lang" href="/" hreflang="fr" lang="fr">FR</a>
+    </nav>
+
+    <a class="btn primary sm" href="#call">Book a call</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- hero -->
+  <section class="hero wrap">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <p class="label eyebrow"><span>Coaching software · 5 to 40 clients</span><span class="proof">Real captures, no mockups</span></p>
+        <h1 class="display"><span>Admin is</span><span>costing you</span><span>clients.</span></h1>
+        <p class="lead">
+          FitPal Coach replaces the DMs, the voice notes and the spreadsheet. Your clients get a
+          real training app. You see who trained, who slipped, and who is about to quit.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="#call">Book a call</a>
+          <a class="btn ghost" href="#product">See the product</a>
+        </div>
+        <p class="note">Twenty minutes. No automated demo, no card.</p>
+      </div>
+
+      <figure class="hero-portrait">
+        <img src="../img/coach-hero.jpg" alt="A coach and her client mid-session in a gym."
+             width="1100" height="1375" decoding="async">
+        <figcaption class="label">Stock photograph, illustrative</figcaption>
+      </figure>
+
+      <div class="hero-stage">
+        <div class="hero-media">
+          <video data-autoplay poster="../img/promo-poster-en.jpg" muted playsinline preload="none" controls
+                 width="1920" height="1080"
+                 aria-label="FitPal Coach in seventeen seconds: what admin costs, then the dashboard that removes it.">
+            <source src="../assets/promo-en.mp4" type="video/mp4">
+            </video>
+        </div>
+        <p class="shot-cap label"><span>Monday 08:12</span><span class="num">Real capture</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01 -->
+  <section class="sec wrap" id="problem">
+    <div class="sec-head rv">
+      <div class="rule label"><span class="n num">01</span><span class="k">The problem</span></div>
+      <h2>What admin takes from you</h2>
+    </div>
+
+    <ol class="rows rv">
+      <li class="row">
+        <span class="n label num">01</span>
+        <div><h3>The program lives in a spreadsheet</h3></div>
+        <p>You rebuild it by hand for every client, then send it as a screenshot. One correction and you start again.</p>
+      </li>
+      <li class="row">
+        <span class="n label num">02</span>
+        <div><h3>The check-in lives in your DMs</h3></div>
+        <p>A client sends a voice note at 10pm. Three days later it is buried under twenty other conversations.</p>
+      </li>
+      <li class="row">
+        <span class="n label num">03</span>
+        <div><h3>Drop-off shows up too late</h3></div>
+        <p>By the time you notice someone has stopped training, they have already decided to quit. The month is gone.</p>
+      </li>
+      <li class="row">
+        <span class="n label num">04</span>
+        <div><h3>You hit a ceiling</h3></div>
+        <p>It is not coaching hours that cap your roster. It is everything around them.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 02 -->
+  <section class="sec wrap" id="product">
+    <div class="sec-head rv">
+      <div class="rule label"><span class="n num">02</span><span class="k">The product</span></div>
+      <h2>Two apps, one account</h2>
+      <p class="lead">
+        You work in the coach dashboard. Your clients get the training app. Every screenshot
+        below comes from the product as it runs, not from a mockup.
+      </p>
+    </div>
+
+    <div class="feat rv">
+      <div class="feat-body">
+        <h3>The morning dashboard</h3>
+        <p>One page that answers the only question that matters before your first client: who needs you today.</p>
+        <ul>
+          <li><span>Who is training right now, live</span></li>
+          <li><span>Who has done nothing for seven days</span></li>
+          <li><span>Who is waiting on a reply from you</span></li>
+        </ul>
+      </div>
+      <figure>
+        <div class="device">
+          <div class="device-screen"><img src="../img/screens/coach-today.png" alt="Coach dashboard: counters reading Clients 6, Training now 2 and Active 7d 5, a needs-attention card naming three clients, then a live card with two clients' set-by-set progress." width="720" height="1560" loading="lazy"></div>
+        </div>
+        <p class="shot-cap label"><span>Dashboard</span><span class="num">Real capture</span></p>
+      </figure>
+    </div>
+
+    <div class="feat rv">
+      <div class="feat-body">
+        <h3>Your roster on one page</h3>
+        <p>Every client's 28-day adherence, colour before number. The one slipping shows up before they leave.</p>
+        <ul>
+          <li><span>28-day adherence, client by client</span></li>
+          <li><span>Green dot: in a session right now</span></li>
+          <li><span>Program sent, accepted, or left unanswered</span></li>
+        </ul>
+      </div>
+      <figure>
+        <div class="device">
+          <div class="device-screen"><img src="../img/screens/coach-clients.png" alt="Client list: six cards, each showing a 28-day adherence figure in colour from 42 per cent in red to 100 per cent in green, with a green dot on the two clients currently training." width="720" height="1560" loading="lazy"></div>
+        </div>
+        <p class="shot-cap label"><span>Client list</span><span class="num">Real capture</span></p>
+      </figure>
+    </div>
+
+    <div class="feat rv">
+      <div class="feat-body">
+        <h3>What your client sees</h3>
+        <p>A real app, under your name, installed on the home screen. Not a PDF, not a link to a spreadsheet.</p>
+        <ul>
+          <li><span>Today's session, and the week ahead</span></li>
+          <li><span>Their weight and curve, against their goal</span></li>
+          <li><span>Works offline, syncs afterwards</span></li>
+        </ul>
+      </div>
+      <figure>
+        <div class="device">
+          <div class="device-screen"><img src="../img/screens/client-home.png" alt="Client home: the week strip, today's session marked Done, then the bodyweight curve and a 21 week streak." width="720" height="1560" loading="lazy"></div>
+        </div>
+        <p class="shot-cap label"><span>Client home</span><span class="num">Real capture</span></p>
+      </figure>
+    </div>
+
+    <div class="feat rv">
+      <div class="feat-body">
+        <h3>The numbers, when you need them</h3>
+        <p>Adherence against the plan, not a flattering average. Enough to hold a hard conversation with facts in it.</p>
+        <ul>
+          <li><span>Adherence measured against scheduled days</span></li>
+          <li><span>Estimated 1RM per exercise</span></li>
+          <li><span>Bodyweight, measurements, muscle balance</span></li>
+        </ul>
+      </div>
+      <figure>
+        <div class="device">
+          <div class="device-screen"><img src="../img/screens/client-stats.png" alt="Stats screen: 80 workouts and a 21 week streak, the last-twelve-months heatmap, and the front and back muscle map." width="720" height="1560" loading="lazy"></div>
+        </div>
+        <p class="shot-cap label"><span>Client stats</span><span class="num">Real capture</span></p>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section class="sec spec" id="spec">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">03</span><span class="k">Spec sheet</span></div>
+        <h2>What you are buying</h2>
+        <p class="lead">What is ready, and what is not.</p>
+      </div>
+
+      <dl class="spec-table rv">
+        <div class="spec-row"><dt>Platforms</dt><dd>Web, Android, iOS. Installs from the browser, no app store needed.</dd></div>
+        <div class="spec-row"><dt>Client app languages</dt><dd class="num">4 (English, French, German, Spanish)</dd></div>
+        <div class="spec-row"><dt>Coach dashboard language</dt><dd>English only <span class="y">for now</span></dd></div>
+        <div class="spec-row"><dt>Sign-in</dt><dd>Passkey (WebAuthn). No password to reset.</dd></div>
+        <div class="spec-row"><dt>Exercise library</dt><dd class="num">1,324 illustrated exercises, plus your own</dd></div>
+        <div class="spec-row"><dt>Load progression</dt><dd>Linear, Greyskull LP or double progression, chosen per exercise.</dd></div>
+        <div class="spec-row"><dt>Offline</dt><dd>A session runs and records with no network, and syncs after.</dd></div>
+        <div class="spec-row"><dt>Notifications</dt><dd>Rest-timer and session reminders, over Web Push.</dd></div>
+        <div class="spec-row"><dt>Hosting</dt><dd>Your instance, your domain, your data. No telemetry.</dd></div>
+        <div class="spec-row"><dt>Export</dt><dd>Client data exports at any time, as JSON.</dd></div>
+        <div class="spec-row"><dt>Price</dt><dd>Quoted on the call. No per-client subscription.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section class="sec wrap" id="setup">
+    <div class="sec-head rv">
+      <div class="rule label"><span class="n num">04</span><span class="k">Getting set up</span></div>
+      <h2>From the call to the first Monday</h2>
+    </div>
+
+    <ol class="steps rv">
+      <li class="step">
+        <span class="n label num">01</span>
+        <h3>The call</h3>
+        <p>Twenty minutes. You show how you work today, we see whether the tool fits.</p>
+      </li>
+      <li class="step">
+        <span class="n label num">02</span>
+        <h3>The instance</h3>
+        <p>Your domain is configured and your coach account opened. Nothing to install on your side.</p>
+      </li>
+      <li class="step">
+        <span class="n label num">03</span>
+        <h3>Your programs</h3>
+        <p>We take the sessions you already run and put them in the editor, with you, once.</p>
+      </li>
+      <li class="step">
+        <span class="n label num">04</span>
+        <h3>Your clients</h3>
+        <p>They get an invite, install the app, and their session is waiting on Monday morning.</p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 05 -->
+  <section class="sec tight wrap" id="questions">
+    <div class="sec-head rv">
+      <div class="rule label"><span class="n num">05</span><span class="k">Questions</span></div>
+      <h2>What people ask</h2>
+    </div>
+
+    <div class="faq rv">
+      <details>
+        <summary>I only have eight clients. Is that too few?</summary>
+        <p>No. This is built for one person with a phone, not for a gym with a front desk. Eight clients is where the time saved shows up most, because there is nobody to hand the admin to.</p>
+      </details>
+      <details>
+        <summary>Do my clients have to download an app?</summary>
+        <p>They open a link and add it to their home screen. No store, no account to create, no password. Native Android and iOS builds exist if you would rather use those.</p>
+      </details>
+      <details>
+        <summary>What happens if I stop?</summary>
+        <p>You leave with your data, exported as JSON. The instance is yours, not ours.</p>
+      </details>
+      <details>
+        <summary>The coach dashboard is English only. Why?</summary>
+        <p>Because the client app was translated first, and announcing a translation that does not exist would be dishonest. The four languages are what your clients see. Translating the dashboard is planned.</p>
+      </details>
+      <details>
+        <summary>What does it cost?</summary>
+        <p>Priced on the call, based on client count and hosting. There is no per-client subscription: your bill does not grow because your business is working.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- The one photograph on the site. Illustrative: no name, no quote, no claimed result.
+       Placed between the argument and the ask, unnumbered and unmatted. -->
+  <section class="people">
+    <div class="people-img">
+      <img src="../img/coaches.jpg" width="1800" height="750" loading="lazy" decoding="async"
+           alt="Two personal trainers, a woman and a man, talking to each other on a gym floor between the squat racks and the rings.">
+    </div>
+    <p class="wrap label people-cap">
+      <span>Your job happens here. The admin does not.</span>
+      <span>Stock photograph, illustrative</span>
+    </p>
+  </section>
+
+  <!-- 06 -->
+  <section class="sec tight cta" id="call">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">06</span><span class="k">Book</span></div>
+        <h2>Twenty minutes, and you will know</h2>
+      </div>
+      <p class="rv">Show us how you work today. If the tool does not fit, we will say so on the call.</p>
+      <div class="actions rv">
+        <a class="btn solid" href="https://wa.me/212626410690?text=Hello%2C%20I%20am%20an%20independent%20coach.%20I%20would%20like%20to%20book%20a%2020-minute%20call%20about%20FitPal%20Coach.">Book on WhatsApp</a>
+        <a class="btn line" href="tel:+212626410690">+212&nbsp;626&nbsp;410&nbsp;690</a>
+      </div>
+      <p class="note rv">Twenty minutes. No automated demo, no card.</p>
+    </div>
+  </section>
+
+</main>
+
+<div class="ask-bar">
+  <a class="btn primary" href="#call">Book a call</a>
+</div>
+
+<footer class="ftr">
+  <div class="wrap ftr-in">
+    <div>
+      <a class="brand" href="/en/">
+        <svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M291 64 L136 288 L236 288 L221 448 L376 224 L276 224 Z"/>
+        </svg>
+        FitPal&nbsp;<b>Coach</b>
+      </a>
+      <p class="fine">Software for independent personal trainers. Built on openGym.</p>
+    </div>
+    <ul>
+      <li><a href="#product">The product</a></li>
+      <li><a href="#spec">Spec sheet</a></li>
+      <li><a href="#questions">Questions</a></li>
+      <li><a href="/en/legal">Legal</a></li>
+    </ul>
+    <ul>
+      <li><a href="/" hreflang="fr" lang="fr">Français</a></li>
+      <li><a href="https://gym.fitpal.ma">FitPal for gyms</a></li>
+      <li><a href="mailto:contact@fitpal.ma">contact@fitpal.ma</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script src="../site.js?v=5" defer></script>
+</body>
+</html>

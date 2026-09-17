@@ -1,4 +1,4 @@
-
+# Third-party notices
 
 ## Body diagram geometry
 
@@ -11,6 +11,32 @@ nothing else about the artwork was changed.
 ```
 MIT License
 
+Copyright (c) 2026 Melih Colpan
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Exercise data & media
+
+openGym obtains both through
+[**hasaneyldrm/exercises-dataset**](https://github.com/hasaneyldrm/exercises-dataset), which
+licenses them differently. Neither is covered by this project's own license.
 
 That dataset is itself a redistribution: the content originates from
 [**ExerciseDB v1**](https://exercisedb.dev/) by **AscendAPI**. This is verifiable from openGym's
@@ -54,8 +80,8 @@ SOFTWARE.
 ### Images & animations — third-party, not MIT
 
 The exercise thumbnails (180×180) and animations are **not** covered by the MIT license above and
-not by openGym's project terms. Their ownership is currently **unresolved**, and openGym states this
-plainly rather than guessing:
+**not** by this project's own license. Their ownership is currently **unresolved**, and openGym
+states this plainly rather than guessing:
 
 - The upstream dataset attributes them to **© [Gym visual](https://gymvisual.com/)**, redistributed
   there with that rights holder's written permission — a permission granted to *that dataset* and
@@ -72,7 +98,7 @@ notice will be updated once the provenance is settled.
 
 **openGym does not redistribute it.** It is not in this repository, not in its history, and not in
 the published container images or the Android APK. A self-hosted instance downloads it from the
-upstream source on first `docker compose up`; the mobile and demo builds load it from a CDN at
+upstream source by scripts/fetch-media.sh; the mobile and demo builds load it from a CDN at
 runtime.
 
 If you want to reuse the media — in openGym or anywhere else, commercially or not — **clear it with
@@ -86,58 +112,54 @@ language-model assistance. They are not copied from a separate Portuguese
 dataset. Their review status and translation policy are documented alongside
 the source files.
 
-## Gym check-in QR codes
+## Marketing photography
 
-The gym check-in feature (a saved membership code shown as a QR code on the phone, added by
-typing, importing a photo, or scanning with the camera) uses three third-party packages. All are
-permissively licensed and load on demand: the QR renderer
-and the browser decoder only when a card is shown or scanned, the ML Kit plugin only in the
-Android/iOS app.
+Two photographs appear on the FitPal Coach marketing site. Both are licensed stock, used
+illustratively: neither carries a name, a quote or a claimed result, and neither makes a product
+claim. `DESIGN.md` states that rule. Both are under **the Pexels License**, which permits free
+commercial use and modification and does not require attribution — recorded here anyway, because
+a file whose provenance is not written down is a file nobody can re-licence or replace later.
 
-### QR/barcode rendering — `lean-qr`
+**`site-coach/img/coaches.jpg`** — the full-bleed band.
 
-openGym renders each saved code on the phone with [**lean-qr**](https://github.com/davidje13/lean-qr)
-by David Evans, used under the **MIT License** and reproduced below. Only the code's stored value
-is kept; the picture is generated fresh from that value each time it is shown, never stored.
-It runs the same way in the app and in the browser/PWA.
+- **Source**: Pexels, photo id **4944433**, by **Anastasia Shuraeva**
+  (<https://www.pexels.com/photo/4944433/>)
+- **Modifications**: cropped to a 1800x750 band and graded down (brightness, saturation,
+  contrast, plus a warm veil) so it sits on the site's graphite ground rather than looking
+  pasted in from a brighter page.
 
-```
-MIT License
+**`site-coach/img/coach-hero.jpg`** — the portrait beside the hero headline.
 
-Copyright (c) 2021-2025 David Evans
+- **Source**: Pexels, photo id **37963582**, by **Bulat843**
+  (<https://www.pexels.com/photo/37963582/>)
+- **Modifications**: cropped from the 3024x4032 original to a 1100x1375 portrait and graded to
+  the same ground. Exact recipe, so it can be reproduced or applied to a replacement:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+  ```
+  crop=1980:2475:640:620,scale=1100:1375:flags=lanczos
+  eq=brightness=-0.085:saturation=0.30:contrast=1.05
+  colorbalance=rs=.045:rm=.03:gm=.01:bs=-.06:bm=-.05
+  vignette=angle=PI/5
+  ```
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+  The heavy desaturation is not only for tone: at the original saturation the client's red top
+  competes with `--gold`, which is the page's only accent. The vignette sinks a bright window
+  behind the coach. A subject's shirt carries a small gym wordmark; it was left alone, because
+  a local blur to remove it read as a smear at full resolution and is more conspicuous at the
+  rendered size than the wordmark it hid.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+## Barcode scanning — `@capacitor-mlkit/barcode-scanning`
 
-### Camera scan & photo decode in the browser — `jsQR`
+The gym check-in feature — a saved membership code shown as a QR code on the phone — was removed
+with the rest of the gym surfaces. Two of its three third-party packages went with it: `lean-qr`
+(MIT, David Evans) rendered the code and `jsQR` (Apache-2.0, Cosmo Wolfe) decoded it in the
+browser. Neither is a dependency any more, so neither needs attributing here.
 
-In a browser (including the installed PWA), reading a code from the camera or from an imported
-photo uses [**jsQR**](https://github.com/cozmo/jsQR) by Cosmo Wolfe, under the **Apache License
-2.0** (text at <https://www.apache.org/licenses/LICENSE-2.0> and in the package's own `LICENSE`).
-Where the browser has a native `BarcodeDetector`, that is tried first and jsQR is the fallback.
-Video frames are decoded in memory and never uploaded or stored.
+The third is still installed. Nothing imports it, but removing it means regenerating the committed
+Android and iOS projects, which reference it in `capacitor.build.gradle`, `capacitor.settings.gradle`
+and the `Podfile`. Until that is done it is still compiled into the app, so it is still attributed.
 
-### Camera scan & photo decode in the app — `@capacitor-mlkit/barcode-scanning`
-
-In the Android/iOS app, reading a code — from the camera or from an imported photo — uses the
-[**@capacitor-mlkit/barcode-scanning**](https://github.com/capawesome-team/capacitor-mlkit) plugin
+It is [**@capacitor-mlkit/barcode-scanning**](https://github.com/capawesome-team/capacitor-mlkit)
 by the Capawesome Team (Robin Genz), a Capacitor wrapper around Google's ML Kit, used under the
-**Apache License 2.0**. openGym pins the `7.x` line to stay on Capacitor 7. The full license text is
+**Apache License 2.0**. The `7.x` line is pinned to stay on Capacitor 7. The full license text is
 available at <https://www.apache.org/licenses/LICENSE-2.0> and in the package's own `LICENSE` file.
-The decoded string is what openGym keeps; the photo itself is never stored.

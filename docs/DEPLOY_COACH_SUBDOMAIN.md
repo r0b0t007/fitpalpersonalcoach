@@ -5,14 +5,52 @@ This product shares a cPanel account with FIT'ONE, which deploys from
 `rsync --delete`, which removes everything at the target that is not in the source. A wrong
 directory value does not fail — it deletes the other product.
 
+**That danger is real but narrow. It applies to `deploy-web.yml` and `deploy-api.yml` only**,
+the two workflows that reach the cPanel box over SSH. The marketing sites are not on that box.
+
 | | FIT'ONE (`opengym-fitone`) | FitPal Coach (this repo) |
 |---|---|---|
-| Frontend | `public_html/` → app.fitpal.ma | `coach.fitpal.ma/` |
-| API | `opengym-api/` | `fitpal-coach-api/` |
-| Marketing site | `fitpal.ma/` | **never deployed from here** |
+| Frontend | `public_html/` → app.fitpal.ma | `coach.fitpal.ma/` (cPanel, rsync) |
+| API | `opengym-api/` | `fitpal-coach-api/` (cPanel, rsync) |
+| Marketing site | — | `site-coach/` → **fitpal.ma**, Cloudflare Pages project `fitpal-coach` |
+| Gym marketing site | — | `site/` → **gym.fitpal.ma**, Cloudflare Pages project `fitpal` |
 
-No path is shared. `DEPLOY_SITE` must stay unset in this repo — the marketing site belongs to
-the other one, and turning it on here would mirror this app over `fitpal.ma`.
+No cPanel path is shared.
+
+## Mail for fitpal.ma is not on this box
+
+Worth stating here because the guard section below lists `mail/` among the directories an
+`rsync --delete` accident could take: that directory is not where `@fitpal.ma` mail lives.
+
+`fitpal.ma`'s `MX` records point at `mx1/2/3-hosting.jellyfish.systems` (162.255.118.28/29),
+which is **Namecheap Private Email**, a separate product from this cPanel account. Mailboxes,
+aliases and forwarders for the domain are managed at `privateemail.com`, and a forwarder
+created in cPanel for `fitpal.ma` never fires. cPanel's Email Routing screen reports the
+domain as *Automatically Detect Configuration : Remote*, which is correct.
+
+`pawpawcare.app`, on the same cPanel account, is the contrast: its `MX` is
+`mail.pawpawcare.app`, which resolves to the hosting box, so cPanel forwarders do work there.
+Do not generalise from one domain on this account to another.
+
+### An earlier version of this file said the opposite. Do not restore it.
+
+It read: *"`DEPLOY_SITE` must stay unset in this repo — the marketing site belongs to the other
+one, and turning it on here would mirror this app over `fitpal.ma`."*
+
+That was written when `fitpal.ma` was a cPanel directory reachable by `rsync --delete`. The
+marketing site moved to Cloudflare Pages on 2026-08-31 (commit `db4a635`), and `deploy-site.yml`
+is now a `wrangler pages deploy` that touches no cPanel path at all. The sentence was also wrong
+on its own terms: `deploy-site.yml` publishes `site/`, a marketing site, not the app.
+
+`DEPLOY_SITE` and `DEPLOY_SITE_COACH` are both **on**. Turning either off takes a live marketing
+site down.
+
+**The residual risk is different and still real.** Both marketing sites are Cloudflare Pages
+*projects*, and a Pages project can be pushed to from more than one repository. If
+`opengym-fitone` also deploys to project `fitpal`, the two repos race and the last deploy wins.
+That is a last-writer-wins race, not an `rsync --delete` wipe, and it is recoverable through
+Pages' atomic per-deployment rollback — but confirm project ownership before assuming a deploy
+here is the only one.
 
 ## One-time setup in cPanel
 

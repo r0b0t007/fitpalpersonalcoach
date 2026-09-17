@@ -1,0 +1,38 @@
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; media-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'
+
+# Notes on the CSP above, because two parts of it are easy to break silently:
+#
+#   style-src / font-src MUST keep the Google Fonts origins. Archivo is loaded from
+#   fonts.googleapis.com (the stylesheet) and fonts.gstatic.com (the woff2 files). A CSP that
+#   blocks either does not error visibly: the page falls back to a system sans and quietly
+#   loses the wdth-68 condensation that is most of this site's visual identity.
+#
+#   script-src carries 'unsafe-inline' for one reason: each page has a single inline <script>
+#   in <head> that arms the hero intro before first paint. A sha256- hash would be stricter,
+#   but there is no build step here to recompute it, so an edit would silently break the
+#   intro. This is a static site with no forms, no user input and no user-generated content,
+#   so the inline-script risk is close to nil and the maintenance win is real. There are no
+#   inline style attributes, so style-src deliberately does NOT carry 'unsafe-inline'.
+#
+#   img-src allows data: for nothing in particular today; drop it if it stays unused.
+
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/styles.css
+  Cache-Control: public, max-age=86400
+
+/site.js
+  Cache-Control: public, max-age=86400
+
+/img/*
+  Cache-Control: public, max-age=86400
+
+/assets/*
+  Cache-Control: public, max-age=86400

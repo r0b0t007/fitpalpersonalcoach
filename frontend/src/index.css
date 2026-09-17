@@ -1055,6 +1055,13 @@ h4.sec{
 
 /* --- stat tiles --- */
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+/* Three tiles in a two-column grid wrap 2+1 and leave a visible hole. The coach dashboard is
+   the only .tiles with an odd count — every other one has 2, 4, 6 or 14 — so this targets
+   exactly "a .tiles whose third tile is also its last" rather than changing the default for
+   everybody. Scoped below the desktop breakpoint, where .tiles is already repeat(4,1fr). */
+@media (max-width:999px){
+  .tiles:has(>.tile:nth-child(3):last-child){grid-template-columns:repeat(3,1fr)}
+}
 .tile{background:var(--surface);border-radius:var(--r-card);padding:14px}
 .tile .l{
   color:var(--label-2);font-size:13px;font-weight:400;letter-spacing:-.004em;
