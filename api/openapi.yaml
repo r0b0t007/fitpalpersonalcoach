@@ -54,9 +54,6 @@ info:
     - CORS: the request's `Origin` is reflected in `Access-Control-Allow-Origin`
       **without** `Allow-Credentials` — cross-origin callers can only ever
       authenticate with a Bearer token, never with the cookie.
-  license:
-    name: AGPL-3.0-or-later
-    identifier: AGPL-3.0-or-later
   contact:
     name: openGym
     url: https://gitlab.com/DuarteSantos8/opengym

@@ -567,7 +567,7 @@ ${railTags}
     <span>OpenAPI ${esc(spec.openapi)}</span>
     <span>openGym v${esc(spec.info.version)}</span>
     <span>${ops.length} endpoints</span>
-    <span>${esc(spec.info.license.name)}</span>
+    ${spec.info.license ? `<span>${esc(spec.info.license.name)}</span>` : ''}
   </p>
 
   <section class="api-sec" id="overview">
@@ -598,7 +598,7 @@ ${schemaCards}
 </main>
 
 <footer><div class="wrap foot">
-  <span class="c">openGym · AGPL-3.0 · © 2026 <a href="https://duarte-santos.ch" rel="noopener">Duarte Santos</a></span>
+  <span class="c">openGym · © 2026 <a href="https://duarte-santos.ch" rel="noopener">Duarte Santos</a></span>
   <div class="links">
     <a href="docs.html">Docs</a>
     <a href="about.html">About</a>

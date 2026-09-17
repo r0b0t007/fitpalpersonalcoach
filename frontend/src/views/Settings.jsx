@@ -407,7 +407,7 @@ export default function Settings() {
         address bar and no about box, so without this there is no way to tell which build you
         are running, or whether an update actually installed. */}
     <div className="dim small" style={{ textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
-      {BRAND} · {t('built on openGym (AGPL v3)')}<br />
+      {BRAND} · built on openGym<br />
       <a href="https://gitlab.com/DuarteSantos8/opengym" target="_blank" rel="noopener">source code</a> · exercise data: hasaneyldrm/exercises-dataset (MIT)<br />
       exercise images and animations © <a href="https://gymvisual.com/" target="_blank" rel="noopener">Gym visual</a>
     </div>

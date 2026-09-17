@@ -36,7 +36,6 @@ Upstream's description of the product follows, and still holds for the shared pa
 openGym is a self-hosted gym & body-weight tracker PWA. A Node API and a folder of static files, plus a
 `./data` folder the user owns — no third-party account, no telemetry. Passkey (WebAuthn) login,
 installable as a home-screen app, optional Capacitor shells for standalone Android/iOS builds.
-License: AGPL-3.0-or-later.
 
 ## Project layout
 

@@ -19,7 +19,7 @@ gold `#D4AF37`, no card icons, two trust cards). Canonical domain: **https://fit
 
 - `index.html` / `en/index.html` — landing pages (single `h1`, sections `h2`,
   features `h3`; FAQPage/SoftwareApplication/Organization/WebSite JSON-LD)
-- `mentions-legales.html` / `en/legal.html` — legal + privacy + AGPL attribution
+- `mentions-legales.html` / `en/legal.html` — legal + privacy + openGym attribution
 - `styles.css` — shared stylesheet (~11 KB), responsive at 900px/760px
 - `site.js` — burger menu only; the site works with JS disabled
 - `sitemap.xml` (with hreflang alternates) + `robots.txt`

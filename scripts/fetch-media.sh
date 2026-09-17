@@ -21,7 +21,7 @@ cat <<'EOF'
 ↓ Downloading exercise media (~140 MB) from github.com/hasaneyldrm/exercises-dataset
   Metadata and instruction text: MIT.
   Images and animations: © Gym visual — https://gymvisual.com/
-  Used under that dataset's terms, not openGym's AGPL; openGym does not redistribute them.
+  Used under that dataset's terms; openGym does not redistribute them.
   Terms: https://gymvisual.com/content/3-terms-and-conditions-of-use
   Reusing this media yourself, commercially or not, needs your own licence from Gym visual.
   Details in NOTICE.md.

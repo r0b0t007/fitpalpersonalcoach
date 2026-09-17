@@ -139,6 +139,4 @@ their own 92 tests in `frontend/src/lib/*.test.js`.
 - **Phase 3:** Streamable HTTP transport, opt-in second listener beside the API. Same
   tool implementations, second transport — the MCP SDK supports both behind one tool registration.
 
-## License
 
-AGPL-3.0-or-later, same as openGym.

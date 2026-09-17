@@ -378,7 +378,6 @@ export default {
   'to install {0} as a full-screen app.': 'pour installer {0} en app plein écran.',
   'Your data syncs with your profile — sign in anywhere to see it.': 'Tes données se synchronisent avec ton profil — connecte-toi n’importe où pour les voir.',
   'Guest data stays on this device — export a backup now and then!': 'Les données invité restent sur cet appareil — exporte une sauvegarde de temps en temps !',
-  'built on openGym (AGPL v3)': 'basé sur openGym (AGPL v3)',
   'Notifications': 'Notifications',
   'Not supported in this browser.': 'Non pris en charge par ce navigateur.',
   'Push notifications': 'Notifications push',
