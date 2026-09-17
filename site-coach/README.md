@@ -32,7 +32,9 @@ mentions-legales.html   FR legal
 en/legal.html           EN legal
 styles.css              the whole design system, one file
 site.js                 menu, scroll reveal, hero video
-img/screens/*.png       real app screenshots (see below)
+img/screens/*.png       real app screenshots (see below). The two CLIENT screens exist
+                        per locale (`-fr` / `-en`); the coach screens do not, because the
+                        dashboard is English-only and the spec sheet says so.
 img/og-{fr,en}.png      1200x630 social cards
 img/promo-poster-{fr,en}.jpg  hero video poster (a frame lifted from the render)
 img/coach-hero.jpg      hero portrait beside the headline (stock, illustrative)
@@ -65,6 +67,24 @@ To refilm them, see `docs/VIDEO_CAPTURE.md`. Two things that are specific to the
 
   Under 1000px the app renders its real phone layout (single column, full-width tab bar), not a
   shrunken desktop, so these are genuine phone screens rather than squeezed ones.
+- **The client screens must be shot in BOTH languages.** `client-home` and `client-stats` ship
+  as `-fr` and `-en` pairs. They were English-only once, which meant the French landing page
+  showed a French coach what his client sees *in English*, about a thousand pixels above a spec
+  row promising the client app in French. For a buyer looking for a reason to dismiss, that was
+  the cheapest one available.
+
+  The app's language is `S.lang` in the persisted store, so it comes from the server copy of the
+  client's state. Set it before capturing:
+
+  ```bash
+  node -e "const fs=require('fs'),p=process.argv[1];
+    const s=JSON.parse(fs.readFileSync(p,'utf8')); s.lang='fr';
+    fs.writeFileSync(p, JSON.stringify(s))" "$DATA_DIR/state-demo-karim.json"
+  ```
+
+  Restart the API afterwards — it holds state in memory. The coach screens stay English on
+  purpose; `frontend/` coach surfaces use raw strings rather than `t()`, which `CLAUDE.md`
+  documents as deliberate.
 - **"Training now" cannot be seeded.** It reads in-memory presence with a ~70 second TTL, so
   `seed-demo.mjs` cannot fake it. Have a demo client POST `/api/activity` immediately before the
   capture and the live state on the screenshot is genuinely real.
