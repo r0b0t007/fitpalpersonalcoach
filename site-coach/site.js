@@ -68,11 +68,22 @@
     window.matchMedia('(max-width: 767px)').matches
 
   if (vid && !reduce && frugal) {
-    // Poster plus a real control. attachSource() below is what finally fetches anything.
+    /* Poster plus a real control; attachSource() is what finally fetches anything.
+
+       The reissued play() is not belt and braces. Pressing the control fires 'play', this
+       handler attaches the sources, and attachSource() calls load() - which ABORTS the very
+       play that got us here (the promise rejects AbortError) and leaves the element paused at
+       0 with a perfectly good source loaded. Without the second play() the visitor taps once,
+       downloads the video, and watches nothing happen. */
     vid.setAttribute('controls', '')
     vid.addEventListener('play', function once () {
-      attachSource(vid)
       vid.removeEventListener('play', once)
+      if (!attachSource(vid)) return
+      vid.addEventListener('loadeddata', function go () {
+        vid.removeEventListener('loadeddata', go)
+        var again = vid.play()
+        if (again && typeof again.catch === 'function') again.catch(function () {})
+      })
     })
   }
 
@@ -99,15 +110,19 @@
   /* Sources live in data-src so the browser cannot start fetching before we decide it should.
      WebM first: it is the smaller encode, and a browser that cannot play it falls through to
      the MP4 on the same element. */
+  /* Returns true only when it actually attached, so callers know whether load() was issued and
+     whether the play it interrupted has to be reissued. */
   function attachSource (v) {
-    if (v.dataset && v.dataset.armed === '1') return
+    if (v.dataset && v.dataset.armed === '1') return false
     if (v.dataset) v.dataset.armed = '1'
     var srcs = v.querySelectorAll('source[data-src]')
+    if (!srcs.length) return false
     for (var n = 0; n < srcs.length; n++) {
       srcs[n].setAttribute('src', srcs[n].getAttribute('data-src'))
     }
     v.preload = 'metadata'
     v.load()
+    return true
   }
 
   function startAutoplay (v) {
