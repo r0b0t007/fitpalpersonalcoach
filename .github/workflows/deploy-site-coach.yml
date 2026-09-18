@@ -18,7 +18,11 @@
 #      palette contrast check, so a refactor cannot silently strip the tags the site exists for
 #      or drop a colour pair below WCAG AA.
 #   2. Opt-in: deploy only runs while the repository variable DEPLOY_SITE_COACH is 'true'.
-#   3. `production` environment — required reviewers gate every production deploy.
+#   3. Unfinished legal copy HARD FAILS on main, and only warns on a PR preview. This is the
+#      production gate. It is NOT the `production` environment: required reviewers need
+#      GitHub Pro on a private repo and the API rejects the rule here (HTTP 422), so that
+#      environment has no protection rules at all. An earlier version of this comment claimed
+#      it did, which was worse than having no gate - it described one that was never there.
 #   4. One deploy at a time, never cancelled mid-upload.
 #   5. Post-deploy checks fail loudly: /, /en/ and /sitemap.xml must all serve.
 #
@@ -152,29 +156,48 @@ jobs:
           done
           exit $fail
 
-      - name: Unfinished legal copy (WARNING ONLY - see TODO)
-        # TEMPORARILY NON-BLOCKING, at the owner's explicit instruction, to allow the site to
-        # ship before the company details exist. It was a hard failure and MUST become one
-        # again: a published legal notice whose company name reads "[raison sociale a
-        # completer]" is both a Moroccan compliance gap and the precise opposite of the
-        # spec-sheet honesty the whole page sells.
+      - name: Unfinished legal copy (blocks production, warns on previews)
+        # A published legal notice whose company name reads "[raison sociale a completer]" is
+        # both a Moroccan compliance gap and the precise opposite of the spec-sheet honesty the
+        # whole page sells. This was made non-blocking so the site could ship before the company
+        # details existed; it is blocking again, but only where it matters.
         #
-        # Restore by deleting the `|| true` and the `continue-on-error` below once the four
-        # fields are filled in mentions-legales.html and en/legal.html.
-        continue-on-error: true
+        # Split by destination, because the two cases carry different risk:
+        #
+        #   push to main   the next deploy publishes to fitpal.ma, the live apex. HARD FAIL.
+        #   pull_request   the deploy is a throwaway *.pages.dev preview carrying
+        #                  x-robots-tag: noindex. Warn, so work in progress stays reviewable.
+        #
+        # This stands in for the required-reviewers rule the header used to claim: that
+        # protection needs GitHub Pro on a private repo and the API refuses it here (HTTP 422),
+        # so the production environment has no approval step and a merge deploys straight to
+        # the apex. This is the gate instead - narrower, but it guards the specific thing that
+        # would actually embarrass us, and it lifts itself the moment #69 fills the fields.
         run: |
           fail=0
           for pat in '\[[^]]*compl[^]]*\]' '\[[^]]*capital\]'; do
             hits=$(grep -rlE "$pat" site-coach --include='*.html' --include='*.xml' || true)
             if [ -n "$hits" ]; then
               for f in $hits; do
-                echo "::warning file=$f::unfinished legal copy is PUBLICLY VISIBLE ($pat)"
+                if [ "${{ github.event_name }}" = "pull_request" ]; then
+                  echo "::warning file=$f::unfinished legal copy ($pat) - would BLOCK on main"
+                else
+                  echo "::error file=$f::unfinished legal copy would be PUBLICLY VISIBLE on fitpal.ma ($pat)"
+                fi
               done
               fail=1
             fi
           done
-          [ "$fail" = "0" ] || echo "::warning::Legal pages ship with visible [to be completed] markers."
-          exit 0
+          if [ "$fail" = "0" ]; then
+            echo "Legal pages carry no unfilled placeholders."
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "::warning::Legal pages still show [to be completed] markers. This is a warning on a preview; the same state blocks a deploy to fitpal.ma."
+            exit 0
+          fi
+          echo "::error::Refusing to deploy to fitpal.ma while the legal pages show [to be completed] markers. Fill the four fields (see issue #69) or set DEPLOY_SITE_COACH=false."
+          exit 1
 
   # Are the Cloudflare credentials actually present?
   #
