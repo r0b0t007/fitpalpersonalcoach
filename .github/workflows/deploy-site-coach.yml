@@ -173,21 +173,28 @@ jobs:
         # so the production environment has no approval step and a merge deploys straight to
         # the apex. This is the gate instead - narrower, but it guards the specific thing that
         # would actually embarrass us, and it lifts itself the moment #69 fills the fields.
+        # Keyed on class="todo", not on the placeholder wording. styles.css renders .todo in
+        # gold precisely to make unfilled copy obvious, so it is the site's own marker for
+        # "not finished" and it cannot be defeated by rephrasing the text inside the brackets.
+        #
+        # The previous version matched '[...compl...]' and '[...capital]'. Rewording the
+        # publisher block for an auto-entrepreneur removed the only string containing
+        # "capital", leaving that half of the guard matching nothing at all - passing
+        # vacuously rather than failing, which is the same trap the SEO grep above documents.
         run: |
           fail=0
-          for pat in '\[[^]]*compl[^]]*\]' '\[[^]]*capital\]'; do
-            hits=$(grep -rlE "$pat" site-coach --include='*.html' --include='*.xml' || true)
-            if [ -n "$hits" ]; then
-              for f in $hits; do
-                if [ "${{ github.event_name }}" = "pull_request" ]; then
-                  echo "::warning file=$f::unfinished legal copy ($pat) - would BLOCK on main"
-                else
-                  echo "::error file=$f::unfinished legal copy would be PUBLICLY VISIBLE on fitpal.ma ($pat)"
-                fi
-              done
-              fail=1
-            fi
-          done
+          hits=$(grep -rl 'class="todo"' site-coach --include='*.html' || true)
+          if [ -n "$hits" ]; then
+            for f in $hits; do
+              n=$(grep -o 'class="todo"' "$f" | wc -l | tr -d ' ')
+              if [ "${{ github.event_name }}" = "pull_request" ]; then
+                echo "::warning file=$f::$n unfinished field(s) marked .todo - would BLOCK on main"
+              else
+                echo "::error file=$f::$n unfinished field(s) marked .todo would be PUBLICLY VISIBLE on fitpal.ma"
+              fi
+            done
+            fail=1
+          fi
           if [ "$fail" = "0" ]; then
             echo "Legal pages carry no unfilled placeholders."
             exit 0
