@@ -18,7 +18,8 @@
 #      palette contrast check, so a refactor cannot silently strip the tags the site exists for
 #      or drop a colour pair below WCAG AA.
 #   2. Opt-in: deploy only runs while the repository variable DEPLOY_SITE_COACH is 'true'.
-#   3. Unfinished legal copy HARD FAILS on main, and only warns on a PR preview. This is the
+#   3. Unfinished legal copy HARD FAILS on main while DEPLOY_SITE_COACH is on, and only warns
+#      on a PR preview or with deploys switched off. This is the
 #      production gate. It is NOT the `production` environment: required reviewers need
 #      GitHub Pro on a private repo and the API rejects the rule here (HTTP 422), so that
 #      environment has no protection rules at all. An earlier version of this comment claimed
@@ -181,29 +182,38 @@ jobs:
         # publisher block for an auto-entrepreneur removed the only string containing
         # "capital", leaving that half of the guard matching nothing at all - passing
         # vacuously rather than failing, which is the same trap the SEO grep above documents.
+        #
+        # It only hard-fails when a production deploy would actually follow, i.e. on main AND
+        # with DEPLOY_SITE_COACH on. This job runs regardless of that variable, so without the
+        # second condition, setting it to 'false' - the escape hatch the error message offers -
+        # would not stop main going red. The field count is computed, not written into the
+        # message: it was "four" until the auto-entrepreneur rewrite left two per page.
+        env:
+          EVENT: ${{ github.event_name }}
+          DEPLOY: ${{ vars.DEPLOY_SITE_COACH }}
         run: |
-          fail=0
           hits=$(grep -rl 'class="todo"' site-coach --include='*.html' || true)
-          if [ -n "$hits" ]; then
-            for f in $hits; do
-              n=$(grep -o 'class="todo"' "$f" | wc -l | tr -d ' ')
-              if [ "${{ github.event_name }}" = "pull_request" ]; then
-                echo "::warning file=$f::$n unfinished field(s) marked .todo - would BLOCK on main"
-              else
-                echo "::error file=$f::$n unfinished field(s) marked .todo would be PUBLICLY VISIBLE on fitpal.ma"
-              fi
-            done
-            fail=1
-          fi
-          if [ "$fail" = "0" ]; then
+          if [ -z "$hits" ]; then
             echo "Legal pages carry no unfilled placeholders."
             exit 0
           fi
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "::warning::Legal pages still show [to be completed] markers. This is a warning on a preview; the same state blocks a deploy to fitpal.ma."
+          blocking=0
+          [ "$EVENT" != "pull_request" ] && [ "$DEPLOY" = "true" ] && blocking=1
+          total=0
+          for f in $hits; do
+            n=$(grep -o 'class="todo"' "$f" | wc -l | tr -d ' ')
+            total=$((total + n))
+            if [ "$blocking" = "1" ]; then
+              echo "::error file=$f::$n unfinished field(s) marked .todo would be PUBLICLY VISIBLE on fitpal.ma"
+            else
+              echo "::warning file=$f::$n unfinished field(s) marked .todo - would BLOCK a production deploy"
+            fi
+          done
+          if [ "$blocking" = "0" ]; then
+            echo "::warning::Legal pages still show $total [to be completed] marker(s). Not blocking: this run does not deploy to fitpal.ma (event=$EVENT, DEPLOY_SITE_COACH=${DEPLOY:-unset})."
             exit 0
           fi
-          echo "::error::Refusing to deploy to fitpal.ma while the legal pages show [to be completed] markers. Fill the four fields (see issue #69) or set DEPLOY_SITE_COACH=false."
+          echo "::error::Refusing to deploy to fitpal.ma while the legal pages show $total [to be completed] marker(s). Fill them (see issue #69), or set DEPLOY_SITE_COACH=false to pause production deploys."
           exit 1
 
   # Are the Cloudflare credentials actually present?

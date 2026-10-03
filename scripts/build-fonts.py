@@ -7,7 +7,7 @@ What it does, and why each part matters:
 1. Downloads the two unicode-range slices the site can actually reach (latin, latin-ext) from
    Google. The vietnamese slice is dropped: neither locale can produce those codepoints.
 
-2. Limits BOTH variable axes to the range site-coach/styles.css uses (wght 500-800,
+2. Limits BOTH variable axes to the range site-coach/styles.css uses (wght 400-800,
    wdth 68-100) instead of the shipped 100-900 / 62-125. That is a 36% saving on the file the
    hero waits for. It is also a footgun, so scripts/check-font-axes.mjs fails the build if a
    stylesheet ever asks for a value outside the baked range.
@@ -56,6 +56,9 @@ UNICODE_RANGE = {
 # 800 the display type asks for.
 WGHT = (400, 400, 800)   # min, default, max
 WDTH = (68, 100, 100)
+# Must match size-adjust on 'Archivo Fallback' in site-coach/styles.css; the printed overrides
+# are divided by it.
+SIZE_ADJUST = 1.03
 
 UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36')
@@ -108,10 +111,13 @@ def main():
 
     print('\n  face metrics (unitsPerEm %d): ascent %d descent %d lineGap %d'
           % (metrics['upem'], metrics['ascent'], metrics['descent'], metrics['lineGap']))
-    print('  -> ascent-override: %.2f%%  descent-override: %.2f%%  line-gap-override: %.2f%%'
-          % (metrics['ascent'] / metrics['upem'] * 100,
-             abs(metrics['descent']) / metrics['upem'] * 100,
-             metrics['lineGap'] / metrics['upem'] * 100))
+    # size-adjust scales the override descriptors as well, so they are divided by it here.
+    print('  -> at size-adjust %d%%: ascent-override: %.2f%%  descent-override: %.2f%%'
+          '  line-gap-override: %.2f%%'
+          % (SIZE_ADJUST * 100,
+             metrics['ascent'] / metrics['upem'] * 100 / SIZE_ADJUST,
+             abs(metrics['descent']) / metrics['upem'] * 100 / SIZE_ADJUST,
+             metrics['lineGap'] / metrics['upem'] * 100 / SIZE_ADJUST))
 
     with open(os.path.join(OUT, 'METRICS.txt'), 'w', encoding='utf-8') as f:
         f.write('Archivo v25, axis-limited wght %s wdth %s\n' % (WGHT, WDTH))

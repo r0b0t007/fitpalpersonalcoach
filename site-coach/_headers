@@ -22,7 +22,10 @@
 #   so the inline-script risk is close to nil and the maintenance win is real. There are no
 #   inline style attributes, so style-src deliberately does NOT carry 'unsafe-inline'.
 #
-#   img-src allows data: for nothing in particular today; drop it if it stays unused.
+#   img-src allows data: for the hero portrait's 1x1 GIF fallback, which is what lets a phone
+#   skip that image entirely (see the comment on .hero-portrait in index.html). Dropping data:
+#   does not break anything visible - the figure is hidden on phones - but every phone visit
+#   then logs a CSP violation for it.
 
 /*.html
   Cache-Control: public, max-age=0, must-revalidate

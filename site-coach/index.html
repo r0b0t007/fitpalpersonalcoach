@@ -114,18 +114,24 @@
       </div>
 
       <figure class="hero-portrait">
+        <!-- Desktop only, and eager. The figure is display:none under 1040px, and it is in the
+             first viewport above that, so loading="lazy" only delayed a likely LCP element on
+             desktop. Every source is gated on the same 1040px query, and the <img> falls back to
+             an inline 1x1 GIF, so a phone fetches nothing for a figure it never shows. -->
         <picture>
-            <source type="image/avif" srcset="img/coach-hero-400w.avif 400w, img/coach-hero-800w.avif 800w, img/coach-hero-1100w.avif 1100w" sizes="(min-width: 1040px) 40vw, 100vw">
-            <source type="image/webp" srcset="img/coach-hero-400w.webp 400w, img/coach-hero-800w.webp 800w, img/coach-hero-1100w.webp 1100w" sizes="(min-width: 1040px) 40vw, 100vw">
-            <img src="img/coach-hero.jpg" alt="Une coach et sa cliente en pleine séance, dans une salle de sport."
-             width="1100" height="1375" loading="lazy" decoding="async">
+            <source media="(min-width: 1040px)" type="image/avif" srcset="img/coach-hero-400w.avif 400w, img/coach-hero-800w.avif 800w, img/coach-hero-1100w.avif 1100w" sizes="40vw">
+            <source media="(min-width: 1040px)" type="image/webp" srcset="img/coach-hero-400w.webp 400w, img/coach-hero-800w.webp 800w, img/coach-hero-1100w.webp 1100w" sizes="40vw">
+            <source media="(min-width: 1040px)" srcset="img/coach-hero.jpg">
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Une coach et sa cliente en pleine séance, dans une salle de sport."
+             width="1100" height="1375" decoding="async">
           </picture>
         <figcaption class="label">Photo d'illustration</figcaption>
       </figure>
 
       <div class="hero-stage">
         <div class="hero-media">
-          <video data-autoplay poster="img/promo-poster-fr.jpg" muted playsinline preload="none" controls
+          <!-- [html-validate-disable-next aria-label-misuse: the site script adds controls on every path that can play it; with no JS it is a still poster and the label still names it] -->
+          <video data-autoplay poster="img/promo-poster-fr.jpg" muted playsinline preload="none"
                  width="1280" height="720"
                  aria-label="FitPal Coach en dix-sept secondes : le coût de l'admin, puis le tableau de bord qui le supprime.">
             <source data-src="assets/promo-fr.webm" type="video/webm">

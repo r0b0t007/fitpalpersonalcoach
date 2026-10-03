@@ -50,21 +50,26 @@
    so until now the swap went to whatever the platform chose at that font's own metrics and
    the text reflowed. These overrides make the fallback occupy Archivo's box exactly:
 
-     ascent/descent/line-gap  measured from the shipped face (878/-210/0 per 1000 upem),
-                              so line boxes are identical and nothing moves vertically.
+     ascent/descent/line-gap  measured from the shipped face (878/-210/0 per 1000 upem) and
+                              DIVIDED by size-adjust: size-adjust scales the override
+                              descriptors too (CSS Fonts 5), so writing the raw 87.8%/21% here
+                              would come out 3% tall. 87.8/1.03 = 85.24, 21/1.03 = 20.39, which
+                              is what fontaine and next/font generate. That keeps the line boxes
+                              identical, so nothing moves vertically.
      size-adjust              103%, from the average advance width over the Latin set the site
-                              uses. Archivo is 0.5390 em against Roboto and SF Pro at ~0.522
-                              (the fallbacks that matter on mobile) and Arial at 0.5340, so one
-                              number cannot be exact everywhere: 103% is right for Android and
-                              iOS and about 2% wide on Arial. Horizontal only - it cannot
-                              reintroduce vertical shift. */
+                              uses. Archivo is 0.5390 em against Roboto at ~0.522 and Arial at
+                              0.5340, so one number cannot be exact everywhere: 103% is right
+                              for Android and about 2% wide on Arial. SF Pro is not in the
+                              local() list, so iOS falls through to Helvetica Neue, which was
+                              not measured - expect it nearer Arial than Roboto. Horizontal
+                              only - it cannot reintroduce vertical shift. */
 
 @font-face {
   font-family: 'Archivo Fallback';
   src: local('Roboto'), local('Segoe UI'), local('Helvetica Neue'), local('Arial'),
        local('Liberation Sans');
-  ascent-override: 87.8%;
-  descent-override: 21%;
+  ascent-override: 85.24%;
+  descent-override: 20.39%;
   line-gap-override: 0%;
   size-adjust: 103%;
 }
@@ -618,8 +623,12 @@ p { max-width: 68ch; }
 
 /* Beats the global `img, video { height: auto }` on specificity, which would otherwise fight
    height:100% and let the media set the box height instead of the aspect ratio. Same trap
-   .people-img img documents. */
-.device-screen > img,
+   .people-img img documents.
+
+   The screenshots sit inside <picture>, so the img is a grandchild: a `> img` selector here
+   matched nothing and only looked fine because the captures happen to be exactly
+   --dev-aspect. Descendant selector, so any re-capture at another aspect still fills. */
+.device-screen img,
 .device-screen > video {
   position: absolute; inset: 0;
   width: 100%; height: 100%;

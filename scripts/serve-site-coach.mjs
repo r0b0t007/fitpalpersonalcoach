@@ -28,11 +28,11 @@ const TYPES = {
   '.txt': 'text/plain; charset=utf-8',
 }
 
-// Same policy as site-coach/_headers: content-addressed and immutable media get a year,
-// HTML must always revalidate.
+// Same policy as the _headers the build generates: content-addressed files (hashed CSS, JS and
+// fonts) get a year, un-hashed media a day plus stale-while-revalidate, HTML always revalidates.
 function cacheFor (p) {
-  if (/\.(woff2|avif|webp|png|jpe?g|mp4|webm)$/.test(p)) return 'public, max-age=31536000, immutable'
-  if (/\.[0-9a-f]{8,}\.(css|js)$/.test(p)) return 'public, max-age=31536000, immutable'
+  if (/\.[0-9a-f]{8,}\.(css|js|woff2)$/.test(p)) return 'public, max-age=31536000, immutable'
+  if (/\.(woff2|avif|webp|png|jpe?g|mp4|webm)$/.test(p)) return 'public, max-age=86400, stale-while-revalidate=604800'
   if (/\.(css|js)$/.test(p)) return 'public, max-age=86400'
   return 'public, max-age=0, must-revalidate'
 }

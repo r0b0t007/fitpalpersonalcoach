@@ -5,7 +5,7 @@ trainers. Plain HTML/CSS/JS, no framework, no runtime dependencies.
 
 **This directory is source, not the deployable.** `node scripts/build-site-coach.mjs`
 writes `dist/site-coach/`, and that is what ships: minified CSS/JS under content-hashed
-filenames, references rewritten, and the `immutable` cache block in `_headers` regenerated
+filenames, references rewritten, and the cache block in `_headers` regenerated
 from those names. You can still open `site-coach/index.html` straight off disk to work on
 it - the build changes no behaviour, only bytes.
 
