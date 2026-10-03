@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FitPal Coach — le logiciel des coachs indépendants</title>
-<meta name="description" content="Le logiciel qui remplace les DM, les notes vocales et le tableur. Vos clients reçoivent une vraie app d'entraînement, vous voyez qui s'entraîne et qui décroche. Réservez un appel de 20 minutes.">
+<title>Logiciel pour coach sportif au Maroc | FitPal Coach</title>
+<meta name="description" content="Application pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une vraie app pour vos clients. Appel de 20 min sur WhatsApp.">
 <meta name="theme-color" content="#1C1A17">
 
 <link rel="canonical" href="https://fitpal.ma/">
@@ -15,22 +15,21 @@
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fr_MA">
 <meta property="og:url" content="https://fitpal.ma/">
-<meta property="og:title" content="FitPal Coach — le logiciel des coachs indépendants">
-<meta property="og:description" content="Le logiciel qui remplace les DM, les notes vocales et le tableur. Vos clients reçoivent une vraie app d'entraînement, vous voyez qui décroche.">
+<meta property="og:title" content="Logiciel pour coach sportif au Maroc | FitPal Coach">
+<meta property="og:description" content="Application pour coachs sportifs au Maroc. Vos clients reçoivent une vraie app d'entraînement, vous voyez qui décroche.">
 <meta property="og:image" content="https://fitpal.ma/img/og-fr.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="FitPal Coach — le logiciel des coachs indépendants">
-<meta name="twitter:description" content="Le logiciel qui remplace les DM, les notes vocales et le tableur.">
+<meta name="twitter:title" content="Logiciel pour coach sportif au Maroc | FitPal Coach">
+<meta name="twitter:description" content="Le logiciel des coachs sportifs indépendants au Maroc. Fini les DM et le tableur.">
 <meta name="twitter:image" content="https://fitpal.ma/img/og-fr.png">
 
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
+<link rel="preload" as="image" href="img/promo-poster-fr.jpg" fetchpriority="high">
+<link rel="preload" as="font" type="font/woff2" href="fonts/archivo-latin.woff2" crossorigin>
 <link rel="stylesheet" href="styles.css?v=15">
 
 <script>
@@ -53,14 +52,60 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "FitPal Coach",
-  "applicationCategory": "BusinessApplication",
-  "operatingSystem": "Web, Android, iOS",
-  "url": "https://fitpal.ma/",
-  "inLanguage": ["fr", "en", "de", "es"],
-  "description": "Logiciel de coaching pour coachs sportifs indépendants. Programmes, suivi d'assiduité et app d'entraînement pour vos clients.",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MAD", "description": "Forfait mensuel fixe plus mise en place, sans abonnement par client. Montant fixé pendant l'appel." }
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://fitpal.ma/#app",
+      "name": "FitPal Coach",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web, Android, iOS",
+      "url": "https://fitpal.ma/",
+      "inLanguage": [
+        "fr",
+        "en",
+        "de",
+        "es"
+      ],
+      "description": "Logiciel pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une app d'entraînement pour vos clients, disponible en français, anglais, allemand et espagnol. Le tableau de bord coach est en anglais.",
+      "publisher": {
+        "@id": "https://ahmedchioua.com/#person"
+      }
+    },
+    {
+      "@type": "Service",
+      "@id": "https://fitpal.ma/#service",
+      "name": "FitPal Coach",
+      "serviceType": "Logiciel de coaching pour coachs sportifs",
+      "provider": {
+        "@id": "https://ahmedchioua.com/#person"
+      },
+      "areaServed": {
+        "@type": "Country",
+        "name": "Maroc"
+      },
+      "offers": {
+        "@type": "Offer",
+        "description": "Forfait mensuel fixe plus une mise en place payée une seule fois, sans abonnement par client. Prix sur demande, fixé pendant l'appel."
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://ahmedchioua.com/#person",
+      "name": "Ahmed Chioua",
+      "jobTitle": "Développeur web et SaaS",
+      "url": "https://ahmedchioua.com/",
+      "email": "contact@fitpal.ma",
+      "telephone": "+212626410690",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "MA"
+      },
+      "brand": {
+        "@type": "Brand",
+        "name": "FitPal Coach"
+      }
+    }
+  ]
 }
 </script>
 </head>
@@ -103,7 +148,7 @@
         <p class="label eyebrow"><span>Logiciel de coaching · 5 à 40 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
         <h1 class="display"><span>L'admin</span><span>vous coûte</span><span>des clients.</span></h1>
         <p class="lead">
-          FitPal Coach remplace les DM, les notes vocales et le tableur. Vos clients reçoivent
+          FitPal Coach remplace les DM WhatsApp, les notes vocales et le tableur. Vos clients reçoivent
           une vraie app d'entraînement. Vous voyez qui s'entraîne, qui décroche, et qui est sur
           le point d'arrêter.
         </p>
@@ -115,17 +160,28 @@
       </div>
 
       <figure class="hero-portrait">
-        <img src="img/coach-hero.jpg" alt="Une coach et sa cliente en pleine séance, dans une salle de sport."
+        <!-- Desktop only, and eager. The figure is display:none under 1040px, and it is in the
+             first viewport above that, so loading="lazy" only delayed a likely LCP element on
+             desktop. Every source is gated on the same 1040px query, and the <img> falls back to
+             an inline 1x1 GIF, so a phone fetches nothing for a figure it never shows. -->
+        <picture>
+            <source media="(min-width: 1040px)" type="image/avif" srcset="img/coach-hero-400w.avif 400w, img/coach-hero-800w.avif 800w, img/coach-hero-1100w.avif 1100w" sizes="40vw">
+            <source media="(min-width: 1040px)" type="image/webp" srcset="img/coach-hero-400w.webp 400w, img/coach-hero-800w.webp 800w, img/coach-hero-1100w.webp 1100w" sizes="40vw">
+            <source media="(min-width: 1040px)" srcset="img/coach-hero.jpg">
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Une coach et sa cliente en pleine séance, dans une salle de sport."
              width="1100" height="1375" decoding="async">
+          </picture>
         <figcaption class="label">Photo d'illustration</figcaption>
       </figure>
 
       <div class="hero-stage">
         <div class="hero-media">
-          <video data-autoplay poster="img/promo-poster-fr.jpg" muted playsinline preload="none" controls
-                 width="1920" height="1080"
+          <!-- [html-validate-disable-next aria-label-misuse: the site script adds controls on every path that can play it; with no JS it is a still poster and the label still names it] -->
+          <video data-autoplay poster="img/promo-poster-fr.jpg" muted playsinline preload="none"
+                 width="1280" height="720"
                  aria-label="FitPal Coach en dix-sept secondes : le coût de l'admin, puis le tableau de bord qui le supprime.">
-            <source src="assets/promo-fr.mp4" type="video/mp4">
+            <source data-src="assets/promo-fr.webm" type='video/webm; codecs="av01.0.05M.08"'>
+              <source data-src="assets/promo-fr.mp4" type="video/mp4">
             </video>
         </div>
         <p class="shot-cap label"><span>Lundi 08:12</span><span class="num">Capture réelle</span></p>
@@ -168,7 +224,7 @@
   <section class="sec wrap" id="produit">
     <div class="sec-head rv">
       <div class="rule label"><span class="n num">02</span><span class="k">Le produit</span></div>
-      <h2>Deux applications, un seul compte</h2>
+      <h2>Une application pour vous, une pour vos clients</h2>
       <p class="lead">
         Vous travaillez dans le tableau de bord coach. Vos clients ont l'app d'entraînement.
         Les captures ci-dessous viennent du produit tel qu'il tourne, pas d'une maquette.
@@ -187,7 +243,11 @@
       </div>
       <figure class="shot-wrap">
         <div class="device">
-          <div class="device-screen"><img src="img/screens/coach-today.png" alt="Tableau de bord coach : les compteurs Clients 6, En séance 2 et Actifs 7j 5, une carte « à traiter » nommant trois clients, puis la carte « en séance » avec la progression en direct de deux clients." width="720" height="1560" loading="lazy"></div>
+          <div class="device-screen"><picture>
+            <source type="image/avif" srcset="img/screens/coach-today-360w.avif 360w, img/screens/coach-today-720w.avif 720w" sizes="360px">
+            <source type="image/webp" srcset="img/screens/coach-today-360w.webp 360w, img/screens/coach-today-720w.webp 720w" sizes="360px">
+            <img src="img/screens/coach-today.png" alt="Tableau de bord coach : les compteurs Clients 6, En séance 2 et Actifs 7j 5, une carte « à traiter » nommant trois clients, puis la carte « en séance » avec la progression en direct de deux clients." width="720" height="1560" loading="lazy">
+          </picture></div>
         </div>
         <p class="shot-cap label"><span>Tableau de bord</span><span class="num">Capture réelle</span></p>
       </figure>
@@ -205,7 +265,11 @@
       </div>
       <figure class="shot-wrap">
         <div class="device">
-          <div class="device-screen"><img src="img/screens/coach-clients.png" alt="Liste des clients : six fiches, chacune avec son taux d'assiduité sur 28 jours en couleur, de 42 % en rouge à 100 % en vert, et une pastille verte sur les deux clients en séance." width="720" height="1560" loading="lazy"></div>
+          <div class="device-screen"><picture>
+            <source type="image/avif" srcset="img/screens/coach-clients-360w.avif 360w, img/screens/coach-clients-720w.avif 720w" sizes="360px">
+            <source type="image/webp" srcset="img/screens/coach-clients-360w.webp 360w, img/screens/coach-clients-720w.webp 720w" sizes="360px">
+            <img src="img/screens/coach-clients.png" alt="Liste des clients : six fiches, chacune avec son taux d'assiduité sur 28 jours en couleur, de 42 % en rouge à 100 % en vert, et une pastille verte sur les deux clients en séance." width="720" height="1560" loading="lazy">
+          </picture></div>
         </div>
         <p class="shot-cap label"><span>Liste des clients</span><span class="num">Capture réelle</span></p>
       </figure>
@@ -223,7 +287,11 @@
       </div>
       <figure class="shot-wrap">
         <div class="device">
-          <div class="device-screen"><img src="img/screens/client-home-fr.png" alt="Accueil côté client, en français : la bande de la semaine, la séance du jour marquée « Terminé », puis le poids corporel à 83,5 kg et sa courbe sur cinq mois." width="720" height="1560" loading="lazy"></div>
+          <div class="device-screen"><picture>
+            <source type="image/avif" srcset="img/screens/client-home-fr-360w.avif 360w, img/screens/client-home-fr-720w.avif 720w" sizes="360px">
+            <source type="image/webp" srcset="img/screens/client-home-fr-360w.webp 360w, img/screens/client-home-fr-720w.webp 720w" sizes="360px">
+            <img src="img/screens/client-home-fr.png" alt="Accueil côté client, en français : la bande de la semaine, la séance du jour marquée « Terminé », puis le poids corporel à 83,5 kg et sa courbe sur cinq mois." width="720" height="1560" loading="lazy">
+          </picture></div>
         </div>
         <p class="shot-cap label"><span>Accueil client</span><span class="num">Capture réelle</span></p>
       </figure>
@@ -241,7 +309,11 @@
       </div>
       <figure class="shot-wrap">
         <div class="device">
-          <div class="device-screen"><img src="img/screens/client-stats-fr.png" alt="Écran statistiques, en français : 79 séances, 10 ce mois-ci, une série de 21 semaines, la carte de chaleur des douze derniers mois, et la carte musculaire avant et arrière." width="720" height="1560" loading="lazy"></div>
+          <div class="device-screen"><picture>
+            <source type="image/avif" srcset="img/screens/client-stats-fr-360w.avif 360w, img/screens/client-stats-fr-720w.avif 720w" sizes="360px">
+            <source type="image/webp" srcset="img/screens/client-stats-fr-360w.webp 360w, img/screens/client-stats-fr-720w.webp 720w" sizes="360px">
+            <img src="img/screens/client-stats-fr.png" alt="Écran statistiques, en français : 79 séances, 10 ce mois-ci, une série de 21 semaines, la carte de chaleur des douze derniers mois, et la carte musculaire avant et arrière." width="720" height="1560" loading="lazy">
+          </picture></div>
         </div>
         <p class="shot-cap label"><span>Statistiques client</span><span class="num">Capture réelle</span></p>
       </figure>
@@ -269,6 +341,7 @@
         <div class="spec-row"><dt>Hébergement</dt><dd>Votre instance, votre domaine, vos données. Aucune télémétrie.</dd></div>
         <div class="spec-row"><dt>Export</dt><dd>Les données client sont exportables à tout moment, en JSON.</dd></div>
         <div class="spec-row"><dt>Tarif</dt><dd>Forfait mensuel fixe, plus une mise en place payée une fois. Pas d'abonnement par client. Le montant est fixé pendant l'appel.</dd></div>
+        <div class="spec-row"><dt>Pays</dt><dd>Maroc. L'appel de démarrage et l'assistance se font sur WhatsApp.</dd></div>
       </dl>
 
       <!-- The two facts most likely to close this buyer used to live only inside collapsed FAQ
@@ -346,6 +419,14 @@
         <p>Parce que l'app client a été traduite en premier, et qu'annoncer une traduction non faite serait malhonnête. Les quatre langues concernent ce que vos clients voient. La traduction du tableau de bord est prévue.</p>
       </details>
       <details>
+        <summary>Quelle différence avec une application de coach sportif grand public ?</summary>
+        <p>Une application grand public donne à tout le monde le même programme générique. FitPal Coach est une application pour coach sportif : c'est vous qui écrivez le programme, votre client le suit dans son app, et vous voyez s'il s'y tient.</p>
+      </details>
+      <details>
+        <summary>C'est adapté au coaching en ligne au Maroc ?</summary>
+        <p>Oui. FitPal Coach est conçu et édité au Maroc. Votre client s'entraîne avec l'app où qu'il soit, en salle ou à la maison, et vous suivez son assiduité à distance. L'appel de démarrage et l'assistance se font sur WhatsApp.</p>
+      </details>
+      <details>
         <summary>Combien ça coûte ?</summary>
         <p>Un forfait mensuel fixe, plus une mise en place payée une seule fois. Pas d'abonnement par client : votre facture n'augmente pas parce que votre activité marche. Le montant dépend du nombre de clients et de l'hébergement, et il est fixé pendant l'appel.</p>
       </details>
@@ -356,8 +437,12 @@
        Placed between the argument and the ask, unnumbered and unmatted. -->
   <section class="people">
     <div class="people-img">
-      <img src="img/coaches.jpg" width="1800" height="750" loading="lazy" decoding="async"
+      <picture>
+            <source type="image/avif" srcset="img/coaches-600w.avif 600w, img/coaches-1200w.avif 1200w, img/coaches-1800w.avif 1800w" sizes="100vw">
+            <source type="image/webp" srcset="img/coaches-600w.webp 600w, img/coaches-1200w.webp 1200w, img/coaches-1800w.webp 1800w" sizes="100vw">
+            <img src="img/coaches.jpg" width="1800" height="750" loading="lazy" decoding="async"
            alt="Deux coachs sportifs, une femme et un homme, se parlent au milieu d'un plateau de musculation, entre les cages à squat et les anneaux.">
+          </picture>
     </div>
     <p class="wrap label people-cap">
       <span>Votre métier se passe ici. L'admin, non.</span>
@@ -410,7 +495,7 @@
         </svg>
         FitPal&nbsp;<b>Coach</b>
       </a>
-      <p class="fine">Le logiciel des coachs sportifs indépendants. Bâti sur openGym.</p>
+      <p class="fine">Le logiciel des coachs sportifs indépendants au Maroc. Bâti sur openGym.</p>
     </div>
     <ul>
       <li><a href="#produit">Le produit</a></li>
