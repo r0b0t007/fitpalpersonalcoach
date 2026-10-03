@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FitPal Coach — le logiciel des coachs indépendants</title>
-<meta name="description" content="Le logiciel qui remplace les DM, les notes vocales et le tableur. Vos clients reçoivent une vraie app d'entraînement, vous voyez qui s'entraîne et qui décroche. Réservez un appel de 20 minutes.">
+<title>Logiciel pour coach sportif au Maroc | FitPal Coach</title>
+<meta name="description" content="Application pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une vraie app d'entraînement pour vos clients. Fini les DM et le tableur. Appel de 20 minutes sur WhatsApp.">
 <meta name="theme-color" content="#1C1A17">
 
 <link rel="canonical" href="https://fitpal.ma/">
@@ -15,14 +15,14 @@
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fr_MA">
 <meta property="og:url" content="https://fitpal.ma/">
-<meta property="og:title" content="FitPal Coach — le logiciel des coachs indépendants">
-<meta property="og:description" content="Le logiciel qui remplace les DM, les notes vocales et le tableur. Vos clients reçoivent une vraie app d'entraînement, vous voyez qui décroche.">
+<meta property="og:title" content="Logiciel pour coach sportif au Maroc | FitPal Coach">
+<meta property="og:description" content="Application pour coachs sportifs au Maroc. Vos clients reçoivent une vraie app d'entraînement, vous voyez qui décroche.">
 <meta property="og:image" content="https://fitpal.ma/img/og-fr.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="FitPal Coach — le logiciel des coachs indépendants">
-<meta name="twitter:description" content="Le logiciel qui remplace les DM, les notes vocales et le tableur.">
+<meta name="twitter:title" content="Logiciel pour coach sportif au Maroc | FitPal Coach">
+<meta name="twitter:description" content="Le logiciel des coachs sportifs indépendants au Maroc. Fini les DM et le tableur.">
 <meta name="twitter:image" content="https://fitpal.ma/img/og-fr.png">
 
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -52,14 +52,102 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "FitPal Coach",
-  "applicationCategory": "BusinessApplication",
-  "operatingSystem": "Web, Android, iOS",
-  "url": "https://fitpal.ma/",
-  "inLanguage": ["fr", "en", "de", "es"],
-  "description": "Logiciel de coaching pour coachs sportifs indépendants. Programmes, suivi d'assiduité et app d'entraînement pour vos clients.",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "MAD", "description": "Forfait mensuel fixe plus mise en place, sans abonnement par client. Montant fixé pendant l'appel." }
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "FitPal Coach",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web, Android, iOS",
+      "url": "https://fitpal.ma/",
+      "inLanguage": "fr",
+      "description": "Logiciel et application pour coachs sportifs indépendants au Maroc. Programmes, suivi d'assiduité et app d'entraînement pour vos clients, disponible en français, anglais, allemand et espagnol.",
+      "areaServed": {
+        "@type": "Country",
+        "name": "Maroc"
+      },
+      "publisher": {
+        "@id": "https://fitpal.ma/#org"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://fitpal.ma/#org",
+      "name": "FitPal Coach",
+      "url": "https://fitpal.ma/",
+      "email": "contact@fitpal.ma",
+      "telephone": "+212626410690",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "MA"
+      },
+      "founder": {
+        "@type": "Person",
+        "name": "Ahmed Chioua",
+        "url": "https://ahmedchioua.com/"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Je n'ai que huit clients. C'est trop peu ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Non. L'outil est construit pour une personne seule avec un téléphone, pas pour une salle avec un accueil. C'est à huit clients que le temps gagné se voit le plus, parce que vous n'avez personne à qui déléguer l'admin."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Mes clients doivent télécharger une application ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ils ouvrent un lien et l'ajoutent à leur écran d'accueil. Pas de store, pas de compte à créer, pas de mot de passe. Des versions Android et iOS natives existent si vous les préférez."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Qu'est-ce qui se passe si j'arrête ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Vous repartez avec vos données, exportées en JSON. L'instance est la vôtre, pas la nôtre."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Le tableau de bord coach est en anglais. Pourquoi ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Parce que l'app client a été traduite en premier, et qu'annoncer une traduction non faite serait malhonnête. Les quatre langues concernent ce que vos clients voient. La traduction du tableau de bord est prévue."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Quelle différence avec une application de coach sportif grand public ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Une application grand public donne à tout le monde le même programme générique. FitPal Coach est une application pour coach sportif : c'est vous qui écrivez le programme, votre client le suit dans son app, et vous voyez s'il s'y tient."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "C'est adapté au coaching en ligne au Maroc ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Oui. FitPal Coach est conçu et édité au Maroc. Votre client s'entraîne avec l'app où qu'il soit, en salle ou à la maison, et vous suivez son assiduité à distance. L'appel de démarrage et le suivi se font sur WhatsApp."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Combien ça coûte ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Un forfait mensuel fixe, plus une mise en place payée une seule fois. Pas d'abonnement par client : votre facture n'augmente pas parce que votre activité marche. Le montant dépend du nombre de clients et de l'hébergement, et il est fixé pendant l'appel."
+          }
+        }
+      ]
+    }
+  ]
 }
 </script>
 </head>
@@ -99,10 +187,10 @@
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Logiciel de coaching · 5 à 40 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
+        <p class="label eyebrow"><span>Logiciel pour coach sportif · Maroc · 5 à 40 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
         <h1 class="display"><span>L'admin</span><span>vous coûte</span><span>des clients.</span></h1>
         <p class="lead">
-          FitPal Coach remplace les DM, les notes vocales et le tableur. Vos clients reçoivent
+          FitPal Coach remplace les DM WhatsApp, les notes vocales et le tableur. Vos clients reçoivent
           une vraie app d'entraînement. Vous voyez qui s'entraîne, qui décroche, et qui est sur
           le point d'arrêter.
         </p>
@@ -178,7 +266,7 @@
   <section class="sec wrap" id="produit">
     <div class="sec-head rv">
       <div class="rule label"><span class="n num">02</span><span class="k">Le produit</span></div>
-      <h2>Deux applications, un seul compte</h2>
+      <h2>Une application pour vous, une pour vos clients</h2>
       <p class="lead">
         Vous travaillez dans le tableau de bord coach. Vos clients ont l'app d'entraînement.
         Les captures ci-dessous viennent du produit tel qu'il tourne, pas d'une maquette.
@@ -284,6 +372,7 @@
       </div>
 
       <dl class="spec-table rv">
+        <div class="spec-row"><dt>Basé au</dt><dd>Maroc. L'appel et le suivi se font sur WhatsApp.</dd></div>
         <div class="spec-row"><dt>Plateformes</dt><dd>Web, Android, iOS. Installable depuis le navigateur, sans passer par un store.</dd></div>
         <div class="spec-row"><dt>Langues de l'app client</dt><dd class="num">4 (français, anglais, allemand, espagnol)</dd></div>
         <div class="spec-row"><dt>Langue du tableau de bord coach</dt><dd>Anglais uniquement <span class="y">pour l'instant</span></dd></div>
@@ -372,6 +461,14 @@
         <p>Parce que l'app client a été traduite en premier, et qu'annoncer une traduction non faite serait malhonnête. Les quatre langues concernent ce que vos clients voient. La traduction du tableau de bord est prévue.</p>
       </details>
       <details>
+        <summary>Quelle différence avec une application de coach sportif grand public ?</summary>
+        <p>Une application grand public donne à tout le monde le même programme générique. FitPal Coach est une application pour coach sportif : c'est vous qui écrivez le programme, votre client le suit dans son app, et vous voyez s'il s'y tient.</p>
+      </details>
+      <details>
+        <summary>C'est adapté au coaching en ligne au Maroc ?</summary>
+        <p>Oui. FitPal Coach est conçu et édité au Maroc. Votre client s'entraîne avec l'app où qu'il soit, en salle ou à la maison, et vous suivez son assiduité à distance. L'appel de démarrage et le suivi se font sur WhatsApp.</p>
+      </details>
+      <details>
         <summary>Combien ça coûte ?</summary>
         <p>Un forfait mensuel fixe, plus une mise en place payée une seule fois. Pas d'abonnement par client : votre facture n'augmente pas parce que votre activité marche. Le montant dépend du nombre de clients et de l'hébergement, et il est fixé pendant l'appel.</p>
       </details>
@@ -440,7 +537,7 @@
         </svg>
         FitPal&nbsp;<b>Coach</b>
       </a>
-      <p class="fine">Le logiciel des coachs sportifs indépendants. Bâti sur openGym.</p>
+      <p class="fine">Le logiciel des coachs sportifs indépendants au Maroc. Bâti sur openGym.</p>
     </div>
     <ul>
       <li><a href="#produit">Le produit</a></li>
