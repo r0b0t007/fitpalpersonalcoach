@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Software for personal trainers in Morocco | FitPal Coach</title>
-<meta name="description" content="Coaching software for independent personal trainers in Morocco: programs, adherence tracking and a real training app for your clients. No more DMs and spreadsheets. Book a 20 minute call on WhatsApp.">
+<meta name="description" content="Software for independent personal trainers in Morocco: programs, adherence tracking and a real training app for clients. Book a 20-minute WhatsApp call.">
 <meta name="theme-color" content="#1C1A17">
 
 <link rel="canonical" href="https://fitpal.ma/en/">
@@ -55,35 +55,41 @@
   "@graph": [
     {
       "@type": "SoftwareApplication",
+      "@id": "https://fitpal.ma/#app",
       "name": "FitPal Coach",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web, Android, iOS",
       "url": "https://fitpal.ma/en/",
-      "inLanguage": "en",
+      "inLanguage": ["fr", "en", "de", "es"],
       "description": "Coaching software for independent personal trainers in Morocco. Programs, adherence tracking, and a training app for your clients in English, French, German and Spanish.",
-      "areaServed": {
-        "@type": "Country",
-        "name": "Morocco"
+      "offers": {
+        "@type": "Offer",
+        "priceCurrency": "MAD",
+        "areaServed": {
+          "@type": "Country",
+          "name": "Morocco"
+        },
+        "description": "Flat monthly fee plus a one-time setup, no per-client subscription. Amount set during the call."
       },
       "publisher": {
-        "@id": "https://fitpal.ma/#org"
+        "@id": "https://ahmedchioua.com/#person"
       }
     },
     {
-      "@type": "Organization",
-      "@id": "https://fitpal.ma/#org",
-      "name": "FitPal Coach",
-      "url": "https://fitpal.ma/",
+      "@type": "Person",
+      "@id": "https://ahmedchioua.com/#person",
+      "name": "Ahmed Chioua",
+      "jobTitle": "Entrepreneur",
+      "url": "https://ahmedchioua.com/",
       "email": "contact@fitpal.ma",
       "telephone": "+212626410690",
       "address": {
         "@type": "PostalAddress",
         "addressCountry": "MA"
       },
-      "founder": {
-        "@type": "Person",
-        "name": "Ahmed Chioua",
-        "url": "https://ahmedchioua.com/"
+      "brand": {
+        "@type": "Brand",
+        "name": "FitPal Coach"
       }
     },
     {
@@ -134,7 +140,7 @@
           "name": "Does it work for online coaching in Morocco?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. FitPal Coach is built and run from Morocco. Your client trains with the app wherever they are, at the gym or at home, and you follow their adherence remotely. The setup call and the follow-up happen on WhatsApp."
+            "text": "Yes. FitPal Coach is built and run from Morocco. Your client trains with the app wherever they are, at the gym or at home, and you follow their adherence remotely. The setup call and support happen on WhatsApp."
           }
         },
         {
@@ -187,7 +193,7 @@
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Personal trainer software · Morocco · 5 to 40 clients</span><span class="proof">Real captures, no mockups</span></p>
+        <p class="label eyebrow"><span>Personal trainers · Morocco · 5 to 40 clients</span><span class="proof">Real captures, no mockups</span></p>
         <h1 class="display"><span>Admin is</span><span>costing you</span><span>clients.</span></h1>
         <p class="lead">
           FitPal Coach replaces the WhatsApp DMs, the voice notes and the spreadsheet. Your clients get a
@@ -371,7 +377,6 @@
       </div>
 
       <dl class="spec-table rv">
-        <div class="spec-row"><dt>Based in</dt><dd>Morocco. The call and the follow-up happen on WhatsApp.</dd></div>
         <div class="spec-row"><dt>Platforms</dt><dd>Web, Android, iOS. Installs from the browser, no app store needed.</dd></div>
         <div class="spec-row"><dt>Client app languages</dt><dd class="num">4 (English, French, German, Spanish)</dd></div>
         <div class="spec-row"><dt>Coach dashboard language</dt><dd>English only <span class="y">for now</span></dd></div>
@@ -383,6 +388,7 @@
         <div class="spec-row"><dt>Hosting</dt><dd>Your instance, your domain, your data. No telemetry.</dd></div>
         <div class="spec-row"><dt>Export</dt><dd>Client data exports at any time, as JSON.</dd></div>
         <div class="spec-row"><dt>Price</dt><dd>A flat monthly fee, plus a one-off setup. No per-client subscription. The amount is set on the call.</dd></div>
+        <div class="spec-row"><dt>Based in</dt><dd>Morocco. The setup call and support happen on WhatsApp.</dd></div>
       </dl>
 
       <!-- The two facts most likely to close this buyer used to live only inside collapsed FAQ
@@ -465,7 +471,7 @@
       </details>
       <details>
         <summary>Does it work for online coaching in Morocco?</summary>
-        <p>Yes. FitPal Coach is built and run from Morocco. Your client trains with the app wherever they are, at the gym or at home, and you follow their adherence remotely. The setup call and the follow-up happen on WhatsApp.</p>
+        <p>Yes. FitPal Coach is built and run from Morocco. Your client trains with the app wherever they are, at the gym or at home, and you follow their adherence remotely. The setup call and support happen on WhatsApp.</p>
       </details>
       <details>
         <summary>What does it cost?</summary>

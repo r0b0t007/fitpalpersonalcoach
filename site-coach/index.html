@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Logiciel pour coach sportif au Maroc | FitPal Coach</title>
-<meta name="description" content="Application pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une vraie app d'entraînement pour vos clients. Fini les DM et le tableur. Appel de 20 minutes sur WhatsApp.">
+<meta name="description" content="Application pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une vraie app pour vos clients. Appel de 20 min sur WhatsApp.">
 <meta name="theme-color" content="#1C1A17">
 
 <link rel="canonical" href="https://fitpal.ma/">
@@ -55,35 +55,41 @@
   "@graph": [
     {
       "@type": "SoftwareApplication",
+      "@id": "https://fitpal.ma/#app",
       "name": "FitPal Coach",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web, Android, iOS",
       "url": "https://fitpal.ma/",
-      "inLanguage": "fr",
+      "inLanguage": ["fr", "en", "de", "es"],
       "description": "Logiciel et application pour coachs sportifs indépendants au Maroc. Programmes, suivi d'assiduité et app d'entraînement pour vos clients, disponible en français, anglais, allemand et espagnol.",
-      "areaServed": {
-        "@type": "Country",
-        "name": "Maroc"
+      "offers": {
+        "@type": "Offer",
+        "priceCurrency": "MAD",
+        "areaServed": {
+          "@type": "Country",
+          "name": "Maroc"
+        },
+        "description": "Forfait mensuel fixe plus mise en place, sans abonnement par client. Montant fixé pendant l'appel."
       },
       "publisher": {
-        "@id": "https://fitpal.ma/#org"
+        "@id": "https://ahmedchioua.com/#person"
       }
     },
     {
-      "@type": "Organization",
-      "@id": "https://fitpal.ma/#org",
-      "name": "FitPal Coach",
-      "url": "https://fitpal.ma/",
+      "@type": "Person",
+      "@id": "https://ahmedchioua.com/#person",
+      "name": "Ahmed Chioua",
+      "jobTitle": "Entrepreneur",
+      "url": "https://ahmedchioua.com/",
       "email": "contact@fitpal.ma",
       "telephone": "+212626410690",
       "address": {
         "@type": "PostalAddress",
         "addressCountry": "MA"
       },
-      "founder": {
-        "@type": "Person",
-        "name": "Ahmed Chioua",
-        "url": "https://ahmedchioua.com/"
+      "brand": {
+        "@type": "Brand",
+        "name": "FitPal Coach"
       }
     },
     {
@@ -134,7 +140,7 @@
           "name": "C'est adapté au coaching en ligne au Maroc ?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Oui. FitPal Coach est conçu et édité au Maroc. Votre client s'entraîne avec l'app où qu'il soit, en salle ou à la maison, et vous suivez son assiduité à distance. L'appel de démarrage et le suivi se font sur WhatsApp."
+            "text": "Oui. FitPal Coach est conçu et édité au Maroc. Votre client s'entraîne avec l'app où qu'il soit, en salle ou à la maison, et vous suivez son assiduité à distance. L'appel de démarrage et l'assistance se font sur WhatsApp."
           }
         },
         {
@@ -187,7 +193,7 @@
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Logiciel pour coach sportif · Maroc · 5 à 40 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
+        <p class="label eyebrow"><span>Coach sportif · Maroc · 5 à 40 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
         <h1 class="display"><span>L'admin</span><span>vous coûte</span><span>des clients.</span></h1>
         <p class="lead">
           FitPal Coach remplace les DM WhatsApp, les notes vocales et le tableur. Vos clients reçoivent
@@ -372,7 +378,6 @@
       </div>
 
       <dl class="spec-table rv">
-        <div class="spec-row"><dt>Basé au</dt><dd>Maroc. L'appel et le suivi se font sur WhatsApp.</dd></div>
         <div class="spec-row"><dt>Plateformes</dt><dd>Web, Android, iOS. Installable depuis le navigateur, sans passer par un store.</dd></div>
         <div class="spec-row"><dt>Langues de l'app client</dt><dd class="num">4 (français, anglais, allemand, espagnol)</dd></div>
         <div class="spec-row"><dt>Langue du tableau de bord coach</dt><dd>Anglais uniquement <span class="y">pour l'instant</span></dd></div>
@@ -384,6 +389,7 @@
         <div class="spec-row"><dt>Hébergement</dt><dd>Votre instance, votre domaine, vos données. Aucune télémétrie.</dd></div>
         <div class="spec-row"><dt>Export</dt><dd>Les données client sont exportables à tout moment, en JSON.</dd></div>
         <div class="spec-row"><dt>Tarif</dt><dd>Forfait mensuel fixe, plus une mise en place payée une fois. Pas d'abonnement par client. Le montant est fixé pendant l'appel.</dd></div>
+        <div class="spec-row"><dt>Siège</dt><dd>Maroc. L'appel de démarrage et l'assistance se font sur WhatsApp.</dd></div>
       </dl>
 
       <!-- The two facts most likely to close this buyer used to live only inside collapsed FAQ
@@ -466,7 +472,7 @@
       </details>
       <details>
         <summary>C'est adapté au coaching en ligne au Maroc ?</summary>
-        <p>Oui. FitPal Coach est conçu et édité au Maroc. Votre client s'entraîne avec l'app où qu'il soit, en salle ou à la maison, et vous suivez son assiduité à distance. L'appel de démarrage et le suivi se font sur WhatsApp.</p>
+        <p>Oui. FitPal Coach est conçu et édité au Maroc. Votre client s'entraîne avec l'app où qu'il soit, en salle ou à la maison, et vous suivez son assiduité à distance. L'appel de démarrage et l'assistance se font sur WhatsApp.</p>
       </details>
       <details>
         <summary>Combien ça coûte ?</summary>
