@@ -13,7 +13,7 @@ import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { todayISO } from '../../lib/format.js'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../lib/api.js', () => ({
   api: vi.fn(() => Promise.resolve({})),
@@ -267,6 +267,16 @@ describe('a short window says so', () => {
 // missing array renders as "nothing logged yet" rather than as an error, so it would look like
 // a client who has never measured instead of a bug.
 describe('measurements in the coach view', () => {
+  // deltasOver() windows on Date.now(), and the fixture's first waist reading is 2026-07-01. On
+  // the real clock that reading fell out of the 90-day window on 2026-09-29, and this block
+  // started failing on every PR with no code change at all. Pin "today" inside the fixture's
+  // span. Only Date is faked: React's scheduler and act() still need real timers.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-10T12:00:00Z'))
+  })
+  afterEach(() => { vi.useRealTimers() })
+
   const render = S => {
     const host = document.createElement('div')
     document.body.appendChild(host)
