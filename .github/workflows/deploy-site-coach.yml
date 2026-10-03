@@ -80,6 +80,12 @@ jobs:
         # production. Same shape of guard as the contrast check - read what actually ships.
         run: node scripts/check-font-axes.mjs
 
+      - name: Site builds
+        # The deploy job is the only other place the build runs, and it is skipped whenever
+        # DEPLOY_SITE_COACH is off or the Cloudflare secrets are missing. Without this step a
+        # change that breaks the build passes every PR check and first fails on main, at deploy.
+        run: node scripts/build-site-coach.mjs
+
       - name: SEO regression grep
         run: |
           fail=0
@@ -116,11 +122,15 @@ jobs:
         # against 12 plain ones on the FR page), and the video's sources are in data-src so the
         # browser cannot fetch them before site.js decides the visitor should pay for them.
         # Checking only src/href/poster would leave the majority of the page unguarded.
+        #
+        # The optional query string is what lets styles.css?v=N and site.js?v=N match at all,
+        # and woff2 covers the font preload: without both, the stylesheet, the script and the
+        # font every page waits on were the three references this step never looked at.
         run: |
           fail=0
           for f in site-coach/index.html site-coach/en/index.html; do
             dir=$(dirname "$f")
-            refs=$( { grep -oE '(src|href|poster|data-src)="[^"]+\.(png|jpe?g|webp|avif|svg|mp4|webm|css|js)"' "$f" \
+            refs=$( { grep -oE '(src|href|poster|data-src)="[^"]+\.(png|jpe?g|webp|avif|svg|mp4|webm|woff2|css|js)(\?[^"]*)?"' "$f" \
                         | sed -E 's/.*="([^"]+)".*/\1/'
                       grep -oE 'srcset="[^"]+"' "$f" \
                         | sed -E 's/srcset="([^"]*)"/\1/' | tr ',' '\n' \

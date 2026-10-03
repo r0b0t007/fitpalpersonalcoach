@@ -123,6 +123,7 @@ async function main () {
     if (hashed[base] && !relPosix.includes('/')) continue // originals not shipped
     if (fontRefs[relPosix]) continue // shipped under the hashed name in step 1
     if (base === 'METRICS.txt') continue // build provenance, not a web asset
+    if (relPosix === 'README.md') continue // maintainer notes; the deploy root is public
 
     const dest = join(OUT, rel)
     await mkdir(dirname(dest), { recursive: true })
@@ -163,8 +164,11 @@ function rewriteHeaders (text, hashed) {
   const kept = []
   let skipping = false
   for (const line of lines) {
-    if (/^\S/.test(line)) skipping = MANAGED.has(line.trim()) // a path line opens a block
-    else if (line.trim() === '') skipping = false
+    // Only a path line opens or closes a block. A comment or a blank line between a managed
+    // path and its header lines must not end the skip, or those header lines would survive
+    // with their path line removed and attach to whatever rule precedes them.
+    if (/^#/.test(line)) { kept.push(line); continue }
+    if (/^\S/.test(line)) skipping = MANAGED.has(line.trim())
     if (!skipping) kept.push(line)
   }
   const out = kept.join('\n')

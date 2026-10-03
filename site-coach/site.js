@@ -66,7 +66,7 @@
   var conn = navigator.connection || {}
   var frugal = conn.saveData === true ||
     /(^|-)2g$/.test(String(conn.effectiveType || '')) ||
-    window.matchMedia('(max-width: 767px)').matches
+    (window.matchMedia && window.matchMedia('(max-width: 767px)').matches)
 
   if (vid && (reduce || frugal)) {
     /* Poster plus a real control, with the sources attached up front but preload kept at
