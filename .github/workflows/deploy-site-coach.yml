@@ -1,8 +1,15 @@
-# Deploys the FitPal Coach marketing site (static, no build step) to Cloudflare Pages.
+# Deploys the FitPal Coach marketing site to Cloudflare Pages.
+#
+# site-coach/ is SOURCE. scripts/build-site-coach.mjs produces dist/site-coach/, which is
+# what gets uploaded: minified CSS/JS under content-hashed filenames, every reference
+# rewritten, and the immutable cache block in _headers regenerated from those names.
+# Deploying site-coach/ directly would ship a 48%-comment stylesheet and would make the
+# immutable cache policy a lie.
 #
 # This is a SEPARATE Pages project from deploy-site.yml. That workflow publishes `site/` to
-# fitpal.ma (the white-label gym product); this one publishes `site-coach/` to coach.fitpal.ma
-# (the software sold to independent coaches). Two products, two audiences, two projects — the
+# gym.fitpal.ma (the white-label gym product); this one publishes `site-coach/` to fitpal.ma,
+# the apex (the software sold to independent coaches). coach.fitpal.ma is the APP, on cPanel,
+# and is not served by either of these. Two products, two audiences, two projects — the
 # only thing they share is ownership. Pointing either workflow at the other's directory or
 # project name would replace a live site with the wrong product.
 #
@@ -11,7 +18,12 @@
 #      palette contrast check, so a refactor cannot silently strip the tags the site exists for
 #      or drop a colour pair below WCAG AA.
 #   2. Opt-in: deploy only runs while the repository variable DEPLOY_SITE_COACH is 'true'.
-#   3. `production` environment — required reviewers gate every production deploy.
+#   3. Unfinished legal copy HARD FAILS on main while DEPLOY_SITE_COACH is on, and only warns
+#      on a PR preview or with deploys switched off. This is the
+#      production gate. It is NOT the `production` environment: required reviewers need
+#      GitHub Pro on a private repo and the API rejects the rule here (HTTP 422), so that
+#      environment has no protection rules at all. An earlier version of this comment claimed
+#      it did, which was worse than having no gate - it described one that was never there.
 #   4. One deploy at a time, never cancelled mid-upload.
 #   5. Post-deploy checks fail loudly: /, /en/ and /sitemap.xml must all serve.
 #
@@ -24,12 +36,16 @@ on:
     paths:
       - 'site-coach/**'
       - 'scripts/check-site-coach-contrast.mjs'
+      - 'scripts/check-font-axes.mjs'
+      - 'scripts/build-site-coach.mjs'
       - '.github/workflows/deploy-site-coach.yml'
   push:
     branches: [main]
     paths:
       - 'site-coach/**'
       - 'scripts/check-site-coach-contrast.mjs'
+      - 'scripts/check-font-axes.mjs'
+      - 'scripts/build-site-coach.mjs'
       - '.github/workflows/deploy-site-coach.yml'
   workflow_dispatch:
 
@@ -57,6 +73,18 @@ jobs:
       - name: Palette contrast (WCAG 2.2 AA)
         # Reads the hexes out of site-coach/styles.css, so this cannot drift from what ships.
         run: node scripts/check-site-coach-contrast.mjs
+
+      - name: Font axes are inside the self-hosted subset
+        # Archivo ships as a partial instance (wght 400-800, wdth 68-100). Asking for a value
+        # outside that range does not error: the browser clamps and the type renders wrong in
+        # production. Same shape of guard as the contrast check - read what actually ships.
+        run: node scripts/check-font-axes.mjs
+
+      - name: Site builds
+        # The deploy job is the only other place the build runs, and it is skipped whenever
+        # DEPLOY_SITE_COACH is off or the Cloudflare secrets are missing. Without this step a
+        # change that breaks the build passes every PR check and first fails on main, at deploy.
+        run: node scripts/build-site-coach.mjs
 
       - name: SEO regression grep
         run: |
@@ -88,12 +116,27 @@ jobs:
       - name: Every referenced local asset exists
         # A screenshot renamed but not re-referenced ships as a broken image and no other check
         # in this job would notice.
+        #
+        # This must read srcset and data-src as well as the plain attributes, because that is
+        # where most assets now live: the responsive <picture> variants are in srcset (28 refs
+        # against 12 plain ones on the FR page), and the video's sources are in data-src so the
+        # browser cannot fetch them before site.js decides the visitor should pay for them.
+        # Checking only src/href/poster would leave the majority of the page unguarded.
+        #
+        # The optional query string is what lets styles.css?v=N and site.js?v=N match at all,
+        # and woff2 covers the font preload: without both, the stylesheet, the script and the
+        # font every page waits on were the three references this step never looked at.
         run: |
           fail=0
           for f in site-coach/index.html site-coach/en/index.html; do
             dir=$(dirname "$f")
-            for src in $(grep -oE '(src|href|poster)="[^"]+\.(png|jpe?g|webp|svg|mp4|css|js)"' "$f" \
-                         | sed -E 's/.*="([^"]+)".*/\1/' | grep -v '^https\?:' | sed 's/?.*//'); do
+            refs=$( { grep -oE '(src|href|poster|data-src)="[^"]+\.(png|jpe?g|webp|avif|svg|mp4|webm|woff2|css|js)(\?[^"]*)?"' "$f" \
+                        | sed -E 's/.*="([^"]+)".*/\1/'
+                      grep -oE 'srcset="[^"]+"' "$f" \
+                        | sed -E 's/srcset="([^"]*)"/\1/' | tr ',' '\n' \
+                        | sed -E 's/^[[:space:]]*//; s/[[:space:]]+[0-9]+[wx][[:space:]]*$//'
+                    } | grep -v '^https\?:' | grep -v '^$' | sed 's/?.*//' | sort -u )
+            for src in $refs; do
               case "$src" in
                 /*) p="site-coach$src" ;;
                 *)  p="$dir/$src" ;;
@@ -124,33 +167,98 @@ jobs:
           done
           exit $fail
 
-      - name: Unfinished legal copy (WARNING ONLY - see TODO)
-        # TEMPORARILY NON-BLOCKING, at the owner's explicit instruction, to allow the site to
-        # ship before the company details exist. It was a hard failure and MUST become one
-        # again: a published legal notice whose company name reads "[raison sociale a
-        # completer]" is both a Moroccan compliance gap and the precise opposite of the
-        # spec-sheet honesty the whole page sells.
+      - name: Unfinished legal copy (blocks production, warns on previews)
+        # A published legal notice whose company name reads "[raison sociale a completer]" is
+        # both a Moroccan compliance gap and the precise opposite of the spec-sheet honesty the
+        # whole page sells. This was made non-blocking so the site could ship before the company
+        # details existed; it is blocking again, but only where it matters.
         #
-        # Restore by deleting the `|| true` and the `continue-on-error` below once the four
-        # fields are filled in mentions-legales.html and en/legal.html.
-        continue-on-error: true
+        # Split by destination, because the two cases carry different risk:
+        #
+        #   push to main   the next deploy publishes to fitpal.ma, the live apex. HARD FAIL.
+        #   pull_request   the deploy is a throwaway *.pages.dev preview carrying
+        #                  x-robots-tag: noindex. Warn, so work in progress stays reviewable.
+        #
+        # This stands in for the required-reviewers rule the header used to claim: that
+        # protection needs GitHub Pro on a private repo and the API refuses it here (HTTP 422),
+        # so the production environment has no approval step and a merge deploys straight to
+        # the apex. This is the gate instead - narrower, but it guards the specific thing that
+        # would actually embarrass us, and it lifts itself the moment #69 fills the fields.
+        # Keyed on class="todo", not on the placeholder wording. styles.css renders .todo in
+        # gold precisely to make unfilled copy obvious, so it is the site's own marker for
+        # "not finished" and it cannot be defeated by rephrasing the text inside the brackets.
+        #
+        # The previous version matched '[...compl...]' and '[...capital]'. Rewording the
+        # publisher block for an auto-entrepreneur removed the only string containing
+        # "capital", leaving that half of the guard matching nothing at all - passing
+        # vacuously rather than failing, which is the same trap the SEO grep above documents.
+        #
+        # It only hard-fails when a production deploy would actually follow, i.e. on main AND
+        # with DEPLOY_SITE_COACH on. This job runs regardless of that variable, so without the
+        # second condition, setting it to 'false' - the escape hatch the error message offers -
+        # would not stop main going red. The field count is computed, not written into the
+        # message: it was "four" until the auto-entrepreneur rewrite left two per page.
+        env:
+          EVENT: ${{ github.event_name }}
+          DEPLOY: ${{ vars.DEPLOY_SITE_COACH }}
         run: |
-          fail=0
-          for pat in '\[[^]]*compl[^]]*\]' '\[[^]]*capital\]'; do
-            hits=$(grep -rlE "$pat" site-coach --include='*.html' --include='*.xml' || true)
-            if [ -n "$hits" ]; then
-              for f in $hits; do
-                echo "::warning file=$f::unfinished legal copy is PUBLICLY VISIBLE ($pat)"
-              done
-              fail=1
+          hits=$(grep -rl 'class="todo"' site-coach --include='*.html' || true)
+          if [ -z "$hits" ]; then
+            echo "Legal pages carry no unfilled placeholders."
+            exit 0
+          fi
+          blocking=0
+          [ "$EVENT" != "pull_request" ] && [ "$DEPLOY" = "true" ] && blocking=1
+          total=0
+          for f in $hits; do
+            n=$(grep -o 'class="todo"' "$f" | wc -l | tr -d ' ')
+            total=$((total + n))
+            if [ "$blocking" = "1" ]; then
+              echo "::error file=$f::$n unfinished field(s) marked .todo would be PUBLICLY VISIBLE on fitpal.ma"
+            else
+              echo "::warning file=$f::$n unfinished field(s) marked .todo - would BLOCK a production deploy"
             fi
           done
-          [ "$fail" = "0" ] || echo "::warning::Legal pages ship with visible [to be completed] markers."
-          exit 0
+          if [ "$blocking" = "0" ]; then
+            echo "::warning::Legal pages still show $total [to be completed] marker(s). Not blocking: this run does not deploy to fitpal.ma (event=$EVENT, DEPLOY_SITE_COACH=${DEPLOY:-unset})."
+            exit 0
+          fi
+          echo "::error::Refusing to deploy to fitpal.ma while the legal pages show $total [to be completed] marker(s). Fill them (see issue #69), or set DEPLOY_SITE_COACH=false to pause production deploys."
+          exit 1
 
-  deploy:
+  # Are the Cloudflare credentials actually present?
+  #
+  # `secrets` is not available in a job-level `if`, so without this job the deploy's only
+  # condition is the DEPLOY_SITE_COACH variable. Flipping that variable on while the token is
+  # missing does not skip the deploy - it RUNS it with an empty apiToken, wrangler-action
+  # fails, and every push touching site-coach/ goes red. That is why the variable sat at
+  # 'false' rather than being turned on and left to sort itself out.
+  #
+  # With this, turning the variable on is safe at any time: deploys skip with a warning until
+  # the token exists, and start working the moment it does, with no second edit here.
+  preflight:
     needs: check
     if: vars.DEPLOY_SITE_COACH == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      credentialed: ${{ steps.probe.outputs.credentialed }}
+    steps:
+      - id: probe
+        env:
+          # Read into env, never echoed. A masked secret is still a secret.
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then
+            echo "credentialed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "credentialed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DEPLOY_SITE_COACH is true but CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ACCOUNT_ID are not set. Skipping the deploy instead of failing it. Add both (repo Settings -> Secrets and variables -> Actions) to enable deploys; the token needs the Cloudflare Pages:Edit permission."
+          fi
+
+  deploy:
+    needs: [check, preflight]
+    if: vars.DEPLOY_SITE_COACH == 'true' && needs.preflight.outputs.credentialed == 'true'
     runs-on: ubuntu-latest
     # PR previews deploy without the production gate; only main needs approval.
     environment: ${{ github.event_name == 'pull_request' && 'preview' || 'production' }}
@@ -159,6 +267,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # site-coach/ is source, not the deployable. The build minifies the CSS and JS, renames
+      # them to <name>.<contenthash>.<ext>, rewrites every reference across the five pages, and
+      # regenerates the immutable block in _headers from those names. Deploying site-coach/
+      # directly would ship a stylesheet that is 48% comments and would break the cache policy,
+      # which promises that the bytes at a URL never change.
+      - name: Build
+        run: node scripts/build-site-coach.mjs
+
       - name: Deploy to Cloudflare Pages
         id: pages
         uses: cloudflare/wrangler-action@v4
@@ -166,7 +286,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: >-
-            pages deploy site-coach
+            pages deploy dist/site-coach
             --project-name=fitpal-coach
             --branch=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'main' }}
 

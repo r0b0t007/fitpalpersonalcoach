@@ -4,14 +4,16 @@
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; media-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self' data:; media-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'
 
 # Notes on the CSP above, because two parts of it are easy to break silently:
 #
-#   style-src / font-src MUST keep the Google Fonts origins. Archivo is loaded from
-#   fonts.googleapis.com (the stylesheet) and fonts.gstatic.com (the woff2 files). A CSP that
-#   blocks either does not error visibly: the page falls back to a system sans and quietly
-#   loses the wdth-68 condensation that is most of this site's visual identity.
+#   style-src / font-src are now 'self' only. Archivo used to come from fonts.googleapis.com
+#   (the stylesheet) and fonts.gstatic.com (the woff2 files); it is self-hosted under /fonts/
+#   as of the perf work, so both third-party origins were removed. If a font ever fails to
+#   load the failure is silent: the page falls back to a system sans and quietly loses the
+#   wdth-68 condensation that is most of this site's visual identity. Check the console for
+#   a CSP violation before assuming the CSS is at fault.
 #
 #   script-src carries 'unsafe-inline' for one reason: each page has a single inline <script>
 #   in <head> that arms the hero intro before first paint. A sha256- hash would be stricter,
@@ -20,7 +22,10 @@
 #   so the inline-script risk is close to nil and the maintenance win is real. There are no
 #   inline style attributes, so style-src deliberately does NOT carry 'unsafe-inline'.
 #
-#   img-src allows data: for nothing in particular today; drop it if it stays unused.
+#   img-src allows data: for the hero portrait's 1x1 GIF fallback, which is what lets a phone
+#   skip that image entirely (see the comment on .hero-portrait in index.html). Dropping data:
+#   does not break anything visible - the figure is hidden on phones - but every phone visit
+#   then logs a CSP violation for it.
 
 /*.html
   Cache-Control: public, max-age=0, must-revalidate

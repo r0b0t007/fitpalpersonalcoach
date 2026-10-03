@@ -1,0 +1,9 @@
+Archivo v25, axis-limited wght (400, 400, 800) wdth (68, 100, 100)
+upem = 1000
+ascent = 878
+descent = -210
+lineGap = 0
+capHeight = 686
+xHeight = 526
+latin: 90104 -> 60656 bytes
+latin-ext: 86240 -> 57728 bytes
