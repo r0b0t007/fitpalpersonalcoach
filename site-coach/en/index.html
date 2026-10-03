@@ -55,31 +55,44 @@
   "@graph": [
     {
       "@type": "SoftwareApplication",
-      "@id": "https://fitpal.ma/#app",
+      "@id": "https://fitpal.ma/en/#app",
       "name": "FitPal Coach",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web, Android, iOS",
       "url": "https://fitpal.ma/en/",
-      "inLanguage": ["fr", "en", "de", "es"],
-      "description": "Coaching software for independent personal trainers in Morocco. Programs, adherence tracking, and a training app for your clients in English, French, German and Spanish.",
-      "offers": {
-        "@type": "Offer",
-        "priceCurrency": "MAD",
-        "areaServed": {
-          "@type": "Country",
-          "name": "Morocco"
-        },
-        "description": "Flat monthly fee plus a one-time setup, no per-client subscription. Amount set during the call."
-      },
+      "inLanguage": [
+        "fr",
+        "en",
+        "de",
+        "es"
+      ],
+      "description": "Coaching software for independent personal trainers in Morocco. Programs, adherence tracking, and a training app for your clients in English, French, German and Spanish. The coach dashboard is in English.",
       "publisher": {
         "@id": "https://ahmedchioua.com/#person"
+      }
+    },
+    {
+      "@type": "Service",
+      "@id": "https://fitpal.ma/en/#service",
+      "name": "FitPal Coach",
+      "serviceType": "Coaching software for personal trainers",
+      "provider": {
+        "@id": "https://ahmedchioua.com/#person"
+      },
+      "areaServed": {
+        "@type": "Country",
+        "name": "Morocco"
+      },
+      "offers": {
+        "@type": "Offer",
+        "description": "Flat monthly fee plus a one-time setup, no per-client subscription. Price on request, set during the call."
       }
     },
     {
       "@type": "Person",
       "@id": "https://ahmedchioua.com/#person",
       "name": "Ahmed Chioua",
-      "jobTitle": "Entrepreneur",
+      "jobTitle": "Web and SaaS developer",
       "url": "https://ahmedchioua.com/",
       "email": "contact@fitpal.ma",
       "telephone": "+212626410690",
@@ -91,67 +104,6 @@
         "@type": "Brand",
         "name": "FitPal Coach"
       }
-    },
-    {
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "I only have eight clients. Is that too few?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "No. This is built for one person with a phone, not for a gym with a front desk. Eight clients is where the time saved shows up most, because there is nobody to hand the admin to."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Do my clients have to download an app?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "They open a link and add it to their home screen. No store, no account to create, no password. Native Android and iOS builds exist if you would rather use those."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "What happens if I stop?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "You leave with your data, exported as JSON. The instance is yours, not ours."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "The coach dashboard is English only. Why?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Because the client app was translated first, and announcing a translation that does not exist would be dishonest. The four languages are what your clients see. Translating the dashboard is planned."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "How is this different from a consumer workout app?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "A consumer app gives everyone the same generic program. FitPal Coach is an app for personal trainers: you write the program, your client follows it in their app, and you see whether they stick to it."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Does it work for online coaching in Morocco?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Yes. FitPal Coach is built and run from Morocco. Your client trains with the app wherever they are, at the gym or at home, and you follow their adherence remotely. The setup call and support happen on WhatsApp."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "What does it cost?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "A flat monthly fee, plus a one-off setup. No per-client subscription: your bill does not grow because your business is working. The amount depends on client count and hosting, and is set on the call."
-          }
-        }
-      ]
     }
   ]
 }
@@ -193,7 +145,7 @@
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Personal trainers · Morocco · 5 to 40 clients</span><span class="proof">Real captures, no mockups</span></p>
+        <p class="label eyebrow"><span>Coaching software · 5 to 40 clients</span><span class="proof">Real captures, no mockups</span></p>
         <h1 class="display"><span>Admin is</span><span>costing you</span><span>clients.</span></h1>
         <p class="lead">
           FitPal Coach replaces the WhatsApp DMs, the voice notes and the spreadsheet. Your clients get a

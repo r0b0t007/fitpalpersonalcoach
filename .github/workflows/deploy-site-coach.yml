@@ -37,7 +37,6 @@ on:
       - 'site-coach/**'
       - 'scripts/check-site-coach-contrast.mjs'
       - 'scripts/check-font-axes.mjs'
-      - 'scripts/check-site-coach-faq.mjs'
       - 'scripts/build-site-coach.mjs'
       - '.github/workflows/deploy-site-coach.yml'
   push:
@@ -46,7 +45,6 @@ on:
       - 'site-coach/**'
       - 'scripts/check-site-coach-contrast.mjs'
       - 'scripts/check-font-axes.mjs'
-      - 'scripts/check-site-coach-faq.mjs'
       - 'scripts/build-site-coach.mjs'
       - '.github/workflows/deploy-site-coach.yml'
   workflow_dispatch:
@@ -82,13 +80,9 @@ jobs:
         # production. Same shape of guard as the contrast check - read what actually ships.
         run: node scripts/check-font-axes.mjs
 
-      - name: FAQ structured data matches the visible FAQ
-        # Every question and answer is written twice per page, once in <details> and once in
-        # the FAQPage JSON-LD. Nothing renders the JSON-LD, so a visible edit that forgets its
-        # copy goes unseen - and Google treats markup that disagrees with the page as spam.
-        run: node scripts/check-site-coach-faq.mjs
-
       - name: Site builds
+        # Also generates each page's FAQPage JSON-LD from its visible FAQ, and fails on an
+        # unknown entity or a hand-written FAQPage left in the source.
         # The deploy job is the only other place the build runs, and it is skipped whenever
         # DEPLOY_SITE_COACH is off or the Cloudflare secrets are missing. Without this step a
         # change that breaks the build passes every PR check and first fails on main, at deploy.

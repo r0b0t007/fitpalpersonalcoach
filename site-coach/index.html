@@ -60,26 +60,39 @@
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web, Android, iOS",
       "url": "https://fitpal.ma/",
-      "inLanguage": ["fr", "en", "de", "es"],
-      "description": "Logiciel et application pour coachs sportifs indépendants au Maroc. Programmes, suivi d'assiduité et app d'entraînement pour vos clients, disponible en français, anglais, allemand et espagnol.",
-      "offers": {
-        "@type": "Offer",
-        "priceCurrency": "MAD",
-        "areaServed": {
-          "@type": "Country",
-          "name": "Maroc"
-        },
-        "description": "Forfait mensuel fixe plus mise en place, sans abonnement par client. Montant fixé pendant l'appel."
-      },
+      "inLanguage": [
+        "fr",
+        "en",
+        "de",
+        "es"
+      ],
+      "description": "Logiciel pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une app d'entraînement pour vos clients, disponible en français, anglais, allemand et espagnol. Le tableau de bord coach est en anglais.",
       "publisher": {
         "@id": "https://ahmedchioua.com/#person"
+      }
+    },
+    {
+      "@type": "Service",
+      "@id": "https://fitpal.ma/#service",
+      "name": "FitPal Coach",
+      "serviceType": "Logiciel de coaching pour coachs sportifs",
+      "provider": {
+        "@id": "https://ahmedchioua.com/#person"
+      },
+      "areaServed": {
+        "@type": "Country",
+        "name": "Maroc"
+      },
+      "offers": {
+        "@type": "Offer",
+        "description": "Forfait mensuel fixe plus une mise en place payée une seule fois, sans abonnement par client. Prix sur demande, fixé pendant l'appel."
       }
     },
     {
       "@type": "Person",
       "@id": "https://ahmedchioua.com/#person",
       "name": "Ahmed Chioua",
-      "jobTitle": "Entrepreneur",
+      "jobTitle": "Développeur web et SaaS",
       "url": "https://ahmedchioua.com/",
       "email": "contact@fitpal.ma",
       "telephone": "+212626410690",
@@ -91,67 +104,6 @@
         "@type": "Brand",
         "name": "FitPal Coach"
       }
-    },
-    {
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "Je n'ai que huit clients. C'est trop peu ?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Non. L'outil est construit pour une personne seule avec un téléphone, pas pour une salle avec un accueil. C'est à huit clients que le temps gagné se voit le plus, parce que vous n'avez personne à qui déléguer l'admin."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Mes clients doivent télécharger une application ?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Ils ouvrent un lien et l'ajoutent à leur écran d'accueil. Pas de store, pas de compte à créer, pas de mot de passe. Des versions Android et iOS natives existent si vous les préférez."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Qu'est-ce qui se passe si j'arrête ?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Vous repartez avec vos données, exportées en JSON. L'instance est la vôtre, pas la nôtre."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Le tableau de bord coach est en anglais. Pourquoi ?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Parce que l'app client a été traduite en premier, et qu'annoncer une traduction non faite serait malhonnête. Les quatre langues concernent ce que vos clients voient. La traduction du tableau de bord est prévue."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Quelle différence avec une application de coach sportif grand public ?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Une application grand public donne à tout le monde le même programme générique. FitPal Coach est une application pour coach sportif : c'est vous qui écrivez le programme, votre client le suit dans son app, et vous voyez s'il s'y tient."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "C'est adapté au coaching en ligne au Maroc ?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Oui. FitPal Coach est conçu et édité au Maroc. Votre client s'entraîne avec l'app où qu'il soit, en salle ou à la maison, et vous suivez son assiduité à distance. L'appel de démarrage et l'assistance se font sur WhatsApp."
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Combien ça coûte ?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Un forfait mensuel fixe, plus une mise en place payée une seule fois. Pas d'abonnement par client : votre facture n'augmente pas parce que votre activité marche. Le montant dépend du nombre de clients et de l'hébergement, et il est fixé pendant l'appel."
-          }
-        }
-      ]
     }
   ]
 }
@@ -193,7 +145,7 @@
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Coach sportif · Maroc · 5 à 40 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
+        <p class="label eyebrow"><span>Logiciel de coaching · 5 à 40 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
         <h1 class="display"><span>L'admin</span><span>vous coûte</span><span>des clients.</span></h1>
         <p class="lead">
           FitPal Coach remplace les DM WhatsApp, les notes vocales et le tableur. Vos clients reçoivent
@@ -389,7 +341,7 @@
         <div class="spec-row"><dt>Hébergement</dt><dd>Votre instance, votre domaine, vos données. Aucune télémétrie.</dd></div>
         <div class="spec-row"><dt>Export</dt><dd>Les données client sont exportables à tout moment, en JSON.</dd></div>
         <div class="spec-row"><dt>Tarif</dt><dd>Forfait mensuel fixe, plus une mise en place payée une fois. Pas d'abonnement par client. Le montant est fixé pendant l'appel.</dd></div>
-        <div class="spec-row"><dt>Siège</dt><dd>Maroc. L'appel de démarrage et l'assistance se font sur WhatsApp.</dd></div>
+        <div class="spec-row"><dt>Pays</dt><dd>Maroc. L'appel de démarrage et l'assistance se font sur WhatsApp.</dd></div>
       </dl>
 
       <!-- The two facts most likely to close this buyer used to live only inside collapsed FAQ
