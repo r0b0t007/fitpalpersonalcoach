@@ -81,6 +81,8 @@ jobs:
         run: node scripts/check-font-axes.mjs
 
       - name: Site builds
+        # Also generates each page's FAQPage JSON-LD from its visible FAQ, and fails on an
+        # unknown entity or a hand-written FAQPage left in the source.
         # The deploy job is the only other place the build runs, and it is skipped whenever
         # DEPLOY_SITE_COACH is off or the Cloudflare secrets are missing. Without this step a
         # change that breaks the build passes every PR check and first fails on main, at deploy.
