@@ -205,8 +205,11 @@ freezes all animation for pixel-exact output. Every product claim on the page is
 one. No invented UI and no mockups of screens that do not exist.
 
 Decorative and abstract imagery (the OG cards, any texture or diagram where nothing real
-exists) is generated. The bolt mark is the one asset shared with the sibling brand, drawn as
-inline SVG from `frontend/resources/icon.svg`, recolored to `--gold`.
+exists) is generated. The mark is the One Spine symbol from `brand/logo-kit`, drawn as inline
+SVG and coloured `--gold`. The site uses the kit's small-size drawing, because it shows at 22px
+in the header; the app's `Logo.jsx` and `frontend/resources/icon.svg` use the thinner reversed
+drawing. Copy paths from `brand/logo-kit/master`, not from one surface to another. It replaced
+the bolt that used to be shared with the sibling brand.
 
 **Photography is illustrative, and is marked as such.** Two stock photographs appear on the
 site: the portrait beside the hero headline, and the full-bleed band between the argument and

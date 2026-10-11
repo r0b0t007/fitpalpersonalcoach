@@ -47,13 +47,21 @@ The kit then has two hand-made overrides:
 2. `web/favicon.svg` is replaced with `master/fitpal-coach-favicon-tile.svg`, so the favicon has a
    graphite tile and stays visible in dark browser tabs. `web/favicon-*.png` and `favicon.ico` are
    rendered from it.
+3. The script's `apple-touch-icon.png`, `maskable-512.png` and `site.webmanifest` are renamed to
+   `icon-180.png`, `icon-maskable-512.png` and `manifest.json`, the names the app and the site
+   serve; `manifest.json` and `head-snippet.html` reference those names.
+4. `web/badge-96.png` is added by hand: the small drawing, white on transparency, 96 px. Android
+   draws a notification badge from its alpha channel only, so an opaque tile would show as a
+   white square. Render the small black master at 96 px and set every pixel's colour to white.
 
 ## Open items
 
-- **Wired in.** The app (`frontend/public` icons, `manifest.json`, `index.html`, `components/Logo.jsx`)
-  and the site (`site-coach` favicon, `icon-180.png`, header and footer symbol on all five pages) use
-  this kit. The manifest keeps `#000000` for its theme and background on purpose: it has to match the
-  app's black UI (`App.jsx` sets theme-color at runtime), so only the icon tiles are graphite.
+- **Wired in.** The app (`frontend/public` icons and `badge-96.png`, `manifest.json`, `index.html`,
+  `components/Logo.jsx`, `sw.js`) and the site (`site-coach` favicon SVG and ICO, `icon-180.png`,
+  header and footer symbol on all five pages) use this kit. The web/ snippet and manifest use
+  graphite `#1C1A17` for the theme colour, as the site does. The app's own manifest keeps `#000000`
+  on purpose: it has to match the app's black UI (`App.jsx` sets theme-color at runtime), so only
+  its icon tiles are graphite.
 - **Native app icons are not regenerated.** `frontend/resources/icon.svg` is updated, but the
   Android and iOS icon files only change after `npx @capacitor/assets generate` (docs/MOBILE.md).
 - **Trademark.** No clearance search has been done. Run one (Morocco's OMPIC, WIPO Global Brand

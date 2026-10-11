@@ -84,7 +84,9 @@ below the 3 : 1 minimum for graphics, so the mark disappears. On light grounds, 
 - `variants/` holds the symbol in one colour, square and on an app tile, with PNGs at 64, 512 and
   1024 px.
 - `png/` holds the lockups as 1600 px PNGs.
-- `web/` holds the favicon (SVG and ICO), PNG icons, apple-touch icon, maskable icon, the web
-  manifest and a `<head>` snippet.
+- `web/` holds the favicon (SVG and ICO), PNG icons, the apple-touch icon (`icon-180.png`), the
+  maskable icon, the notification badge (`badge-96.png`), a web manifest and a `<head>` snippet.
+  The file names match what `frontend/public` and `site-coach` serve, so the snippet can be
+  pasted as is.
 - `presentation/` holds the board (`board.html`) and its slides as PNGs.
 - `source/build_kit.py` regenerates every master from the geometry.

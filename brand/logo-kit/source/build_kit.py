@@ -5,8 +5,10 @@ Usage (from the repo root):
   python brand/logo-kit/source/build_kit.py site-coach/fonts/archivo-latin.woff2 brand/logo-kit/master
 
 Then re-run the logo-design skill's export_variants.py for variants/ and web/ (see ../README.md).
-Writes symbol (master / small-size cut / reversed-thinned), wordmark, horizontal and stacked
-lockups, in black, graphite, gold and the on-dark two-colour set.
+Writes the symbol (master and small-size cut in black and graphite, small cut also in gold;
+reversed-thinned in white, bone and gold), the app and favicon tiles, the wordmark (black,
+graphite, white, bone) and horizontal and stacked lockups (black, graphite, white and the
+gold-and-bone on-dark set).
 """
 import io, os, sys
 from fontTools.ttLib import TTFont
@@ -198,11 +200,11 @@ for kind, fn in (("horizontal", horizontal), ("stacked", stacked)):
     write(f"fitpal-coach-{kind}-on-dark-preview.svg", w, h, T_LOGO,
           f'<rect width="{w}" height="{h}" fill="{GRAPHITE}"/>{body}')
 
-print(f"stem unit in lockups = {STEM:.2f}; wordmark size = {TEXT:.2f}")
-print("written:", len(os.listdir(OUT)), "files ->", OUT)
-
 # favicon tile: the small-size cut in gold on graphite, mark as large as the tile allows,
 # so it reads in both light and dark browser tabs (same approach as the site's old favicon)
 write("fitpal-coach-favicon-tile.svg", 256, 256, T_SYM,
       f'<rect width="256" height="256" rx="48" fill="{GRAPHITE}"/>'
       + symbol_body(SMALL, GOLD, target_h=196, optical_up=2))
+
+print(f"stem unit in lockups = {STEM:.2f}; wordmark size = {TEXT:.2f}")
+print("written:", len(os.listdir(OUT)), "files ->", OUT)

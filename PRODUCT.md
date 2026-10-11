@@ -58,7 +58,8 @@ The feeling to evoke is competence, not excitement. A trainer should finish the 
   tracked uppercase labels stacked above every section heading. This is the second-order
   reflex for a brand avoiding the first two, and it is not what this is.
 - **fitpal.ma.** The sibling site sells a different product to a different buyer. Shared
-  ownership should not read as a shared template. Only the bolt mark connects them.
+  ownership should not read as a shared template. The bolt mark used to connect them; FitPal
+  Coach now has its own One Spine symbol (`brand/logo-kit`), so only the FitPal gold does.
 
 ## Design Principles
 

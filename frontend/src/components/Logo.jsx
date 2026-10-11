@@ -1,4 +1,4 @@
-import { TAGLINE, GOLD } from '../lib/brand.js'
+import { BRAND, TAGLINE, GOLD } from '../lib/brand.js'
 
 // The One Spine symbol (brand/logo-kit): an f and a p on one stem. This is the kit's "reversed"
 // drawing, a touch lighter because the app's default ground is black, and the viewBox is cropped
@@ -17,21 +17,24 @@ const SYMBOL = 'M48 89.3H89.2C89.2 52.3 119.2 22.3 156.1 22.3V61.5C140.8 61.5 12
 export default function Logo({ size = 34, subtitle = true }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(size * .22) }}>
-      {/* "FitPal Coach" is nearly twice the glyphs of the wordmark this replaced: measured at
-          292px wide at size 40, which overflows a 320px phone. So it shrinks rather than
-          overflowing — full `size` from 430px up, 75% of it at 320px, and never below 70%.
-          The symbol is sized in em so it shrinks with the name; at 0.94em wide it takes the
-          room the old separator bolt took. nowrap keeps symbol and name on one line. */}
+      {/* At full size the row is too wide for a 320px phone (Login uses size 40), so it shrinks
+          rather than overflowing — full `size` from 430px up, 75% of it at 320px, and never
+          below 70%. Everything inside is in em so it all shrinks together: symbol 0.96em wide,
+          a .3em gap, then the name. Checked to fit on one line at 320px and 375px; re-check
+          there if `size`, the clamp or the gap changes. nowrap keeps symbol and name together.
+          The symbol's width is explicit (viewBox 160×208 at 1.25em tall) rather than auto:
+          older WebKit, including the iOS app's WebView, can size an auto-width SVG flex item
+          to 300px or to nothing. */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '.3em', color: GOLD,
         fontSize: `clamp(${(size * .7).toFixed(1)}px, ${(size / 4.4).toFixed(2)}vw + ${(size * .023).toFixed(2)}px, ${size}px)`,
         fontWeight: 800, letterSpacing: '.04em', lineHeight: 1, whiteSpace: 'nowrap', maxWidth: '100%',
       }}>
         <svg viewBox="48 22 160 208" aria-hidden="true" focusable="false"
-          style={{ height: '1.25em', width: 'auto', flex: 'none' }}>
+          style={{ height: '1.25em', width: '.96em', flex: 'none' }}>
           <path fill="currentColor" fillRule="evenodd" d={SYMBOL} />
         </svg>
-        <span>FitPal Coach</span>
+        <span>{BRAND}</span>
       </div>
       {subtitle && (
         <div style={{
