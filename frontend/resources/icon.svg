@@ -2,8 +2,9 @@
   <!-- App-icon source: the same mark as the PWA icons (public/icon-*.png) and the site favicon,
        so the native app, the home-screen PWA and the website all show one icon.
        FitPal Coach: graphite field, gold One Spine symbol (brand/logo-kit, reversed drawing).
-       The symbol is 50 % of the canvas so it stays inside Android's adaptive-icon safe zone.
-       Generate platform icons + splash via `npx @capacitor/assets generate` — docs/MOBILE.md. -->
+       The symbol is 50 % of the canvas. This file is also the iOS app icon as is.
+       Write every native icon and launch screen from it with `npm run assets:native`
+       (scripts/native-assets.mjs, docs/MOBILE.md), not `npx @capacitor/assets generate`. -->
   <rect width="512" height="512" fill="#1C1A17"/>
   <path fill="#D4AF37" fill-rule="evenodd" transform="matrix(1.2367 0 0 1.2367 97.94 96.42)"
         d="M48 89.3H89.2C89.2 52.3 119.2 22.3 156.1 22.3V61.5C140.8 61.5 128.3 73.9 128.3 89.3H154.1C183.7 89.3 207.6 113.2 207.6 142.8C207.6 172.4 183.7 196.4 154.1 196.4H128.3V229.3H89.2V122.2H48V89.3ZM128.3 122.2V163.4H150C161.3 163.4 170.6 154.2 170.6 142.8C170.6 131.4 161.3 122.2 150 122.2H128.3Z"/>

@@ -62,8 +62,9 @@ The kit then has two hand-made overrides:
   graphite `#1C1A17` for the theme colour, as the site does. The app's own manifest keeps `#000000`
   on purpose: it has to match the app's black UI (`App.jsx` sets theme-color at runtime), so only
   its icon tiles are graphite.
-- **Native app icons are not regenerated.** `frontend/resources/icon.svg` is updated, but the
-  Android and iOS icon files only change after `npx @capacitor/assets generate` (docs/MOBILE.md).
+- **Native app icons and launch screens** are written from `frontend/resources/icon.svg` by
+  `npm run assets:native` in `frontend/` (see docs/MOBILE.md). Installed apps change only after a
+  native rebuild and install.
 - **Trademark.** No clearance search has been done. Run one (Morocco's OMPIC, WIPO Global Brand
   Database, a reverse image search) before printing or registering.
 - **Mockup placeholders.** In the presentation, the browser-tab address, social handle and business

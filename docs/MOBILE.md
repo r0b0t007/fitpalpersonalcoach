@@ -67,26 +67,34 @@ into both native projects — re-run it after every web-code change before build
 
 ## App icons & splash screens
 
-`frontend/resources/icon.svg` is the design source: the gold One Spine symbol on a graphite
-field, from `brand/logo-kit`. The generator is fed the PNGs in `frontend/resources/capacitor/`,
-which are rendered from it:
-
-| File | What it is |
-|---|---|
-| `icon-only.png` | `icon.svg` at 1024 px. iOS icon and Android's pre-8.0 icons. |
-| `icon-foreground.png` | The symbol alone on transparency, 560 px tall in 1024. Android adaptive-icon foreground, sized to match the iOS icon's weight and stay inside the 66dp safe zone. |
-| `icon-background.png` | Solid graphite `#1C1A17`. Android adaptive-icon background. |
-| `splash.png`, `splash-dark.png` | The symbol 440 px tall, centred on graphite, 2732 px square. Identical, because the app is dark either way. |
+`frontend/resources/icon.svg` is the single source: the gold One Spine symbol on a graphite
+field, from `brand/logo-kit`. Every native icon and launch screen is written from it by one
+script:
 
 ```sh
 cd frontend
-npx @capacitor/assets generate --assetPath resources/capacitor --android --ios
+npm run assets:native
 ```
 
-Keep the generator pointed at `resources/capacitor`. Without `--assetPath` it reads
-`resources/`, where it picks `icon.svg` up as a "logo" and runs its single-image mode instead,
-which shrinks the whole tile onto a background colour. If `icon.svg` changes, re-render these
-PNGs from it before generating.
+It writes these, and nothing else in the native projects should be edited by hand:
+
+| Platform | What | Where |
+|---|---|---|
+| Android 8+ | Adaptive icon: graphite colour background, vector foreground | `mipmap-anydpi-v26/`, `drawable-v24/ic_launcher_foreground.xml`, `values/ic_launcher_background.xml` |
+| Android 6–7 | Square and round icons, PNG per density | `mipmap-*/ic_launcher*.png` |
+| Android | Launch screen: the symbol centred on black, 120dp tall | `drawable/launch_screen.xml`, `drawable/splash_symbol.xml`, `drawable/splash_icon.xml` (Android 12+) |
+| iOS | App icon, 1024 px, no alpha | `AppIcon.appiconset/` |
+| iOS | Launch image, 2732 px square, aspect-filled by `LaunchScreen.storyboard` | `Splash.imageset/` |
+
+The launch theme in `android/app/src/main/res/values/styles.xml` points at those drawables,
+including the two `windowSplashScreen*` items Android 12+ needs; without them it shows a white
+frame first. Launch screens are black, not graphite, to match the WebView's `#000000`
+(`capacitor.config.json`) so there is no colour jump when the app takes over.
+
+Do not run `npx @capacitor/assets generate` over this. It makes the adaptive-icon layers too
+small (Android scales them up and they go soft), pads the old icons by a fixed 8px, and writes
+the Android launch screen as a full-window bitmap that Android stretches to the screen's shape.
+The script's header has the details.
 
 ## Distribution — deliberately no app stores
 
