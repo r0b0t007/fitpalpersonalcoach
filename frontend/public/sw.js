@@ -13,7 +13,9 @@ self.addEventListener('push', e => {
   e.waitUntil(self.registration.showNotification(data.title || 'FitPal Coach', {
     body: data.body || '',
     icon: 'icon-512.png',
-    badge: 'icon-180.png',
+    // Android draws the badge from the alpha channel only, so it needs the bare symbol on
+    // transparency; the opaque icon tiles would show as a white square.
+    badge: 'badge-96.png',
     tag: data.tag || 'fitpal-coach',
     renotify: true
   }))

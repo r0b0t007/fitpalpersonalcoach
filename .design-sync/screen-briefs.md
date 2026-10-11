@@ -16,14 +16,14 @@
 
 ```
 Frame: phone 390x844, dark theme. No tab bar. Wrap everything in #app, vertically centred, text-align centre, min-height 78vh.
-Top: the Logo component (the "FitPal (bolt) Coach" wordmark, bolt in gold), then one muted line 10px under it: "Your coach. Your plan. Your progress."
+Top: the Logo component (the gold One Spine symbol, then "FitPal Coach" in gold), then one muted line 10px under it: "Your coach. Your plan. Your progress."
 34px gap, then three stacked full-width controls:
   1. Button variant primary, icon person, "Sign in with passkey".
   2. 10px gap. Button (plain), icon sparkles, "Create new profile".
   3. 10px gap. Button variant ghost, dim, "Continue without account".
 20px gap, then the InstallCard: a .card with a gold rounded-square download icon, .tt "Install FitPal Coach", .ss "Get the full-screen app on your home screen.", a full-width primary "Install" button and a plain "Not now" beneath it.
 26px gap, then two centred .dim .small lines: "Passkeys use fingerprint, face or PIN - no passwords." and "Each profile keeps its own plan, workouts & body weight."
-Rules: no username or password field anywhere - sign-in is passkey only. Gold appears on the bolt, the primary button and the Install button, nothing else.
+Rules: no username or password field anywhere - sign-in is passkey only. Gold appears on the logo, the primary button and the Install button, nothing else.
 ```
 
 ## S2 — Invite landing
