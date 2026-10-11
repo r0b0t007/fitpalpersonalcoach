@@ -1,0 +1,42 @@
+{
+  "brand": "FitPal Coach",
+  "tagline": "Le logiciel des coachs sportifs indépendants",
+  "brief": "Software for independent coaches in Morocco with 5 to 40 clients. It replaces WhatsApp DMs, voice notes and the spreadsheet: clients get a real training app, and the coach sees who is dropping off. The mark has to work as an app icon on black, as a favicon, and in the brand's gold on warm graphite, without leaning on the fitness clichés (dumbbells, bolts, flames, flexed arms).",
+  "adjectives": ["dependable", "direct", "attentive", "disciplined", "premium"],
+  "criteria": "Ownable in a category of dumbbells and lightning bolts, readable at 16 px, works in one colour, sits in the existing gold-on-graphite brand.",
+  "industry": "saas",
+  "mockups": ["app-icon", "website", "favicon-tab", "social", "tshirt", "business-card"],
+  "nav": ["Fonctionnalités", "Tarifs", "FAQ"],
+  "brand_color": "#D4AF37",
+  "tile_color": "#1C1A17",
+  "greyscale": false,
+  "final": true,
+  "designer": "FitPal Coach",
+  "concepts": [
+    {
+      "name": "One Spine",
+      "symbol": "../master/fitpal-coach-symbol-graphite.svg",
+      "lockup": "../master/fitpal-coach-horizontal-graphite.svg",
+      "stacked": "../master/fitpal-coach-stacked-graphite.svg",
+      "avatar": "../master/fitpal-coach-app-icon.svg",
+      "symbol_on_tile": "../master/fitpal-coach-symbol-reversed-gold.svg",
+      "stacked_on_tile": "../master/fitpal-coach-stacked-on-dark.svg",
+      "symbol_on_dark": "../master/fitpal-coach-symbol-reversed-gold.svg",
+      "lockup_on_dark": "../master/fitpal-coach-horizontal-on-dark.svg",
+      "stacked_on_dark": "../master/fitpal-coach-stacked-on-dark.svg",
+      "idea": "An f and a p on one stem: coach and client on the same backbone.",
+      "rationale": [
+        "The f's crossbar runs straight into the p's bowl, so the two letters read as one piece",
+        "No dumbbell, no bolt: a letterform, so it stays ownable in a cliché-heavy category",
+        "A heavier small-size drawing keeps it legible as a 16 px favicon",
+        "Gold on warm graphite, the palette the site and the app already use"
+      ]
+    }
+  ],
+  "recommendation": "One Spine in gold #D4AF37 on graphite #1C1A17, with the bone #F2EDE4 wordmark. On light grounds, use the graphite one-colour version.",
+  "next_steps": [
+    "Swap the icons in frontend/public and site-coach for the web/ set",
+    "Replace the lightning-bolt SVG in the site header with the symbol",
+    "Run a trademark search before printing anything"
+  ]
+}

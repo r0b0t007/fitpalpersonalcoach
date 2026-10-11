@@ -282,7 +282,10 @@ p { max-width: 68ch; }
   letter-spacing: 0.01em;
   text-transform: uppercase;
 }
-.brand svg { width: 20px; height: 20px; flex: none; }
+/* The One Spine symbol (brand/logo-kit). Gold, not the text colour: the logo guidelines put the
+   symbol in gold on dark grounds. This is the small-size drawing, which is the one for under 32px.
+   The viewBox is cropped to the ink (156 x 208), so these two numbers keep that aspect. */
+.brand svg { width: 16.5px; height: 22px; flex: none; color: var(--gold); }
 .brand b { font-weight: inherit; color: var(--gold); }
 
 .nav { display: flex; gap: var(--sp-6); }

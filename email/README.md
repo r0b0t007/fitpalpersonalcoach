@@ -64,7 +64,7 @@ Two deliberate email-specific choices, both of which look like omissions and are
 
 - **The wordmark is live text, not an image.** Gmail and Outlook block remote images from unknown
   senders by default, so an image-based logo would leave a broken box on first contact. The only
-  image is the 2 KB bolt at `https://fitpal.ma/icon-180.png`, with empty `alt` so it disappears
+  image is the 2 KB symbol tile at `https://fitpal.ma/icon-180.png`, with empty `alt` so it disappears
   cleanly when blocked rather than leaving placeholder text.
 - **The CTA has no Outlook VML fallback.** The button radius is 3px; Outlook rendering it square
   is imperceptible, so the usual `<!--[if mso]><v:roundrect>` block would add fragile markup for
