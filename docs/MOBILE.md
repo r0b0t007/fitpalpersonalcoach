@@ -67,16 +67,26 @@ into both native projects — re-run it after every web-code change before build
 
 ## App icons & splash screens
 
-`frontend/resources/icon.svg` is the 1024×1024 source (the gold One Spine symbol on a
-graphite field, from `brand/logo-kit`). Generate all platform assets from it on a machine with the tooling:
+`frontend/resources/icon.svg` is the design source: the gold One Spine symbol on a graphite
+field, from `brand/logo-kit`. The generator is fed the PNGs in `frontend/resources/capacitor/`,
+which are rendered from it:
+
+| File | What it is |
+|---|---|
+| `icon-only.png` | `icon.svg` at 1024 px. iOS icon and Android's pre-8.0 icons. |
+| `icon-foreground.png` | The symbol alone on transparency, 560 px tall in 1024. Android adaptive-icon foreground, sized to match the iOS icon's weight and stay inside the 66dp safe zone. |
+| `icon-background.png` | Solid graphite `#1C1A17`. Android adaptive-icon background. |
+| `splash.png`, `splash-dark.png` | The symbol 440 px tall, centred on graphite, 2732 px square. Identical, because the app is dark either way. |
 
 ```sh
 cd frontend
-npx @capacitor/assets generate --iconBackgroundColor '#1C1A17' --splashBackgroundColor '#1C1A17'
+npx @capacitor/assets generate --assetPath resources/capacitor --android --ios
 ```
 
-(If the generator won't take the SVG directly, export it to `resources/icon.png` at
-1024×1024 first — any image tool can do it.)
+Keep the generator pointed at `resources/capacitor`. Without `--assetPath` it reads
+`resources/`, where it picks `icon.svg` up as a "logo" and runs its single-image mode instead,
+which shrinks the whole tile onto a background colour. If `icon.svg` changes, re-render these
+PNGs from it before generating.
 
 ## Distribution — deliberately no app stores
 
