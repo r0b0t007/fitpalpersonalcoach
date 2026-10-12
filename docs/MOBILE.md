@@ -82,14 +82,23 @@ It writes these, and nothing else in the native projects should be edited by han
 |---|---|---|
 | Android 8+ | Adaptive icon: graphite colour background, vector foreground | `mipmap-anydpi-v26/`, `drawable-v24/ic_launcher_foreground.xml`, `values/ic_launcher_background.xml` |
 | Android 6–7 | Square and round icons, PNG per density | `mipmap-*/ic_launcher*.png` |
-| Android | Launch screen: the symbol centred on black, 120dp tall | `drawable/launch_screen.xml`, `drawable/splash_symbol.xml`, `drawable/splash_icon.xml` (Android 12+) |
+| Android, all versions | Launch screen: the symbol centred on black, 120dp tall | `drawable/splash_icon.xml`, `launch_background` in `values/ic_launcher_background.xml` |
 | iOS | App icon, 1024 px, no alpha | `AppIcon.appiconset/` |
-| iOS | Launch image, 2732 px square, aspect-filled by `LaunchScreen.storyboard` | `Splash.imageset/` |
+| iOS | Launch image, 2732 px square, no alpha, aspect-filled by `LaunchScreen.storyboard` | `Splash.imageset/` |
 
-The launch theme in `android/app/src/main/res/values/styles.xml` points at those drawables,
-including the two `windowSplashScreen*` items Android 12+ needs; without them it shows a white
-frame first. Launch screens are black, not graphite, to match the WebView's `#000000`
-(`capacitor.config.json`) so there is no colour jump when the app takes over.
+The launch theme in `android/app/src/main/res/values/styles.xml` uses them through its two
+`windowSplashScreen*` items, on every Android version: 12+ draws them as its own launch screen
+(without them it shows a white frame first), and below 12 `Theme.SplashScreen` makes them the
+window background at the same size and place. So `splash_icon.xml` is the launch screen
+everywhere, not only on 12+. Launch screens are black, not graphite: the script takes the colour
+from `backgroundColor` in `capacitor.config.json`, the WebView's colour, so there is no colour
+jump when the app takes over.
+
+The script reads the symbol, its gold and the graphite from `icon.svg` (one `<path>`, one
+`<rect>`) and measures the symbol's size and position from the path, so a change there reaches
+every output. It stops with an error if the file has a second path or the path uses commands
+other than M, L, H, V, C and Z. Its renderer, `sharp`, is pinned in `devDependencies` so a re-run
+writes the same bytes.
 
 Do not run `npx @capacitor/assets generate` over this. It makes the adaptive-icon layers too
 small (Android scales them up and they go soft), pads the old icons by a fixed 8px, and writes
