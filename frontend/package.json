@@ -11,7 +11,8 @@
     "test": "npm run check:i18n && vitest run",
     "check:i18n": "node scripts/check-locales.mjs && node scripts/check-source-strings.mjs",
     "test:watch": "vitest",
-    "test:fatigue-probe": "node scripts/fatigue-monotonic-probe.mjs"
+    "test:fatigue-probe": "node scripts/fatigue-monotonic-probe.mjs",
+    "assets:native": "node scripts/native-assets.mjs"
   },
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "^7.1.6",
@@ -35,6 +36,7 @@
     "@vitest/coverage-v8": "^5.0.2",
     "happy-dom": "^20.14.5",
     "linkedom": "^0.18.13",
+    "sharp": "0.32.6",
     "vite": "^8.3.1",
     "vitest": "^5.0.0"
   }

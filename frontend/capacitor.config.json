@@ -1,6 +1,6 @@
 {
   "appId": "ch.duartesantos.opengym",
-  "appName": "FIT'ONE",
+  "appName": "FitPal Coach",
   "webDir": "dist",
   "backgroundColor": "#000000",
   "android": {
