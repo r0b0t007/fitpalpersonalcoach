@@ -1,5 +1,5 @@
 // Formatting + date helpers (ported from the vanilla app, unit taken from the store where needed).
-import { dateLocale, t } from './i18n-core.js'
+import { dateLocale, t, tp } from './i18n-core.js'
 export const todayISO = () => {
   const d = new Date()
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
@@ -32,7 +32,7 @@ export const fmtNum = n => (Math.round(n * 10) / 10).toLocaleString(dateLocale()
 // "7'535 kg" — two numbers you can't compare at a glance.
 export const fmtVol = (v, unit) => fmtNum(v) + ' ' + unit
 // Plural forms are not automatic when the English string is the key.
-export const exCount = n => t(n === 1 ? '{0} exercise' : '{0} exercises', n)
+export const exCount = n => tp(n, '{0} exercise', '{0} exercises')
 
 /* ---------------------------------------------------------------- week start --
    Where a week begins is a local convention, not a fact: most of Europe starts on

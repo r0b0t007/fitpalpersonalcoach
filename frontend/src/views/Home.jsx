@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
-import { t, dateLocale } from '../lib/i18n.js'
+import { t, tp, dateLocale } from '../lib/i18n.js'
 import { BRAND } from '../lib/brand.js'
 import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, checkinSheet } from '../sheets.jsx'
 import { checkinStreak, isCheckinDue, periodStart, currentCheckin } from '../lib/checkins.js'
@@ -287,7 +287,7 @@ export default function Home() {
             <Icon name="flame" style={{ color: 'var(--orange)' }} />
             {t('{0} week streak', streakWeeks(S))}
           </div>
-          <div className="muted small" style={{ marginTop: 2 }}>{wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}</div>
+          <div className="muted small" style={{ marginTop: 2 }}>{wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {tp(S.workouts.length, '{0} workout total', '{0} workouts total')}</div>
         </div>
         <button className="iconbtn" style={{ width: 34, height: 34, fontSize: 17 }}
           onClick={e => { e.stopPropagation(); calendarSheet() }} aria-label={t('Calendar')} title={t('Calendar')}>

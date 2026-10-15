@@ -25,11 +25,40 @@ export const getLang = () => lang
 export const dateLocale = () => DATE_LOCALES[lang] || 'en-GB'
 export const getVersion = () => version
 
+// The first offered language in a browser preference list, matched on its base code
+// ('fr-CA' → 'fr'). Walks the whole list rather than taking the head, so a phone set to
+// ['ar-MA', 'fr-FR'] lands on French instead of falling straight back to English.
+export function pickLang(prefs) {
+  for (const p of prefs || []) {
+    const base = String(p).toLowerCase().split('-')[0]
+    if (LANGS[base]) return base
+  }
+  return DEFAULT_LANG
+}
+
+// What a profile that has never chosen a language starts in. Only ever reaches a brand-new
+// profile: every saved state already carries the `lang` it was written with, and that wins.
+export const browserLang = () => typeof navigator === 'undefined'
+  ? DEFAULT_LANG
+  : pickLang(navigator.languages?.length ? navigator.languages : [navigator.language])
+
 // Translate a source string; {0},{1}… are replaced with args (also on the English fallback).
 export function t(s, ...args) {
   let v = dict[s] || s
   for (let i = 0; i < args.length; i++) v = v.replaceAll('{' + i + '}', args[i])
   return v
+}
+
+// Pick the singular or plural English key by the current language's plural rules, then
+// translate it with n as {0}. `n === 1 ? a : b` is English's rule, not French's: French
+// counts 0 as singular ("0 séance"). Only 'one' selects the singular; every other category
+// ('few', 'many', …) takes the plural key, which is all two English forms can express.
+const pluralRules = {}
+export function tp(n, one, other, ...args) {
+  const loc = dateLocale()
+  let form = 'other'
+  try { form = (pluralRules[loc] ||= new Intl.PluralRules(loc)).select(n) } catch { form = n === 1 ? 'one' : 'other' }
+  return t(form === 'one' ? one : other, n, ...args)
 }
 
 // Instructions for an exercise in the current language (English steps as fallback).

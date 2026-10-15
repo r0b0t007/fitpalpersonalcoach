@@ -8,7 +8,7 @@ import { lastEntryFor, bestWeightFor, bestWeightForEntry, buildSets, effectiveRo
 import { usesBar, barWeightFor, defaultBarWeight, hasBarOverride } from './lib/bar.js'
 import { toScale, rirOf, EFFORT_PRESETS, effortColor } from './lib/effort.js'
 import { beep, vibrate } from './lib/sound.js'
-import { t, dateLocale, instrFor, exerciseNameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
+import { t, tp, dateLocale, instrFor, exerciseNameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
 import { buildStarterPlan, starterPlanDays, starterPlanOptions } from './lib/starter.js'
 import { SITES, SITE_LABEL, isValidValue, latestBySite, lengthUnit, removeMeasurement, upsertMeasurement } from './lib/measurements.js'
@@ -917,7 +917,7 @@ function ExerciseHistory({ exId }) {
   ].filter(Boolean).join(' · ')
   return <>
     <h3 className="capitalize" style={{ marginBottom: 2 }}>{exerciseNameFor(ex)}</h3>
-    <div className="muted small" style={{ marginBottom: 10 }}>{t('Exercise history')} · {t(h.total === 1 ? '{0} session' : '{0} sessions', h.total)}</div>
+    <div className="muted small" style={{ marginBottom: 10 }}>{t('Exercise history')} · {tp(h.total, '{0} session', '{0} sessions')}</div>
     {/* Only reps work with a load produces an estimate, so the toggle is absent for the rest. */}
     {h.e1rmPoints.length > 0 && h.metric === 'weight' && <Segmented className="seg-range" value={curve} onChange={setCurve}
       options={[{ value: 'top', label: t('Top set') }, { value: 'e1rm', label: t('Est. 1RM') }]} />}
@@ -1767,10 +1767,10 @@ function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAcce
       : bundle.name ? t('Import “{0}”', bundle.name) : t('Import this plan')}</h3>
     {note && <div className="small" style={{ marginBottom: 10, lineHeight: 1.4 }}>“{note}”</div>}
     <div className="muted small" style={{ marginBottom: 14 }}>
-      {t(bundle.routineCount === 1 ? '{0} routine' : '{0} routines', bundle.routineCount)}
+      {tp(bundle.routineCount, '{0} routine', '{0} routines')}
       {' · ' + exCount(bundle.exerciseCount)}
       {bundle.scheduledDays > 0
-        ? ' · ' + t(bundle.scheduledDays === 1 ? 'scheduled on {0} day' : 'scheduled on {0} days', bundle.scheduledDays)
+        ? ' · ' + tp(bundle.scheduledDays, 'scheduled on {0} day', 'scheduled on {0} days')
         : ''}
     </div>
     <div className="dim small" style={{ marginBottom: 14, lineHeight: 1.4 }}>{t('These are added as new routines — nothing you already have is changed.')}</div>
@@ -1992,7 +1992,7 @@ function Calendar({ start, close }) {
       <h3 style={{ margin: 0 }}>{t(MONTHS_LONG[mo])} {y}</h3>
       <button className="iconbtn" onClick={() => setCur(new Date(y, mo + 1, 1))} aria-label="Next month"><Icon name="chevronRight" /></button>
     </div>
-    <div className="small muted" style={{ textAlign: 'center' }}>{monthWs.length ? `${t(monthWs.length === 1 ? '{0} workout' : '{0} workouts', monthWs.length)} · ${fmtDur(monthMs)} · ${fmtVol(monthVol, st.unit)}` : t('No workouts this month')}</div>
+    <div className="small muted" style={{ textAlign: 'center' }}>{monthWs.length ? `${tp(monthWs.length, '{0} workout', '{0} workouts')} · ${fmtDur(monthMs)} · ${fmtVol(monthVol, st.unit)}` : t('No workouts this month')}</div>
     <div className="cal-grid">{weekOrder(ws).map(d => <div key={d} className="cal-h">{t(DAYS[d])}</div>)}{cells}</div>
     <div className="cal-legend">
       <span><i style={{ background: 'var(--acc)' }} />{t('Trained')}</span>
@@ -2357,7 +2357,7 @@ export function finishWorkout() {
   const done = setsDoneActive(A)
   const total = setUnitsTotal(A.entries)
   if (!done) { confirmSheet({ title: t('Nothing logged yet'), message: t('You haven’t checked off any sets. Finish the workout anyway?'), confirmText: t('Finish anyway'), onConfirm: doFinishWorkout }); return }
-  if (done < total) { confirmSheet({ title: t('Finish early?'), message: t(total - done === 1 ? '{0} set still unchecked. Finish the workout now?' : '{0} sets still unchecked. Finish the workout now?', total - done), confirmText: t('Finish workout'), onConfirm: doFinishWorkout }); return }
+  if (done < total) { confirmSheet({ title: t('Finish early?'), message: tp(total - done, '{0} set still unchecked. Finish the workout now?', '{0} sets still unchecked. Finish the workout now?'), confirmText: t('Finish workout'), onConfirm: doFinishWorkout }); return }
   doFinishWorkout()
 }
 function doFinishWorkout() {
