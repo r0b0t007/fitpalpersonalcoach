@@ -4,7 +4,7 @@ import { MOBILE } from '../../lib/mobile.js'
 import { t } from '../../lib/i18n.js'
 import { useUI } from '../../store/useUI.js'
 import { setShellPref } from '../../lib/role.js'
-import { ACCENTS } from '../../lib/format.js'
+import { ACCENTS, accentName } from '../../lib/format.js'
 import { Row, Section, Segmented } from '../../components/ui.jsx'
 import { confirmSheet } from '../../sheets.jsx'
 import { InviteSheet, MediaSheet } from './sheets.jsx'
@@ -134,7 +134,7 @@ export default function CoachAccount() {
         <div className="swatches">
           {Object.entries(ACCENTS).map(([k, c]) => (
             <button key={k} className={'swatch' + ((S.accent || 'gold') === k ? ' on' : '')}
-              style={{ background: c }} onClick={() => update(s => { s.accent = k })} aria-label={k} />
+              style={{ background: c }} onClick={() => update(s => { s.accent = k })} aria-label={accentName(k)} />
           ))}
         </div>
       </div>

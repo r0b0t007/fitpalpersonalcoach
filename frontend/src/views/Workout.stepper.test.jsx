@@ -71,7 +71,7 @@ vi.mock('../sheets.jsx', () => ({
 vi.mock('../components/Media.jsx', () => ({ default: () => null }))
 vi.mock('../lib/api.js', () => ({
   api: vi.fn(() => Promise.resolve({})),
-  IS_APPLE: false, IS_ANDROID: false, BIO: 'biometrics',
+  IS_APPLE: false, IS_ANDROID: false, bioLabel: () => 'biometrics',
   IS_IOS: false, webauthnOK: () => true,
 }))
 
