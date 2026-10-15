@@ -87,7 +87,7 @@ vi.mock('../components/Media.jsx', () => ({ default: () => null }))
 // tests rather than declaring a vitest environment, so it must not depend on an ambient one.
 vi.mock('../lib/api.js', () => ({
   api: vi.fn(() => Promise.resolve({})),
-  IS_APPLE: false, IS_ANDROID: false, BIO: 'biometrics',
+  IS_APPLE: false, IS_ANDROID: false, bioLabel: () => 'biometrics',
   IS_IOS: false, webauthnOK: () => true,
 }))
 

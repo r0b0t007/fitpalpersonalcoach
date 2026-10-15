@@ -1,11 +1,18 @@
 // Backend + WebAuthn helpers (ported from the vanilla app).
+import { t } from './i18n-core.js'
+
 export const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)
 export const IS_ANDROID = /Android/.test(navigator.userAgent)
 // Narrower than IS_APPLE (which also matches Mac desktops): true only on a touch iOS/iPadOS
 // device, where "Add to Home Screen" via the Safari share sheet is the only way to install —
 // there is no beforeinstallprompt API on that platform.
 export const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (IS_APPLE && navigator.maxTouchPoints > 1)
-export const BIO = IS_APPLE ? 'Face ID / Touch ID' : IS_ANDROID ? 'fingerprint or face unlock' : 'your fingerprint, face or PIN'
+// How this device confirms a passkey, slotted into sentences on the sign-in screen. A function,
+// not a constant, so it reads the language at render time rather than at import (always
+// English). No possessive: the same phrase has to fit "confirm with {0}" and "Passkeys use {0}",
+// and German declines "dein" differently after each.
+export const bioLabel = () => IS_APPLE ? 'Face ID / Touch ID'
+  : IS_ANDROID ? t('fingerprint or face unlock') : t('fingerprint, face or PIN')
 export const VAULT = IS_APPLE ? 'iCloud Keychain' : IS_ANDROID ? 'Google Password Manager' : 'your password manager'
 // PublicKeyCredential is the WebAuthn-specific capability signal. Do not also gate the UI on
 // navigator.credentials: some browsers expose WebAuthn while that generic Credential Management
