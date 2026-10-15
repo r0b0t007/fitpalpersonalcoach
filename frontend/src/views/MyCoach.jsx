@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api, fetchMyPhotos } from '../lib/api.js'
-import { t } from '../lib/i18n.js'
+import { t, tp } from '../lib/i18n.js'
 import { fmtDate, todayISO, isoOf } from '../lib/format.js'
 import { isCheckinDue, checkinDayOf, scoreOf, QUESTIONS } from '../lib/checkins.js'
 import { targetOf } from '../lib/nutrition.js'
@@ -178,7 +178,7 @@ function CurrentProgram() {
       ? <Row icon="clipboard" iconTint="var(--acc)"
         title={current.name || t('Program from {0}', current.coachName)}
         subtitle={[
-          current.routines ? t(current.routines === 1 ? '{0} routine' : '{0} routines', current.routines) : null,
+          current.routines ? tp(current.routines, '{0} routine', '{0} routines') : null,
           // isoOf, not a slice of the ISO string: decidedAt is the server's UTC instant, and
           // slicing it hands a client in UTC+13 yesterday's date and one in UTC-8 tomorrow's.
           // Every other date in the app is a local calendar day.

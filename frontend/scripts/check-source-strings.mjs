@@ -8,8 +8,8 @@
 //   node scripts/check-source-strings.mjs --strict # exit 1 if anything is missing
 //
 // English is the source language and has no pack, so the key IS the English string.
-// Only literal single-argument calls are collected — t(variable) and template literals are
-// resolved at runtime and are deliberately out of scope.
+// Only literal keys are collected: t('…') and both forms of tp(n, '…', '…'). t(variable) and
+// template literals are resolved at runtime and are deliberately out of scope.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
@@ -35,12 +35,17 @@ function walk(dir, out = []) {
 
 // t('literal') / t("literal") — preceded by a non-identifier char so DateTimeFormat( misses.
 const CALL = /(^|[^A-Za-z0-9_$.])t\(\s*(['"])((?:\\.|(?!\2)[^\\])*)\2/g
+// tp(count, 'one', 'other') — the count is an expression on the same line with no quote or
+// semicolon in it, so a tp() with variable keys cannot pair up with quotes further down the file.
+const PLURAL = /(^|[^A-Za-z0-9_$.])tp\([^'"\n;]*?,\s*(['"])((?:\\.|(?!\2)[^\\])*)\2\s*,\s*(['"])((?:\\.|(?!\4)[^\\])*)\4/g
 
 const used = new Map()
 for (const file of walk(srcDir)) {
   const text = readFileSync(file, 'utf8')
-  for (const m of text.matchAll(CALL)) {
-    const key = m[3].replace(/\\(['"\\])/g, '$1')
+  const keys = [...text.matchAll(CALL)].map(m => m[3])
+  for (const m of text.matchAll(PLURAL)) keys.push(m[3], m[5])
+  for (const raw of keys) {
+    const key = raw.replace(/\\(['"\\])/g, '$1')
     if (!key) continue
     if (!used.has(key)) used.set(key, new Set())
     used.get(key).add(relative(root, file))

@@ -9,13 +9,13 @@ import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, syncReminder, writeAutoBackup } from '../lib/mobile.js'
 import { loadRemote, chooseLocal, forgetRemote, connect } from '../lib/remote.js'
-import { DEFAULT_LANG } from '../lib/i18n-core.js'
+import { browserLang } from '../lib/i18n-core.js'
 
 import { WC_DEFAULT } from '../lib/workout-controls.js'
 
 const KEY = 'gym_state_v1'
 export const DEF = {
-  unit: 'kg', restSec: 90, restPauseSec: 15, sound: true, timerFlash: false, keepAwake: true, lang: DEFAULT_LANG,
+  unit: 'kg', restSec: 90, restPauseSec: 15, sound: true, timerFlash: false, keepAwake: true, lang: browserLang(),
   theme: 'dark', accent: 'gold', body: 'male', targetW: null,
   bodyweight: [], routines: [], week: {}, dayPlan: {},
   // Tape measurements, shaped like bodyweight so they ride the same sync and chart with the
