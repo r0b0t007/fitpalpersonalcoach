@@ -73,3 +73,9 @@ export const localTZ = () => { try { return Intl.DateTimeFormat().resolvedOption
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 export const ACCENTS = { lime: '#30d158', sky: '#0a84ff', orange: '#ff9f0a', violet: '#bf5af2', pink: '#ff375f', red: '#ff453a', teal: '#40c8e0', gold: '#D4AF37' }
+// What a screen reader calls each swatch. Literal t() calls rather than a lookup table, so
+// check-source-strings can see the keys.
+export const accentName = k => ({
+  lime: t('Lime'), sky: t('Sky blue'), orange: t('Orange'), violet: t('Violet'),
+  pink: t('Pink'), red: t('Red'), teal: t('Teal'), gold: t('Gold'),
+})[k] || k

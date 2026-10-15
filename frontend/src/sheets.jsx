@@ -171,9 +171,9 @@ function WeightInput({ value, setValue, unit }) {
   const onSlide = v => setValue(clamp(v))
   return <>
     <div className="bwstep">
-      <button className="bw-pm" onClick={() => onSlide(value - 0.1)} aria-label={t('Decrease by {0}', '0.1')}><Icon name="minus" /></button>
+      <button className="bw-pm" onClick={() => onSlide(value - 0.1)} aria-label={t('Decrease by {0}', fmtNum(0.1))}><Icon name="minus" /></button>
       <div className="bw-read">{fmtNum(value)}<span className="u"> {unit}</span></div>
-      <button className="bw-pm" onClick={() => onSlide(value + 0.1)} aria-label={t('Increase by {0}', '0.1')}><Icon name="plus" /></button>
+      <button className="bw-pm" onClick={() => onSlide(value + 0.1)} aria-label={t('Increase by {0}', fmtNum(0.1))}><Icon name="plus" /></button>
     </div>
     <div className="chips" style={{ justifyContent: 'center', margin: '8px 0' }}>
       <button className="chip" onClick={() => onSlide(value - 1)}>−1</button>

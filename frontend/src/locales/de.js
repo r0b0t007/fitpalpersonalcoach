@@ -1054,4 +1054,13 @@ export default {
   'Next week': 'Nächste Woche',
   'Previous month': 'Vorheriger Monat',
   'Next month': 'Nächster Monat',
+  // Accent colour swatches, read out by screen readers (lib/format.js accentName).
+  'Lime': 'Limette',
+  'Sky blue': 'Himmelblau',
+  'Orange': 'Orange',
+  'Violet': 'Violett',
+  'Pink': 'Pink',
+  'Red': 'Rot',
+  'Teal': 'Petrol',
+  'Gold': 'Gold',
 }
