@@ -35,8 +35,9 @@ function walk(dir, out = []) {
 
 // t('literal') / t("literal") — preceded by a non-identifier char so DateTimeFormat( misses.
 const CALL = /(^|[^A-Za-z0-9_$.])t\(\s*(['"])((?:\\.|(?!\2)[^\\])*)\2/g
-// tp(count, 'one', 'other') — the count is any expression with no quote in it.
-const PLURAL = /(^|[^A-Za-z0-9_$.])tp\([^'"]*?,\s*(['"])((?:\\.|(?!\2)[^\\])*)\2\s*,\s*(['"])((?:\\.|(?!\4)[^\\])*)\4/g
+// tp(count, 'one', 'other') — the count is an expression on the same line with no quote or
+// semicolon in it, so a tp() with variable keys cannot pair up with quotes further down the file.
+const PLURAL = /(^|[^A-Za-z0-9_$.])tp\([^'"\n;]*?,\s*(['"])((?:\\.|(?!\2)[^\\])*)\2\s*,\s*(['"])((?:\\.|(?!\4)[^\\])*)\4/g
 
 const used = new Map()
 for (const file of walk(srcDir)) {

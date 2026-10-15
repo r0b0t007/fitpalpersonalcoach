@@ -26,11 +26,11 @@ export const dateLocale = () => DATE_LOCALES[lang] || 'en-GB'
 export const getVersion = () => version
 
 // The first offered language in a browser preference list, matched on its base code
-// ('fr-CA' → 'fr'). Walks the whole list rather than taking the head, so a phone set to
+// ('fr-CA' → 'fr', and 'fr_FR', which some Android WebViews report). Walks the whole list rather than taking the head, so a phone set to
 // ['ar-MA', 'fr-FR'] lands on French instead of falling straight back to English.
 export function pickLang(prefs) {
   for (const p of prefs || []) {
-    const base = String(p).toLowerCase().split('-')[0]
+    const base = String(p).toLowerCase().split(/[-_]/)[0]
     if (LANGS[base]) return base
   }
   return DEFAULT_LANG
@@ -55,9 +55,8 @@ export function t(s, ...args) {
 // ('few', 'many', …) takes the plural key, which is all two English forms can express.
 const pluralRules = {}
 export function tp(n, one, other, ...args) {
-  const loc = dateLocale()
   let form = 'other'
-  try { form = (pluralRules[loc] ||= new Intl.PluralRules(loc)).select(n) } catch { form = n === 1 ? 'one' : 'other' }
+  try { form = (pluralRules[lang] ||= new Intl.PluralRules(lang)).select(n) } catch { form = n === 1 ? 'one' : 'other' }
   return t(form === 'one' ? one : other, n, ...args)
 }
 

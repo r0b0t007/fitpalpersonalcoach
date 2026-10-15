@@ -1792,9 +1792,9 @@ function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAcce
       </div>
     </div>}
     {bundle.dropped > 0 && <div className="small" style={{ color: 'var(--yellow)', marginBottom: 14, lineHeight: 1.4 }}>
-      {t(bundle.dropped === 1
-        ? '{0} exercise in the file isn’t in your library and was left out.'
-        : '{0} exercises in the file aren’t in your library and were left out.', bundle.dropped)}
+      {tp(bundle.dropped,
+        '{0} exercise in the file isn’t in your library and was left out.',
+        '{0} exercises in the file aren’t in your library and were left out.')}
     </div>}
     {bundle.scheduledDays > 0 && <div className="row between" style={{ padding: '10px 2px', borderTop: '1px solid var(--sep)', borderBottom: '1px solid var(--sep)', marginBottom: 16, gap: 12 }}>
       <div><div className="tt" style={{ fontSize: 15 }}>{t('Use this weekly schedule')}</div><div className="small dim">{t('Replaces your current Mon–Sun assignments.')}</div></div>

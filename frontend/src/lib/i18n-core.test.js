@@ -46,6 +46,10 @@ describe('pickLang', () => {
     expect(pickLang(['DE-de'])).toBe('de')
   })
 
+  it('reads underscore tags, which some Android WebViews report', () => {
+    expect(pickLang(['fr_FR'])).toBe('fr')
+  })
+
   it('skips languages the app does not offer instead of giving up on the list', () => {
     expect(pickLang(['ar-MA', 'fr-FR'])).toBe('fr')
   })

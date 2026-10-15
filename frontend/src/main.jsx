@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import { MOBILE } from './lib/mobile.js'
 import { initInstall } from './lib/install.js'
+import { setLang } from './lib/i18n.js'
+import { useStore } from './store/useStore.js'
 import './index.css'
 
 // Before React mounts: Chrome can fire `beforeinstallprompt` this early, and a listener added
@@ -12,9 +14,15 @@ initInstall()
 // App.jsx restores per-route scroll itself; the browser's own attempt races it.
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode><App /></StrictMode>
-)
+// Mount once the saved (or, for a new profile, the browser's) language pack is in, so the first
+// screen a French visitor sees is French rather than English for a frame and then French.
+// setLang never rejects — a pack that fails to load leaves English — and App.jsx's own
+// setLang effect is then a no-op for the same language.
+setLang(useStore.getState().S.lang).finally(() => {
+  createRoot(document.getElementById('root')).render(
+    <StrictMode><App /></StrictMode>
+  )
+})
 
 // Not in the mobile build: the native shell already serves everything from disk. Production
 // bundles only: sw.js caches every same-origin GET, which under `vite dev` would pin a stale
