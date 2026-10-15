@@ -1063,4 +1063,7 @@ export default {
   'Red': 'Rot',
   'Teal': 'Petrol',
   'Gold': 'Gold',
+  // How a passkey is confirmed, slotted into the sign-in sentences (lib/api.js bioLabel).
+  'fingerprint or face unlock': 'Fingerabdruck- oder Gesichtsentsperrung',
+  'fingerprint, face or PIN': 'Fingerabdruck, Gesicht oder PIN',
 }

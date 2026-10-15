@@ -1045,4 +1045,7 @@ export default {
   'Red': 'Rojo',
   'Teal': 'Verde azulado',
   'Gold': 'Dorado',
+  // How a passkey is confirmed, slotted into the sign-in sentences (lib/api.js bioLabel).
+  'fingerprint or face unlock': 'el desbloqueo con huella o cara',
+  'fingerprint, face or PIN': 'la huella, la cara o el PIN',
 }
