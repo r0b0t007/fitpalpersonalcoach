@@ -27,7 +27,8 @@ What this fork adds on top of upstream, none of which upstream's notes below des
 - **`lib/adherence.js`** — are they training on the days their plan says? `lib/measurements.js` —
   the tape, shaped like `S.bodyweight` so it rides the same sync and the same chart.
 - Languages trimmed to **en/de/es/fr** (`lib/i18n-core.js`). English has no pack; the others must
-  stay in sync or `check-locales.mjs` fails. `check-source-strings.mjs` is report-only.
+  stay in sync or `check-locales.mjs` fails. `check-source-strings.mjs --strict` fails CI on any
+  literal key in the source that no pack defines.
 
 Upstream's description of the product follows, and still holds for the shared parts.
 

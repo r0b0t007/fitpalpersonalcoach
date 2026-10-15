@@ -9,7 +9,7 @@
     "build:mobile": "VITE_MOBILE=1 VITE_IMG_BASE=https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd/images/ VITE_GIF_BASE=https://cdn.jsdelivr.net/gh/hasaneyldrm/exercises-dataset@7455efae41b330c265e7cd4b78dfa848e7ce5ebd/videos/ vite build && cap sync",
     "preview": "vite preview",
     "test": "npm run check:i18n && vitest run",
-    "check:i18n": "node scripts/check-locales.mjs && node scripts/check-source-strings.mjs",
+    "check:i18n": "node scripts/check-locales.mjs && node scripts/check-source-strings.mjs --strict",
     "test:watch": "vitest",
     "test:fatigue-probe": "node scripts/fatigue-monotonic-probe.mjs",
     "assets:native": "node scripts/native-assets.mjs"
