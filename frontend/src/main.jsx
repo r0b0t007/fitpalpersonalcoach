@@ -14,8 +14,9 @@ initInstall()
 // App.jsx restores per-route scroll itself; the browser's own attempt races it.
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
 
-// Mount once the saved (or, for a new profile, the browser's) language pack is in, so the first
-// screen a French visitor sees is French rather than English for a frame and then French.
+// Mount once the saved (or, for a new profile, the browser's) UI language pack is in, so the first
+// screen a French visitor sees is French rather than English for a frame and then French. The
+// exercise instruction and name packs follow in the background (CHW-211).
 // setLang never rejects — a pack that fails to load leaves English — and App.jsx's own
 // setLang effect is then a no-op for the same language.
 setLang(useStore.getState().S.lang).finally(() => {

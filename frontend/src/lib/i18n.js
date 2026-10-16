@@ -31,21 +31,39 @@ try { exerciseNamePacks = import.meta.glob('../exercise-names/*.js') } catch { /
 const subs = new Set()
 const notify = () => { subs.forEach(f => f()) }
 
+// The background half of the last setLang: the exercise instruction and name packs. Exposed so a
+// test (or anything that must have exercise text) can wait for it; the UI never needs to.
+let exercisePacks = Promise.resolve()
+export const exercisePacksReady = () => exercisePacks
+let token = 0
+
 export async function setLang(l) {
   if (!LANGS[l]) l = DEFAULT_LANG
   if (l === getLang() && getVersion() > 0) return
-  // The three packs do not depend on each other, so they load at once: main.jsx waits for this
-  // before the first render, and three round trips in a row is what a French or Spanish client
-  // on a slow connection sits through on every start. A pack that fails to load falls back to
-  // English on its own, without taking the other two with it.
+  const mine = ++token
+  // A pack that fails to load falls back to English on its own, without taking the others with it.
   const load = (want, packs, path) => want ? Promise.resolve().then(() => packs[path]()).then(m => m.default, () => null) : null
-  const [dict, instr, exerciseNames] = await Promise.all([
-    load(l !== DEFAULT_LANG, localePacks, '../locales/' + l + '.js'),
+
+  // main.jsx mounts the app when this resolves, so it waits for the UI strings alone (~25 KB
+  // compressed), and on its own connection: started alongside the exercise instructions (~85 KB)
+  // it shared the bandwidth with them and arrived later. The sign-in screen needs no exercise
+  // text, and instrFor / exerciseNameFor fall back to English until their packs land (CHW-211).
+  const dict = await load(l !== DEFAULT_LANG, localePacks, '../locales/' + l + '.js')
+  if (mine !== token) return          // a newer setLang has started; it owns the state now
+  _setLangState(l, dict || {}, null, null)
+  notify()
+
+  // Then the exercise packs, in the background. The version bump re-renders every subscriber,
+  // and the search corpus is keyed on it, so steps and names switch over without a reload. The
+  // token stops a slow pack for a language the person has already left from landing afterwards.
+  exercisePacks = Promise.all([
     load(l !== DEFAULT_LANG && INSTR_LANGS.includes(l), instrPacks, '../instr/' + l + '.js'),
     load(l !== DEFAULT_LANG && EXERCISE_NAME_LANGS.includes(l), exerciseNamePacks, '../exercise-names/' + l + '.js'),
-  ])
-  _setLangState(l, dict || {}, instr, exerciseNames)
-  notify()
+  ]).then(([instr, exerciseNames]) => {
+    if (mine !== token || (!instr && !exerciseNames)) return
+    _setLangState(l, dict || {}, instr, exerciseNames)
+    notify()
+  })
 }
 
 // Re-renders the subscribing component (and its children) whenever the language changes.
