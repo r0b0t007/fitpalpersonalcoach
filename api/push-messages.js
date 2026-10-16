@@ -1,7 +1,9 @@
 // Every push the server writes, in each language the app ships (LANGS in
-// frontend/src/lib/i18n-core.js; push-messages.test.js holds the two lists together). The server
-// picks the language from the member's synced S.lang. French says "vous", like the rest of the app.
-const COPY = {
+// frontend/src/lib/i18n-core.js). The server picks the language from the member's synced S.lang.
+// French says "vous", like the rest of the app. push-messages.test.js holds this to the frontend:
+// the same languages, every key in each, and the same wording as the app where a push repeats a
+// string the app also shows (the program notice, the check-in card).
+export const COPY = {
   en: {
     restTitle: 'Rest over 💪',
     restBody: 'Time for your next set.',
@@ -20,7 +22,7 @@ const COPY = {
     dayFallbackTitle: 'Heute steht ein Training an',
     dayRoutineSuffix: 'heute',
     dayBody: 'Es steht in deinem Plan — los geht’s 💪',
-    checkinTitle: 'Wöchentliches Check-in 📋',
+    checkinTitle: 'Wöchentlicher Check-in 📋',
     checkinBody: 'Fünf kurze Skalen und alles, was dein Coach wissen sollte.',
     assignmentBody: '{0} hat dir ein Programm geschickt',
   },
@@ -50,8 +52,8 @@ const COPY = {
 export const PUSH_LANGS = Object.keys(COPY);
 
 // Per KEY, not per language: a message added to English but not yet translated arrives in English
-// instead of as "undefined". push-messages.test.js fails on that gap, so it is a fallback for an
-// unknown language, not a way to ship one half done.
+// instead of as "undefined". push-messages.test.js fails on that gap, so this is the fallback for
+// an unknown language, not a way to ship one half done.
 const copyFor = lang => ({ ...COPY.en, ...(COPY[lang] || {}) });
 
 export function restTimerPush(lang) {
@@ -60,7 +62,8 @@ export function restTimerPush(lang) {
 }
 
 // `appName` is RP_NAME — what this server calls itself — so the test looks like a real alert.
-export function testPush(lang, appName = 'openGym') {
+// Required: a default here would be some product's name, and the wrong one for somebody.
+export function testPush(lang, appName) {
   return { title: appName, body: copyFor(lang).testBody, tag: 'test' };
 }
 
@@ -84,6 +87,6 @@ export function checkinReminderPush(lang) {
 }
 
 // A coach sent this member a program. In the MEMBER's language — the coach's is irrelevant here.
-export function assignmentPush(lang, coachName, appName = 'openGym') {
+export function assignmentPush(lang, coachName, appName) {
   return { title: appName, body: copyFor(lang).assignmentBody.replace('{0}', () => coachName), tag: 'assignment' };
 }
