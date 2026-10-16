@@ -41,9 +41,13 @@ es/legal.html           ES legal
 styles.css              the whole design system, one file
 site.js                 menu, scroll reveal, hero video
 img/screens/*.png       real app screenshots (see below). The two CLIENT screens exist
-                        per locale (`-fr` / `-en` / `-es`); the coach screens do not yet. They
-                        were shot while the dashboard was English-only, and the dashboard
-                        has been translated since (CHW-205..208) - re-shoot them per locale.
+                        per locale (`-fr` / `-en` / `-es`). The coach screens exist in Spanish
+                        (`coach-*-es`, CHW-203); the French and English pages still use the
+                        English-only `coach-today` / `coach-clients`, shot before the dashboard
+                        was translated (CHW-205..208) - re-shoot those per locale (CHW-212).
+                        "Training now" is live presence: POST /api/activity for two demo clients
+                        right before each capture, and drop any non-demo client from the capture
+                        instance or the counters will not read 6.
 img/og-{fr,en,es}.png   1200x630 social cards (og-es says fitpal.ma; the other two
                         still print the old coach.fitpal.ma and want re-rendering)
 img/promo-poster-{fr,en,es}.jpg  hero video poster (the frame at 10.1s, 800x450)
