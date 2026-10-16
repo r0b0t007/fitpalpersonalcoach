@@ -132,10 +132,12 @@
        It is built here rather than written into the markup because it is only ever needed on
        this path. With no JS the video is a still poster, and under reduced motion it gets native
        controls and never autoplays — a button in the HTML would be dead weight in exactly those cases. */
-    var en = (document.documentElement.lang || 'fr').toLowerCase().indexOf('en') === 0
-    var T = en
-      ? { pause: 'Pause the video', play: 'Play the video' }
-      : { pause: 'Mettre la vidéo en pause', play: 'Lire la vidéo' }
+    var LABELS = {
+      en: { pause: 'Pause the video', play: 'Play the video' },
+      es: { pause: 'Pausar el vídeo', play: 'Reproducir el vídeo' },
+      fr: { pause: 'Mettre la vidéo en pause', play: 'Lire la vidéo' }
+    }
+    var T = LABELS[(document.documentElement.lang || 'fr').toLowerCase().slice(0, 2)] || LABELS.fr
 
     var toggle = document.createElement('button')
     toggle.type = 'button'
