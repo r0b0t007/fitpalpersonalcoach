@@ -10,6 +10,7 @@
 // clone, return it. The editor holds the result in useState, which is what makes React re-render
 // and what makes "undo by not saving" mean something.
 import { uid } from './format.js'
+import { t } from './i18n-core.js'
 import { DEFAULT_GLYPH } from './glyphs.js'
 import { buildProgramBundle, WEEK_DAYS } from './plan-share.js'
 
@@ -22,8 +23,9 @@ export const canRemoveRoutine = draft => (draft?.routines || []).length > 1
 
 export const emptyRoutine = name => ({ id: uid(), name, emoji: DEFAULT_GLYPH, ex: [] })
 
-export const newProgramDraft = (name = 'New program') => ({
-  name, routines: [emptyRoutine('Day 1')], week: {}, customEx: [],
+// Default names are stored data a client will read, so they are made in the coach's language.
+export const newProgramDraft = (name = t('New program')) => ({
+  name, routines: [emptyRoutine(t('Day {0}', 1))], week: {}, customEx: [],
 })
 
 /** Unpack a library row into something editable. Deep-copied: editing must not touch the loaded row. */
@@ -87,7 +89,7 @@ export function patchRoutine(draft, id, fn) {
 export function addRoutine(draft, routine) {
   // A default name that counts routines rather than reusing "New routine" — three of those in a
   // list is the coach's problem to fix, and it is trivially avoidable here.
-  const r = routine || emptyRoutine('Day ' + ((draft.routines || []).length + 1))
+  const r = routine || emptyRoutine(t('Day {0}', (draft.routines || []).length + 1))
   return { next: patch(draft, d => { d.routines.push(r) }), routine: r }
 }
 

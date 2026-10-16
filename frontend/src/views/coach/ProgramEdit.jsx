@@ -10,6 +10,8 @@ import {
 import { copyRoutine } from '../../lib/routines.js'
 import { glyphOf } from '../../lib/glyphs.js'
 import { api } from '../../lib/api.js'
+import { DAYN } from '../../lib/format.js'
+import { t, tp } from '../../lib/i18n.js'
 import Icon from '../../components/Icon.jsx'
 import { Button, MultiSelectRow, Section } from '../../components/ui.jsx'
 import { RoutineTarget } from '../../components/RoutineTarget.jsx'
@@ -17,7 +19,6 @@ import { RoutineEditor } from '../RoutineEdit.jsx'
 import { confirmSheet } from '../../sheets.jsx'
 import { SendSheet } from './sheets.jsx'
 
-const DAY_NAME = { 0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday' }
 const SAVE_DEBOUNCE_MS = 700
 
 /**
@@ -63,7 +64,7 @@ export function useProgramDraft(pid) {
       })
       // A failed load is NOT a missing program. Telling a coach whose session expired that their
       // program is gone is the app claiming their work was deleted when it is intact on the server.
-      .catch(e => { if (alive) { toast(e.message || 'Could not load this program'); setDraft('error') } })
+      .catch(e => { if (alive) { toast(e.message || t('Could not load this program')); setDraft('error') } })
     return () => { alive = false }
   }, [pid])
 
@@ -74,14 +75,14 @@ export function useProgramDraft(pid) {
     setStatus('saving')
     // The whole custom-exercise library goes in; buildProgramBundle keeps only what the routines
     // reference. See bundleOf.
-    savePrograms({ id: pid, name: d.name.trim() || 'Program', bundle: bundleOf(d, useStore.getState().S.customEx) })
+    savePrograms({ id: pid, name: d.name.trim() || t('Program'), bundle: bundleOf(d, useStore.getState().S.customEx) })
       // Cleared only once it is actually stored. Clearing before the request meant a refusal threw
       // the edit away: the coach saw red, left the screen, and the unmount flush found nothing to
       // retry with.
       .then(() => { if (pendingRef.current === d) pendingRef.current = null; setStatus('saved') })
       // Printed verbatim: "plan is too large" and the library cap are the only thing that tells the
       // coach what to change, and collapsing them into "save failed" throws that away.
-      .catch(e => setStatus(e.message || 'Could not save'))
+      .catch(e => setStatus(e.message || t('Could not save')))
   }
   flushRef.current = flush
 
@@ -124,9 +125,9 @@ export default function ProgramEditShell() {
 }
 
 const StatusLine = ({ status }) => {
-  if (status === 'unsaved') return <span className="dim small">Unsaved</span>
-  if (status === 'saving') return <span className="dim small">Saving…</span>
-  if (status === 'saved') return <span className="dim small">Saved</span>
+  if (status === 'unsaved') return <span className="dim small">{t('Unsaved')}</span>
+  if (status === 'saving') return <span className="dim small">{t('Saving…')}</span>
+  if (status === 'saved') return <span className="dim small">{t('Saved')}</span>
   if (status) return <span className="small" style={{ color: 'var(--red)' }}>{status}</span>
   return null
 }
@@ -135,7 +136,7 @@ function Missing({ title, children }) {
   const nav = useNavigate()
   return <div className="narrow">
     <div className="hdr">
-      <button className="iconbtn" onClick={() => nav('/programs')} aria-label="Programs"><Icon name="chevronLeft" /></button>
+      <button className="iconbtn" onClick={() => nav('/programs')} aria-label={t('Programs')}><Icon name="chevronLeft" /></button>
       <h1 style={{ margin: '0 0 0 12px' }}>{title}</h1>
     </div>
     <div className="empty">{children}</div>
@@ -154,12 +155,12 @@ export function ProgramEdit() {
     api('/api/coach/members').then(d => setMembers(d.members || [])).catch(() => {})
   }, [])
 
-  if (draft === null) return <div className="narrow"><div className="hdr"><h1 style={{ margin: 0 }}>Loading…</h1></div></div>
-  if (draft === 'error') return <Missing title="Could not load">
-    Could not reach the server, so this program is not shown. Nothing has been lost — try again in a moment.
+  if (draft === null) return <div className="narrow"><div className="hdr"><h1 style={{ margin: 0 }}>{t('Loading…')}</h1></div></div>
+  if (draft === 'error') return <Missing title={t('Could not load')}>
+    {t('Could not reach the server, so this program is not shown. Nothing has been lost — try again in a moment.')}
   </Missing>
-  if (draft === false) return <Missing title="Not found">
-    This program is no longer in your library. Nothing has been sent or changed.
+  if (draft === false) return <Missing title={t('Not found')}>
+    {t('This program is no longer in your library. Nothing has been sent or changed.')}
   </Missing>
 
   const roster = members.filter(m => !m.disabled)
@@ -181,7 +182,7 @@ export function ProgramEdit() {
       // A copy, with fresh ids: the program must not change when the coach edits their own plan
       // afterwards, and two programs built from the same routine must not share a row.
       edit(d => picked.reduce((acc, r) => addRoutine(acc, { ...copyRoutine(r), name: r.name }).next, d))
-      toast('Added ' + picked.length + (picked.length === 1 ? ' routine' : ' routines'))
+      toast(tp(picked.length, 'Added {0} routine', 'Added {0} routines'))
     }} />)
 
   const send = () => {
@@ -191,24 +192,24 @@ export function ProgramEdit() {
   }
 
   const del = () => confirmSheet({
-    title: 'Delete this program?',
-    message: `“${draft.name || 'This program'}” goes from your library. Clients who already accepted it keep what they have.`,
-    confirmText: 'Delete', danger: true,
+    title: t('Delete this program?'),
+    message: t('“{0}” goes from your library. Clients who already accepted it keep what they have.', draft.name || t('This program')),
+    confirmText: t('Delete'), danger: true,
     onConfirm: () => { discard(); deleteProgram(pid).then(() => nav('/programs')).catch(e => toast(e.message)) },
   })
 
   return <div className="narrow">
     <div className="hdr">
-      <button className="iconbtn" onClick={() => nav('/programs')} aria-label="Programs"><Icon name="chevronLeft" /></button>
+      <button className="iconbtn" onClick={() => nav('/programs')} aria-label={t('Programs')}><Icon name="chevronLeft" /></button>
       <div style={{ flex: 1, margin: '0 12px' }}>
-        <input className="input" value={draft.name} maxLength={60} placeholder="Program name"
+        <input className="input" value={draft.name} maxLength={60} placeholder={t('Program name')}
           style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-.021em' }}
           onChange={e => edit(d => ({ ...d, name: e.target.value }))} />
       </div>
       <StatusLine status={status} />
     </div>
 
-    <h4 className="sec">Routines</h4>
+    <h4 className="sec">{t('Routines')}</h4>
     <div className="list">
       {draft.routines.map(r => <div key={r.id} className="item" role="button" tabIndex={0}
         onClick={() => open(r.id)} onKeyDown={e => { if (e.key === 'Enter') open(r.id) }}>
@@ -217,15 +218,15 @@ export function ProgramEdit() {
         </span>
         <div className="grow">
           <div className="tt">{r.name}</div>
-          <div className="ss">{r.ex.length} {r.ex.length === 1 ? 'exercise' : 'exercises'}</div>
+          <div className="ss">{tp(r.ex.length, '{0} exercise', '{0} exercises')}</div>
         </div>
-        {canRemoveRoutine(draft) && <button className="iconbtn" aria-label={'Remove ' + r.name}
+        {canRemoveRoutine(draft) && <button className="iconbtn" aria-label={t('Remove {0}', r.name)}
           onClick={e => {
             e.stopPropagation()
             confirmSheet({
-              title: 'Remove this routine?',
-              message: `“${r.name}” leaves this program and any day it was scheduled on. Your own plan is not touched.`,
-              confirmText: 'Remove', danger: true,
+              title: t('Remove this routine?'),
+              message: t('“{0}” leaves this program and any day it was scheduled on. Your own plan is not touched.', r.name),
+              confirmText: t('Remove'), danger: true,
               onConfirm: () => edit(d => removeRoutine(d, r.id)),
             })
           }}><Icon name="trash" /></button>}
@@ -233,29 +234,28 @@ export function ProgramEdit() {
       </div>)}
     </div>
     <div style={{ height: 10 }} />
-    <Button icon="plus" onClick={add}>Add a routine</Button>
+    <Button icon="plus" onClick={add}>{t('Add a routine')}</Button>
     {ownRoutines.length > 0 && <>
       <div style={{ height: 10 }} />
-      <Button icon="figureStrength" onClick={copyFromPlan}>Copy from my own plan</Button>
+      <Button icon="figureStrength" onClick={copyFromPlan}>{t('Copy from my own plan')}</Button>
     </>}
 
-    <Section title="Weekly schedule" footer={
-      'Optional. A client only gets these days if you turn on “also set their weekly schedule” when you send it.'
+    <Section title={t('Weekly schedule')} footer={
+      t('Optional. A client only gets these days if you turn on “also set their weekly schedule” when you send it.')
     }>
-      {WEEK_DAYS.map(d => <MultiSelectRow key={d} icon="calendar" title={DAY_NAME[d]} sheetTitle={DAY_NAME[d]}
-        values={[].concat(draft.week[d] || [])} options={routineOptions} noneLabel="Rest"
+      {WEEK_DAYS.map(d => <MultiSelectRow key={d} icon="calendar" title={t(DAYN[d])} sheetTitle={t(DAYN[d])}
+        values={[].concat(draft.week[d] || [])} options={routineOptions} noneLabel={t('Rest')}
         onToggle={rid => edit(cur => toggleDay(cur, d, rid))} />)}
     </Section>
 
     <div style={{ height: 6 }} />
     <Button variant="primary" icon="clipboard" disabled={!roster.length || !sendable} onClick={send}>
-      {!roster.length ? 'No clients yet' : sendable ? 'Send to a client' : 'Add an exercise before sending'}
+      {!roster.length ? t('No clients yet') : sendable ? t('Send to a client') : t('Add an exercise before sending')}
     </Button>
     <div style={{ height: 10 }} />
-    <Button variant="danger" icon="trash" onClick={del}>Delete program</Button>
+    <Button variant="danger" icon="trash" onClick={del}>{t('Delete program')}</Button>
     <p className="sect-f">
-      Changes save on their own. Sending takes a copy — editing this program later never changes
-      what a client has already accepted.
+      {t('Changes save on their own. Sending takes a copy — editing this program later never changes what a client has already accepted.')}
     </p>
   </div>
 }
@@ -281,7 +281,7 @@ export function ProgramRoutineEdit() {
     ownEquipment: false,
     canRemove: canRemoveRoutine(draft),
     backPath: back,
-    backLabel: 'Program',
+    backLabel: t('Program'),
     pathFor: id => back + '/r/' + id,
     // Producers, not values: these run inside sheets that stay open across several taps. See the
     // note on useProgramDraft.
@@ -297,27 +297,27 @@ function CopyFromPlanSheet({ close, routines, onPick }) {
   const usable = routines.filter(r => (r.ex || []).length)
 
   if (!usable.length) return <>
-    <h3>Nothing to copy</h3>
+    <h3>{t('Nothing to copy')}</h3>
     <div className="dim small" style={{ lineHeight: 1.5 }}>
-      Your own Plan has no routines with exercises in them yet.
+      {t('Your own Plan has no routines with exercises in them yet.')}
     </div>
   </>
 
   return <>
-    <h3>Copy from my own plan</h3>
+    <h3>{t('Copy from my own plan')}</h3>
     <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.4 }}>
-      This takes a copy. Editing your own Plan afterwards will not change this program.
+      {t('This takes a copy. Editing your own Plan afterwards will not change this program.')}
     </div>
     <div className="list" style={{ rowGap: 0 }}>
       {usable.map(r => <label key={r.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
         <div><div className="small" style={{ fontWeight: 600 }}>{r.name}</div>
-          <div className="dim" style={{ fontSize: '.72rem' }}>{r.ex.length} exercises</div></div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>{tp(r.ex.length, '{0} exercise', '{0} exercises')}</div></div>
         <input type="checkbox" checked={picked.includes(r.id)} onChange={() => toggle(r.id)} />
       </label>)}
     </div>
     <Button variant="primary" style={{ marginTop: 14 }} disabled={!picked.length}
       onClick={() => { onPick(usable.filter(r => picked.includes(r.id))); close() }}>
-      {picked.length ? 'Copy ' + picked.length + (picked.length === 1 ? ' routine' : ' routines') : 'Pick at least one'}
+      {picked.length ? tp(picked.length, 'Copy {0} routine', 'Copy {0} routines') : t('Pick at least one')}
     </Button>
   </>
 }
