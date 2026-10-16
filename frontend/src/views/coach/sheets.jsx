@@ -4,30 +4,29 @@ import { useUI } from '../../store/useUI.js'
 import { api, fetchExerciseMedia, uploadExerciseMedia } from '../../lib/api.js'
 import { setCoachMedia } from '../../lib/coach-media.js'
 import { EXIDX, allExercises, matchesExerciseSearch, mediaRowSrc } from '../../lib/exercises.js'
-import { fmtDate, uid } from '../../lib/format.js'
+import { fmtDate, uid, DAYN } from '../../lib/format.js'
 import { inviteLink } from '../../lib/invite.js'
 import { buildPlanBundle } from '../../lib/plan-share.js'
 import { confirmSheet } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { rel } from './parts.jsx'
-import { t, tp } from '../../lib/i18n.js'
+import { t, tp, dateLocale } from '../../lib/i18n.js'
 
 // The coach's sheets: send a program, invite a client, upload a demo. Opened from Today, Clients
-// and a client's page. English-only, like every coach surface.
+// and a client's page.
 //
 // Saving a program used to be a sheet here too, and it could only ever snapshot the routines in
 // the coach's own Plan — which meant the one way to write a program was to first write it into
 // your own training. The editor at /programs/:pid replaced it; "copy from my own plan" survives
 // there as one way to start rather than the only one.
 
-// Labels and units for the four numbers, in the order a coach reads them. English, like the rest
-// of this screen; the member's side of the same four numbers is translated (components/MacroRows).
-const MACRO_FIELDS = [['kcal', 'Calories', 'kcal'], ['p', 'Protein', 'g'], ['c', 'Carbs', 'g'], ['f', 'Fat', 'g']]
+// Labels and units for the four numbers, in the order a coach reads them. Labels are functions so
+// they are read in the current language at render; the keys are the member side's (MacroRows).
+const MACRO_FIELDS = [['kcal', () => t('Calories'), 'kcal'], ['p', () => t('Protein'), 'g'], ['c', () => t('Carbs'), 'g'], ['f', () => t('Fat'), 'g']]
 // getDay() order, 0 = Sunday, matching lib/checkins.js. Listed Monday-first because that is how a
 // training week reads, with Sunday last where the default actually sits.
-const CHECKIN_DAYS = [[1, 'Monday'], [2, 'Tuesday'], [3, 'Wednesday'], [4, 'Thursday'],
-  [5, 'Friday'], [6, 'Saturday'], [0, 'Sunday']]
+const CHECKIN_DAYS = [1, 2, 3, 4, 5, 6, 0]
 
 export function SendSheet({ members, close, program, preselect, onSent }) {
   const S = useStore(s => s.S)
@@ -59,7 +58,7 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
 
   // A saved program when one was chosen; otherwise the coach's current plan, which is what the
   // very first version always sent.
-  const bundle = program ? program.bundle : buildPlanBundle(S, (user?.name || 'Coach') + '’s program')
+  const bundle = program ? program.bundle : buildPlanBundle(S, t('{0}’s program', user?.name || t('Coach')))
   const exCount = bundle.routines.reduce((n, r) => n + r.ex.length, 0)
   const days = Object.keys(bundle.week || {}).length
   const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : p.concat(id))
@@ -78,28 +77,28 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
         note, schedule: schedule && days > 0
       })
     })
-      .then(({ sent }) => { toast('Sent to ' + sent + (sent === 1 ? ' client' : ' clients')); close(); onSent?.() })
+      .then(({ sent }) => { toast(tp(sent, 'Sent to {0} client', 'Sent to {0} clients')); close(); onSent?.() })
       .catch(e => { toast(e.message); setBusy(false) })
   }
 
   if (!bundle.routines.length) return <>
-    <h3>Nothing to send yet</h3>
+    <h3>{t('Nothing to send yet')}</h3>
     <div className="dim small" style={{ lineHeight: 1.5 }}>
-      Build the program in your own Plan first — the routines you have there are what gets sent.
+      {t('Build the program in your own Plan first — the routines you have there are what gets sent.')}
     </div>
   </>
 
   return <>
-    <h3>{program ? 'Send “' + program.name + '”' : 'Send your current plan'}</h3>
+    <h3>{program ? t('Send “{0}”', program.name) : t('Send your current plan')}</h3>
     <div className="muted small" style={{ marginBottom: 4 }}>
-      {bundle.routines.length} {bundle.routines.length === 1 ? 'routine' : 'routines'} · {exCount} exercises
-      {days ? ' · scheduled on ' + days + (days === 1 ? ' day' : ' days') : ''}
+      {tp(bundle.routines.length, '{0} routine', '{0} routines')} · {tp(exCount, '{0} exercise', '{0} exercises')}
+      {days ? ' · ' + tp(days, 'scheduled on {0} day', 'scheduled on {0} days') : ''}
     </div>
     <div className="dim small" style={{ marginBottom: 14, lineHeight: 1.4 }}>
-      Each client is asked to accept before anything is added. Their own routines are never changed or removed.
+      {t('Each client is asked to accept before anything is added. Their own routines are never changed or removed.')}
     </div>
 
-    <input className="input" placeholder="Note (optional) — what this block is for" maxLength={280}
+    <input className="input" placeholder={t('Note (optional) — what this block is for')} maxLength={280}
       value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: 10 }} />
 
     {/* No toggle for a bundle with no scheduled days: the member's side (mergePlan) ignores
@@ -110,27 +109,25 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
         that is what the note asks for. */}
     {days ? <>
       <label className="row between" style={{ padding: '8px 2px', marginBottom: 6 }}>
-        <span className="small">Also set their weekly schedule</span>
+        <span className="small">{t('Also set their weekly schedule')}</span>
         <input type="checkbox" checked={schedule} onChange={e => setSchedule(e.target.checked)} />
       </label>
       {schedule && <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.4 }}>
-        This replaces which routine sits on each weekday for them. Leave it off to add the routines and let them slot them in.
+        {t('This replaces which routine sits on each weekday for them. Leave it off to add the routines and let them slot them in.')}
       </div>}
     </> : <div className="dim small" style={{ padding: '8px 2px', marginBottom: 10, lineHeight: 1.4 }}>
       {program
-        ? 'No weekly schedule in this program. If its routines are on weekdays in your Plan, save the program again and the schedule comes with it.'
-        : 'No weekly schedule to send — none of these routines is on a weekday in your Plan.'}
+        ? t('No weekly schedule in this program. If its routines are on weekdays in your Plan, save the program again and the schedule comes with it.')
+        : t('No weekly schedule to send — none of these routines is on a weekday in your Plan.')}
     </div>}
 
-    <h4 className="sec">Daily nutrition targets (optional)</h4>
+    <h4 className="sec">{t('Daily nutrition targets (optional)')}</h4>
     <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.4 }}>
-      Leave these blank to send the program alone. Filling any of them replaces their current targets when
-      they accept — a half-set target, this block's calories against the last block's protein, is a number
-      nobody could explain. Blank fields are not sent, so setting calories and protein means exactly that.
+      {t('Leave these blank to send the program alone. Filling any of them replaces their current targets when they accept — a half-set target, this block’s calories against the last block’s protein, is a number nobody could explain. Blank fields are not sent, so setting calories and protein means exactly that.')}
     </div>
     <div className="list" style={{ rowGap: 0, marginBottom: 10 }}>
       {MACRO_FIELDS.map(([k, label, unit]) => <label key={k} className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}>
-        <span className="small" style={{ fontWeight: 600 }}>{label}</span>
+        <span className="small" style={{ fontWeight: 600 }}>{label()}</span>
         <span className="row" style={{ gap: 8, alignItems: 'center' }}>
           <input className="input" inputMode="numeric" placeholder="—" style={{ width: 90, textAlign: 'end' }}
             value={macros[k]} onChange={e => macro(k, e.target.value)} />
@@ -138,31 +135,30 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
         </span>
       </label>)}
     </div>
-    <h4 className="sec" style={{ marginTop: 16 }}>Check-in day</h4>
+    <h4 className="sec" style={{ marginTop: 16 }}>{t('Check-in day')}</h4>
     <div className="dim small" style={{ marginBottom: 8, lineHeight: 1.4 }}>
-      Which day their weekly check-in falls on. Leave it alone and this program does not touch it —
-      a client who has been answering on a Wednesday stays on Wednesday.
+      {t('Which day their weekly check-in falls on. Leave it alone and this program does not touch it — a client who has been answering on a Wednesday stays on Wednesday.')}
     </div>
     <select className="input" value={checkinDay} onChange={e => setCheckinDay(e.target.value)}
       style={{ marginBottom: 10 }}>
-      <option value="">Leave their day as it is</option>
-      {CHECKIN_DAYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      <option value="">{t('Leave their day as it is')}</option>
+      {CHECKIN_DAYS.map(v => <option key={v} value={v}>{t(DAYN[v])}</option>)}
     </select>
 
-    <input className="input" placeholder="Note on the diet (optional)" maxLength={280}
+    <input className="input" placeholder={t('Note on the diet (optional)')} maxLength={280}
       value={macroNote} onChange={e => setMacroNote(e.target.value)} style={{ marginBottom: 6 }} />
 
-    <h4 className="sec">Send to</h4>
+    <h4 className="sec">{t('Send to')}</h4>
     {members.length ? <div className="list" style={{ rowGap: 0 }}>
       {members.map(m => <label key={m.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
         <div><div className="small" style={{ fontWeight: 600 }}>{m.name}</div>
           <div className="dim" style={{ fontSize: '.72rem' }}>{tp(m.workouts, '{0} workout', '{0} workouts')} · {t('synced {0}', rel(m.lastSync))}</div></div>
         <input type="checkbox" checked={picked.includes(m.id)} onChange={() => toggle(m.id)} />
       </label>)}
-    </div> : <div className="empty small">No clients yet.</div>}
+    </div> : <div className="empty small">{t('No clients yet.')}</div>}
 
     <Button variant="primary" style={{ marginTop: 14 }} disabled={!picked.length || busy} onClick={send}>
-      {busy ? 'Sending…' : picked.length ? 'Send to ' + picked.length + (picked.length === 1 ? ' client' : ' clients') : 'Pick at least one client'}
+      {busy ? t('Sending…') : picked.length ? tp(picked.length, 'Send to {0} client', 'Send to {0} clients') : t('Pick at least one client')}
     </Button>
   </>
 }
@@ -181,7 +177,7 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
    strings are the instruction; they are printed verbatim and never collapsed into "upload
    failed", which would throw away the only thing that says what to change. */
 
-const MB = b => (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB'
+const MB = b => { const d = b < 10485760 ? 1 : 0; return t('{0} MB', (b / 1048576).toLocaleString(dateLocale(), { minimumFractionDigits: d, maximumFractionDigits: d })) }
 // EXIDX carries the custom exercises too (the store registers them on load), so one lookup
 // covers both. Falling back to the raw id keeps a demo for a deleted exercise visible and
 // counted against the cap instead of vanishing from a list it still occupies.
@@ -190,8 +186,6 @@ const exName = id => (EXIDX[id] && EXIDX[id].n) || id
 // Taking a client on. The code IS the product here: the coach makes one, reads it out or texts
 // it, and the person who redeems it lands on their roster already assigned — which until now took
 // an admin running assign-coach by hand after the fact.
-//
-// English-only raw strings, like the rest of this screen. It is an operator surface.
 /* An invite is a LINK, not sixteen characters to read down a phone.
  *
  * What this screen used to be: make a code, copy it, and tell the client to type it into a field
@@ -241,7 +235,7 @@ export function InviteSheet() {
   const sendLink = async code => {
     const link = inviteLink(code)
     if (navigator.share) {
-      try { await navigator.share({ title: 'Join me on FitPal', text: 'Here is your invite:', url: link }); return }
+      try { await navigator.share({ title: t('Join me on FitPal'), text: t('Here is your invite:'), url: link }); return }
       // AbortError is the user closing the share sheet, not a failure — falling through to the
       // clipboard there would tell them something was copied when they had just said no.
       catch (e) { if (e && e.name === 'AbortError') return }
@@ -251,7 +245,7 @@ export function InviteSheet() {
         navigator.clipboard.writeText(link),
         new Promise((_, reject) => setTimeout(() => reject(new Error('clipboard never answered')), 2000))
       ])
-      toast('Invite link copied')
+      toast(t('Invite link copied'))
     } catch { toast(link) }   // last resort: put it on screen, where it can at least be selected
   }
 
@@ -278,71 +272,70 @@ export function InviteSheet() {
   // why. The message names the code and the note so the sheet is answerable without remembering
   // which row was tapped.
   const revoke = i => confirmSheet({
-    title: 'Revoke this invite?',
-    message: (i.note ? `“${i.note}” — ` : '') + `${i.code} stops working immediately. If you have already sent the link, whoever has it will not be able to join.`,
-    confirmText: 'Revoke', danger: true,
+    title: t('Revoke this invite?'),
+    message: (i.note ? t('“{0}” — ', i.note) : '') + t('{0} stops working immediately. If you have already sent the link, whoever has it will not be able to join.', i.code),
+    confirmText: t('Revoke'), danger: true,
     onConfirm: () => api('/api/coach/invites/revoke', { method: 'POST', body: JSON.stringify({ code: i.code }) })
-      .then(() => { toast('Invite revoked'); return load() }).catch(e => toast(e.message))
+      .then(() => { toast(t('Invite revoked')); return load() }).catch(e => toast(e.message))
   })
 
   const copyCode = async code => {
-    try { await navigator.clipboard.writeText(code); toast('Copied ' + code) }
+    try { await navigator.clipboard.writeText(code); toast(t('Copied {0}', code)) }
     catch { toast(code) }
   }
 
   const atCap = !!state && open.length >= state.max
 
   return <>
-    <h3>Invite a client</h3>
+    <h3>{t('Invite a client')}</h3>
     <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-      Send them a link. They open it, make their profile, and arrive already on your roster —
-      nobody has to assign them afterwards. Each link works once.
+      {t('Send them a link. They open it, make their profile, and arrive already on your roster — nobody has to assign them afterwards. Each link works once.')}
     </div>
 
-    <input className="input" placeholder="Who is it for? (optional)" value={note} maxLength={60}
+    <input className="input" placeholder={t('Who is it for? (optional)')} value={note} maxLength={60}
       onChange={e => setNote(e.target.value)} style={{ marginBottom: 8 }} />
     <Button variant="primary" icon="link" disabled={busy || !state || atCap} onClick={mint}>
-      {busy ? 'Making…' : 'Make an invite link'}
+      {busy ? t('Making…') : t('Make an invite link')}
     </Button>
     {/* Only when it is actually in the way. A quota a coach is nowhere near is noise on the one
         screen whose whole job is "send this to somebody". */}
     {atCap && <div className="dim small" style={{ marginTop: 6 }}>
-      You have {state.max} links waiting. Revoke one you are not going to use.
+      {tp(state.max, 'You have {0} link waiting. Revoke one you are not going to use.', 'You have {0} links waiting. Revoke one you are not going to use.')}
     </div>}
 
-    <h4 className="sec" style={{ marginTop: 18 }}>Waiting</h4>
-    {failed ? <div className="dim small">Could not load your invites.{' '}
+    <h4 className="sec" style={{ marginTop: 18 }}>{t('Waiting')}</h4>
+    {failed ? <div className="dim small">{t('Could not load your invites.')}{' '}
       {/* A button, not an <a onClick> — with no href an anchor is not keyboard-focusable and gets
           no pointer cursor, and this is the only retry on a sheet whose Make button is
           disabled until a load succeeds. Unreachable here means stuck here. */}
-      <button className="btn" style={{ width: 'auto', padding: '2px 10px' }} onClick={load}>Try again</button></div>
-      : state === null ? <div className="dim small">Loading…</div>
+      <button className="btn" style={{ width: 'auto', padding: '2px 10px' }} onClick={load}>{t('Try again')}</button></div>
+      : state === null ? <div className="dim small">{t('Loading…')}</div>
       : open.length ? <div className="list" style={{ rowGap: 0 }}>
         {open.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
           <div style={{ minWidth: 0 }}>
-            <div className="small" style={{ fontWeight: 600 }}>{i.note || 'No note'}</div>
+            <div className="small" style={{ fontWeight: 600 }}>{i.note || t('No note')}</div>
             {/* The code is kept visible: a link cannot be read down a phone, and this is the only
                 thing a coach standing in front of someone can dictate. */}
             <div className="dim" style={{ fontSize: '.72rem' }}>
-              made {fmtDate(String(i.created).slice(0, 10))} ·{' '}
-              <button onClick={() => copyCode(i.code)} aria-label={'Copy the code ' + i.code}
+              {t('made {0}', fmtDate(String(i.created).slice(0, 10)))} ·{' '}
+              <button onClick={() => copyCode(i.code)} aria-label={t('Copy the code {0}', i.code)}
                 style={{ font: 'inherit', fontFamily: 'ui-monospace, monospace', color: 'inherit', background: 'none',
                   border: 0, padding: 0, textDecoration: 'underline', cursor: 'pointer' }}>{i.code}</button>
             </div>
           </div>
           <div className="row" style={{ gap: 6, flex: 'none' }}>
-            <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => sendLink(i.code)}>Share</button>
-            <button className="iconbtn" aria-label={'Revoke ' + i.code} onClick={() => revoke(i)}><Icon name="trash" /></button>
+            <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => sendLink(i.code)}>{t('Share')}</button>
+            <button className="iconbtn" aria-label={t('Revoke {0}', i.code)} onClick={() => revoke(i)}><Icon name="trash" /></button>
           </div>
         </div>)}
-      </div> : <div className="dim small">Nothing waiting. Make a link and send it.</div>}
+      </div> : <div className="dim small">{t('Nothing waiting. Make a link and send it.')}</div>}
 
     {!!dead.length && <>
-      <h4 className="sec" style={{ marginTop: 18 }}>Revoked</h4>
+      <h4 className="sec" style={{ marginTop: 18 }}>{t('Revoked')}</h4>
       <div className="list" style={{ rowGap: 0 }}>
         {dead.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)', opacity: .55 }}>
-          <div><div className="small" style={{ fontWeight: 600, textDecoration: 'line-through' }}>{i.note || 'No note'}</div>
-            <div className="dim" style={{ fontSize: '.72rem', fontFamily: 'ui-monospace, monospace' }}>{i.code} · will not work</div></div>
+          <div><div className="small" style={{ fontWeight: 600, textDecoration: 'line-through' }}>{i.note || t('No note')}</div>
+            <div className="dim" style={{ fontSize: '.72rem', fontFamily: 'ui-monospace, monospace' }}>{i.code} · {t('will not work')}</div></div>
         </div>)}
       </div>
     </>}
@@ -350,12 +343,12 @@ export function InviteSheet() {
     {/* Kept rather than hidden once used: this is the record of who came in on which link, and it
         is the only place a coach can see that one they sent was actually taken up. */}
     {!!used.length && <>
-      <h4 className="sec" style={{ marginTop: 18 }}>Joined</h4>
+      <h4 className="sec" style={{ marginTop: 18 }}>{t('Joined')}</h4>
       <div className="list" style={{ rowGap: 0 }}>
         {used.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
-          <div><div className="small" style={{ fontWeight: 600 }}>{i.usedByName || 'someone'}</div>
+          <div><div className="small" style={{ fontWeight: 600 }}>{i.usedByName || t('someone')}</div>
             <div className="dim" style={{ fontSize: '.72rem' }}>
-              {i.note ? i.note + ' · ' : ''}joined {fmtDate(String(i.usedAt).slice(0, 10))}</div></div>
+              {i.note ? i.note + ' · ' : ''}{t('joined {0}', fmtDate(String(i.usedAt).slice(0, 10)))}</div></div>
           <span className="dim" style={{ fontSize: '.7rem', fontFamily: 'ui-monospace, monospace' }}>{i.code}</span>
         </div>)}
       </div>
@@ -398,7 +391,7 @@ export function MediaSheet() {
     job.current = p
     p.then(({ media }) => {
       setPct(null); setLabel(''); job.current = null
-      toast(media && media.status === 'raw' ? 'Uploaded — read the warning below' : 'Uploaded')
+      toast(media && media.status === 'raw' ? t('Uploaded — read the warning below') : t('Uploaded'))
       load()
     }).catch(e2 => { setPct(null); job.current = null; if (!e2.aborted) setErr(e2.message) })
   }
@@ -408,78 +401,75 @@ export function MediaSheet() {
   const anyRaw = (rows || []).some(m => m.status === 'raw')
 
   return <>
-    <h3>Exercise demos</h3>
+    <h3>{t('Exercise demos')}</h3>
     <div className="dim small" style={{ marginBottom: 12, lineHeight: 1.45 }}>
-      Your own video of an exercise, shown to every client in place of the stock animation.
-      Works for exercises you created yourself, which have never had one. MP4 or MOV, up to 90 MB,
-      six per exercise.
+      {t('Your own video of an exercise, shown to every client in place of the stock animation. Works for exercises you created yourself, which have never had one. MP4 or MOV, up to 90 MB, six per exercise.')}
     </div>
 
-    <h4 className="sec">1 &middot; Pick the exercise</h4>
+    <h4 className="sec">1 &middot; {t('Pick the exercise')}</h4>
     {ex
       ? <div className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
         <div><div className="small capitalize" style={{ fontWeight: 600 }}>{ex.n}</div>
           <div className="dim" style={{ fontSize: '.72rem' }}>
-            {mine.length} of 6 uploaded{ex.custom ? ' \u00b7 your own exercise' : ''}</div></div>
+            {t('{0} of {1} uploaded', mine.length, 6)}{ex.custom ? ' \u00b7 ' + t('your own exercise') : ''}</div></div>
         <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} disabled={pct != null}
-          onClick={() => { setEx(null); setErr('') }}>Change</button>
+          onClick={() => { setEx(null); setErr('') }}>{t('Change')}</button>
       </div>
       : <>
-        <input className="input" placeholder="Search the exercise library" value={q}
+        <input className="input" placeholder={t('Search the exercise library')} value={q}
           onChange={e => setQ(e.target.value)} style={{ marginBottom: 6 }} />
         {hits.map(e => <div key={e.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}
           onClick={() => { setEx(e); setQ('') }}>
           <div><div className="small capitalize" style={{ fontWeight: 600 }}>{e.n}</div>
             <div className="dim" style={{ fontSize: '.72rem' }}>
-              {e.custom ? 'your own exercise' : e.bp}{(byEx[e.id] || []).length ? ' \u00b7 ' + byEx[e.id].length + ' uploaded' : ''}</div></div>
+              {e.custom ? t('your own exercise') : t(e.bp)}{(byEx[e.id] || []).length ? ' \u00b7 ' + t('{0} uploaded', byEx[e.id].length) : ''}</div></div>
           <Icon name="chevronRight" className="chev" />
         </div>)}
-        {q.trim().length >= 2 && !hits.length && <div className="empty small">Nothing matches that.</div>}
+        {q.trim().length >= 2 && !hits.length && <div className="empty small">{t('Nothing matches that.')}</div>}
       </>}
 
     {ex && <>
-      <h4 className="sec">2 &middot; Send the video</h4>
-      <input className="input" placeholder="Label (optional) — e.g. side on, 60kg" maxLength={40}
+      <h4 className="sec">2 &middot; {t('Send the video')}</h4>
+      <input className="input" placeholder={t('Label (optional) — e.g. side on, 60kg')} maxLength={40}
         value={label} onChange={e => setLabel(e.target.value)} style={{ marginBottom: 10 }} />
       {/* A plain file input behind the app's own button: the native control renders differently
           on every platform and is the loudest unfinished tell there is. */}
       <input ref={fileRef} type="file" accept="video/*" hidden onChange={onFile} />
       {pct == null
         ? <Button variant="primary" icon="upload" disabled={atCap} onClick={() => fileRef.current?.click()}>
-          {atCap ? 'This exercise is full (6 videos)' : 'Choose a video'}
+          {atCap ? t('This exercise is full ({0} videos)', 6) : t('Choose a video')}
         </Button>
         : <>
           {/* 90 MB over a phone connection is minutes, and fetch has no progress event at all —
               which is the whole reason lib/api.js reaches for XHR for this one call. */}
           <div className="wprog" style={{ marginBottom: 8 }}><i style={{ width: pct + '%' }} /></div>
           <div className="row between">
-            <span className="dim small">{pct < 100 ? 'Uploading ' + pct + '%' : 'Checking the file…'}</span>
+            <span className="dim small">{pct < 100 ? t('Uploading {0}%', pct) : t('Checking the file…')}</span>
             <button className="btn" style={{ width: 'auto', padding: '4px 10px' }}
-              onClick={() => job.current?.abort()}>Cancel</button>
+              onClick={() => job.current?.abort()}>{t('Cancel')}</button>
           </div>
         </>}
       {atCap && <div className="dim small" style={{ marginTop: 8, lineHeight: 1.4 }}>
-        The cap is per exercise and nothing can remove a video yet — the next one has to go on a
-        different exercise.
+        {t('The cap is per exercise and nothing can remove a video yet — the next one has to go on a different exercise.')}
       </div>}
       {/* The server's own words. It knows what was wrong with the file; this screen does not. */}
       {err && <div className="small" style={{ marginTop: 10, lineHeight: 1.45, color: 'var(--red)' }}>{err}</div>}
     </>}
 
-    <h4 className="sec">Already uploaded</h4>
-    {rows == null ? <div className="dim small">Loading…</div>
-      : !rows.length ? <div className="empty small">Nothing yet. Clients see the stock animation until you upload one.</div>
+    <h4 className="sec">{t('Already uploaded')}</h4>
+    {rows == null ? <div className="dim small">{t('Loading…')}</div>
+      : !rows.length ? <div className="empty small">{t('Nothing yet. Clients see the stock animation until you upload one.')}</div>
         : <>
           {Object.keys(byEx).sort((a, b) => exName(a).localeCompare(exName(b))).map(exId => <div key={exId} style={{ marginBottom: 10 }}>
             <div className="small capitalize" style={{ fontWeight: 600, marginBottom: 2 }}>{exName(exId)}</div>
             {byEx[exId].map(m => <div key={m.id}>
               <div className="row between" style={{ padding: '7px 2px', borderBottom: '1px solid var(--sep)' }}
                 onClick={() => setPreview(preview === m.id ? null : m.id)}>
-                <div><div className="small">{m.label || 'no label'}</div>
+                <div><div className="small">{m.label || t('no label')}</div>
                   <div className="dim" style={{ fontSize: '.72rem' }}>
                     {MB(m.bytes)} &middot; {fmtDate(String(m.created).slice(0, 10))}</div></div>
                 {m.status === 'raw'
-                  ? <span className="tag" style={{ color: 'var(--yellow)' }}>needs conversion</span>
+                  ? <span className="tag" style={{ color: 'var(--yellow)' }}>{t('needs conversion')}</span>
                   : <Icon name={preview === m.id ? 'chevronDown' : 'play'} />}
               </div>
               {/* Playable whatever the status says. "raw" is not "broken", it is "nothing has
@@ -490,11 +480,7 @@ export function MediaSheet() {
             </div>)}
           </div>)}
           {anyRaw && <div className="dim small" style={{ marginTop: 6, lineHeight: 1.45 }}>
-            “Needs conversion” means HEVC inside a .mov — what an iPhone records unless you tell it
-            otherwise. It is stored, listed and played like any other file, and Safari handles it;
-            Chrome and Firefox usually do not, and a client on one of those quietly sees the stock
-            animation instead. Nothing converts it for you. Either set the camera to “Most
-            Compatible”, or re-export as H.264 MP4 and upload that.
+            {t('“Needs conversion” means HEVC inside a .mov — what an iPhone records unless you tell it otherwise. It is stored, listed and played like any other file, and Safari handles it; Chrome and Firefox usually do not, and a client on one of those quietly sees the stock animation instead. Nothing converts it for you. Either set the camera to “Most Compatible”, or re-export as H.264 MP4 and upload that.')}
           </div>}
         </>}
   </>
