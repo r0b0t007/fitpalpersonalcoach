@@ -867,7 +867,7 @@ export default {
   'Applies to this exercise everywhere, not just this plan.': 'S’applique à cet exercice partout, pas seulement dans ce plan.',
   'You still log the total weight — the bar only feeds the per-side plate math.': 'Vous enregistrez toujours le poids total — la barre ne sert qu’au calcul des disques par côté.',
   // Gym check-in (mobile-only)
-  'Check in': 'Enregistrement',
+  'Check in': 'Faire le point',
   'At the gym': 'À la salle',
   'Type the number on your membership card, import a photo of it, or scan it with the camera. No extra app needed at the gym — just open this screen.': 'Saisissez le numéro de votre carte de membre, importez une photo ou scannez-la avec l’appareil photo. Aucune autre appli nécessaire à la salle — ouvrez simplement cet écran.',
   'Scan it, import a photo, or type the code by hand.': 'Scannez-la, importez une photo ou saisissez le code à la main.',

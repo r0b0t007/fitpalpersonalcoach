@@ -156,6 +156,11 @@ button,.chip,.tile,.item,.wday,.cal-d,.swatch,.hm-c,.lrow,.seg button,.stp butto
 .small{font-size:13px;line-height:1.38}
 .accent{color:var(--acc)}
 .capitalize{text-transform:capitalize}
+/* English title-cases ("Machine Smith"); French, Spanish and German capitalise the first word only
+   ("Machine à levier", "Sentadilla completa con barra"). The html lang is set by App.jsx. Tags are
+   inline-flex, which ::first-letter cannot reach, so their text goes through capFirst instead. */
+html:not([lang="en"]) :is(.capitalize, .chip, .tag, #timer.working .lbl, .today-row .ttl){text-transform:none}
+html:not([lang="en"]) :is(.capitalize, .chip, #timer.working .lbl, .today-row .ttl)::first-letter{text-transform:uppercase}
 /* exercise names and body-part/equipment terms arrive lowercase from the dataset,
    so tags and chips capitalise by default. Anything that is a unit or a sentence opts
    back out — blanket-capitalising turned "60 kg" into "60 Kg" and a whole hint into

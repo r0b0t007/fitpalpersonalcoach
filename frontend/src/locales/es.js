@@ -240,7 +240,7 @@ export default {
   'this week': 'esta semana',
   '{0} workout total': '{0} entrenamiento en total',
   '{0} workouts total': '{0} entrenamientos en total',
-  'Progress & history': 'Progreso e historial',
+  'Progress & history': 'Evolución e historial',
   'Workouts': 'Entrenos',
   'This month': 'Este mes',
   'Week streak': 'Racha semanal',
@@ -867,7 +867,7 @@ export default {
   'Applies to this exercise everywhere, not just this plan.': 'Se aplica a este ejercicio en todas partes, no solo en este plan.',
   'You still log the total weight — the bar only feeds the per-side plate math.': 'Sigues registrando el peso total — la barra solo se usa para calcular los discos por lado.',
   // Gym check-in (mobile-only)
-  'Check in': 'Registrarse',
+  'Check in': 'Responder',
   'At the gym': 'En el gimnasio',
   'Type the number on your membership card, import a photo of it, or scan it with the camera. No extra app needed at the gym — just open this screen.': 'Escribe el número de tu tarjeta de socio, importa una foto o escanéala con la cámara. No hace falta otra app en el gimnasio — solo abre esta pantalla.',
   'Scan it, import a photo, or type the code by hand.': 'Escanéala, importa una foto o escribe el código a mano.',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchExercise, normalizeStr, resolveMedia, searchScore } from './exercises.js'
+import { matchExercise, normalizeStr, resolveMedia, searchScore, allExercises, CATALOGUE } from './exercises.js'
 import { _setLangState } from './i18n-core.js'
 
 describe('normalizeStr', () => {
@@ -146,5 +146,26 @@ describe('resolveMedia and the video poster', () => {
 
   it('uses a coach-uploaded photo, because that one they chose', () => {
     expect(resolveMedia(ex, [vid, pic]).videoPoster).toBeTruthy()
+  })
+})
+
+// CHW-209: a French list ran in English order because EXDB is stored that way.
+describe('allExercises order', () => {
+  const [a, b] = [CATALOGUE[0], CATALOGUE[1]]
+  it('English keeps the stored order, customs first', () => {
+    _setLangState('en', {}, null, null)
+    const list = allExercises({ customEx: [{ id: 'c1', n: 'zzz mine' }] })
+    expect(list[0].id).toBe('c1')
+    expect(list[1]).toBe(a)
+  })
+
+  it('a translated language sorts the built-ins by their own names, accents ignored', () => {
+    // Only two names in the pack: "Écarté" must land with the E's, before "Zzz", and both after
+    // everything English-named that starts earlier. What matters here is the pair's relative order.
+    _setLangState('fr', {}, null, { [a.id]: 'Zzz dernier', [b.id]: 'Écarté premier' })
+    const list = allExercises({})
+    expect(list.indexOf(b)).toBeLessThan(list.indexOf(a))
+    expect(list).toHaveLength(CATALOGUE.length)
+    _setLangState('en', {}, null, null)
   })
 })

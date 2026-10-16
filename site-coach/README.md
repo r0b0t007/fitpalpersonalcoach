@@ -48,8 +48,8 @@ img/screens/*.png       real app screenshots (see below). The two CLIENT screens
                         "Training now" is live presence: POST /api/activity for two demo clients
                         right before each capture, and drop any non-demo client from the capture
                         instance or the counters will not read 6.
-img/og-{fr,en,es}.png   1200x630 social cards (og-es says fitpal.ma; the other two
-                        still print the old coach.fitpal.ma and want re-rendering)
+img/og-{fr,en,es}.png   1200x630 social cards, one layout in three languages, all ending in
+                        fitpal.ma (rendered from an HTML card in headless Chrome, Archivo)
 img/promo-poster-{fr,en,es}.jpg  hero video poster (the frame at 10.1s, 800x450)
 img/coach-hero.jpg      hero portrait beside the headline (stock, illustrative)
 img/coaches.jpg         the full-bleed photo band (stock, illustrative — both in NOTICE.md)
