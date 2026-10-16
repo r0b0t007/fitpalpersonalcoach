@@ -57,7 +57,9 @@ jobs:
       - run: npm run test:fatigue-probe
         working-directory: frontend
       # The app speaks French as "vous"; the upstream instruction dataset says "tu". Fails if a
-      # rebuild from upstream, or a hand edit, brings a "tu" form back into instr/fr.js.
+      # rebuild from upstream or a hand edit brings a "tu" form back into instr/fr.js, or a "tu"
+      # pronoun ("ton", "veux-tu", "Crées-en") into locales/fr.js. A bare UI imperative ("Entre
+      # un nom") it cannot tell from a preposition or a description — review those by eye.
       - run: node scripts/french-vous.mjs --check
 
   api:

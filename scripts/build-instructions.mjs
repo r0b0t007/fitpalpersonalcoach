@@ -1,12 +1,11 @@
 #!/usr/bin/env node
-// Regenerates the per-language exercise instruction packs in frontend/src/instr/
-// from the upstream dataset (hasaneyldrm/exercises-dataset). English stays inline
-// in exercises-data.js; every other language ships as its own lazy-loaded pack.
+// Regenerates exercise instruction packs in frontend/src/instr/ from the upstream dataset
+// (hasaneyldrm/exercises-dataset). English stays inline in exercises-data.js; Spanish is
+// regenerated here; French is kept by hand (see LANGS below).
 //
 //   node scripts/build-instructions.mjs [path-to-exercises.json]
 //
 // Without an argument the dataset is downloaded from the upstream repo.
-// Brazilian Portuguese is curated separately; see instruction-sources/README.md.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
