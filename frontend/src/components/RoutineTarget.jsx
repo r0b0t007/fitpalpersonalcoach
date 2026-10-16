@@ -19,7 +19,7 @@ import { useStore } from '../store/useStore.js'
  *   canRemove     false when removing would leave a set the owner cannot save
  *   pathFor(id)   where a sibling lives
  *   backPath      where the header's back button goes
- *   backLabel     what that button is called; already final, so a coach surface stays English
+ *   backLabel     what that button is called, already translated by the provider
  *   ownEquipment  true when this is the viewer's own plan, so "you don't own this kit" applies
  *
  * Two providers implement it: the one below, which reproduces exactly what the screen did before,

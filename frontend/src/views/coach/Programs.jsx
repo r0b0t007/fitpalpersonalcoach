@@ -5,6 +5,7 @@ import { useUI } from '../../store/useUI.js'
 import { fetchPrograms, savePrograms, migrateLocalPrograms } from '../../lib/programs.js'
 import { newProgramDraft, bundleOf } from '../../lib/program-draft.js'
 import { uid } from '../../lib/format.js'
+import { t, tp } from '../../lib/i18n.js'
 import { glyphOf } from '../../lib/glyphs.js'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
@@ -46,8 +47,8 @@ export default function Programs() {
         if (moved || failed.length) {
           setPrograms(after)
           toast(failed.length
-            ? `Moved ${moved} · ${failed.length} could not be moved and are still on this device`
-            : `Moved ${moved} ${moved === 1 ? 'program' : 'programs'} to your library`)
+            ? t('Moved {0} · {1} could not be moved and are still on this device', moved, failed.length)
+            : tp(moved, 'Moved {0} program to your library', 'Moved {0} programs to your library'))
           return
         }
       }
@@ -55,7 +56,7 @@ export default function Programs() {
     })
     // A failed load must not read as an empty library: "No programs yet" to a coach whose
     // session expired is the app telling them their work is gone.
-    .catch(e => { toast(e.message || 'Failed to load'); setPrograms(false) })
+    .catch(e => { toast(e.message || t('Failed to load')); setPrograms(false) })
 
   // Re-runs when the pulled state arrives carrying a library to move.
   useEffect(() => { load() }, [localCount])
@@ -75,9 +76,9 @@ export default function Programs() {
 
   return <div className="narrow">
     <div className="hdr">
-      <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>Programs</h1>
-        <div className="sub">{programs === false ? 'Could not load' : programs ? (programs.length ? programs.length + ' in your library' : 'Nothing saved yet') : 'Loading…'}</div></div>
-      <Button variant="tinted" size="sm" icon="plus" disabled={busy} onClick={create}>New</Button>
+      <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>{t('Programs')}</h1>
+        <div className="sub">{programs === false ? t('Could not load') : programs ? (programs.length ? t('{0} in your library', programs.length) : t('Nothing saved yet')) : t('Loading…')}</div></div>
+      <Button variant="tinted" size="sm" icon="plus" disabled={busy} onClick={create}>{t('New program')}</Button>
     </div>
 
     <div className="list">
@@ -91,24 +92,22 @@ export default function Programs() {
           </span>
           <div className="grow">
             <div className="tt">{p.name}</div>
-            <div className="ss">{routines} {routines === 1 ? 'routine' : 'routines'} · {ex} {ex === 1 ? 'exercise' : 'exercises'}</div>
+            <div className="ss">{tp(routines, '{0} routine', '{0} routines')} · {tp(ex, '{0} exercise', '{0} exercises')}</div>
           </div>
-          {days > 0 && <span className="tag acc">{days} {days === 1 ? 'day' : 'days'}/wk</span>}
+          {days > 0 && <span className="tag acc">{tp(days, '{0} day/wk', '{0} days/wk')}</span>}
           <Icon name="chevronRight" className="chev" />
         </button>
       })}
       {programs === false && <div className="empty">
-        Could not reach the server, so your library is not shown. Nothing has been lost — try again in a moment.
+        {t('Could not reach the server, so your library is not shown. Nothing has been lost — try again in a moment.')}
       </div>}
       {Array.isArray(programs) && !programs.length && <div className="empty">
-        No programs yet. Start one here, or copy the routines out of your own Plan, then send it to
-        as many clients as you like.
+        {t('No programs yet. Start one here, or copy the routines out of your own Plan, then send it to as many clients as you like.')}
       </div>}
     </div>
 
     <p className="sect-f">
-      Programs live in your library, not in your own plan. Editing one later never changes what a
-      client has already accepted.
+      {t('Programs live in your library, not in your own plan. Editing one later never changes what a client has already accepted.')}
     </p>
   </div>
 }
