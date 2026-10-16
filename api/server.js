@@ -22,7 +22,7 @@ import {
   coachBinding, redeemableInvite, checkinReminderDue, checkinPeriodStart,
   upsertProgram, COACH_MAX_PROGRAMS, say, saidAs
 } from './domain.mjs';
-import { checkinReminderPush, dayReminderPush, restTimerPush, testPush } from './push-messages.js';
+import { assignmentPush, checkinReminderPush, dayReminderPush, restTimerPush, testPush } from './push-messages.js';
 import { verifyError } from './verify-error.js';
 
 // The repo root, one level up from api/ — the anchor for both the .env file and the default
@@ -1424,7 +1424,7 @@ const routes = {
   'POST /api/push/test': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    await sendPush(user.id, testPush(readState(user.id)?.lang));
+    await sendPush(user.id, testPush(readState(user.id)?.lang, RP_NAME));
     json(res, 200, { ok: true });
   },
 
@@ -2137,11 +2137,7 @@ const routes = {
     db.assignments = pruneAssignments(db.assignments.concat(rows));
     saveDb();
     // Best-effort: a member who never enabled push simply finds it next time they open the app.
-    targets.forEach(u => sendPush(u.id, {
-      title: RP_NAME,
-      body: `${coach.name} sent you a program`,
-      tag: 'assignment'
-    }).catch(() => {}));
+    targets.forEach(u => sendPush(u.id, assignmentPush(readState(u.id)?.lang, coach.name, RP_NAME)).catch(() => {}));
     json(res, 200, { ok: true, sent: rows.length });
   },
 
