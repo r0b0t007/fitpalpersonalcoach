@@ -108,9 +108,10 @@ function isSubsequence(needle, hay) {
 // better), and finally typo-tolerant ordered subsequences. Fields are weighted - the name
 // dominates, target/equipment matter, muscles and description are supporting evidence.
 // 0 means no match, so matchesExerciseSearch stays a boolean filter while the picker can
-// rank results by score.
+// rank results by score. Accent-insensitive, and the name is both the translated and the
+// English one (exerciseNameSearchText), like matchExercise: "developpe" finds "développé".
 export function searchScore(exercise, query) {
-  const needle = searchableText(query).toLowerCase().trim()
+  const needle = normalizeStr(searchableText(query)).trim()
   if (!needle) return 1
   const source = exercise && typeof exercise === 'object' ? exercise : {}
   const fields = [['n', 100], ['tg', 40], ['eq', 40], ['sm', 30], ['muscleGroups', 30], ['primaries', 30], ['secondaries', 30], ['desc', 10], ['cues', 10]]
@@ -122,7 +123,7 @@ export function searchScore(exercise, query) {
   for (const token of tokens) {
     let best = 0
     for (const [field, weight] of fields) {
-      const hay = searchableText(source[field]).toLowerCase()
+      const hay = normalizeStr(field === 'n' ? exerciseNameSearchText(source) : searchableText(source[field]))
       if (!hay) continue
       if (hay === token) best = Math.max(best, weight * 4)
       else if (hay.startsWith(token)) best = Math.max(best, weight * 3)

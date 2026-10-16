@@ -52,7 +52,8 @@ other languages in `frontend/src/instr/` — Spanish regenerated via `scripts/bu
 French rewritten from "tu" to "vous" by `scripts/french-vous.mjs` and kept by hand since)
 originate from ExerciseDB v1 and reach openGym through the dataset above, which distributes them
 under the MIT license reproduced below. The translations into languages other than English are
-openGym's own derivative work.
+openGym's own derivative work, as are the French and Spanish exercise names in
+`frontend/src/exercise-names/`, written for FitPal Coach.
 
 ```
 MIT License

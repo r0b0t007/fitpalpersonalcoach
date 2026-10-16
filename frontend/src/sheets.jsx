@@ -8,7 +8,7 @@ import { lastEntryFor, bestWeightFor, bestWeightForEntry, buildSets, effectiveRo
 import { usesBar, barWeightFor, defaultBarWeight, hasBarOverride } from './lib/bar.js'
 import { toScale, rirOf, EFFORT_PRESETS, effortColor } from './lib/effort.js'
 import { beep, vibrate } from './lib/sound.js'
-import { t, tp, dateLocale, instrFor, exerciseNameFor, getLang, INSTR_LANGS } from './lib/i18n.js'
+import { t, tp, dateLocale, instrFor, exerciseNameFor, localExerciseName, getLang, INSTR_LANGS } from './lib/i18n.js'
 import { nav } from './lib/nav.js'
 import { buildStarterPlan, starterPlanDays, starterPlanOptions } from './lib/starter.js'
 import { SITES, SITE_LABEL, isValidValue, latestBySite, lengthUnit, removeMeasurement, upsertMeasurement } from './lib/measurements.js'
@@ -1001,8 +1001,11 @@ function CustomExForm({ existing, prefill, onDone, close }) {
     const name = n.trim()
     if (!name) { toast(t('Give it a name')); return }
     if (!bp) { toast(t('Pick a body part')); return }
-    const dup = allExercises(S()).find(e => e.n.toLowerCase() === name.toLowerCase() && e.id !== (existing || {}).id)
-    if (dup) { toast(t('“{0}” already exists', dup.n)); return }
+    // Against the name the person sees as well as the English one: a French user who types
+    // "développé couché à la barre" is naming a built-in exercise, not a new one.
+    const same = s => s.toLocaleLowerCase() === name.toLocaleLowerCase()
+    const dup = allExercises(S()).find(e => (same(e.n) || same(localExerciseName(e))) && e.id !== (existing || {}).id)
+    if (dup) { toast(t('“{0}” already exists', localExerciseName(dup))); return }
     const d = desc.trim().slice(0, 1000)
     const prim = [...primaries]
     const sm = secondaries.filter(m => !prim.includes(m))

@@ -8,9 +8,9 @@ export const LANGS = {
   en: 'English', de: 'Deutsch', es: 'Español', fr: 'Français'
 }
 export const INSTR_LANGS = ['en', 'es', 'fr']
-// Dormant: no offered language ships translated exercise names. The machinery stays so
-// upstream's pt-BR/hu packs merge back without conflict if one is offered again.
-export const EXERCISE_NAME_LANGS = []
+// Built-in exercise names in src/exercise-names/ (CHW-201). Shown as "translated (english)" by
+// exerciseNameFor, and searched in both by exerciseNameSearchText.
+export const EXERCISE_NAME_LANGS = ['es', 'fr']
 export const DATE_LOCALES = {
   en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR'
 }
@@ -76,10 +76,16 @@ export const exerciseNameFor = ex => {
   // context. Compared in the active language's own casing rules, not hardcoded to one —
   // this only ever differs from ordinary casing for languages with locale-specific rules
   // (e.g. Turkish dotless i), which does not include any language shipped here today.
-  return translated.toLocaleLowerCase(lang) === ex.n.toLocaleLowerCase('en')
-    ? translated
-    : `${translated} (${ex.n})`
+  if (translated.toLocaleLowerCase(lang) === ex.n.toLocaleLowerCase('en')) return translated
+  // Brackets inside brackets read as noise — "pompe (sur swiss ball) (push-up (on stability
+  // ball))" — so when either name carries its own, the English follows a dash instead.
+  return /[()]/.test(translated + ex.n) ? `${translated} — ${ex.n}` : `${translated} (${ex.n})`
 }
+
+// The name in the active language alone — the translated one where a pack has it, else the
+// English (or the custom exercise's own). For comparisons, not display: exerciseNameFor is what
+// the person reads.
+export const localExerciseName = ex => (exerciseNames && ex && exerciseNames[ex.id]) || ex?.n || ''
 
 // Search both the localized and canonical English title without changing persisted data.
 export const exerciseNameSearchText = ex => {

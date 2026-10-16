@@ -6,12 +6,12 @@
 import { useSyncExternalStore } from 'react'
 import {
   DEFAULT_LANG, LANGS, INSTR_LANGS, EXERCISE_NAME_LANGS, DATE_LOCALES,
-  getLang, dateLocale, t, tp, instrFor, exerciseNameFor, exerciseNameSearchText, getVersion, _setLangState
+  getLang, dateLocale, t, tp, instrFor, exerciseNameFor, localExerciseName, exerciseNameSearchText, getVersion, _setLangState
 } from './i18n-core.js'
 
 export {
   DEFAULT_LANG, LANGS, INSTR_LANGS, EXERCISE_NAME_LANGS, DATE_LOCALES,
-  getLang, dateLocale, t, tp, instrFor, exerciseNameFor, exerciseNameSearchText
+  getLang, dateLocale, t, tp, instrFor, exerciseNameFor, localExerciseName, exerciseNameSearchText
 }
 
 // Vite code-splits locale, instruction and exercise-name packs via import.meta.glob. They are
@@ -34,15 +34,17 @@ const notify = () => { subs.forEach(f => f()) }
 export async function setLang(l) {
   if (!LANGS[l]) l = DEFAULT_LANG
   if (l === getLang() && getVersion() > 0) return
-  let dict = {}, instr = null, exerciseNames = null
-  try { dict = l === DEFAULT_LANG ? {} : (await localePacks['../locales/' + l + '.js']()).default } catch (e) { dict = {} }
-  try { instr = l === DEFAULT_LANG || !INSTR_LANGS.includes(l) ? null : (await instrPacks['../instr/' + l + '.js']()).default } catch (e) { instr = null }
-  try {
-    exerciseNames = l === DEFAULT_LANG || !EXERCISE_NAME_LANGS.includes(l)
-      ? null
-      : (await exerciseNamePacks['../exercise-names/' + l + '.js']()).default
-  } catch (e) { exerciseNames = null }
-  _setLangState(l, dict, instr, exerciseNames)
+  // The three packs do not depend on each other, so they load at once: main.jsx waits for this
+  // before the first render, and three round trips in a row is what a French or Spanish client
+  // on a slow connection sits through on every start. A pack that fails to load falls back to
+  // English on its own, without taking the other two with it.
+  const load = (want, packs, path) => want ? Promise.resolve().then(() => packs[path]()).then(m => m.default, () => null) : null
+  const [dict, instr, exerciseNames] = await Promise.all([
+    load(l !== DEFAULT_LANG, localePacks, '../locales/' + l + '.js'),
+    load(l !== DEFAULT_LANG && INSTR_LANGS.includes(l), instrPacks, '../instr/' + l + '.js'),
+    load(l !== DEFAULT_LANG && EXERCISE_NAME_LANGS.includes(l), exerciseNamePacks, '../exercise-names/' + l + '.js'),
+  ])
+  _setLangState(l, dict || {}, instr, exerciseNames)
   notify()
 }
 
