@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
 import { api, fetchExerciseMedia, uploadExerciseMedia } from '../../lib/api.js'
 import { setCoachMedia } from '../../lib/coach-media.js'
-import { EXIDX, allExercises, matchesExerciseSearch, mediaRowSrc } from '../../lib/exercises.js'
+import { EXIDX, allExercises, matchExercise, mediaRowSrc } from '../../lib/exercises.js'
 import { fmtDate, fmtMB, uid, DAYN } from '../../lib/format.js'
 import { inviteLink } from '../../lib/invite.js'
 import { buildPlanBundle } from '../../lib/plan-share.js'
@@ -11,7 +11,7 @@ import { confirmSheet } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { rel } from './parts.jsx'
-import { t, tp } from '../../lib/i18n.js'
+import { t, tp, exerciseNameFor } from '../../lib/i18n.js'
 
 // The coach's sheets: send a program, invite a client, upload a demo. Opened from Today, Clients
 // and a client's page.
@@ -180,7 +180,7 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
 // EXIDX carries the custom exercises too (the store registers them on load), so one lookup
 // covers both. Falling back to the raw id keeps a demo for a deleted exercise visible and
 // counted against the cap instead of vanishing from a list it still occupies.
-const exName = id => (EXIDX[id] && EXIDX[id].n) || id
+const exName = id => (EXIDX[id] ? exerciseNameFor(EXIDX[id]) : id)
 
 // Taking a client on. The code IS the product here: the coach makes one, reads it out or texts
 // it, and the person who redeems it lands on their roster already assigned — which until now took
@@ -379,7 +379,7 @@ export function MediaSheet() {
 
   const mine = ex ? (rows || []).filter(m => m.exId === ex.id) : []
   const atCap = mine.length >= 6
-  const hits = q.trim().length < 2 ? [] : allExercises(S).filter(e => matchesExerciseSearch(e, q)).slice(0, 8)
+  const hits = q.trim().length < 2 ? [] : allExercises(S).filter(e => matchExercise(e, q)).slice(0, 8)
 
   const onFile = e => {
     const file = e.target.files && e.target.files[0]
@@ -410,7 +410,7 @@ export function MediaSheet() {
     <h4 className="sec">1 &middot; {t('Pick the exercise')}</h4>
     {ex
       ? <div className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
-        <div><div className="small capitalize" style={{ fontWeight: 600 }}>{ex.n}</div>
+        <div><div className="small capitalize" style={{ fontWeight: 600 }}>{exerciseNameFor(ex)}</div>
           <div className="dim" style={{ fontSize: '.72rem' }}>
             {t('{0} of {1} uploaded', mine.length, 6)}{ex.custom ? ' \u00b7 ' + t('your own exercise') : ''}</div></div>
         <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} disabled={pct != null}
@@ -421,7 +421,7 @@ export function MediaSheet() {
           onChange={e => setQ(e.target.value)} style={{ marginBottom: 6 }} />
         {hits.map(e => <div key={e.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}
           onClick={() => { setEx(e); setQ('') }}>
-          <div><div className="small capitalize" style={{ fontWeight: 600 }}>{e.n}</div>
+          <div><div className="small capitalize" style={{ fontWeight: 600 }}>{exerciseNameFor(e)}</div>
             <div className="dim" style={{ fontSize: '.72rem' }}>
               {e.custom ? t('your own exercise') : t(e.bp)}{(byEx[e.id] || []).length ? ' \u00b7 ' + tp(byEx[e.id].length, '{0} video uploaded', '{0} videos uploaded') : ''}</div></div>
           <Icon name="chevronRight" className="chev" />

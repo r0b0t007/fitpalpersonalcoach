@@ -87,60 +87,6 @@ export function registerCustom(list) {
 // Full searchable catalogue — customs first so your own exercises are easy to find.
 export const allExercises = st => [...(st.customEx || []), ...CATALOGUE]
 
-function searchableText(value) {
-  if (Array.isArray(value)) return value.map(searchableText).join(' ')
-  if (value == null) return ''
-  try { return String(value) } catch { return '' }
-}
-
-/** Case-insensitive search over built-in and legacy custom exercise metadata. */
-function isSubsequence(needle, hay) {
-  let i = 0
-  for (const ch of hay) {
-    if (ch === needle[i]) i++
-    if (i === needle.length) return true
-  }
-  return false
-}
-
-// Fuzzy match score for one exercise against a query. Best hits: exact field match, then
-// field prefix, then word-boundary starts, then substrings (closer to the start scores
-// better), and finally typo-tolerant ordered subsequences. Fields are weighted - the name
-// dominates, target/equipment matter, muscles and description are supporting evidence.
-// 0 means no match, so matchesExerciseSearch stays a boolean filter while the picker can
-// rank results by score.
-export function searchScore(exercise, query) {
-  const needle = searchableText(query).toLowerCase().trim()
-  if (!needle) return 1
-  const source = exercise && typeof exercise === 'object' ? exercise : {}
-  const fields = [['n', 100], ['tg', 40], ['eq', 40], ['sm', 30], ['muscleGroups', 30], ['primaries', 30], ['secondaries', 30], ['desc', 10], ['cues', 10]]
-  // Token-level matching: every query word must match somewhere (any order), so
-  // "press bench" finds "Bench Press". The score sums each token's best hit.
-  const tokens = needle.split(/[^a-z0-9]+/).filter(Boolean)
-  if (!tokens.length) return 0
-  let total = 0
-  for (const token of tokens) {
-    let best = 0
-    for (const [field, weight] of fields) {
-      const hay = searchableText(source[field]).toLowerCase()
-      if (!hay) continue
-      if (hay === token) best = Math.max(best, weight * 4)
-      else if (hay.startsWith(token)) best = Math.max(best, weight * 3)
-      const idx = hay.indexOf(token)
-      if (idx > 0) best = Math.max(best, weight * 2 - Math.min(idx, 20) * 0.5)
-      if (hay.split(/[^a-z0-9]+/).some(w => w.startsWith(token))) best = Math.max(best, weight * 2.5)
-      if (isSubsequence(token, hay)) best = Math.max(best, weight + Math.max(0, 10 - (hay.length - token.length)))
-    }
-    if (!best) return 0 // every token must match
-    total += best
-  }
-  return total
-}
-
-export function matchesExerciseSearch(exercise, query) {
-  return searchScore(exercise, query) > 0
-}
-
 // Media normally sits next to the app (img/ and gif/, mounted into the web container).
 // A build can point them somewhere else — the demo build pulls them off a CDN instead of
 // shipping ~140 MB of images into the deployment. `import.meta.env` is undefined in plain

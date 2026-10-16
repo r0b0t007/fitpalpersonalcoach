@@ -8,9 +8,9 @@ export const LANGS = {
   en: 'English', de: 'Deutsch', es: 'Español', fr: 'Français'
 }
 export const INSTR_LANGS = ['en', 'es', 'fr']
-// Dormant: no offered language ships translated exercise names. The machinery stays so
-// upstream's pt-BR/hu packs merge back without conflict if one is offered again.
-export const EXERCISE_NAME_LANGS = []
+// Built-in exercise names in src/exercise-names/ (CHW-201). Shown as "translated (english)" by
+// exerciseNameFor, and searched in both by exerciseNameSearchText.
+export const EXERCISE_NAME_LANGS = ['es', 'fr']
 export const DATE_LOCALES = {
   en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR'
 }
