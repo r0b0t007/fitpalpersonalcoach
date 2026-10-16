@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { checkForUpdate, sha256, resetUpdateCheck } from './update.js'
+import { checkForUpdate, sha256, resetUpdateCheck, updatesEnabled, releasesPage, androidDownloadUrl } from './update.js'
 
 // __APP_VERSION__ is defined at build time by vite.config.js (reads package.json).
 // In the test environment vitest applies the same define, so it's available here.
@@ -28,8 +28,9 @@ describe('sha256', () => {
 describe('checkForUpdate', () => {
   let originalFetch
 
-  beforeEach(() => { originalFetch = globalThis.fetch; resetUpdateCheck() })
-  afterEach(() => { globalThis.fetch = originalFetch })
+  // The release channel is a build setting (CHW-210); these cases run with one configured.
+  beforeEach(() => { originalFetch = globalThis.fetch; resetUpdateCheck(); vi.stubEnv('VITE_RELEASES_GITLAB_PROJECT', 'DuarteSantos8%2Fopengym') })
+  afterEach(() => { globalThis.fetch = originalFetch; vi.unstubAllEnvs() })
 
   function mockFetch(body, status = 200) {
     globalThis.fetch = vi.fn(() => Promise.resolve({
@@ -231,8 +232,9 @@ describe('checkForUpdate', () => {
 
 describe('semver comparison (via checkForUpdate behavior)', () => {
   let originalFetch
-  beforeEach(() => { originalFetch = globalThis.fetch; resetUpdateCheck() })
-  afterEach(() => { globalThis.fetch = originalFetch })
+  // The release channel is a build setting (CHW-210); these cases run with one configured.
+  beforeEach(() => { originalFetch = globalThis.fetch; resetUpdateCheck(); vi.stubEnv('VITE_RELEASES_GITLAB_PROJECT', 'DuarteSantos8%2Fopengym') })
+  afterEach(() => { globalThis.fetch = originalFetch; vi.unstubAllEnvs() })
 
   function mockRelease(tag) {
     globalThis.fetch = vi.fn(() => Promise.resolve({
@@ -278,5 +280,28 @@ describe('semver comparison (via checkForUpdate behavior)', () => {
     // minus one on the minor when possible.
     mockRelease('v' + [MAJ, Math.max(0, MIN - 1), 0].join('.'))
     expect((await checkForUpdate()).hasUpdate).toBe(false)
+  })
+})
+
+// A build that names no release channel — this fork's default — must never reach for someone
+// else's: no request, no update, no releases page. Upstream openGym's APK used to be hard-coded.
+describe('a build with no release channel', () => {
+  let originalFetch
+  beforeEach(() => { originalFetch = globalThis.fetch; resetUpdateCheck(); vi.stubEnv('VITE_RELEASES_GITLAB_PROJECT', ''); vi.stubEnv('VITE_ANDROID_DOWNLOAD_URL', '') })
+  afterEach(() => { globalThis.fetch = originalFetch; vi.unstubAllEnvs() })
+
+  it('reports no update without asking anyone', async () => {
+    globalThis.fetch = vi.fn()
+    expect(updatesEnabled()).toBe(false)
+    expect((await checkForUpdate()).hasUpdate).toBe(false)
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+    expect(releasesPage()).toBe('')
+    expect(androidDownloadUrl()).toBe('')
+  })
+
+  it('builds the releases page from the configured project', () => {
+    vi.stubEnv('VITE_RELEASES_GITLAB_PROJECT', 'acme%2Ffitpal-android')
+    expect(updatesEnabled()).toBe(true)
+    expect(releasesPage()).toBe('https://gitlab.com/acme/fitpal-android/-/releases')
   })
 })

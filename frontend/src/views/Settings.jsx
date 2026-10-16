@@ -16,12 +16,14 @@ import { DEMO, REPO } from '../lib/demo.js'
 import { BRAND, FILE_PREFIX } from '../lib/brand.js'
 import { pendingInvite, clearInvite } from '../lib/invite.js'
 import { MOBILE, isAndroid, shareExport, syncReminder } from '../lib/mobile.js'
-import { checkForUpdate, downloadAndInstall } from '../lib/update.js'
+import { checkForUpdate, downloadAndInstall, updatesEnabled, androidDownloadUrl, releasesPage } from '../lib/update.js'
 import { ConnectSheet } from './MobileOnboarding.jsx'
 import { starterPlanSheet, confirmSheet, importFromApp, importFromHevy, equipmentProfileSheet, menuSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
 import { setShellPref } from '../lib/role.js'
+
+const hostOf = url => { try { return new URL(url).host } catch { return url } }
 
 export default function Settings() {
   const nav = useNavigate()
@@ -69,8 +71,9 @@ export default function Settings() {
     // The in-app updater installs an .apk, so it only applies to the native Android build.
     // On iOS and the web this check is skipped and the update row never appears. isAndroid()
     // already answers false off the mobile build; the MOBILE check on top keeps the web bundle
-    // from even asking (and from calling gitlab.com on every Settings visit).
-    if (!MOBILE) return
+    // from even asking (and from calling gitlab.com on every Settings visit). A build with no
+    // release channel of its own (lib/update.js) does not ask either: there is nothing to install.
+    if (!MOBILE || !updatesEnabled()) return
     isAndroid().then(ok => { setAndroid(ok); if (ok) checkForUpdate().then(setUpdateInfo).catch(() => {}) })
   }, [])
 
@@ -129,7 +132,7 @@ export default function Settings() {
       })
     } else {
       // Update available but no APK asset — open the releases page
-      window.open('https://gitlab.com/DuarteSantos8/opengym/-/releases', '_blank', 'noopener')
+      if (releasesPage()) window.open(releasesPage(), '_blank', 'noopener')
     }
   }
 
@@ -385,21 +388,23 @@ export default function Settings() {
           : <Row icon="lightbulb" iconTint="var(--yellow)" title={dataNote} />}
     </Section>}
 
-    {/* ---------- updates: the last thing on the page, so keeping openGym current is one tap ----------
+    {/* ---------- updates: the last thing on the page, so keeping the app current is one tap ----------
         On Android the row is always there — it checks on demand and installs when a release is
         newer (checksum verified, see onUpdateRowClick). On the web the app updates with its
-        server, so the row points at the APK for the phone instead. iOS has no APK: nothing. */}
-    {(!MOBILE || android) && <Section title={t('Updates')}
+        server, so the row points at the APK for the phone instead. iOS has no APK: nothing.
+        Either half shows only when this build names where its Android app lives (lib/update.js):
+        without one there is nothing of ours to download, and never someone else's. */}
+    {((MOBILE && android && updatesEnabled()) || (!MOBILE && androidDownloadUrl())) && <Section title={t('Updates')}
       footer={MOBILE ? t('Releases are checked on gitlab.com. The download is verified against its checksum before the installer opens.') : t('The web app updates together with your server. The Android app installs its own updates from here.')}>
       {MOBILE
         ? <Row icon="download" iconTint="var(--acc)"
-            title={updateInfo?.hasUpdate ? t('Update to openGym v{0}', updateInfo.latestVersion) : t('Check for updates')}
+            title={updateInfo?.hasUpdate ? t('Update to v{0}', updateInfo.latestVersion) : t('Check for updates')}
             subtitle={checking ? t('Checking…') : t('You have v{0}', __APP_VERSION__)}
             accessory="chevron"
             onClick={() => (updateInfo?.hasUpdate ? onUpdateRowClick() : checkNow())} />
         : <Row icon="download" iconTint="var(--acc)" title={t('Get the Android app')}
-            subtitle={t('Download the APK from opengym.duarte-santos.ch')} accessory="chevron"
-            onClick={() => window.open('https://opengym.duarte-santos.ch/#download', '_blank', 'noopener')} />}
+            subtitle={t('Download the APK from {0}', hostOf(androidDownloadUrl()))} accessory="chevron"
+            onClick={() => window.open(androidDownloadUrl(), '_blank', 'noopener')} />}
     </Section>}
 
     {/* The version, at the bottom of Settings — which is where the support template has been
@@ -407,9 +412,10 @@ export default function Settings() {
         address bar and no about box, so without this there is no way to tell which build you
         are running, or whether an update actually installed. */}
     <div className="dim small" style={{ textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
-      {BRAND} · built on openGym<br />
-      <a href="https://gitlab.com/DuarteSantos8/opengym" target="_blank" rel="noopener">source code</a> · exercise data: hasaneyldrm/exercises-dataset (MIT)<br />
-      exercise images and animations © <a href="https://gymvisual.com/" target="_blank" rel="noopener">Gym visual</a>
+      {t('{0} · built on openGym', BRAND)}<br />
+      {/* Upstream's public source: the attribution, and the code this is built on. */}
+      <a href="https://gitlab.com/DuarteSantos8/opengym" target="_blank" rel="noopener">{t('openGym source code')}</a> · {t('exercise data: {0}', 'hasaneyldrm/exercises-dataset (MIT)')}<br />
+      {t('exercise images and animations ©')} <a href="https://gymvisual.com/" target="_blank" rel="noopener">Gym visual</a>
     </div>
   </div>
 }

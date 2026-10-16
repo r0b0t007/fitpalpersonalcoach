@@ -1,14 +1,26 @@
 // Update check — compares the installed version (__APP_VERSION__) against
 // the latest release tag on GitLab and optionally downloads + installs the APK.
 //
-// The GitLab releases API is public for this project, so no token is needed.
+// The GitLab releases API is public for a public project, so no token is needed.
 // On Android (Capacitor), the APK asset is downloaded to the cache directory
 // and handed to the system installer via a content:// URI.
 
 import { MOBILE } from './mobile.js'
 
-const GITLAB_PROJECT_ID = 'DuarteSantos8%2Fopengym'
-const RELEASES_URL = `https://gitlab.com/api/v4/projects/${GITLAB_PROJECT_ID}/releases`
+// Where this build gets its Android releases, set at build time (CHW-210):
+//   VITE_RELEASES_GITLAB_PROJECT   the GitLab project whose releases carry the APK, URL-encoded
+//                                  ("group%2Fproject"); turns on the in-app updater
+//   VITE_ANDROID_DOWNLOAD_URL      the page the WEB app sends someone who wants the Android app
+// Both are empty by default, and empty switches the feature off rather than falling back to
+// upstream. This used to be hard-coded to upstream openGym, so a FitPal Coach client tapping
+// "Get the Android app" installed someone else's unbranded app, and a FitPal Android build would
+// have offered to "update" itself to it. Read on each call, not at import, so a test can set them.
+const env = () => import.meta.env || {}
+const project = () => env().VITE_RELEASES_GITLAB_PROJECT || ''
+export const updatesEnabled = () => !!project()
+export const androidDownloadUrl = () => env().VITE_ANDROID_DOWNLOAD_URL || ''
+export const releasesPage = () => (project() ? `https://gitlab.com/${decodeURIComponent(project())}/-/releases` : '')
+const releasesApi = () => `https://gitlab.com/api/v4/projects/${project()}/releases`
 
 /**
  * Compares two semver strings (e.g. "1.2.11" vs "1.3.0").
@@ -42,7 +54,8 @@ export async function checkForUpdate() {
   return cached
 }
 async function fetchLatest() {
-  const res = await fetch(RELEASES_URL + '?per_page=1')
+  if (!updatesEnabled()) return { hasUpdate: false, latestVersion: __APP_VERSION__, apkUrl: null, hashUrl: null }
+  const res = await fetch(releasesApi() + '?per_page=1')
   if (!res.ok) throw new Error(`GitLab API ${res.status}`)
   const releases = await res.json()
   if (!releases.length) return { hasUpdate: false, latestVersion: __APP_VERSION__, apkUrl: null, hashUrl: null }
@@ -85,8 +98,8 @@ export async function sha256(buffer) {
  */
 export async function downloadAndInstall(url, expectedHash = null, onProgress = null) {
   if (!MOBILE) {
-    // On web, just open the release page
-    window.open('https://gitlab.com/DuarteSantos8/opengym/-/releases', '_blank', 'noopener')
+    // On web, just open the release page — if this build has one.
+    if (releasesPage()) window.open(releasesPage(), '_blank', 'noopener')
     return
   }
 
