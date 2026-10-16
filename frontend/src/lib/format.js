@@ -27,6 +27,12 @@ export const durPart = ms => (ms >= 60000 ? [fmtDur(ms)] : [])
 // Numbers follow the UI language, like the dates above — a hardcoded locale put Swiss
 // apostrophes ("7'535 kg") in front of every user, in every language.
 export const fmtNum = n => (Math.round(n * 10) / 10).toLocaleString(dateLocale())
+// A byte count in MB, in the language's own separator and unit ("12,4 Mo"): one decimal under
+// 10 MB, where it still says something, whole numbers above.
+export const fmtMB = b => {
+  const d = b < 10485760 ? 1 : 0
+  return t('{0} MB', (b / 1048576).toLocaleString(dateLocale(), { minimumFractionDigits: d, maximumFractionDigits: d }))
+}
 // Volume stays in the profile's unit throughout: the old shorthand turned anything over
 // 10 000 into "t", which is wrong for a pound profile and made one list mix "18.8t" with
 // "7'535 kg" — two numbers you can't compare at a glance.
