@@ -13,7 +13,7 @@ import {
   sessionsOverlap, findSessionConflicts,
   sniffMedia, validateUpload, MEDIA_SNIFF_BYTES, coachBinding, redeemableInvite,
   checkinReminderDue, checkinPeriodStart, checkinDayOf, DEFAULT_CHECKIN_DAY, safeMediaFile,
-  cleanProgram, upsertProgram, COACH_MAX_PROGRAMS, PROGRAM_NAME_MAX
+  cleanProgram, upsertProgram, COACH_MAX_PROGRAMS, PROGRAM_NAME_MAX, say, saidAs
 } from './domain.mjs'
 
 const DAY = 86400000
@@ -830,4 +830,22 @@ test('upsertProgram never mutates the array it was handed', () => {
   upsertProgram(before, { id: 'p2', name: 'B', bundle: goodBundle() }, NOW)
   upsertProgram(before, { id: 'p1', name: 'A renamed', bundle: goodBundle() }, NOW)
   assert.equal(JSON.stringify(before), snapshot)
+})
+
+test('say: the same plain string, and the key and values it was built from', () => {
+  const name = 'Marie {1}'
+  const text = say`${name} already has ${3} programs waiting`
+  assert.equal(text, 'Marie {1} already has 3 programs waiting')
+  assert.deepEqual(saidAs(text), { k: '{0} already has {1} programs waiting', v: ['Marie {1}', 3] })
+  // A plain string is only a marker for the check: nothing to send beside it.
+  assert.equal(say('not signed in'), 'not signed in')
+  assert.equal(saidAs('not signed in'), undefined)
+})
+
+test('say: refusals from the domain helpers carry their key', () => {
+  const up = validateUpload(Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...new Array(60).fill(0)]), 'video')
+  assert.deepEqual(saidAs(up.error), { k: 'expected a video, got {0}', v: ['image/jpeg'] })
+  const nutri = validateAssignmentBundle({ opengym_plan: 1, routines: [{ id: 'r', ex: [{ id: 'e' }] }], nutrition: { p: NUTRI_MAX_MACRO + 1 } })
+  assert.equal(nutri.error, `protein must be a number between 0 and ${NUTRI_MAX_MACRO} g`)
+  assert.deepEqual(saidAs(nutri.error), { k: 'protein must be a number between 0 and {0} g', v: [NUTRI_MAX_MACRO] })
 })

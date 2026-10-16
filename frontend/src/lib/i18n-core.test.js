@@ -43,6 +43,11 @@ describe('i18n-core default language', () => {
     expect(t('training now · {0}', 'Legs $$ day')).toBe('training now · Legs $$ day')
     expect(t('{0}', "x$`y$'z")).toBe("x$`y$'z")
   })
+
+  it('t() fills every placeholder in one pass, so a value containing "{1}" stays as typed', () => {
+    expect(t('{0} already has {1} programs waiting', 'Marie {1}', 3)).toBe('Marie {1} already has 3 programs waiting')
+    expect(t('{0} and {1}', 'a')).toBe('a and {1}')   // a placeholder with no value is left visible
+  })
 })
 
 describe('pickLang', () => {

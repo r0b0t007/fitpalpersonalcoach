@@ -24,6 +24,6 @@ test('leaves an unrelated verification failure alone', () => {
 });
 
 test('does not throw on a missing or empty error', () => {
-  assert.equal(verifyError(undefined, cfg), 'verification failed: verification failed');
-  assert.equal(verifyError(new Error(''), cfg), 'verification failed: verification failed');
+  assert.equal(verifyError(undefined, cfg), 'verification failed');
+  assert.equal(verifyError(new Error(''), cfg), 'verification failed');
 });

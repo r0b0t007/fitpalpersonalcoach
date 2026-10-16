@@ -91,6 +91,11 @@ jobs:
       # decides which day starts a period, the server decides which day it pushes about one. A
       # drift does not error: the card says a check-in is owed while the push arrives a day later.
       - run: node api/scripts/check-checkin-day.mjs
+      # The app translates the server's English refusals by their text (frontend/src/lib/
+      # server-messages.js). A new message with no pack key does not error; a French coach just
+      # reads English at sign-in or when sync fails. This reads every refusal in the api source
+      # and checks each one is translated, and that the app's template list matches the api's.
+      - run: node api/scripts/check-error-strings.mjs
 
   # The unit suite imports domain.mjs and nothing else, so until this job existed no HTTP route,
   # cookie check or permission boundary was covered by any automated run: canCoachMember was

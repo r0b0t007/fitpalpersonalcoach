@@ -44,11 +44,12 @@ export const browserLang = () => typeof navigator === 'undefined'
 
 // Translate a source string; {0},{1}… are replaced with args (also on the English fallback).
 export function t(s, ...args) {
-  let v = dict[s] || s
-  // A function replacement: a string one reads '$&', '$$' and '$`' in user text (a routine called
-  // "Legs $$ day", a search for "a$&b") as replacement patterns and mangles it.
-  for (let i = 0; i < args.length; i++) v = v.replaceAll('{' + i + '}', () => String(args[i]))
-  return v
+  const v = dict[s] || s
+  // One pass with a function replacement. A string replacement reads '$&', '$$' and '$`' in user
+  // text (a routine called "Legs $$ day") as patterns; and replacing {0}, then {1}, … in turn
+  // would also rewrite a "{1}" that arrived inside {0} — a client named "Marie {1}".
+  if (!args.length) return v
+  return v.replace(/\{(\d+)\}/g, (m, i) => (i < args.length ? String(args[i]) : m))
 }
 
 // Pick the singular or plural English key by the current language's plural rules, then

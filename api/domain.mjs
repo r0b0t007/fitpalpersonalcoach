@@ -3,6 +3,29 @@
 // disk. The one import is node's own constant-time compare; nothing here reads env or state.
 import { timingSafeEqual } from 'node:crypto'
 
+/* A refusal the app shows to a person. The server speaks English and the app translates it, with
+   the English as the key (frontend/src/lib/server-messages.js). A message with a value in it
+   cannot be a key as sent, so it is written as a tagged template on say. The result is the same
+   plain string, so everything that handles it — tests, Error messages, the audit log — is
+   unchanged; say also remembers which template and values built it, and json() in server.js
+   sends those along as `msg: { k, v }` ("that exercise already has {0} videos", [6]). The app
+   translates k and fills in v, rather than guessing the template back from the English.
+
+   It is keyed by the text because a string cannot carry anything else, and kept small because it
+   only has to last from the say to the json() that sends it — the same request, a moment later.
+   Called with a plain string, say only marks a message built in a helper rather than written
+   straight into an error field, so api/scripts/check-error-strings.mjs finds that one too. */
+const said = new Map()
+export const say = (s, ...v) => {
+  if (typeof s === 'string') return s
+  const text = s.reduce((out, part, i) => out + v[i - 1] + part)
+  said.delete(text)
+  said.set(text, { k: s.reduce((out, part, i) => out + '{' + (i - 1) + '}' + part), v })
+  if (said.size > 200) said.delete(said.keys().next().value)
+  return text
+}
+export const saidAs = text => said.get(text)
+
 /* ---------- access requests ---------- */
 export const REQ_PENDING_DAYS = 14   // a request nobody decided on expires by itself
 export const REQ_DECIDED_DAYS = 30   // decided history kept this long, then dropped
@@ -215,6 +238,13 @@ export const ASSIGN_DECIDED_DAYS = 30      // decided history kept this long, th
 export const NUTRI_MAX_KCAL = 20000
 export const NUTRI_MAX_MACRO = 2000
 export const NUTRI_KEYS = ['kcal', 'p', 'c', 'f']
+// One sentence per field: the keys are internal codes, and "p" in a sentence means nothing to a coach.
+const NUTRI_RANGE_ERROR = {
+  kcal: max => say`calories must be a number between 0 and ${max}`,
+  p: max => say`protein must be a number between 0 and ${max} g`,
+  c: max => say`carbs must be a number between 0 and ${max} g`,
+  f: max => say`fat must be a number between 0 and ${max} g`,
+}
 
 // null for "no targets on this bundle" — every field is optional, including all of them. A coach
 // who sets calories and protein and leaves carbs and fat alone means exactly that, so an absent
@@ -229,7 +259,7 @@ function cleanNutrition(raw) {
     const v = raw[k]
     if (v == null || v === '') continue
     const max = k === 'kcal' ? NUTRI_MAX_KCAL : NUTRI_MAX_MACRO
-    if (!Number.isFinite(+v) || +v < 0 || +v > max) return { error: `nutrition target for ${k} is not a number between 0 and ${max}` }
+    if (!Number.isFinite(+v) || +v < 0 || +v > max) return { error: NUTRI_RANGE_ERROR[k](max) }
     if (+v > 0) out[k] = Math.round(+v)
   }
   const note = String(raw.note || '').trim().slice(0, ASSIGN_NOTE_MAX)
@@ -366,10 +396,10 @@ export function validateAssignmentBundle(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { error: 'plan required' }
   if (!raw.opengym_plan) return { error: 'not a plan bundle' }
   if (!Array.isArray(raw.routines) || raw.routines.length === 0) return { error: 'plan has no routines' }
-  if (raw.routines.length > ASSIGN_MAX_ROUTINES) return { error: `too many routines (max ${ASSIGN_MAX_ROUTINES})` }
+  if (raw.routines.length > ASSIGN_MAX_ROUTINES) return { error: say`too many routines (max ${ASSIGN_MAX_ROUTINES})` }
   for (const r of raw.routines) {
     if (!r || typeof r !== 'object' || !r.id || !Array.isArray(r.ex)) return { error: 'malformed routine' }
-    if (r.ex.length > ASSIGN_MAX_EX) return { error: `a routine has more than ${ASSIGN_MAX_EX} exercises` }
+    if (r.ex.length > ASSIGN_MAX_EX) return { error: say`a routine has more than ${ASSIGN_MAX_EX} exercises` }
     for (const e of r.ex) if (!e || typeof e !== 'object' || !e.id) return { error: 'malformed exercise' }
   }
   const customEx = Array.isArray(raw.customEx) ? raw.customEx.filter(c => c && c.id) : []
@@ -437,7 +467,7 @@ export function upsertProgram(programs, { id, name, bundle }, now) {
   if (at < 0 && list.length >= COACH_MAX_PROGRAMS)
     // `code`, not the wording: the route decides 429 vs 400 from this, and an earlier version
     // matched the message text, so rewording this line silently downgraded the cap to a 400.
-    return { error: `you have ${COACH_MAX_PROGRAMS} programs — delete one before saving another`, code: 'cap' }
+    return { error: say`you have ${COACH_MAX_PROGRAMS} programs — delete one before saving another`, code: 'cap' }
   const row = {
     id: at >= 0 ? list[at].id : id,
     name: program.name,
@@ -618,10 +648,10 @@ const ACCEPT_PHOTO = new Set(['jpg', 'png', 'webp', 'gif'])
 export function validateUpload(buf, want) {
   const m = sniffMedia(buf)
   if (!m) return { error: 'not a recognised image or video file' }
-  if (m.kind !== want) return { error: `expected ${want === 'video' ? 'a video' : 'an image'}, got ${m.mime}` }
+  if (m.kind !== want) return { error: want === 'video' ? say`expected a video, got ${m.mime}` : say`expected an image, got ${m.mime}` }
 
   if (want === 'video') {
-    if (!ACCEPT_VIDEO.has(m.ext)) return { error: `${m.mime} is not a supported video format — use MP4 or MOV` }
+    if (!ACCEPT_VIDEO.has(m.ext)) return { error: say`${m.mime} is not a supported video format — use MP4 or MOV` }
     return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: m.ext === 'mov' || BRAND_HEVC.has(m.brand) }
   }
   // Photos stay narrow, and the asymmetry with video is deliberate rather than an oversight.
@@ -631,7 +661,7 @@ export function validateUpload(buf, want) {
   // no equivalently cheap client-side step for video, which is the whole reason video needs the
   // flag above and photos do not.
   if (m.ext === 'heic') return { error: 'HEIC photos do not display in most browsers — set the camera to “Most Compatible”, or export as JPEG' }
-  if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG, WebP or GIF` }
+  if (!ACCEPT_PHOTO.has(m.ext)) return { error: say`${m.mime} is not a supported image format — use JPEG, PNG, WebP or GIF` }
   return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: false }
 }
 

@@ -1,5 +1,6 @@
 // Backend + WebAuthn helpers (ported from the vanilla app).
 import { t } from './i18n-core.js'
+import { serverText } from './server-messages.js'
 
 export const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)
 export const IS_ANDROID = /Android/.test(navigator.userAgent)
@@ -35,7 +36,7 @@ export async function api(path, opts) {
   if (remoteToken) headers.Authorization = 'Bearer ' + remoteToken
   const r = await fetch(remoteBase + path, Object.assign({}, opts, { headers }))
   const data = await r.json().catch(() => ({}))
-  if (!r.ok) { const e = new Error(data.error || ('HTTP ' + r.status)); e.status = r.status; throw e }
+  if (!r.ok) { const e = new Error(data.error ? serverText(data) : 'HTTP ' + r.status); e.status = r.status; throw e }
   return data
 }
 
@@ -46,7 +47,7 @@ export async function pairRedeem(serverBase, code) {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code })
   })
   const data = await r.json().catch(() => ({}))
-  if (!r.ok) { const e = new Error(data.error || ('HTTP ' + r.status)); e.status = r.status; throw e }
+  if (!r.ok) { const e = new Error(data.error ? serverText(data) : 'HTTP ' + r.status); e.status = r.status; throw e }
   return data
 }
 
@@ -67,12 +68,13 @@ export const fetchMyPhotos = () => api('/api/media/photos').then(d => d.photos |
    fetch or XHR written in a view would silently hit the wrong origin and drop the token on the
    paired mobile build. pairRedeem above is the same bargain for the same reason.
 
-   Written once and shared by both callers below rather than copied. `noun` is only ever read on
-   the one path where nothing else is known — a network failure with no response at all — and is
-   there because "too large or not a video" is wrong advice to give someone sending a photo.
+   Written once and shared by both callers below rather than copied. `cutOff` is the sentence for
+   the one path where nothing else is known — a network failure with no response at all — and each
+   caller passes its own, because "too large or not a video" is wrong advice to give someone
+   sending a photo.
 
    Returns a promise with .abort() on it, because cancelling a 90 MB upload is not a luxury. */
-function rawUpload(path, body, onProgress, noun) {
+function rawUpload(path, body, onProgress, cutOff) {
   const xhr = new XMLHttpRequest()
   const p = new Promise((resolve, reject) => {
     xhr.open('POST', remoteBase + path)
@@ -87,16 +89,16 @@ function rawUpload(path, body, onProgress, noun) {
       try { data = JSON.parse(xhr.responseText) } catch {}
       if (xhr.status >= 200 && xhr.status < 300) return resolve(data)
       // The server's wording is the instruction — "use MP4 or MOV", "set the camera to Most
-      // Compatible". Pass it through untouched; a generic "upload failed" throws away the only
-      // thing that tells the person what to change.
-      const e = new Error(data.error || ('HTTP ' + xhr.status)); e.status = xhr.status; reject(e)
+      // Compatible". Pass it through, translated but otherwise untouched; a generic "upload failed"
+      // throws away the only thing that tells the person what to change.
+      const e = new Error(data.error ? serverText(data) : 'HTTP ' + xhr.status); e.status = xhr.status; reject(e)
     }
     // A refusal happens while the browser is still sending, and the server closes the socket to
     // get its message out. Usually the response still lands (onload above); when it does not,
     // the browser reports a bare network failure with no status. Name the two things that
     // actually cause it rather than inventing a reason, and do not overwrite a real 413/415.
-    xhr.onerror = () => reject(new Error('The upload was cut off before the server answered — it may have refused the file for being too large or not a ' + noun + '.'))
-    xhr.onabort = () => reject(Object.assign(new Error('Upload cancelled'), { aborted: true }))
+    xhr.onerror = () => reject(new Error(cutOff))
+    xhr.onabort = () => reject(Object.assign(new Error(t('Upload cancelled')), { aborted: true }))
     xhr.send(body)
   })
   p.abort = () => xhr.abort()
@@ -105,7 +107,7 @@ function rawUpload(path, body, onProgress, noun) {
 
 export const uploadExerciseMedia = (exId, label, file, onProgress) => rawUpload(
   '/api/media/exercise?ex=' + encodeURIComponent(exId) + '&label=' + encodeURIComponent(label || ''),
-  file, onProgress, 'video')
+  file, onProgress, t('The upload was cut off before the server answered — it may have refused the file for being too large or not a video.'))
 
 /* A progress photo. `d` is the check-in period it belongs to (periodStart in lib/checkins.js) and
    `pose` one of POSES in lib/photo.js — together they are the slot, and re-sending replaces it
@@ -117,7 +119,7 @@ export const uploadExerciseMedia = (exId, label, file, onProgress) => rawUpload(
    await rather than in an option on this one. */
 export const uploadProgressPhoto = (d, pose, blob, onProgress) => rawUpload(
   '/api/media/photo?d=' + encodeURIComponent(d) + '&pose=' + encodeURIComponent(pose),
-  blob, onProgress, 'photo')
+  blob, onProgress, t('The upload was cut off before the server answered — it may have refused the file for being too large or not a photo.'))
 
 const bufToB64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const b64uToBuf = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)).buffer
