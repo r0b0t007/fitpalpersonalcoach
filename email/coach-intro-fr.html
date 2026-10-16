@@ -1,5 +1,5 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="fr">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="fr">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -18,21 +18,26 @@
   table { border-collapse:collapse !important; }
   img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; }
   a { color:#D4AF37; }
-  /* Dark-mode clients: we are already dark, so hold the palette rather than let it invert.
-     [data-ogsc] / [data-ogsb] are what Outlook.com sets on the elements it recolours. */
-  @media (prefers-color-scheme: dark) {
-    .ground { background-color:#1C1A17 !important; }
-    .ink    { color:#F2EDE4 !important; }
-    .mute   { color:#A9A198 !important; }
-  }
-  [data-ogsb] .ground { background-color:#1C1A17 !important; }
-  [data-ogsc] .ink    { color:#F2EDE4 !important; }
-  [data-ogsc] .mute   { color:#A9A198 !important; }
+  /* Dark mode: the message is already dark, and the color-scheme meta says so to the clients
+     that listen (Apple Mail). Gmail's apps and Outlook for Windows recolour regardless; nothing
+     in CSS reaches them. Outlook.com's hooks are in the next <style> block, kept apart so a
+     client that rejects attribute selectors cannot take these mobile rules down with them. */
   @media screen and (max-width:620px) {
     .wrap   { width:100% !important; }
     .pad    { padding-left:24px !important; padding-right:24px !important; }
     .display { font-size:30px !important; line-height:1.15 !important; }
   }
+</style>
+<style type="text/css">
+  /* Outlook.com marks what it recolours with data-ogsc (text) / data-ogsb (background), on the
+     element or an ancestor depending on the version, so both shapes are listed. The CTA label is
+     the one that matters most: lightened #14120F on unchanged gold would be unreadable. */
+  [data-ogsb] .ground, .ground[data-ogsb] { background-color:#1C1A17 !important; }
+  [data-ogsc] .ink, .ink[data-ogsc]       { color:#F2EDE4 !important; }
+  [data-ogsc] .mute, .mute[data-ogsc]     { color:#A9A198 !important; }
+  [data-ogsc] .gold, .gold[data-ogsc]     { color:#D4AF37 !important; }
+  [data-ogsb] .cta-bg, .cta-bg[data-ogsb] { background-color:#D4AF37 !important; }
+  [data-ogsc] .cta, .cta[data-ogsc]       { color:#14120F !important; }
 </style>
 </head>
 
@@ -48,7 +53,7 @@
   <tr>
     <td align="center" style="padding:32px 12px;">
 
-      <table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#1C1A17;">
+      <table role="presentation" class="wrap ground" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#1C1A17;">
 
         <!-- Brand lockup. Reads correctly even with images blocked: the wordmark is live text. -->
         <tr>
@@ -75,14 +80,14 @@
 
         <!-- Eyebrow -->
         <tr>
-          <td class="pad" style="padding:26px 40px 0 40px; font-family:Archivo,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; font-size:12px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; color:#D4AF37;">
+          <td class="pad gold" style="padding:26px 40px 0 40px; font-family:Archivo,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; font-size:12px; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; color:#D4AF37;">
             Pour les coachs indépendants
           </td>
         </tr>
 
         <!-- Headline, lifted from the page it links to -->
         <tr>
-          <td class="pad display" style="padding:10px 40px 0 40px; font-family:Archivo,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; font-size:36px; line-height:1.1; font-weight:800; letter-spacing:-0.01em; color:#F2EDE4;">
+          <td class="pad display ink" style="padding:10px 40px 0 40px; font-family:Archivo,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; font-size:36px; line-height:1.1; font-weight:800; letter-spacing:-0.01em; color:#F2EDE4;">
             L'admin vous coûte des clientes.
           </td>
         </tr>
@@ -148,8 +153,8 @@
           <td class="pad" style="padding:26px 40px 0 40px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td bgcolor="#D4AF37" style="background-color:#D4AF37; border-radius:3px;">
-                  <a href="https://fitpal.ma/" target="_blank"
+                <td bgcolor="#D4AF37" class="cta-bg" style="background-color:#D4AF37; border-radius:3px;">
+                  <a href="https://fitpal.ma/" target="_blank" class="cta"
                      style="display:inline-block; padding:14px 24px; font-family:Archivo,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; font-size:15px; font-weight:700; letter-spacing:0.02em; text-transform:uppercase; color:#14120F; text-decoration:none; border-radius:3px;">
                     Voir le produit
                   </a>
