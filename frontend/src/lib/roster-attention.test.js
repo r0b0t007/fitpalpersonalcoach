@@ -2,8 +2,9 @@
 // for which reason, in what order. Each reason is pinned with the smallest member that triggers
 // it, and the ranking with members that trigger several — because the list shows one row per
 // person, the wrong winner hides a real problem behind a lesser one.
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { attentionItems, reasonFor, daysSince } from './roster-attention.js'
+import { _setLangState } from './i18n-core.js'
 
 const TODAY = '2026-09-10'   // a Thursday; the default check-in day is Sunday (0)
 const base = {
@@ -97,5 +98,24 @@ describe('the list', () => {
     ], TODAY)
     expect(items.map(i => i.id)).toEqual(['c', 'b', 'a'])
     expect(items[0]).toMatchObject({ name: 'Bob', type: 'program-waiting' })
+  })
+})
+
+// The rows are read at render, in the coach's language: the title and the "how long ago" both
+// come through the locale pack, and the day count picks its plural form by that language's rules.
+describe('in the coach’s language', () => {
+  afterEach(() => _setLangState('en'))
+
+  it('reads in French, with French plurals', async () => {
+    _setLangState('fr', (await import('../locales/fr.js')).default)
+    const m = with_({ pending: [{ created: '2026-09-07T10:00:00.000Z' }] })
+    expect(reasonFor(m, TODAY)).toMatchObject({ title: 'Programme sans réponse', detail: 'Envoyé il y a 3 jours' })
+    expect(reasonFor(with_({ lastWorkout: null }), TODAY)).toMatchObject({ title: 'Ne s’entraîne pas', detail: 'Aucune séance pour l’instant' })
+  })
+
+  it('reads in Spanish', async () => {
+    _setLangState('es', (await import('../locales/es.js')).default)
+    expect(reasonFor(with_({ lastDecision: { status: 'declined', at: '2026-09-09T10:00:00.000Z' } }), TODAY))
+      .toMatchObject({ title: 'Rechazó el último programa', detail: 'ayer' })
   })
 })
