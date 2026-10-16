@@ -2,7 +2,7 @@
 
 Branded HTML email for FitPal Coach outreach. Three files, same design, one per language:
 
-| File | Language | CTA links to |
+| File | Language | CTA and footer link to |
 |---|---|---|
 | `coach-intro-fr.html` | French | `https://fitpal.ma/` |
 | `coach-intro-en.html` | English | `https://fitpal.ma/en/` |

@@ -1,5 +1,5 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="fr">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="fr">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,18 +12,22 @@
 <![endif]-->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" />
 <style type="text/css">
-  /* Clients that strip <link> fall back to the stack inline on every element. */
-  @import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap');
+  /* Clients that strip the <link> above fall back to the stack inline on every element. No
+     @import here: some clients discard the whole <style> block for one, mobile rules included. */
   body { margin:0 !important; padding:0 !important; width:100% !important; }
   table { border-collapse:collapse !important; }
   img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; }
   a { color:#D4AF37; }
-  /* Dark-mode clients: we are already dark, so hold the palette rather than let it invert. */
-  @media (prefers-color-scheme: light) {
+  /* Dark-mode clients: we are already dark, so hold the palette rather than let it invert.
+     [data-ogsc] / [data-ogsb] are what Outlook.com sets on the elements it recolours. */
+  @media (prefers-color-scheme: dark) {
     .ground { background-color:#1C1A17 !important; }
     .ink    { color:#F2EDE4 !important; }
     .mute   { color:#A9A198 !important; }
   }
+  [data-ogsb] .ground { background-color:#1C1A17 !important; }
+  [data-ogsc] .ink    { color:#F2EDE4 !important; }
+  [data-ogsc] .mute   { color:#A9A198 !important; }
   @media screen and (max-width:620px) {
     .wrap   { width:100% !important; }
     .pad    { padding-left:24px !important; padding-right:24px !important; }
@@ -177,7 +181,7 @@
         <tr>
           <td class="pad mute" style="padding:0 40px 36px 40px; font-family:Archivo,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; font-size:14px; line-height:1.5; color:#A9A198;">
             <a href="https://fitpal.ma/" target="_blank" style="color:#D4AF37; text-decoration:none;">fitpal.ma</a>
-            &nbsp;&middot;&nbsp; +212&nbsp;6&nbsp;26&nbsp;41&nbsp;06&nbsp;90
+            &nbsp;&middot;&nbsp; <a href="tel:+212626410690" style="color:#A9A198; text-decoration:none;">+212&nbsp;626&nbsp;410&nbsp;690</a>
           </td>
         </tr>
 
