@@ -13,7 +13,11 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const UPSTREAM = 'https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/data/exercises.json'
-const LANGS = ['es', 'fr', 'it', 'tr', 'ru', 'zh', 'hi', 'pl', 'ko']
+// Only the packs this fork ships (INSTR_LANGS in frontend/src/lib/i18n-core.js), minus French:
+// upstream's French says "tu" and the app says "vous", so fr.js was rewritten by
+// scripts/french-vous.mjs and is kept by hand from here (CHW-202). Rebuilding it from upstream
+// would undo that — if you ever must, run french-vous.mjs over the result.
+const LANGS = ['es']
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = join(root, 'frontend', 'src', 'instr')

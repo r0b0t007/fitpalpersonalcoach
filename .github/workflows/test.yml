@@ -8,6 +8,7 @@ on:
       - 'frontend/**'
       - 'api/**'
       - 'mcp/**'
+      - 'scripts/french-vous.mjs'
       - '.github/workflows/test.yml'
   push:
     branches: [main, coach]
@@ -15,6 +16,7 @@ on:
       - 'frontend/**'
       - 'api/**'
       - 'mcp/**'
+      - 'scripts/french-vous.mjs'
       - '.github/workflows/test.yml'
   workflow_dispatch:
 
@@ -54,6 +56,9 @@ jobs:
       # Property probe over ~108k comparisons; too slow for the unit suite, cheap here.
       - run: npm run test:fatigue-probe
         working-directory: frontend
+      # The app speaks French as "vous"; the upstream instruction dataset says "tu". Fails if a
+      # rebuild from upstream, or a hand edit, brings a "tu" form back into instr/fr.js.
+      - run: node scripts/french-vous.mjs --check
 
   api:
     runs-on: ubuntu-latest
