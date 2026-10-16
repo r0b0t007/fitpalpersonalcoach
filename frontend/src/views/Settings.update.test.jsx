@@ -11,7 +11,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 // flips the two gates (MOBILE flag, Capacitor platform) and watches whether Settings even
 // asks gitlab.com for the latest release.
 const mocks = vi.hoisted(() => {
-  const state = { S: null, MOBILE: false, android: false }
+  const state = { S: null, MOBILE: false, android: false, updates: true, downloadUrl: 'https://example.test/android' }
   state.snapshot = () => ({
     S: state.S,
     user: null,
@@ -57,6 +57,9 @@ vi.mock('../lib/mobile.js', () => ({
 vi.mock('../lib/update.js', () => ({
   checkForUpdate: (...a) => mocks.checkForUpdate(...a),
   downloadAndInstall: vi.fn(),
+  updatesEnabled: () => mocks.updates,
+  androidDownloadUrl: () => mocks.downloadUrl,
+  releasesPage: () => '',
 }))
 vi.mock('./MobileOnboarding.jsx', () => ({ ConnectSheet: () => null }))
 vi.mock('../sheets.jsx', () => ({
@@ -74,6 +77,8 @@ beforeEach(() => {
   }
   mocks.MOBILE = false
   mocks.android = false
+  mocks.updates = true
+  mocks.downloadUrl = 'https://example.test/android'
   mocks.checkForUpdate.mockClear()
   mocks.confirmSheet.mockClear()
   host = document.createElement('div')
@@ -90,7 +95,7 @@ const mount = async () => {
   await act(async () => { root.render(<Settings />) })
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
 }
-const updateRow = () => [...host.querySelectorAll('.lrow')].find(r => r.textContent.includes('Update to openGym v9.9.9'))
+const updateRow = () => [...host.querySelectorAll('.lrow')].find(r => r.textContent.includes('Update to v9.9.9'))
 const checkRow = () => [...host.querySelectorAll('.lrow')].find(r => r.textContent.includes('Check for updates'))
 const webRow = () => [...host.querySelectorAll('.lrow')].find(r => r.textContent.includes('Get the Android app'))
 
@@ -135,6 +140,37 @@ describe('Settings — in-app update check', () => {
     expect(mocks.checkForUpdate).toHaveBeenCalledTimes(2)
     await act(async () => { await Promise.resolve() })
     expect(updateRow()).toBeTruthy()   // the second (default) answer had 9.9.9 — the row now offers it
+  })
+
+  // CHW-210: with no release channel configured — this fork's default — neither half shows.
+  // Both used to point at upstream openGym, so a client could install someone else's app.
+  it('web build with no Android download configured: no Updates section at all', async () => {
+    mocks.downloadUrl = ''
+    await mount()
+    expect(webRow()).toBeUndefined()
+    expect([...host.querySelectorAll('h2, .sec-h, .section-title')].some(h => /Updates/.test(h.textContent))).toBe(false)
+    expect(host.textContent).not.toContain('duarte-santos')
+  })
+
+  it('Android build with no release channel: never asks, shows no update row', async () => {
+    mocks.MOBILE = true
+    mocks.android = true
+    mocks.updates = false
+    await mount()
+    expect(mocks.checkForUpdate).not.toHaveBeenCalled()
+    expect(updateRow()).toBeUndefined()
+    expect(checkRow()).toBeUndefined()
+  })
+
+  it('the web row names the configured host and opens it', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    await mount()
+    // The heading the no-channel test looks for is really there when a channel is set.
+    expect([...host.querySelectorAll('h2')].some(h => /Updates/.test(h.textContent))).toBe(true)
+    expect(webRow().textContent).toContain('example.test')
+    act(() => { webRow().click() })
+    expect(open).toHaveBeenCalledWith('https://example.test/android', '_blank', 'noopener')
+    open.mockRestore()
   })
 
   it('Android when gitlab.com is unreachable: stays quiet, keeps the row', async () => {

@@ -112,6 +112,19 @@ accounts, no store rules, no yearly fees between you and an open-source app.
 
 ### Android — sideload the APK
 
+> **FitPal Coach has no Android release of its own yet.** Everything below describes upstream
+> openGym's APK. The app's own links to it are build settings now, empty by default (CHW-210):
+>
+> - `VITE_RELEASES_GITLAB_PROJECT` — the GitLab project (URL-encoded, `group%2Fproject`) whose
+>   releases carry the APK and its `.sha256`. Set, the Android build's Settings → Updates checks
+>   it and installs newer releases; empty, that row does not exist.
+> - `VITE_ANDROID_DOWNLOAD_URL` — where the *web* app's "Get the Android app" row sends people.
+>   Empty, the row does not exist.
+>
+> Before shipping a FitPal APK, also change `appId` in `frontend/capacitor.config.json`: it is
+> still upstream's `ch.duartesantos.opengym`, so a FitPal build would install over openGym's app
+> (or be replaced by it) on the same phone.
+
 The official signed APK is in three places, all the same file:
 
 - **[opengym.duarte-santos.ch](https://opengym.duarte-santos.ch)** — the download page.
