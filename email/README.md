@@ -1,11 +1,12 @@
 # Outbound email templates
 
-Branded HTML email for FitPal Coach outreach. Two files, same design, one per language:
+Branded HTML email for FitPal Coach outreach. Three files, same design, one per language:
 
 | File | Language | CTA links to |
 |---|---|---|
 | `coach-intro-fr.html` | French | `https://fitpal.ma/` |
 | `coach-intro-en.html` | English | `https://fitpal.ma/en/` |
+| `coach-intro-es.html` | Spanish | `https://fitpal.ma/es/` |
 
 ## Why this folder is not inside `site-coach/`
 
@@ -30,7 +31,7 @@ press kits, ad copy, sales one-pagers. Keep them out of `site-coach/` and `site/
 
 These are **templates**, not campaigns. There is no ESP wired up and no tracking pixel.
 
-1. Replace `[Prénom]` / `[First name]`.
+1. Replace `[Prénom]` / `[First name]` / `[Nombre]`.
 2. Replace the first body paragraph with a real observation about the recipient if you have one.
    The generic opener is the weakest part of the email and is the thing that makes it read as a
    template.
