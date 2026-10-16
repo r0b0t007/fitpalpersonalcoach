@@ -26,7 +26,8 @@ import { t } from '../lib/i18n.js'
 // DOM (a `.card`'s fill, usually) — without it the red button peeks out at the row's edge even
 // at rest, since a transparent row lets an absolutely-positioned sibling show straight through.
 const REVEAL = 76
-export default function SwipeToDelete({ children, onDelete, deleteLabel, className, onClick }) {
+// radius: the wrapped row's own corner radius. The red layer sits under it, so a mismatch shows.
+export default function SwipeToDelete({ children, onDelete, deleteLabel, className, onClick, radius = 'var(--r-card)' }) {
   const outerRef = useRef(null)
   const rowRef = useRef(null)
   const drag = useRef({ startX: null, startY: null, delta: 0, open: false, axis: null })
@@ -71,9 +72,9 @@ export default function SwipeToDelete({ children, onDelete, deleteLabel, classNa
   }, [])
 
   return (
-    // The card's own radius, and the red layer inset a pixel with the same corners: otherwise it shows
-    // through the card's antialiased corners while the row is closed.
-    <div ref={outerRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--r-card)' }}
+    // The row's radius, and the red layer inset a pixel with the same corners: otherwise it shows
+    // through the row's antialiased corners while it is closed.
+    <div ref={outerRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: radius }}
       onTouchStart={e => { if (e.target.closest('button,input')) return; start(e.touches[0].clientX, e.touches[0].clientY) }}
       onTouchEnd={end}
       onMouseDown={e => { if (e.button !== 0 || e.target.closest('button,input')) return; start(e.clientX, e.clientY) }}
@@ -81,7 +82,7 @@ export default function SwipeToDelete({ children, onDelete, deleteLabel, classNa
       onMouseUp={end}
       onMouseLeave={() => { if (drag.current.startX !== null) end() }}>
       <button className="swipe-del" aria-label={deleteLabel || t('Delete')}
-        style={{ position: 'absolute', inset: '1px 1px 1px auto', borderRadius: '0 var(--r-card) var(--r-card) 0', width: REVEAL, background: 'var(--red)', color: '#fff', fontSize: 12, fontWeight: 600 }}
+        style={{ position: 'absolute', inset: '1px 1px 1px auto', borderRadius: `0 ${radius} ${radius} 0`, width: REVEAL, background: 'var(--red)', color: '#fff', fontSize: 12, fontWeight: 600 }}
         onClick={() => { setX(0, true); drag.current.open = false; onDelete() }}>{t('Delete')}</button>
       <div ref={rowRef} className={className}
         onClick={e => { if (drag.current.open) { e.stopPropagation(); setX(0, true); drag.current.open = false; return } onClick && onClick(e) }}

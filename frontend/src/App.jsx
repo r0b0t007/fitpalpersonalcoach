@@ -5,7 +5,7 @@ import { pendingInvite } from './lib/invite.js'
 import { useUI } from './store/useUI.js'
 import { bindUI } from './components/ui.jsx'
 import { ACCENTS } from './lib/format.js'
-import { setLang, useLang, DEFAULT_LANG } from './lib/i18n.js'
+import { setLang, useLang, getLang, DEFAULT_LANG } from './lib/i18n.js'
 import { setNav } from './lib/nav.js'
 import { fetchExerciseMedia } from './lib/api.js'
 import { setCoachMedia } from './lib/coach-media.js'
@@ -176,7 +176,9 @@ function Shell() {
     fetchExerciseMedia().then(rows => { if (live) setCoachMedia(rows) }).catch(() => {})
     return () => { live = false }
   }, [user?.id])
-  useEffect(() => { document.documentElement.lang = S.lang || DEFAULT_LANG }, [langV, S.lang])
+  // getLang, not S.lang: a stored language the app no longer ships ('it') loads English, and the
+  // sentence-case CSS and capFirst must agree on which one is showing.
+  useEffect(() => { document.documentElement.lang = getLang() }, [langV, S.lang])
   // Forward navigation starts at the top; going back lands where you left off.
   // The position is recorded from scroll events rather than read at route
   // change, because by then a shorter page may already have clamped it.

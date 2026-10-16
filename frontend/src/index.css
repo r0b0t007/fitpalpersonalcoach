@@ -156,14 +156,21 @@ button,.chip,.tile,.item,.wday,.cal-d,.swatch,.hm-c,.lrow,.seg button,.stp butto
 .small{font-size:13px;line-height:1.38}
 .accent{color:var(--acc)}
 .capitalize{text-transform:capitalize}
-/* English title-cases ("Machine Smith"); French, Spanish and German capitalise the first word only
-   ("Machine à levier", "Sentadilla completa con barra"). The html lang is set by App.jsx.
+/* English title-cases ("Machine Smith"); French and Spanish capitalise the first word only
+   ("Machine à levier", "Sentadilla completa con barra"). German is left on title case: it
+   capitalises its nouns and has no exercise-name pack, so its names are English. The html lang
+   is set by App.jsx from the language actually loaded (getLang), as capFirst() reads it.
+   :where() keeps the first rule at class level, so a later .tag.x or .chip.x still wins; the two
+   compound selectors get their own rule at their own specificity. A person's name (.name) keeps
+   title case in every language.
    ::first-letter only reaches block containers, and .tag is inline-flex: a tag holding text alone
-   becomes inline-block here, which looks the same; one that starts with an icon has no first
-   letter for CSS to find, so its text goes through capFirst() in the code. */
-html:not([lang="en"]) :is(.capitalize, .chip, .tag, #timer.working .lbl, .today-row .ttl){text-transform:none}
-html:not([lang="en"]) .tag:not(:has(> svg)){display:inline-block}
-html:not([lang="en"]) :is(.capitalize, .chip, .tag, #timer.working .lbl, .today-row .ttl):not(.nocap)::first-letter{text-transform:uppercase}
+   becomes inline-block here, which looks the same; one that starts with an icon, or a name after
+   the favourite star, has no first letter for CSS to find, so it goes through capFirst(). */
+html:is([lang="fr"],[lang="es"]) :where(.capitalize, .chip, .tag){text-transform:none}
+html:is([lang="fr"],[lang="es"]) #timer.working .lbl, html:is([lang="fr"],[lang="es"]) .today-row .ttl{text-transform:none}
+.capitalize.name{text-transform:capitalize}
+html:is([lang="fr"],[lang="es"]) .tag:not(:has(> svg)){display:inline-block}
+html:is([lang="fr"],[lang="es"]) :where(.capitalize, .chip, .tag, #timer.working .lbl, .today-row .ttl):not(.nocap, .name)::first-letter{text-transform:uppercase}
 /* exercise names and body-part/equipment terms arrive lowercase from the dataset,
    so tags and chips capitalise by default. Anything that is a unit or a sentence opts
    back out — blanket-capitalising turned "60 kg" into "60 Kg" and a whole hint into

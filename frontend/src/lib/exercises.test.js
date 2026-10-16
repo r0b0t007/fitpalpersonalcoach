@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { matchExercise, normalizeStr, resolveMedia, searchScore, allExercises, CATALOGUE } from './exercises.js'
 import { _setLangState } from './i18n-core.js'
 
@@ -151,7 +151,9 @@ describe('resolveMedia and the video poster', () => {
 
 // CHW-209: a French list ran in English order because EXDB is stored that way.
 describe('allExercises order', () => {
-  const [a, b] = [CATALOGUE[0], CATALOGUE[1]]
+  const [a, b, c, d] = CATALOGUE
+  afterEach(() => { _setLangState('en', {}, null, null) })   // a failed expect must not leave fr behind
+
   it('English keeps the stored order, customs first', () => {
     _setLangState('en', {}, null, null)
     const list = allExercises({ customEx: [{ id: 'c1', n: 'zzz mine' }] })
@@ -159,13 +161,21 @@ describe('allExercises order', () => {
     expect(list[1]).toBe(a)
   })
 
-  it('a translated language sorts the built-ins by their own names, accents ignored', () => {
-    // Only two names in the pack: "Écarté" must land with the E's, before "Zzz", and both after
-    // everything English-named that starts earlier. What matters here is the pair's relative order.
-    _setLangState('fr', {}, null, { [a.id]: 'Zzz dernier', [b.id]: 'Écarté premier' })
+  it('a translated language sorts by its own names, with its collation', () => {
+    // Each pair fails under a plain code-point sort: "É" (U+00C9) comes after every unaccented
+    // letter, so it would sort Écarté after ecrasé and Zèbre; "10" would come before "2".
+    _setLangState('fr', {}, null, { [a.id]: 'Zèbre', [b.id]: 'ecrasé', [c.id]: 'Écarté', [d.id]: 'Écarté 10' })
+    const list = allExercises({})
+    const at = e => list.indexOf(e)
+    expect(at(c)).toBeLessThan(at(b))   // Écarté < ecrasé: accents and case ignored
+    expect(at(b)).toBeLessThan(at(a))   // ecrasé < Zèbre
+    expect(at(c)).toBeLessThan(at(d))
+    expect(list).toHaveLength(CATALOGUE.length)
+  })
+
+  it('numbers inside names sort as numbers', () => {
+    _setLangState('fr', {}, null, { [a.id]: 'Fente 10', [b.id]: 'Fente 2' })
     const list = allExercises({})
     expect(list.indexOf(b)).toBeLessThan(list.indexOf(a))
-    expect(list).toHaveLength(CATALOGUE.length)
-    _setLangState('en', {}, null, null)
   })
 })

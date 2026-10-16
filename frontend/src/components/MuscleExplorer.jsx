@@ -5,7 +5,7 @@ import { activeProfile, exAvailable } from '../lib/equipment.js'
 import { bestWeightFor } from '../lib/history.js'
 import { fmtNum } from '../lib/format.js'
 import { MUSCLES, MUSCLE_NAME, musclesOf } from '../lib/muscles.js'
-import { t, exerciseNameFor, capFirst } from '../lib/i18n.js'
+import { t, exerciseNameFor, capFirst, useLang } from '../lib/i18n.js'
 import BodyMap from './BodyMap.jsx'
 import { Thumb } from './Media.jsx'
 import Icon from './Icon.jsx'
@@ -26,10 +26,11 @@ export default function MuscleExplorer({ onPick, onDetail, onPlan }) {
   // Same rule as the Library and the picker: the active equipment profile narrows the catalogue
   // (and the per-muscle counts) unless the user asks for everything.
   const profile = activeProfile(S)
+  const langV = useLang()   // allExercises sorts by the reader's names, which land after mount
   const catalog = useMemo(() => {
     const all = allExercises(S)
     return (profile && !showAll) ? all.filter(e => exAvailable(S, e)) : all
-  }, [S.customEx, S.equipFilterOn, S.activeEquipId, S.equipProfiles, showAll])
+  }, [S.customEx, S.equipFilterOn, S.activeEquipId, S.equipProfiles, showAll, langV])
   const counts = useMemo(() => Object.fromEntries(MUSCLES.map(m => [m,
     catalog.filter(e => musclesOf(e)[m]).length
   ])), [catalog])
@@ -84,7 +85,7 @@ export default function MuscleExplorer({ onPick, onDetail, onPlan }) {
           const primary = musclesOf(e)[selected] === 1
           return <div key={e.id} className="item" {...tappable(() => choose(e))}>
             <Thumb ex={e} />
-            <div className="grow"><div className="tt capitalize">{isFav(S, e.id) && <Icon name="starFill" className="fav-star" />}{exerciseNameFor(e)}</div><div className="ss">{t(primary ? 'Primary target' : 'Also trains')} · <span className="capitalize">{capFirst(t(e.tg || e.bp))} · {capFirst(t(e.eq))}</span></div></div>
+            <div className="grow"><div className="tt capitalize">{isFav(S, e.id) && <Icon name="starFill" className="fav-star" />}{capFirst(exerciseNameFor(e))}</div><div className="ss">{t(primary ? 'Primary target' : 'Also trains')} · <span className="capitalize">{capFirst(t(e.tg || e.bp))} · {capFirst(t(e.eq))}</span></div></div>
             {onPick ? <Icon name="plus" className="chev" /> : <>
               {best > 0 && <span className="tag acc">{fmtNum(best)}</span>}
               <Button size="sm" variant="tinted" icon="plus" onClick={ev => { ev.stopPropagation(); onPlan(e) }}>{t('Plan')}</Button>

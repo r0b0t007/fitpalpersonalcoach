@@ -102,7 +102,7 @@ export default function ClientDetail() {
         not fit ("Envoyer un programme" beside a two-word name is wider than a phone). */}
     <div className="hdr" style={{ flexWrap: 'wrap' }}>
       <button className="iconbtn" onClick={() => nav('/clients')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
-      <div style={{ flex: '1 1 0', minWidth: 'min-content', marginLeft: 8 }}><h1 className="capitalize" style={{ margin: 0 }}>{d.user.name}</h1>
+      <div style={{ flex: '1 1 0', minWidth: 'min-content', marginLeft: 8 }}><h1 className="capitalize name" style={{ margin: 0 }}>{d.user.name}</h1>
         <div className="sub">{d.user.created ? t('Client since {0}', fmtDate(String(d.user.created).slice(0, 10))) : ''}{row?.live ? ' · ' + t('training now') : ''}</div></div>
       <div style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}><Button variant="tinted" size="sm" icon="clipboard" onClick={send}>{t('Send a program')}</Button></div>
     </div>

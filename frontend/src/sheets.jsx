@@ -1149,7 +1149,7 @@ function ExercisePicker({ onPick, close }) {
         <div className="grow"><div className="tt">{t('Create your own exercise')}</div><div className="ss">{t('name + body part, no animation')}</div></div><Icon name="plus" className="chev" />
       </div>}
       {f.slice(0, shown).map(e => <div key={e.id} className="item" {...tappable(() => onPick(e))}>
-        <Thumb ex={e} /><div className="grow"><div className="tt capitalize">{isFav(st, e.id) && <Icon name="starFill" className="fav-star" />}{exerciseNameFor(e)}</div><div className="ss capitalize">{capFirst(t(e.tg || e.bp))} · {capFirst(t(e.eq))}</div></div>
+        <Thumb ex={e} /><div className="grow"><div className="tt capitalize">{isFav(st, e.id) && <Icon name="starFill" className="fav-star" />}{capFirst(exerciseNameFor(e))}</div><div className="ss capitalize">{capFirst(t(e.tg || e.bp))} · {capFirst(t(e.eq))}</div></div>
         {/* Accent tag = already in a routine/log ("Chosen"); the yellow star by the name = favourite. */}
         {usage[e.id] && <span className="tag acc"><Icon name="starFill" /></span>}
         {/* A "+" glyph reads as "add this now" — it used to just open the same detail sheet as

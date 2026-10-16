@@ -66,9 +66,11 @@ export function tp(n, one, other, ...args) {
 // Instructions for an exercise in the current language (English steps as fallback).
 export const instrFor = ex => (instr && instr[ex.id]) || ex.st || []
 
-// The first letter in capitals, for text in a box CSS's ::first-letter cannot reach (an inline-flex
-// .tag). English is left alone: its title case comes from the stylesheet.
-export const capFirst = s => (lang === DEFAULT_LANG || !s ? s : s[0].toLocaleUpperCase(lang) + s.slice(1))
+// The first letter in capitals, for text CSS's ::first-letter cannot reach (a .tag that starts with
+// an icon, a name after the favourite star). Only where index.css sets sentence case, French and
+// Spanish; English and German keep the stylesheet's title case.
+const SENTENCE_CASE = ['fr', 'es']
+export const capFirst = s => (!s || !SENTENCE_CASE.includes(lang) ? s : s[0].toLocaleUpperCase(lang) + s.slice(1))
 
 // Built-in catalogue names are bilingual when a complete translated name pack is active.
 // User-created exercises have no entry in the pack and keep their exact chosen name.

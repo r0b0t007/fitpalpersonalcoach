@@ -63,7 +63,7 @@ export function AccountSheet({ id, onChanged, close }) {
       .catch(e => toast(e.message))
 
   return <>
-    <h3 className="capitalize">{u.name}</h3>
+    <h3 className="capitalize name">{u.name}</h3>
     <div className="row" style={{ gap: 6, flexWrap: 'wrap', margin: '8px 0 12px' }}>
       {u.id === me?.id && <span className="tag acc">{t('you')}</span>}
       {u.admin && u.id !== me?.id && <span className="tag acc">{t('admin')}</span>}

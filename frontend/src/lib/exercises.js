@@ -93,8 +93,11 @@ function catalogueInOrder() {
   if (orderedFor !== getVersion()) {
     orderedFor = getVersion()
     const lang = getLang()
-    ordered = lang === DEFAULT_LANG ? CATALOGUE : [...CATALOGUE].sort((a, b) =>
-      localExerciseName(a).localeCompare(localExerciseName(b), lang, { sensitivity: 'base', numeric: true }))
+    if (lang === DEFAULT_LANG) ordered = CATALOGUE
+    else {
+      const { compare } = new Intl.Collator(lang, { sensitivity: 'base', numeric: true })
+      ordered = CATALOGUE.map(e => [localExerciseName(e), e]).sort((a, b) => compare(a[0], b[0])).map(p => p[1])
+    }
   }
   return ordered
 }
