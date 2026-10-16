@@ -3,6 +3,15 @@
 // disk. The one import is node's own constant-time compare; nothing here reads env or state.
 import { timingSafeEqual } from 'node:crypto'
 
+/* A refusal the app shows to a person. The server speaks English and the app translates what
+   arrives, with the English as the key (frontend/src/lib/server-messages.js). A message with a
+   value in it cannot be a key as sent, so it is written as a tagged template on say: the result
+   is the same plain string, and api/scripts/check-error-strings.mjs reads the template back out
+   of the source as the key ("that exercise already has {0} videos"). Called with a plain string,
+   say marks a message built in a helper rather than written straight into an error field, so the
+   check finds that one too. */
+export const say = (s, ...v) => typeof s === 'string' ? s : s.reduce((out, part, i) => out + v[i - 1] + part)
+
 /* ---------- access requests ---------- */
 export const REQ_PENDING_DAYS = 14   // a request nobody decided on expires by itself
 export const REQ_DECIDED_DAYS = 30   // decided history kept this long, then dropped
@@ -229,7 +238,7 @@ function cleanNutrition(raw) {
     const v = raw[k]
     if (v == null || v === '') continue
     const max = k === 'kcal' ? NUTRI_MAX_KCAL : NUTRI_MAX_MACRO
-    if (!Number.isFinite(+v) || +v < 0 || +v > max) return { error: `nutrition target for ${k} is not a number between 0 and ${max}` }
+    if (!Number.isFinite(+v) || +v < 0 || +v > max) return { error: say`nutrition target for ${k} is not a number between 0 and ${max}` }
     if (+v > 0) out[k] = Math.round(+v)
   }
   const note = String(raw.note || '').trim().slice(0, ASSIGN_NOTE_MAX)
@@ -366,10 +375,10 @@ export function validateAssignmentBundle(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { error: 'plan required' }
   if (!raw.opengym_plan) return { error: 'not a plan bundle' }
   if (!Array.isArray(raw.routines) || raw.routines.length === 0) return { error: 'plan has no routines' }
-  if (raw.routines.length > ASSIGN_MAX_ROUTINES) return { error: `too many routines (max ${ASSIGN_MAX_ROUTINES})` }
+  if (raw.routines.length > ASSIGN_MAX_ROUTINES) return { error: say`too many routines (max ${ASSIGN_MAX_ROUTINES})` }
   for (const r of raw.routines) {
     if (!r || typeof r !== 'object' || !r.id || !Array.isArray(r.ex)) return { error: 'malformed routine' }
-    if (r.ex.length > ASSIGN_MAX_EX) return { error: `a routine has more than ${ASSIGN_MAX_EX} exercises` }
+    if (r.ex.length > ASSIGN_MAX_EX) return { error: say`a routine has more than ${ASSIGN_MAX_EX} exercises` }
     for (const e of r.ex) if (!e || typeof e !== 'object' || !e.id) return { error: 'malformed exercise' }
   }
   const customEx = Array.isArray(raw.customEx) ? raw.customEx.filter(c => c && c.id) : []
@@ -437,7 +446,7 @@ export function upsertProgram(programs, { id, name, bundle }, now) {
   if (at < 0 && list.length >= COACH_MAX_PROGRAMS)
     // `code`, not the wording: the route decides 429 vs 400 from this, and an earlier version
     // matched the message text, so rewording this line silently downgraded the cap to a 400.
-    return { error: `you have ${COACH_MAX_PROGRAMS} programs — delete one before saving another`, code: 'cap' }
+    return { error: say`you have ${COACH_MAX_PROGRAMS} programs — delete one before saving another`, code: 'cap' }
   const row = {
     id: at >= 0 ? list[at].id : id,
     name: program.name,
@@ -618,10 +627,10 @@ const ACCEPT_PHOTO = new Set(['jpg', 'png', 'webp', 'gif'])
 export function validateUpload(buf, want) {
   const m = sniffMedia(buf)
   if (!m) return { error: 'not a recognised image or video file' }
-  if (m.kind !== want) return { error: `expected ${want === 'video' ? 'a video' : 'an image'}, got ${m.mime}` }
+  if (m.kind !== want) return { error: want === 'video' ? say`expected a video, got ${m.mime}` : say`expected an image, got ${m.mime}` }
 
   if (want === 'video') {
-    if (!ACCEPT_VIDEO.has(m.ext)) return { error: `${m.mime} is not a supported video format — use MP4 or MOV` }
+    if (!ACCEPT_VIDEO.has(m.ext)) return { error: say`${m.mime} is not a supported video format — use MP4 or MOV` }
     return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: m.ext === 'mov' || BRAND_HEVC.has(m.brand) }
   }
   // Photos stay narrow, and the asymmetry with video is deliberate rather than an oversight.
@@ -631,7 +640,7 @@ export function validateUpload(buf, want) {
   // no equivalently cheap client-side step for video, which is the whole reason video needs the
   // flag above and photos do not.
   if (m.ext === 'heic') return { error: 'HEIC photos do not display in most browsers — set the camera to “Most Compatible”, or export as JPEG' }
-  if (!ACCEPT_PHOTO.has(m.ext)) return { error: `${m.mime} is not a supported image format — use JPEG, PNG, WebP or GIF` }
+  if (!ACCEPT_PHOTO.has(m.ext)) return { error: say`${m.mime} is not a supported image format — use JPEG, PNG, WebP or GIF` }
   return { kind: m.kind, ext: m.ext, mime: m.mime, needsTranscode: false }
 }
 

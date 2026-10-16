@@ -109,6 +109,10 @@ Several `check-*.mjs` scripts guard things a test cannot see, and are wired into
   never see it; this has taken the API down twice.
 - `api/scripts/check-adherence-window.mjs` — ties `ADHERENCE_SEND_DAYS` (api) to
   `ADHERENCE_WINDOW_DAYS` (frontend) across a boundary neither side can import across.
+- `api/scripts/check-error-strings.mjs` — the API refuses in English and the app translates the
+  text (`lib/server-messages.js`). Every `error: '…'` literal and every `say` message in the api
+  must be a key in every pack; a message with a value in it is written as a say template, whose
+  key has `{0}` for each value, and has to be listed in `SERVER_TEMPLATES`.
 
 Node in the images is **26** (`node:26-alpine`), but the live cPanel deployment runs Node 22 —
 they are separate paths and do not have to match.

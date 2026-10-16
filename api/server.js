@@ -20,7 +20,7 @@ import {
   findSessionConflicts, isRealDate,
   validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile,
   coachBinding, redeemableInvite, checkinReminderDue, checkinPeriodStart,
-  upsertProgram, COACH_MAX_PROGRAMS
+  upsertProgram, COACH_MAX_PROGRAMS, say
 } from './domain.mjs';
 import { checkinReminderPush, dayReminderPush, restTimerPush, testPush } from './push-messages.js';
 import { verifyError } from './verify-error.js';
@@ -258,7 +258,7 @@ function streamToFile(req, tmp, maxBytes, check) {
     req.on('data', chunk => {
       if (settled) return;
       size += chunk.length;
-      if (size > maxBytes) return fail(413, `file is larger than the ${mb(maxBytes)} MB limit`);
+      if (size > maxBytes) return fail(413, say`file is larger than the ${mb(maxBytes)} MB limit`);
       if (meta === null) {
         head.push(chunk); headLen += chunk.length;
         if (headLen >= MEDIA_SNIFF_BYTES && !sniff()) return;
@@ -271,7 +271,7 @@ function streamToFile(req, tmp, maxBytes, check) {
       // Emptiness is judged before format. Both are refusals, but "empty upload" tells the
       // uploader something true and actionable, where sniffing nothing yields the generic
       // "not a recognised image or video file" about a file they never actually sent.
-      if (!size) return fail(400, 'empty upload');
+      if (!size) return fail(400, say('empty upload'));
       // A file shorter than the sniff window still has to be judged; sniffMedia's own length
       // guard turns a genuinely tiny body into "not a recognised file" rather than a crash.
       if (meta === null && !sniff()) return;
@@ -280,8 +280,8 @@ function streamToFile(req, tmp, maxBytes, check) {
         resolve({ bytes: size, meta, sha: sha.digest('hex') });
       });
     });
-    req.on('error', () => fail(400, 'upload interrupted'));
-    out.on('error', () => fail(500, 'could not write the file'));
+    req.on('error', () => fail(400, say('upload interrupted')));
+    out.on('error', () => fail(500, say('could not write the file')));
   });
 }
 
@@ -434,9 +434,9 @@ const publicPhoto = p => ({ id: p.id, d: p.d, pose: p.pose, bytes: p.bytes, mime
 const photoBytes = rows => rows.reduce((n, p) => n + (Number(p.bytes) || 0), 0);
 function photoCapError(rows, d, pose, incoming = 0) {
   const rest = rows.filter(p => !(p.d === d && p.pose === pose));
-  if (rest.length >= MEDIA_MAX_PHOTOS) return `that is ${MEDIA_MAX_PHOTOS} photos already stored`;
+  if (rest.length >= MEDIA_MAX_PHOTOS) return say`that is ${MEDIA_MAX_PHOTOS} photos already stored`;
   if (photoBytes(rest) + incoming > MEDIA_MAX_PHOTO_TOTAL)
-    return `that is ${mb(MEDIA_MAX_PHOTO_TOTAL)} MB of photos already stored`;
+    return say`that is ${mb(MEDIA_MAX_PHOTO_TOTAL)} MB of photos already stored`;
   return null;
 }
 
@@ -503,15 +503,15 @@ const PUSH_AGENT = new https.Agent({ lookup: guardedLookup, keepAlive: false });
 // than silently never delivering. PUSH_AGENT is what actually enforces the address rule.
 function pushEndpointError(raw) {
   let u;
-  try { u = new URL(String(raw || '')); } catch { return 'endpoint is not a valid URL'; }
-  if (u.protocol !== 'https:') return 'endpoint must be an https:// URL';
-  if (u.username || u.password) return 'endpoint must not carry credentials';
+  try { u = new URL(String(raw || '')); } catch { return say('endpoint is not a valid URL'); }
+  if (u.protocol !== 'https:') return say('endpoint must be an https:// URL');
+  if (u.username || u.password) return say('endpoint must not carry credentials');
   // A literal address can be judged right here, which turns the common case into a clear error
   // at subscribe time instead of a delivery that quietly never happens. Hostnames are left to
   // PUSH_AGENT, which is the check that actually has to hold.
   const host = u.hostname.replace(/^\[|\]$/g, '');
   if (/^[0-9.]+$/.test(host) || host.includes(':')) {
-    if (isPrivateAddr(host)) return 'endpoint must not point at a private address';
+    if (isPrivateAddr(host)) return say('endpoint must not point at a private address');
   }
   return null;
 }
@@ -937,7 +937,7 @@ function readBody(req, limit = MAX_BODY, tooLargeMsg) {
       if (size > limit) {
         req.pause();   // stop reading; the response, not a socket teardown, is what answers this
         reject(Object.assign(
-          new Error(tooLargeMsg || `request body is larger than the ${mb(limit)} MB limit`),
+          new Error(tooLargeMsg || say`request body is larger than the ${mb(limit)} MB limit`),
           { status: 413, clientSafe: true }));
         return;
       }
@@ -945,7 +945,7 @@ function readBody(req, limit = MAX_BODY, tooLargeMsg) {
     });
     req.on('end', () => {
       try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); }
-      catch { reject(Object.assign(new Error('bad json'), { status: 400, clientSafe: true })); }
+      catch { reject(Object.assign(new Error(say('bad json')), { status: 400, clientSafe: true })); }
     });
     req.on('error', reject);
   });
@@ -1376,7 +1376,7 @@ const routes = {
     // Named, not generic: the client shows whatever this says, and "body too large" tells someone
     // whose phone has quietly stopped syncing nothing they can act on.
     const body = await readBody(req, STATE_MAX_BODY,
-      `your training data is over the ${mb(STATE_MAX_BODY)} MB limit for one sync, so this device could not save to the server. Delete some old workouts, or export a backup and start a fresh profile.`);
+      say`your training data is over the ${mb(STATE_MAX_BODY)} MB limit for one sync, so this device could not save to the server. Delete some old workouts, or export a backup and start a fresh profile.`);
     if (!body.state || typeof body.state !== 'object') return json(res, 400, { error: 'state required' });
     delete body.state.active;              // in-progress workouts stay device-local
     atomicWrite(stateFile(user.id), JSON.stringify(body.state));
@@ -1810,7 +1810,7 @@ const routes = {
     const body = await readBody(req);
     const mine = db.invites.filter(i => i.coachId === coach.id);
     if (mine.filter(i => !i.usedBy && !i.revoked).length >= COACH_MAX_OPEN_INVITES)
-      return json(res, 429, { error: `you already have ${COACH_MAX_OPEN_INVITES} unused codes — revoke one before making another` });
+      return json(res, 429, { error: say`you already have ${COACH_MAX_OPEN_INVITES} unused codes — revoke one before making another` });
     // The one a coach cannot revoke their way around. Unreachable by hand; it exists so a stuck
     // client looping mint-and-revoke cannot grow the table every registration scans.
     if (mine.length >= COACH_MAX_LIFETIME_INVITES)
@@ -1864,7 +1864,7 @@ const routes = {
     if (!/^[A-Za-z0-9_-]{1,40}$/.test(exId)) return json(res, 400, { error: 'bad exercise id' }, shut);
     const label = String(q.get('label') || '').trim().slice(0, 40);
     const atCap = () => db.media.filter(m => m.exId === exId).length >= MEDIA_MAX_PER_EX;
-    if (atCap()) return json(res, 429, { error: `that exercise already has ${MEDIA_MAX_PER_EX} videos` }, shut);
+    if (atCap()) return json(res, 429, { error: say`that exercise already has ${MEDIA_MAX_PER_EX} videos` }, shut);
 
     const dir = path.join(MEDIA_DIR, 'ex');
     try { fs.mkdirSync(dir, { recursive: true }); }
@@ -1885,7 +1885,7 @@ const routes = {
     // ten files against a cap of six — and there is no delete route to undo that yet.
     if (atCap()) {
       fs.rm(tmp, { force: true }, () => {});
-      return json(res, 429, { error: `that exercise already has ${MEDIA_MAX_PER_EX} videos` });
+      return json(res, 429, { error: say`that exercise already has ${MEDIA_MAX_PER_EX} videos` });
     }
 
     // Content-addressed on what actually arrived, never on what the client called it. Two
@@ -2122,7 +2122,7 @@ const routes = {
       const u = db.users.find(x => x.id === id);
       if (!u || !canCoachMember(coach, u, { isAdmin: admin })) return json(res, 403, { error: 'forbidden' });
       if (pendingAssignmentsFor(db.assignments, u.id).length >= ASSIGN_MAX_PENDING)
-        return json(res, 429, { error: `${u.name} already has ${ASSIGN_MAX_PENDING} programs waiting` });
+        return json(res, 429, { error: say`${u.name} already has ${ASSIGN_MAX_PENDING} programs waiting` });
       targets.push(u);
     }
     const note = String(body.note || '').trim().slice(0, ASSIGN_NOTE_MAX);
