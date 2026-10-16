@@ -1,6 +1,7 @@
 // French names for the built-in exercises, keyed by id (lib/exercises-data.js). What a coach in a
 // French-speaking gym says, not a word-for-word rendering: "squat", "curl" and "hip thrust" stay.
-// Lowercase like the English source — the app capitalises on display. Custom exercises are not here:
+// Lowercase like the English source (the app capitalises on display), except proper names and
+// acronyms: Smith, EZ, TRX, Bosu, Zottman, JM. Custom exercises are not here:
 // their names are whatever the person typed. Coverage is checked by lib/exercise-packs.test.js (CHW-201).
 export default {
   "1000": "extension des mollets inversée sur une jambe à l'élastique",

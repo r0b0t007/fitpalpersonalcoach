@@ -6,7 +6,7 @@ import { describe, it, expect, afterAll } from 'vitest'
 import { readdirSync } from 'node:fs'
 import { EXDB } from './exercises-data.js'
 import { EXIDX, matchExercise } from './exercises.js'
-import { INSTR_LANGS, EXERCISE_NAME_LANGS, exerciseNameFor, _setLangState } from './i18n-core.js'
+import { INSTR_LANGS, EXERCISE_NAME_LANGS, exerciseNameFor, localExerciseName, _setLangState } from './i18n-core.js'
 
 const ids = EXDB.map(e => e.id).sort()
 const byId = Object.fromEntries(EXDB.map(e => [e.id, e]))
@@ -14,8 +14,11 @@ const filesIn = dir => readdirSync(new URL(`../${dir}/`, import.meta.url)).filte
 const load = async (dir, lang) => (await import(`../${dir}/${lang}.js`)).default
 
 describe('exercise name packs', () => {
-  it('ship for exactly the languages that are switched on', () => {
-    expect(filesIn('exercise-names')).toEqual([...EXERCISE_NAME_LANGS].sort())
+  // Every switched-on language has one. A file for a language that is not switched on is
+  // never loaded, and is allowed: upstream ships pt-BR and hu packs, and merging them back must
+  // not fail CI here.
+  it('exist for every language that is switched on', () => {
+    expect(filesIn('exercise-names')).toEqual(expect.arrayContaining(EXERCISE_NAME_LANGS))
   })
 
   for (const lang of EXERCISE_NAME_LANGS) {
@@ -47,6 +50,13 @@ describe('search and display with a name pack on', () => {
     expect(matchExercise(bench, 'bench press')).toBe(true)
   })
 
+  it('does not put brackets inside brackets', async () => {
+    _setLangState('fr', {}, null, await load('exercise-names', 'fr'))
+    const ball = EXIDX['0655']
+    expect(ball.n).toContain('(')
+    expect(exerciseNameFor(ball)).toBe(`${localExerciseName(ball)} — ${ball.n}`)
+  })
+
   it('leaves a custom exercise exactly as it was typed', async () => {
     _setLangState('fr', {}, null, await load('exercise-names', 'fr'))
     expect(exerciseNameFor({ id: 'c_mine', n: 'Mon squat maison', custom: true })).toBe('Mon squat maison')
@@ -55,8 +65,8 @@ describe('search and display with a name pack on', () => {
 
 describe('instruction packs', () => {
   const langs = INSTR_LANGS.filter(l => l !== 'en')
-  it('ship for exactly the languages that are switched on', () => {
-    expect(filesIn('instr')).toEqual([...langs].sort())
+  it('exist for every language that is switched on', () => {
+    expect(filesIn('instr')).toEqual(expect.arrayContaining(langs))
   })
 
   for (const lang of langs) {

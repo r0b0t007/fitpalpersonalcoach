@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchExercise, normalizeStr, resolveMedia } from './exercises.js'
+import { matchExercise, normalizeStr, resolveMedia, searchScore } from './exercises.js'
 import { _setLangState } from './i18n-core.js'
 
 describe('normalizeStr', () => {
@@ -98,27 +98,34 @@ describe('matchExercise', () => {
     expect(matchExercise(lateralRaise, 'haltères épaules')).toBe(true)
   })
 
-  // The pt-BR exercise-name pack (!16) renames the catalogue in the UI. Searching has to reach
-  // that name as well as the canonical English one, or the library goes dark for pt-BR profiles
-  // the moment they type what they see on screen.
-  // Skipped in this fork: EXERCISE_NAME_LANGS is empty (its only packs were pt-BR and hu,
-  // neither of which is offered here). Unskip together with the language.
-  it.skip('matches the localized exercise name as well as the English one', () => {
-    _setLangState('pt-BR', {}, null, { '0025': 'supino reto com barra' })
+  // A name pack (src/exercise-names/, CHW-201) renames the catalogue in the UI. Searching has to
+  // reach that name as well as the canonical English one, or the library goes dark for a French
+  // or Spanish profile the moment they type what they see on screen.
+  it('matches the localized exercise name as well as the English one', () => {
+    _setLangState('es', {}, null, { '0025': 'press de banca con barra' })
 
-    expect(matchExercise(benchPress, 'supino')).toBe(true)
-    expect(matchExercise(benchPress, 'supino barra')).toBe(true)
+    expect(matchExercise(benchPress, 'press de banca')).toBe(true)
+    expect(matchExercise(benchPress, 'banca barra')).toBe(true)
     expect(matchExercise(benchPress, 'bench press')).toBe(true)   // English still reaches it
-    expect(matchExercise(lateralRaise, 'supino')).toBe(false)     // untranslated entry unaffected
+    expect(matchExercise(lateralRaise, 'banca')).toBe(false)      // untranslated entry unaffected
+    // The coach's typo-tolerant search reads the same two names, without accents.
+    _setLangState('fr', {}, null, { '0025': 'développé couché à la barre' })
+    expect(searchScore(benchPress, 'developpe couche')).toBeGreaterThan(0)
+    expect(searchScore(benchPress, 'bnch')).toBeGreaterThan(0)
+    expect(searchScore(lateralRaise, 'developpe couche')).toBe(0)
   })
 
-  // Skipped for the same reason as above - it drives the cache through an exercise-name pack.
-  it.skip('rebuilds the cached haystack when the language changes', () => {
-    _setLangState('pt-BR', {}, null, { '0025': 'supino reto com barra' })
-    expect(matchExercise(benchPress, 'supino')).toBe(true)
+  it('rebuilds the cached haystack when the language changes', () => {
+    _setLangState('es', {}, null, { '0025': 'press de banca con barra' })
+    expect(matchExercise(benchPress, 'banca')).toBe(true)
+
+    // Spanish to French: the Spanish name must stop matching, not linger in the cache.
+    _setLangState('fr', {}, null, { '0025': 'développé couché à la barre' })
+    expect(matchExercise(benchPress, 'banca')).toBe(false)
+    expect(matchExercise(benchPress, 'developpe')).toBe(true)
 
     _setLangState('en', null, null, null)
-    expect(matchExercise(benchPress, 'supino')).toBe(false)
+    expect(matchExercise(benchPress, 'developpe')).toBe(false)
     expect(matchExercise(benchPress, 'bench')).toBe(true)
   })
 })

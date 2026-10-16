@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
 import { api, fetchExerciseMedia, uploadExerciseMedia } from '../../lib/api.js'
 import { setCoachMedia } from '../../lib/coach-media.js'
-import { EXIDX, allExercises, matchExercise, mediaRowSrc } from '../../lib/exercises.js'
+import { EXIDX, allExercises, matchesExerciseSearch, mediaRowSrc } from '../../lib/exercises.js'
 import { fmtDate, fmtMB, uid, DAYN } from '../../lib/format.js'
 import { inviteLink } from '../../lib/invite.js'
 import { buildPlanBundle } from '../../lib/plan-share.js'
@@ -379,7 +379,7 @@ export function MediaSheet() {
 
   const mine = ex ? (rows || []).filter(m => m.exId === ex.id) : []
   const atCap = mine.length >= 6
-  const hits = q.trim().length < 2 ? [] : allExercises(S).filter(e => matchExercise(e, q)).slice(0, 8)
+  const hits = q.trim().length < 2 ? [] : allExercises(S).filter(e => matchesExerciseSearch(e, q)).slice(0, 8)
 
   const onFile = e => {
     const file = e.target.files && e.target.files[0]
