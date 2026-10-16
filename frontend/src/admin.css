@@ -1,4 +1,4 @@
-/* Operator-facing styling, English-only. Sits on top of the app's tokens; nothing here is used
+/* Operator-facing styling. Sits on top of the app's tokens; nothing here is used
    outside views/coach/Business.jsx, which imports this file directly. It was written for the gym
    admin dashboard (views/Admin.jsx, deleted in P6) and survives because the two operator jobs a
    single coach still has — the activity log and disabling an account — moved into Account and

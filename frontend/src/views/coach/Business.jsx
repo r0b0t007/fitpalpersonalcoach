@@ -139,7 +139,7 @@ export function BusinessAccounts() {
               {u.id === me?.id && <span className="tag acc" style={{ marginLeft: 4 }}>{t('you')}</span>}
               {u.admin && u.id !== me?.id && <span className="tag acc" style={{ marginLeft: 4 }}>{t('admin')}</span>}
               {u.coach && !u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>{t('coach')}</span>}
-              {u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>{t('off')}</span>}</div>
+              {u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>{t('disabled')}</span>}</div>
             <div className="ss">{tp(u.workouts, '{0} workout', '{0} workouts')} · {t('synced {0}', rel(u.lastSync))}</div>
           </div>
           <Icon name="chevronRight" className="chev" />
@@ -179,9 +179,11 @@ export function BusinessActivity() {
       : <>
         <p className="sect-f" style={{ marginTop: -6 }}>
           {t('Who signed in, what failed, and what changed.')}
-          {meta ? ' ' + tp(meta.total, '{1} event', '{1} events', fmtNum(meta.total))
-            + (meta.retention.days ? ', ' + tp(meta.retention.days, 'kept for {0} day', 'kept for {0} days') : '')
-            + (meta.ip_mode === 'off' ? ', ' + t('without IP addresses') : '') + '.' : ''}
+          {meta && [
+            tp(meta.total, '{1} event recorded.', '{1} events recorded.', fmtNum(meta.total)),
+            meta.retention.days ? tp(meta.retention.days, 'Each event is kept for {0} day.', 'Each event is kept for {0} days.') : '',
+            meta.ip_mode === 'off' ? t('IP addresses are not recorded.') : '',
+          ].map(s => s && ' ' + s)}
         </p>
         <div className="chips" style={{ marginBottom: 10 }}>
           {[['', t('All')], ['auth', t('Sign-ins')], ['coach', t('Coaching')], ['admin', t('Account changes')], ['fail', t('Failed')]].map(([v, l]) =>
