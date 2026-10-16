@@ -47,12 +47,17 @@ export default function CoachToday() {
   const open = id => nav('/clients/' + encodeURIComponent(id))
 
   return <div className="narrow">
-    <div className="hdr">
-      <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>{t('Today')}</h1>
+    {/* The buttons drop under the title, together, when the title's longest word leaves no room
+        for them: French "Aujourd'hui" + "M'entraîner" is 16 px wider than a 360 px phone. The
+        title's min-content is that word, so the date line still wraps inside it instead. */}
+    <div className="hdr" style={{ flexWrap: 'wrap' }}>
+      <div style={{ flex: '1 1 0', minWidth: 'min-content' }}><h1 style={{ margin: 0 }}>{t('Today')}</h1>
         <div className="sub">{fmtDate(today, true)}{user?.name ? ' · ' + user.name : ''}</div></div>
-      {/* The coach's own training lives in the other shell (lib/role.js); this is the door. */}
-      <button className="btn sm tinted" onClick={() => { setShellPref('client'); nav(homeFor(user, 'client')) }}>{t('Train myself')}</button>
-      <button className="iconbtn" onClick={load} aria-label={t('Refresh')}>↻</button>
+      <div className="row" style={{ gap: 12, marginLeft: 'auto' }}>
+        {/* The coach's own training lives in the other shell (lib/role.js); this is the door. */}
+        <button className="btn sm tinted" onClick={() => { setShellPref('client'); nav(homeFor(user, 'client')) }}>{t('Train myself')}</button>
+        <button className="iconbtn" onClick={load} aria-label={t('Refresh')}>↻</button>
+      </div>
     </div>
 
     <div className="tiles" style={{ marginBottom: 12 }}>

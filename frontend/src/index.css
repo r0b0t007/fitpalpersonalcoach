@@ -157,10 +157,13 @@ button,.chip,.tile,.item,.wday,.cal-d,.swatch,.hm-c,.lrow,.seg button,.stp butto
 .accent{color:var(--acc)}
 .capitalize{text-transform:capitalize}
 /* English title-cases ("Machine Smith"); French, Spanish and German capitalise the first word only
-   ("Machine à levier", "Sentadilla completa con barra"). The html lang is set by App.jsx. Tags are
-   inline-flex, which ::first-letter cannot reach, so their text goes through capFirst instead. */
+   ("Machine à levier", "Sentadilla completa con barra"). The html lang is set by App.jsx.
+   ::first-letter only reaches block containers, and .tag is inline-flex: a tag holding text alone
+   becomes inline-block here, which looks the same; one that starts with an icon has no first
+   letter for CSS to find, so its text goes through capFirst() in the code. */
 html:not([lang="en"]) :is(.capitalize, .chip, .tag, #timer.working .lbl, .today-row .ttl){text-transform:none}
-html:not([lang="en"]) :is(.capitalize, .chip, #timer.working .lbl, .today-row .ttl)::first-letter{text-transform:uppercase}
+html:not([lang="en"]) .tag:not(:has(> svg)){display:inline-block}
+html:not([lang="en"]) :is(.capitalize, .chip, .tag, #timer.working .lbl, .today-row .ttl):not(.nocap)::first-letter{text-transform:uppercase}
 /* exercise names and body-part/equipment terms arrive lowercase from the dataset,
    so tags and chips capitalise by default. Anything that is a unit or a sentence opts
    back out — blanket-capitalising turned "60 kg" into "60 Kg" and a whole hint into
@@ -554,6 +557,12 @@ h4.sec{
 .seg button:active{opacity:.5}
 /* sitting in a list row: shrink to content instead of filling the row */
 .seg-inline{flex:none;min-width:132px}
+/* A row holding one (Theme: Sombre / Clair / Système) gives the title at least its longest word and
+   lets the control drop to its own line, right-aligned, when even that does not fit. Before, the
+   control kept its width and the title went under it ("Thè…") in French and Spanish. */
+.lrow:has(> .seg-inline){flex-wrap:wrap;row-gap:10px}
+.lrow:has(> .seg-inline) > .lrow-m{min-width:min-content}
+.lrow > .seg-inline{margin-left:auto}
 .seg-range{margin-bottom:10px}
 .seg-inline button{padding:5px 10px;font-size:13px;min-height:28px}
 .seg-inline button .icn{font-size:14px}

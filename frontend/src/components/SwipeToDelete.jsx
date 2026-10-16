@@ -71,7 +71,9 @@ export default function SwipeToDelete({ children, onDelete, deleteLabel, classNa
   }, [])
 
   return (
-    <div ref={outerRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: 12 }}
+    // The card's own radius, and the red layer inset a pixel with the same corners: otherwise it shows
+    // through the card's antialiased corners while the row is closed.
+    <div ref={outerRef} style={{ position: 'relative', overflow: 'hidden', borderRadius: 'var(--r-card)' }}
       onTouchStart={e => { if (e.target.closest('button,input')) return; start(e.touches[0].clientX, e.touches[0].clientY) }}
       onTouchEnd={end}
       onMouseDown={e => { if (e.button !== 0 || e.target.closest('button,input')) return; start(e.clientX, e.clientY) }}
@@ -79,7 +81,7 @@ export default function SwipeToDelete({ children, onDelete, deleteLabel, classNa
       onMouseUp={end}
       onMouseLeave={() => { if (drag.current.startX !== null) end() }}>
       <button className="swipe-del" aria-label={deleteLabel || t('Delete')}
-        style={{ position: 'absolute', inset: '0 0 0 auto', width: REVEAL, background: 'var(--red)', color: '#fff', fontSize: 12, fontWeight: 600 }}
+        style={{ position: 'absolute', inset: '1px 1px 1px auto', borderRadius: '0 var(--r-card) var(--r-card) 0', width: REVEAL, background: 'var(--red)', color: '#fff', fontSize: 12, fontWeight: 600 }}
         onClick={() => { setX(0, true); drag.current.open = false; onDelete() }}>{t('Delete')}</button>
       <div ref={rowRef} className={className}
         onClick={e => { if (drag.current.open) { e.stopPropagation(); setX(0, true); drag.current.open = false; return } onClick && onClick(e) }}

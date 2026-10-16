@@ -177,8 +177,8 @@ function WeightInput({ value, setValue, unit }) {
     </div>
     <div className="chips" style={{ justifyContent: 'center', margin: '8px 0' }}>
       <button className="chip" onClick={() => onSlide(value - 1)}>−1</button>
-      <button className="chip" onClick={() => onSlide(value - 0.5)}>−0.5</button>
-      <button className="chip" onClick={() => onSlide(value + 0.5)}>+0.5</button>
+      <button className="chip" onClick={() => onSlide(value - 0.5)}>−{fmtNum(0.5)}</button>
+      <button className="chip" onClick={() => onSlide(value + 0.5)}>+{fmtNum(0.5)}</button>
       <button className="chip" onClick={() => onSlide(value + 1)}>+1</button>
     </div>
     <Slider value={sv} min={W_LO} max={W_HI} step={0.5} onChange={onSlide} />
@@ -455,7 +455,7 @@ function CheckinPhotos({ d }) {
             other coach route). "Only you and your coach" read better and was false wherever the
             gym owner is not the coach, which is the shape this product is sold into. */}
         <div className="dim small" style={{ marginTop: 8, lineHeight: 1.45 }}>
-          {t('Resized on your phone before it is sent, which removes the location and camera details the original file carries. Only you, your coach and the gym admin can open them.')}
+          {t('Resized on your phone before it is sent, which removes the location and camera details the original file carries. Only you and your coach can open them.')}
         </div>
         {err && <div className="small" style={{ marginTop: 8, lineHeight: 1.45, color: 'var(--red)' }}>{err}</div>}
       </>}
@@ -1149,7 +1149,7 @@ function ExercisePicker({ onPick, close }) {
         <div className="grow"><div className="tt">{t('Create your own exercise')}</div><div className="ss">{t('name + body part, no animation')}</div></div><Icon name="plus" className="chev" />
       </div>}
       {f.slice(0, shown).map(e => <div key={e.id} className="item" {...tappable(() => onPick(e))}>
-        <Thumb ex={e} /><div className="grow"><div className="tt capitalize">{isFav(st, e.id) && <Icon name="starFill" className="fav-star" />}{exerciseNameFor(e)}</div><div className="ss capitalize">{t(e.tg || e.bp)} · {t(e.eq)}</div></div>
+        <Thumb ex={e} /><div className="grow"><div className="tt capitalize">{isFav(st, e.id) && <Icon name="starFill" className="fav-star" />}{exerciseNameFor(e)}</div><div className="ss capitalize">{capFirst(t(e.tg || e.bp))} · {capFirst(t(e.eq))}</div></div>
         {/* Accent tag = already in a routine/log ("Chosen"); the yellow star by the name = favourite. */}
         {usage[e.id] && <span className="tag acc"><Icon name="starFill" /></span>}
         {/* A "+" glyph reads as "add this now" — it used to just open the same detail sheet as

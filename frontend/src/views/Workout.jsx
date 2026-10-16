@@ -336,7 +336,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
         <div className="subrow" key={'c' + ci}>
           <span className="subn">{t('Burst {0}', ci + 1)}</span>
           {miniStepper(c.r, 1, false, v => setClusterField(i, ci, v, side))}
-          <span className="dim small">{c.restSec}s</span>
+          <span className="dim small">{t('{0}s', c.restSec)}</span>
           <button className="iconbtn" aria-label={t('Remove burst')} onClick={() => removeCluster(i, ci)}><Icon name="xmark" /></button>
         </div>
       ))}
@@ -389,7 +389,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
       {t('From {0}:', fmtDate(pinnedNote.d, true))} {pinnedNote.note}
     </div>}
     {entry.note && <div className="exnote">{entry.note}</div>}
-    {last && <div className="small dim" style={{ marginBottom: 4 }}>{t('Last time')} ({fmtDate(last.d)}): {last.sets.map(s => setLabel(entry.id, s, last.target)).join(', ')}</div>}
+    {last && <div className="small dim" style={{ marginBottom: 4 }}>{t('Last time ({0}): {1}', fmtDate(last.d), last.sets.map(s => setLabel(entry.id, s, last.target)).join(', '))}</div>}
     {/* Bar + plates for barbell work: what to load per side for the set in front of you
         (first undone set; the heaviest row once everything is checked). The logged number
         stays the total — this chip is the split, and tapping it edits the bar's own weight
@@ -456,7 +456,7 @@ function ExerciseBlock({ entryIdx, compact, dense, onToggle, onToggleSide, onFie
               <div className="subrow" key={'c' + ci}>
                 <span className="subn">{t('Burst {0}', ci + 1)}</span>
                 {miniStepper(c.r, 1, false, v => setClusterField(i, ci, v))}
-                <span className="dim small">{c.restSec}s</span>
+                <span className="dim small">{t('{0}s', c.restSec)}</span>
                 <button className="iconbtn" aria-label={t('Remove burst')} onClick={() => removeCluster(i, ci)}><Icon name="xmark" /></button>
               </div>
             ))}
