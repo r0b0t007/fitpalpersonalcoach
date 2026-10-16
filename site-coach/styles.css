@@ -982,10 +982,13 @@ p { max-width: 68ch; }
   .feat:nth-child(even) .feat-body { order: 0; }
 }
 
-/* The header collapses well before the body does. Five French nav labels plus the CTA need
+/* The header collapses well before the body does. Five French nav labels plus the CTA needed
    about 940px; below that they overflowed the bar between this breakpoint and the old 760px
-   one, which is a band only a tablet ever lands in and no desktop check would surface. */
-@media (max-width: 940px) {
+   one, which is a band only a tablet ever lands in and no desktop check would surface.
+   With a second language link (CHW-203) the header keeps its full right margin only from
+   ~955px in French and ~965px in Spanish, whose labels and CTA are the longest; below that
+   the CTA eats into the gutter. 980px leaves room for one more locale's worth of slack. */
+@media (max-width: 980px) {
   .nav {
     display: none;
     position: absolute; left: 0; right: 0; top: 100%;

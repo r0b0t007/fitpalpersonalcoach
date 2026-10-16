@@ -1,6 +1,6 @@
 # site-coach — the FitPal Coach marketing site
 
-Static FR/EN marketing site for **fitpal.ma**, the software sold to independent personal
+Static FR/EN/ES marketing site for **fitpal.ma**, the software sold to independent personal
 trainers. Plain HTML/CSS/JS, no framework, no runtime dependencies.
 
 **This directory is source, not the deployable.** `node scripts/build-site-coach.mjs`
@@ -34,19 +34,27 @@ site; this one is a field manual.
 ```
 index.html              FR landing (root locale)
 en/index.html           EN landing
+es/index.html           ES landing
 mentions-legales.html   FR legal
 en/legal.html           EN legal
+es/legal.html           ES legal
 styles.css              the whole design system, one file
 site.js                 menu, scroll reveal, hero video
 img/screens/*.png       real app screenshots (see below). The two CLIENT screens exist
-                        per locale (`-fr` / `-en`); the coach screens do not yet. They
-                        were shot while the dashboard was English-only, and the dashboard
-                        has been translated since (CHW-205..208) - re-shoot them per locale.
-img/og-{fr,en}.png      1200x630 social cards
-img/promo-poster-{fr,en}.jpg  hero video poster (a frame lifted from the render)
+                        per locale (`-fr` / `-en` / `-es`). The coach screens exist in Spanish
+                        (`coach-*-es`, CHW-203); the French and English pages still use the
+                        English-only `coach-today` / `coach-clients`, shot before the dashboard
+                        was translated (CHW-205..208) - re-shoot those per locale (CHW-212).
+                        "Training now" is live presence: POST /api/activity for two demo clients
+                        right before each capture, and drop any non-demo client from the capture
+                        instance or the counters will not read 6.
+img/og-{fr,en,es}.png   1200x630 social cards (og-es says fitpal.ma; the other two
+                        still print the old coach.fitpal.ma and want re-rendering)
+img/promo-poster-{fr,en,es}.jpg  hero video poster (the frame at 10.1s, 800x450)
 img/coach-hero.jpg      hero portrait beside the headline (stock, illustrative)
 img/coaches.jpg         the full-bleed photo band (stock, illustrative — both in NOTICE.md)
-assets/promo-{fr,en}.mp4      the hero loop, 16.8s, silent, 1920x1080
+assets/promo-{fr,en,es}.{mp4,webm}  the hero loop, 16.8s, silent, 1280x720 (H.264 ~130 kbps;
+                        AV1 via libsvtav1 -crf 50), cut down from the 1920x1080 render
 favicon.svg  icon-180.png  robots.txt  sitemap.xml  _headers
 ```
 
@@ -74,8 +82,8 @@ To refilm them, see `docs/VIDEO_CAPTURE.md`. Two things that are specific to the
 
   Under 1000px the app renders its real phone layout (single column, full-width tab bar), not a
   shrunken desktop, so these are genuine phone screens rather than squeezed ones.
-- **The client screens must be shot in BOTH languages.** `client-home` and `client-stats` ship
-  as `-fr` and `-en` pairs. They were English-only once, which meant the French landing page
+- **The client screens must be shot in EVERY language.** `client-home` and `client-stats` ship
+  as `-fr`, `-en` and `-es` sets. They were English-only once, which meant the French landing page
   showed a French coach what his client sees *in English*, about a thousand pixels above a spec
   row promising the client app in French. For a buyer looking for a reason to dismiss, that was
   the cheapest one available.
@@ -141,7 +149,7 @@ from atmosphere — so that claim now lives in the visible caption under every d
 
 ## The hero video
 
-`assets/promo-{fr,en}.mp4` is a 16.8-second silent loop built with HyperFrames. The project lives
+`assets/promo-{fr,en,es}.mp4` is a 16.8-second silent loop built with HyperFrames. The project lives
 **outside this repo**, at `../fitpal-coach-videos/videos/fitpal-coach-site-hero`, following the
 same convention as the ten tutorial episodes (`docs/VIDEO_CAPTURE.md`).
 
@@ -160,11 +168,13 @@ Four things about it that are not obvious:
   carry the whole argument, and every frame ends on at least half a second of complete stillness
   because continuous motion in peripheral vision is what makes a hero loop irritating by the
   third pass.
-- **There are two renders because the type IS the script.** With no voiceover, one file cannot
-  serve both locales. Each copy string is authored as `<span data-i18n="04.2">…</span>` and
-  `localize.mjs fr|en` swaps them by key; it is strict, so an unknown key or an unused one fails
+- **There is one render per locale because the type IS the script.** With no voiceover, one file
+  cannot serve every locale. Each copy string is authored as `<span data-i18n="04.2">…</span>` and
+  `localize.mjs fr|en|es` swaps them by key; it is strict, so an unknown key or an unused one fails
   rather than shipping a half-translated video. Every layout is measured against the French
-  string, which is longer in every beat.
+  string, which is longer in every beat. The Spanish strings were chosen to fit it: "El Excel" and
+  "Los DM" rather than "La hoja de cálculo", and frame 05 breaks as "Tus clientes tienen / una
+  app de verdad." — check that frame after any copy change, an orphaned "app." is the failure.
 - **The fonts are staged locally, not fetched.** `stage-fonts.mjs` puts Archivo's latin and
   latin-ext subsets in the project's `assets/fonts/` and rewrites each frame's `@font-face`.
   Without it the render silently falls back to a system sans and loses the `wdth 68`
@@ -172,8 +182,8 @@ Four things about it that are not obvious:
   (`assets/fonts/…`), not `../../` — compositions are served with the project root as base URL.
 
 To rebuild: `node stage-fonts.mjs && npx hyperframes check && npx hyperframes render --output
-renders/video-en.mp4`, then `node localize.mjs fr` and render again, then lift a poster frame
-with ffmpeg and `node localize.mjs en` to restore the source.
+renders/video-en.mp4`, then `node localize.mjs fr` and render again, the same for `es`, then lift
+a poster frame with ffmpeg and `node localize.mjs en` to restore the source.
 
 ## Contrast is verified, not asserted
 

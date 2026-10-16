@@ -25,7 +25,7 @@
 #      environment has no protection rules at all. An earlier version of this comment claimed
 #      it did, which was worse than having no gate - it described one that was never there.
 #   4. One deploy at a time, never cancelled mid-upload.
-#   5. Post-deploy checks fail loudly: /, /en/ and /sitemap.xml must all serve.
+#   5. Post-deploy checks fail loudly: /, /en/, /es/ and /sitemap.xml must all serve.
 #
 # Secrets: CLOUDFLARE_API_TOKEN (Pages:Edit), CLOUDFLARE_ACCOUNT_ID.
 # Vars: DEPLOY_SITE_COACH, SITE_COACH_URL.
@@ -91,13 +91,16 @@ jobs:
       - name: SEO regression grep
         run: |
           fail=0
-          for f in site-coach/index.html site-coach/en/index.html \
-                   site-coach/mentions-legales.html site-coach/en/legal.html; do
-            for tag in 'rel="canonical"' 'hreflang="fr"' 'hreflang="en"' 'hreflang="x-default"'; do
+          # Globbed, not listed: a new locale folder (site-coach/de/) is checked the moment it exists,
+          # rather than when someone remembers to add it here. An unmatched glob stays literal and
+          # fails the grep, so a renamed page cannot make this pass by checking nothing.
+          for f in site-coach/index.html site-coach/*/index.html \
+                   site-coach/mentions-legales.html site-coach/*/legal.html; do
+            for tag in 'rel="canonical"' 'hreflang="fr"' 'hreflang="en"' 'hreflang="es"' 'hreflang="x-default"'; do
               grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
             done
           done
-          for f in site-coach/index.html site-coach/en/index.html; do
+          for f in site-coach/index.html site-coach/*/index.html; do
             for tag in 'og:image' 'twitter:card' 'application/ld+json' '<h1'; do
               grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
             done
@@ -111,7 +114,7 @@ jobs:
           # nothing once the site moved to the apex, and passed vacuously instead of
           # failing — a guard that cannot fail is not a guard.
           grep -rq 'fitpal\.ma/[a-z-]*\.html' \
-            site-coach/*.html site-coach/en/*.html site-coach/sitemap.xml \
+            site-coach/*.html site-coach/*/*.html site-coach/sitemap.xml \
             && { echo "::error::.html URLs found — Pages redirects those, use extensionless"; fail=1; }
           exit $fail
 
@@ -130,7 +133,9 @@ jobs:
         # font every page waits on were the three references this step never looked at.
         run: |
           fail=0
-          for f in site-coach/index.html site-coach/en/index.html; do
+          # Every page, not only the landings: a legal page or the 404 with a wrong relative path
+          # ships unstyled just as quietly.
+          for f in site-coach/*.html site-coach/*/*.html; do
             dir=$(dirname "$f")
             refs=$( { grep -oE '(src|href|poster|data-src)="[^"]+\.(png|jpe?g|webp|avif|svg|mp4|webm|woff2|css|js)(\?[^"]*)?"' "$f" \
                         | sed -E 's/.*="([^"]+)".*/\1/'
@@ -311,7 +316,7 @@ jobs:
         run: |
           base="${{ vars.SITE_COACH_URL }}"
           base="${base%/}"
-          for path in "/" "/en/" "/sitemap.xml"; do
+          for path in "/" "/en/" "/es/" "/sitemap.xml"; do
             ok=0
             for i in 1 2 3; do
               if curl -fsS --max-time 15 "$base$path" > /tmp/out; then ok=1; break; fi
