@@ -39,8 +39,9 @@ en/legal.html           EN legal
 styles.css              the whole design system, one file
 site.js                 menu, scroll reveal, hero video
 img/screens/*.png       real app screenshots (see below). The two CLIENT screens exist
-                        per locale (`-fr` / `-en`); the coach screens do not, because the
-                        dashboard is English-only and the spec sheet says so.
+                        per locale (`-fr` / `-en`); the coach screens do not yet. They
+                        were shot while the dashboard was English-only, and the dashboard
+                        has been translated since (CHW-205..208) - re-shoot them per locale.
 img/og-{fr,en}.png      1200x630 social cards
 img/promo-poster-{fr,en}.jpg  hero video poster (a frame lifted from the render)
 img/coach-hero.jpg      hero portrait beside the headline (stock, illustrative)
@@ -227,4 +228,4 @@ ask hits a dead end. That is the one failure no other check in the job can see.
 
 Not a blocker:
 
-- The coach dashboard is English-only in the product; the spec sheet says so rather than hiding it.
+- The coach screenshots are still the English dashboard; it is translated now, so they should be re-shot per locale.

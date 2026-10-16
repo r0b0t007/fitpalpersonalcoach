@@ -19,12 +19,8 @@ import { PairSheet } from '../Settings.jsx'
  * A coach looking for "how do I invite somebody" found a screen for somebody else's job, with a
  * row pointing at an Admin dashboard built to run a gym.
  *
- * Still raw English strings outside Appearance: the coach shell is being moved to t() screen by
- * screen (CLAUDE.md), and this one is CHW-208.
- *
- * Appearance is the exception and IS translated, because it is the same `S` the client shell
- * reads: a coach with S.lang = 'fr' who flips to Train myself would otherwise be told the same
- * setting is called "Sombre" on one screen and "Dark" on the other.
+ * Shares its keys with Settings wherever the words are the same (sign out, sign out everywhere,
+ * Appearance), so a coach who flips to Train myself reads one name for one setting.
  */
 export default function CoachAccount() {
   const nav = useNavigate()
@@ -42,12 +38,12 @@ export default function CoachAccount() {
   // a plain sign-out lands. On failure nothing local is touched: still signed in here, and say so
   // rather than leaving a half-signed-out app.
   const signOutEverywhere = () => confirmSheet({
-    title: 'Sign out everywhere?',
-    message: 'Signs this profile out on every device, including this one. Your passkeys keep working — sign in with them again anytime.',
-    confirmText: 'Sign out everywhere', danger: true,
+    title: t('Sign out everywhere?'),
+    message: t('Signs this profile out on every device, including this one. Your passkeys keep working — sign in with them again anytime.'),
+    confirmText: t('Sign out everywhere'), danger: true,
     onConfirm: async () => {
-      try { await signOutAll(); nav('/home'); toast('Signed out on all devices') }
-      catch { toast('Could not sign out everywhere — you are still signed in.') }
+      try { await signOutAll(); nav('/home'); toast(t('Signed out on all devices')) }
+      catch { toast(t('Could not sign out everywhere — you are still signed in.')) }
     },
   })
 
@@ -61,24 +57,24 @@ export default function CoachAccount() {
 
   return <div className="narrow">
     <div className="hdr">
-      <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>Account</h1>
+      <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>{t('Account')}</h1>
         <div className="sub">{user?.name}</div></div>
     </div>
 
-    <Section title="You">
+    <Section title={t('You')}>
       {/* The one place a refused save becomes visible. PUT /api/data's 413 writes this sentence
           for the person — what the limit is and what to do — so it is passed through untouched;
           a generic "sync failed" throws away the only part that says what to change. The push is
           debounced, so the failure lands while they are looking at something else, and this is
           the screen someone opens when the app feels wrong. */}
-      {syncError && <Row icon="warning" iconTint="var(--red)" title="This device could not save to the server" subtitle={syncError} />}
-      <Row icon="personCircle" iconTint="var(--grey)" title={user?.name || 'Signed in'}
-        subtitle="Signed in with a passkey." />
+      {syncError && <Row icon="warning" iconTint="var(--red)" title={t('This device could not save to the server')} subtitle={syncError} />}
+      <Row icon="personCircle" iconTint="var(--grey)" title={user?.name || t('Signed in')}
+        subtitle={t('Signed in with a passkey.')} />
       {/* Your own training settings — unit, language, notifications, rest timers, export. They are
           the client screen's, because they are the same settings a client has, and the coach shell
           would otherwise have no door to them at all. */}
-      <Row icon="gear" iconTint="var(--grey)" title="Training settings"
-        subtitle="Units, language, notifications, and how a workout behaves." accessory="chevron"
+      <Row icon="gear" iconTint="var(--grey)" title={t('Training settings')}
+        subtitle={t('Units, language, notifications, and how a workout behaves.')} accessory="chevron"
         onClick={() => nav('/settings')} />
       {/* The paired mobile build is a different account screen. Offering to pair the phone you are
           holding is nonsense, and a plain sign-out there is a dead end: it clears the session but
@@ -86,36 +82,36 @@ export default function CoachAccount() {
           capacitor://localhost — which cannot sign in to the coach's server — until the app is
           restarted. disconnectServer is the one that also forgets the pairing. */}
       {MOBILE
-        ? <Row icon="signOut" iconTint="var(--red)" title="Disconnect from my server" danger onClick={() => confirmSheet({
-          title: 'Disconnect from your server?',
-          message: 'Your data is synced to your server first, then this device switches back to local-only. Your clients are not affected.',
-          confirmText: 'Disconnect', danger: true,
-          onConfirm: async () => { await disconnectServer(); nav('/home'); toast('Disconnected — back to local-only') },
+        ? <Row icon="signOut" iconTint="var(--red)" title={t('Disconnect from my server')} danger onClick={() => confirmSheet({
+          title: t('Disconnect from your server?'),
+          message: t('Your data is synced to your server first, then this device switches back to local-only. Your clients are not affected.'),
+          confirmText: t('Disconnect'), danger: true,
+          onConfirm: async () => { await disconnectServer(); nav('/home'); toast(t('Disconnected — back to local-only')) },
         })} />
         : <>
-          <Row icon="link" iconTint="var(--blue)" title="Pair the mobile app"
-            subtitle="Connect the app on your phone to this account." accessory="chevron"
+          <Row icon="link" iconTint="var(--blue)" title={t('Pair the mobile app')}
+            subtitle={t('Connect the app on your phone to this account.')} accessory="chevron"
             onClick={() => openSheet(close => <PairSheet close={close} />)} />
-          <Row icon="signOut" iconTint="var(--red)" title="Sign out" danger onClick={() => confirmSheet({
-            title: 'Sign out?',
-            message: 'Your data is synced to your profile first, then cleared from this device. Your clients are not affected.',
-            confirmText: 'Sign out', danger: true,
+          <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({
+            title: t('Sign out?'),
+            message: t('Your data is synced to your profile first, then cleared from this device. Your clients are not affected.'),
+            confirmText: t('Sign out'), danger: true,
             onConfirm: () => { signOut(); nav('/home') },
           })} />
-          <Row icon="shield" iconTint="var(--red)" title="Sign out everywhere"
-            subtitle="Ends this profile’s sessions on all your devices." danger onClick={signOutEverywhere} />
+          <Row icon="shield" iconTint="var(--red)" title={t('Sign out everywhere')}
+            subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
         </>}
     </Section>
 
-    <Section title="Coaching" footer="Everything you do for clients lives on the other three tabs. These are the pieces that belong to you rather than to one of them.">
-      <Row icon="link" iconTint="var(--acc)" title="Invite a client"
-        subtitle="Make a link that puts whoever opens it on your roster." accessory="chevron"
+    <Section title={t('Coaching')} footer={t('Everything you do for clients lives on the other three tabs. These are the pieces that belong to you rather than to one of them.')}>
+      <Row icon="link" iconTint="var(--acc)" title={t('Invite a client')}
+        subtitle={t('Make a link that puts whoever opens it on your roster.')} accessory="chevron"
         onClick={() => openSheet(() => <InviteSheet />)} />
-      <Row icon="camera" iconTint="var(--indigo)" title="Exercise demos"
-        subtitle="Your own videos, shown to every client on that exercise." accessory="chevron"
+      <Row icon="camera" iconTint="var(--indigo)" title={t('Exercise demos')}
+        subtitle={t('Your own videos, shown to every client on that exercise.')} accessory="chevron"
         onClick={() => openSheet(() => <MediaSheet />)} />
-      <Row icon="figureStrength" iconTint="var(--teal)" title="Train myself"
-        subtitle="Your own plan and workouts. Come back from the You tab." accessory="chevron"
+      <Row icon="figureStrength" iconTint="var(--teal)" title={t('Train myself')}
+        subtitle={t('Your own plan and workouts. Come back from the {0} tab.', t('You'))} accessory="chevron"
         onClick={trainMyself} />
     </Section>
 
@@ -144,12 +140,12 @@ export default function CoachAccount() {
         and, more to the point, every route behind these two rows answers 403 to them — a door that
         opens onto a permission error is worse than no door. On the one-coach deployment this fork
         is for, the coach bootstrapped the instance and is the admin, so they see both. */}
-    {user?.admin && <Section title="Business" footer="The parts of running this instance that are still yours. Classes, timetables and access requests are gone — this is one coach and their clients, not a gym.">
-      <Row icon="people" iconTint="var(--blue)" title="Accounts"
-        subtitle="Everyone with a profile here, and whether they can sign in." accessory="chevron"
+    {user?.admin && <Section title={t('Business')} footer={t('The parts of running this instance that are still yours. Classes, timetables and access requests are gone — this is one coach and their clients, not a gym.')}>
+      <Row icon="people" iconTint="var(--blue)" title={t('Accounts')}
+        subtitle={t('Everyone with a profile here, and whether they can sign in.')} accessory="chevron"
         onClick={() => nav('/account/accounts')} />
-      <Row icon="history" iconTint="var(--grey)" title="Activity log"
-        subtitle="Who signed in, what failed, what changed." accessory="chevron"
+      <Row icon="history" iconTint="var(--grey)" title={t('Activity log')}
+        subtitle={t('Who signed in, what failed, what changed.')} accessory="chevron"
         onClick={() => nav('/account/activity')} />
     </Section>}
 
