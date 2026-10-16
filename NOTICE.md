@@ -48,7 +48,8 @@ and the instruction sentences are identical apart from stripped `Step:N ` prefix
 ### Metadata & instruction text
 
 The exercise names, attributes and instructions (English in `frontend/src/lib/exercises-data.js`,
-other languages in `frontend/src/instr/`, regenerated via `scripts/build-instructions.mjs`)
+other languages in `frontend/src/instr/` — Spanish regenerated via `scripts/build-instructions.mjs`,
+French rewritten from "tu" to "vous" by `scripts/french-vous.mjs` and kept by hand since)
 originate from ExerciseDB v1 and reach openGym through the dataset above, which distributes them
 under the MIT license reproduced below. The translations into languages other than English are
 openGym's own derivative work.

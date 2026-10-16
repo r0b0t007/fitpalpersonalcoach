@@ -1,19 +1,22 @@
 #!/usr/bin/env node
-// Regenerates the per-language exercise instruction packs in frontend/src/instr/
-// from the upstream dataset (hasaneyldrm/exercises-dataset). English stays inline
-// in exercises-data.js; every other language ships as its own lazy-loaded pack.
+// Regenerates exercise instruction packs in frontend/src/instr/ from the upstream dataset
+// (hasaneyldrm/exercises-dataset). English stays inline in exercises-data.js; Spanish is
+// regenerated here; French is kept by hand (see LANGS below).
 //
 //   node scripts/build-instructions.mjs [path-to-exercises.json]
 //
 // Without an argument the dataset is downloaded from the upstream repo.
-// Brazilian Portuguese is curated separately; see instruction-sources/README.md.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const UPSTREAM = 'https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/data/exercises.json'
-const LANGS = ['es', 'fr', 'it', 'tr', 'ru', 'zh', 'hi', 'pl', 'ko']
+// Only the packs this fork ships (INSTR_LANGS in frontend/src/lib/i18n-core.js), minus French:
+// upstream's French says "tu" and the app says "vous", so fr.js was rewritten by
+// scripts/french-vous.mjs and is kept by hand from here (CHW-202). Rebuilding it from upstream
+// would undo that — if you ever must, run french-vous.mjs over the result.
+const LANGS = ['es']
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = join(root, 'frontend', 'src', 'instr')
