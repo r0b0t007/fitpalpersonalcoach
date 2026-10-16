@@ -22,7 +22,7 @@ import {
   coachBinding, redeemableInvite, checkinReminderDue, checkinPeriodStart,
   upsertProgram, COACH_MAX_PROGRAMS, say, saidAs
 } from './domain.mjs';
-import { checkinReminderPush, dayReminderPush, restTimerPush, testPush } from './push-messages.js';
+import { assignmentPush, checkinReminderPush, dayReminderPush, restTimerPush, testPush } from './push-messages.js';
 import { verifyError } from './verify-error.js';
 
 // The repo root, one level up from api/ — the anchor for both the .env file and the default
@@ -1424,7 +1424,7 @@ const routes = {
   'POST /api/push/test': async (req, res) => {
     const user = readSession(req);
     if (!user) return json(res, 401, { error: 'not signed in' });
-    await sendPush(user.id, testPush(readState(user.id)?.lang));
+    await sendPush(user.id, testPush(readState(user.id)?.lang, RP_NAME));
     json(res, 200, { ok: true });
   },
 
@@ -2136,13 +2136,15 @@ const routes = {
     }));
     db.assignments = pruneAssignments(db.assignments.concat(rows));
     saveDb();
-    // Best-effort: a member who never enabled push simply finds it next time they open the app.
-    targets.forEach(u => sendPush(u.id, {
-      title: RP_NAME,
-      body: `${coach.name} sent you a program`,
-      tag: 'assignment'
-    }).catch(() => {}));
     json(res, 200, { ok: true, sent: rows.length });
+    // Best-effort: a member who never enabled push simply finds it next time they open the app.
+    // After the response, and read asynchronously: the push is in the member's language, which
+    // lives in their state file, and that can be megabytes of workouts — a coach sending to twenty
+    // clients must not hold the event loop for twenty synchronous reads to learn twenty words.
+    for (const u of targets) {
+      fs.promises.readFile(stateFile(u.id), 'utf8').then(s => JSON.parse(s).lang, () => undefined)
+        .then(lang => sendPush(u.id, assignmentPush(lang, coach.name, RP_NAME))).catch(() => {});
+    }
   },
 
   // Pull back a program that hasn't been answered yet. Only the coach who sent it, and only
