@@ -1,22 +1,23 @@
 #!/usr/bin/env node
 /* Can the app say every refusal this API sends in the user's language?
  *
- * The server refuses in English ("challenge expired — try again"), and English is also the
- * translation key, so the app translates what arrives (frontend/src/lib/server-messages.js).
+ * The server refuses in English ("challenge expired — try again"), English is also the
+ * translation key, and the app translates what arrives (frontend/src/lib/server-messages.js).
  * That only works if every message is a key in every pack, and nothing else notices when one is
  * not: the user just reads English at sign-in, on an invite, or when sync fails.
  *
- * A message with a value in it ("that exercise already has 6 videos") cannot be a key as sent.
- * It is written as a `say` template on the server, its key is the template with each ${…} as
- * {0}, {1}…, and the app finds it by matching against SERVER_TEMPLATES. So this checks three
- * things:
+ * A message with a value in it ("that exercise already has 6 videos") is written as a say`…`
+ * template, and the server sends its key ("that exercise already has {0} videos") and values
+ * beside the text. So this checks:
  *
- *   1. every `error: '…'` literal, and every say('…') / say`…`, in the files below is a key in
- *      every locale pack;
- *   2. SERVER_TEMPLATES is exactly the set of say`…` templates — one missing is a message the
- *      app cannot match, one extra is dead;
- *   3. no refusal is built some other way (`error: \`…\``, `error: '…' + x`), which would slip
- *      past 1 and 2 without failing anything.
+ *   1. every `error: '…'` literal, every say('…') and every say`…` template (as its key) in the
+ *      files below is a key in every locale pack;
+ *   2. no message is built in a way 1 cannot see. This is a list of the shapes that have been
+ *      used, not a proof: an error field set from a template literal, a double-quoted string or
+ *      a concatenation; fail(status, …) or new Error(…) given a bare template literal, string
+ *      literal or concatenation. A line can opt out with a `// not sent:` comment saying why.
+ *      A helper that returns a plain string literal for a caller to send is NOT caught — wrap it
+ *      in say('…'), as pushEndpointError does.
  *
  * Read as text, like check-adherence-window.mjs: api/ cannot import from frontend/.
  */
@@ -28,53 +29,50 @@ const read = p => readFileSync(new URL(p, import.meta.url), 'utf8');
 
 const unq = s => s.replace(/\\(.)/g, '$1');
 const STR = String.raw`'((?:\\.|[^'\\\n])*)'`;
-const statics = new Map();     // message -> first file it was seen in
-const templates = new Map();
+const keys = new Map();     // key -> file it was first seen in
 const bad = [];
+
+// A message handed over unmarked: a template literal, a double-quoted string, or a string
+// literal / identifier followed by +.
+const RAW = String.raw`(?:` + '`' + String.raw`|"|'(?:\\.|[^'\\\n])*'\s*\+|[\w.]+\s*\+)`;
+const SHAPES = [
+  new RegExp(String.raw`\berror:\s*` + RAW),
+  new RegExp(String.raw`\bfail\(\s*\d+\s*,\s*(?:` + RAW + '|' + STR + String.raw`\s*\))`),
+  new RegExp(String.raw`\bnew Error\(\s*(?:` + RAW + '|' + STR + String.raw`\s*\))`),
+];
 
 for (const f of FILES) {
   const src = read(f);
-  for (const m of src.matchAll(new RegExp(String.raw`\berror:\s*` + STR, 'g'))) statics.set(unq(m[1]), f);
-  for (const m of src.matchAll(new RegExp(String.raw`\bsay\(\s*` + STR + String.raw`\s*\)`, 'g'))) statics.set(unq(m[1]), f);
+  for (const m of src.matchAll(new RegExp(String.raw`\berror:\s*` + STR, 'g'))) keys.set(unq(m[1]), f);
+  for (const m of src.matchAll(new RegExp(String.raw`\bsay\(\s*` + STR + String.raw`\s*\)`, 'g'))) keys.set(unq(m[1]), f);
   for (const m of src.matchAll(/\bsay`((?:\\.|[^`\\])*)`/g)) {
     let i = 0;
-    templates.set(unq(m[1].replace(/\$\{[^}]*\}/g, () => `{${i++}}`)), f);
+    keys.set(unq(m[1].replace(/\$\{[^}]*\}/g, () => `{${i++}}`)), f);
   }
   src.split('\n').forEach((line, n) => {
-    if (/\berror:\s*`/.test(line) || new RegExp(String.raw`\berror:\s*` + STR + String.raw`\s*\+`).test(line))
-      bad.push(`${f.slice(3)}:${n + 1}  ${line.trim()}`);
+    const code = line.replace(/^\s*(\/\/|\/\*|\*).*$/, '');   // a comment line describes, it does not send
+    if (/\/\/ not sent:/.test(code)) return;
+    if (SHAPES.some(re => re.test(code))) bad.push(`${f.slice(3)}:${n + 1}  ${line.trim()}`);
   });
 }
 
 let failed = false;
 if (bad.length) {
   failed = true;
-  console.error('FAIL  refusals built outside say`…` — the app cannot translate these:');
+  console.error('FAIL  messages built outside say — the app cannot translate these:');
   for (const b of bad) console.error('      ' + b);
 }
 
 const packs = await Promise.all(LOCALES.map(async l =>
   [l, (await import(new URL(`../../frontend/src/locales/${l}.js`, import.meta.url))).default]));
-const all = new Map([...statics, ...templates]);
 for (const [l, pack] of packs) {
-  const missing = [...all.keys()].filter(k => !(k in pack));
+  const missing = [...keys.keys()].filter(k => !(k in pack));
   if (missing.length) {
     failed = true;
     console.error(`FAIL  ${l}.js has no translation for ${missing.length} server message(s):`);
-    for (const k of missing) console.error(`      ${JSON.stringify(k)}  (${all.get(k).slice(3)})`);
+    for (const k of missing) console.error(`      ${JSON.stringify(k)}  (${keys.get(k).slice(3)})`);
   }
 }
 
-const listed = new Set(JSON.parse(
-  read('../../frontend/src/lib/server-messages.js').match(/SERVER_TEMPLATES = (\[[\s\S]*?\])/)?.[1] ?? 'null') || []);
-const unlisted = [...templates.keys()].filter(k => !listed.has(k));
-const dead = [...listed].filter(k => !templates.has(k));
-if (unlisted.length || dead.length) {
-  failed = true;
-  console.error('FAIL  SERVER_TEMPLATES in frontend/src/lib/server-messages.js is out of step with the API:');
-  for (const k of unlisted) console.error(`      missing: ${JSON.stringify(k)}`);
-  for (const k of dead) console.error(`      no longer sent: ${JSON.stringify(k)}`);
-}
-
 if (failed) process.exit(1);
-console.log(`ok    ${statics.size} server messages and ${templates.size} templates, all translated`);
+console.log(`ok    ${keys.size} server messages, all translated`);

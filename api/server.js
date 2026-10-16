@@ -20,7 +20,7 @@ import {
   findSessionConflicts, isRealDate,
   validateUpload, MEDIA_SNIFF_BYTES, safeMediaFile,
   coachBinding, redeemableInvite, checkinReminderDue, checkinPeriodStart,
-  upsertProgram, COACH_MAX_PROGRAMS, say
+  upsertProgram, COACH_MAX_PROGRAMS, say, saidAs
 } from './domain.mjs';
 import { checkinReminderPush, dayReminderPush, restTimerPush, testPush } from './push-messages.js';
 import { verifyError } from './verify-error.js';
@@ -492,7 +492,7 @@ function guardedLookup(hostname, options, cb) {
     if (err) return cb(err);
     const list = Array.isArray(address) ? address : [{ address, family }];
     if (list.some(a => isPrivateAddr(a.address))) {
-      return cb(Object.assign(new Error('refusing to connect to a private address: ' + hostname), { code: 'EPUSHBLOCKED' }));
+      return cb(Object.assign(new Error('refusing to connect to a private address: ' + hostname), { code: 'EPUSHBLOCKED' }));   // not sent: push delivery only, never a response
     }
     cb(null, address, family);
   });
@@ -918,7 +918,9 @@ setInterval(() => { for (const [k, v] of pairings) if (v.exp < Date.now()) pairi
 
 /* ---------- helpers ---------- */
 function json(res, code, obj, extraHeaders) {
-  const body = JSON.stringify(obj);
+  // A refusal built by say carries its template and values, so the app can translate it (domain.mjs).
+  const msg = obj && typeof obj.error === 'string' && saidAs(obj.error);
+  const body = JSON.stringify(msg ? { ...obj, msg } : obj);
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...(extraHeaders || {}) });
   res.end(body);
 }

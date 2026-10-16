@@ -3,14 +3,28 @@
 // disk. The one import is node's own constant-time compare; nothing here reads env or state.
 import { timingSafeEqual } from 'node:crypto'
 
-/* A refusal the app shows to a person. The server speaks English and the app translates what
-   arrives, with the English as the key (frontend/src/lib/server-messages.js). A message with a
-   value in it cannot be a key as sent, so it is written as a tagged template on say: the result
-   is the same plain string, and api/scripts/check-error-strings.mjs reads the template back out
-   of the source as the key ("that exercise already has {0} videos"). Called with a plain string,
-   say marks a message built in a helper rather than written straight into an error field, so the
-   check finds that one too. */
-export const say = (s, ...v) => typeof s === 'string' ? s : s.reduce((out, part, i) => out + v[i - 1] + part)
+/* A refusal the app shows to a person. The server speaks English and the app translates it, with
+   the English as the key (frontend/src/lib/server-messages.js). A message with a value in it
+   cannot be a key as sent, so it is written as a tagged template on say. The result is the same
+   plain string, so everything that handles it — tests, Error messages, the audit log — is
+   unchanged; say also remembers which template and values built it, and json() in server.js
+   sends those along as `msg: { k, v }` ("that exercise already has {0} videos", [6]). The app
+   translates k and fills in v, rather than guessing the template back from the English.
+
+   It is keyed by the text because a string cannot carry anything else, and kept small because it
+   only has to last from the say to the json() that sends it — the same request, a moment later.
+   Called with a plain string, say only marks a message built in a helper rather than written
+   straight into an error field, so api/scripts/check-error-strings.mjs finds that one too. */
+const said = new Map()
+export const say = (s, ...v) => {
+  if (typeof s === 'string') return s
+  const text = s.reduce((out, part, i) => out + v[i - 1] + part)
+  said.delete(text)
+  said.set(text, { k: s.reduce((out, part, i) => out + '{' + (i - 1) + '}' + part), v })
+  if (said.size > 200) said.delete(said.keys().next().value)
+  return text
+}
+export const saidAs = text => said.get(text)
 
 /* ---------- access requests ---------- */
 export const REQ_PENDING_DAYS = 14   // a request nobody decided on expires by itself
@@ -224,6 +238,13 @@ export const ASSIGN_DECIDED_DAYS = 30      // decided history kept this long, th
 export const NUTRI_MAX_KCAL = 20000
 export const NUTRI_MAX_MACRO = 2000
 export const NUTRI_KEYS = ['kcal', 'p', 'c', 'f']
+// One sentence per field: the keys are internal codes, and "p" in a sentence means nothing to a coach.
+const NUTRI_RANGE_ERROR = {
+  kcal: max => say`calories must be a number between 0 and ${max}`,
+  p: max => say`protein must be a number between 0 and ${max} g`,
+  c: max => say`carbs must be a number between 0 and ${max} g`,
+  f: max => say`fat must be a number between 0 and ${max} g`,
+}
 
 // null for "no targets on this bundle" — every field is optional, including all of them. A coach
 // who sets calories and protein and leaves carbs and fat alone means exactly that, so an absent
@@ -238,7 +259,7 @@ function cleanNutrition(raw) {
     const v = raw[k]
     if (v == null || v === '') continue
     const max = k === 'kcal' ? NUTRI_MAX_KCAL : NUTRI_MAX_MACRO
-    if (!Number.isFinite(+v) || +v < 0 || +v > max) return { error: say`nutrition target for ${k} is not a number between 0 and ${max}` }
+    if (!Number.isFinite(+v) || +v < 0 || +v > max) return { error: NUTRI_RANGE_ERROR[k](max) }
     if (+v > 0) out[k] = Math.round(+v)
   }
   const note = String(raw.note || '').trim().slice(0, ASSIGN_NOTE_MAX)
