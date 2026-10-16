@@ -9,6 +9,7 @@ import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { confirmSheet } from '../../sheets.jsx'
 import { rel } from './parts.jsx'
+import { t, tp } from '../../lib/i18n.js'
 // .adm-pill lives here. Imported explicitly rather than relying on Admin.jsx still importing it —
 // which is why nothing lost its styling when P6 deleted that page.
 import '../../admin.css'
@@ -74,7 +75,7 @@ export function AccountSheet({ id, onChanged, close }) {
       <div className="tile"><div className="l">Workouts</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.workouts.length}</div></div>
       <div className="tile"><div className="l">Weigh-ins</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.bodyweight.length}</div></div>
       <div className="tile"><div className="l">Routines</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.routines.length}</div></div>
-      <div className="tile"><div className="l">Last sync</div><div className="v" style={{ fontSize: '.95rem' }}>{rel(d.lastSync)}</div></div>
+      <div className="tile"><div className="l">{t('Last sync')}</div><div className="v" style={{ fontSize: '.95rem' }}>{rel(d.lastSync)}</div></div>
     </div>
 
     {/* Their training is on the client's own page, not here. This screen is about whether an
@@ -139,7 +140,7 @@ export function BusinessAccounts() {
               {u.admin && u.id !== me?.id && <span className="tag acc" style={{ marginLeft: 4 }}>admin</span>}
               {u.coach && !u.admin && <span className="tag acc" style={{ marginLeft: 4 }}>coach</span>}
               {u.disabled && <span className="tag" style={{ marginLeft: 4, color: 'var(--red)' }}>off</span>}</div>
-            <div className="ss">{u.workouts} workouts · synced {rel(u.lastSync)}</div>
+            <div className="ss">{tp(u.workouts, '{0} workout', '{0} workouts')} · {t('synced {0}', rel(u.lastSync))}</div>
           </div>
           <Icon name="chevronRight" className="chev" />
         </button>)}

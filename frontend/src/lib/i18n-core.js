@@ -45,7 +45,9 @@ export const browserLang = () => typeof navigator === 'undefined'
 // Translate a source string; {0},{1}… are replaced with args (also on the English fallback).
 export function t(s, ...args) {
   let v = dict[s] || s
-  for (let i = 0; i < args.length; i++) v = v.replaceAll('{' + i + '}', args[i])
+  // A function replacement: a string one reads '$&', '$$' and '$`' in user text (a routine called
+  // "Legs $$ day", a search for "a$&b") as replacement patterns and mangles it.
+  for (let i = 0; i < args.length; i++) v = v.replaceAll('{' + i + '}', () => String(args[i]))
   return v
 }
 

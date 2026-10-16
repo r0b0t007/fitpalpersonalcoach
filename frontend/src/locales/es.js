@@ -1050,6 +1050,7 @@ export default {
   'fingerprint, face or PIN': 'la huella, la cara o el PIN',
   // The coach shell, part 1: tab bar, Today, Clients, the client-page cards and the roster
   // helpers (CHW-205). Coach surfaces were English-only until this.
+  'Last sync': 'Última sincronización',
   'Accepted a program': 'aceptó un programa',
   'Active 7d': 'Activos 7 d',
   'Adherence': 'Adherencia',
@@ -1108,7 +1109,7 @@ export default {
   'accepted': 'aceptado',
   'ex {0}/{1}': 'ej. {0}/{1}',
   'just now': 'ahora mismo',
-  'last {0}': 'última {0}',
+  'last {0}': 'último {0}',
   'never': 'nunca',
   'program waiting': 'programa pendiente',
   'synced {0}': 'sincronizado {0}',

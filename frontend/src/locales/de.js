@@ -1068,6 +1068,7 @@ export default {
   'fingerprint, face or PIN': 'Fingerabdruck, Gesicht oder PIN',
   // The coach shell, part 1: tab bar, Today, Clients, the client-page cards and the roster
   // helpers (CHW-205). Coach surfaces were English-only until this.
+  'Last sync': 'Letzte Synchronisierung',
   'Accepted a program': 'hat ein Programm angenommen',
   'Active 7d': 'Aktiv 7 T.',
   'Adherence': 'Trainingstreue',

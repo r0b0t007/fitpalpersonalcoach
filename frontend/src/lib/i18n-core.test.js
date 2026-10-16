@@ -37,6 +37,12 @@ describe('i18n-core default language', () => {
     _setLangState('fr', {})
     expect(t('Hi {0}', 'Sam')).toBe('Hi Sam')
   })
+
+  it('t() inserts user text as-is, $ patterns included', () => {
+    expect(t('Nobody matches “{0}”.', 'a$&b')).toBe('Nobody matches “a$&b”.')
+    expect(t('training now · {0}', 'Legs $$ day')).toBe('training now · Legs $$ day')
+    expect(t('{0}', "x$`y$'z")).toBe("x$`y$'z")
+  })
 })
 
 describe('pickLang', () => {

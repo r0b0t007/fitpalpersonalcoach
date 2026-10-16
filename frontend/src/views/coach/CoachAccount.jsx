@@ -19,8 +19,8 @@ import { PairSheet } from '../Settings.jsx'
  * A coach looking for "how do I invite somebody" found a screen for somebody else's job, with a
  * row pointing at an Admin dashboard built to run a gym.
  *
- * English-only raw strings, like every coach surface (CLAUDE.md) — the client side of this app is
- * translated, the operator side is not.
+ * Still raw English strings outside Appearance: the coach shell is being moved to t() screen by
+ * screen (CLAUDE.md), and this one is CHW-208.
  *
  * Appearance is the exception and IS translated, because it is the same `S` the client shell
  * reads: a coach with S.lang = 'fr' who flips to Train myself would otherwise be told the same

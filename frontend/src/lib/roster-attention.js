@@ -30,9 +30,9 @@ const noon = iso => Date.parse(String(iso).slice(0, 10) + 'T12:00:00Z')
 // Whole days between a date-ish value (ISO day, ISO timestamp, or ms) and the roster's today.
 export const daysSince = (v, todayIso) => {
   if (v == null) return null
-  const t = typeof v === 'number' ? v : (String(v).length === 10 ? noon(v) : Date.parse(v))
-  if (!Number.isFinite(t)) return null
-  return Math.max(0, Math.round((noon(todayIso) - t) / DAY))
+  const ts = typeof v === 'number' ? v : (String(v).length === 10 ? noon(v) : Date.parse(v))
+  if (!Number.isFinite(ts)) return null
+  return Math.max(0, Math.round((noon(todayIso) - ts) / DAY))
 }
 const ago = n => (n == null ? '' : n === 0 ? t('today') : n === 1 ? t('yesterday') : tp(n, '{0} day ago', '{0} days ago'))
 

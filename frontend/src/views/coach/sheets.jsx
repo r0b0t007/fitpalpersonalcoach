@@ -11,6 +11,7 @@ import { confirmSheet } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { rel } from './parts.jsx'
+import { t, tp } from '../../lib/i18n.js'
 
 // The coach's sheets: send a program, invite a client, upload a demo. Opened from Today, Clients
 // and a client's page. English-only, like every coach surface.
@@ -155,7 +156,7 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
     {members.length ? <div className="list" style={{ rowGap: 0 }}>
       {members.map(m => <label key={m.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
         <div><div className="small" style={{ fontWeight: 600 }}>{m.name}</div>
-          <div className="dim" style={{ fontSize: '.72rem' }}>{m.workouts} workouts · synced {rel(m.lastSync)}</div></div>
+          <div className="dim" style={{ fontSize: '.72rem' }}>{tp(m.workouts, '{0} workout', '{0} workouts')} · {t('synced {0}', rel(m.lastSync))}</div></div>
         <input type="checkbox" checked={picked.includes(m.id)} onChange={() => toggle(m.id)} />
       </label>)}
     </div> : <div className="empty small">No clients yet.</div>}

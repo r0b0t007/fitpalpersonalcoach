@@ -1050,6 +1050,7 @@ export default {
   'fingerprint, face or PIN': 'l’empreinte digitale, le visage ou le code PIN',
   // The coach shell, part 1: tab bar, Today, Clients, the client-page cards and the roster
   // helpers (CHW-205). Coach surfaces were English-only until this.
+  'Last sync': 'Dernière synchro',
   'Accepted a program': 'a accepté un programme',
   'Active 7d': 'Actifs 7 j',
   'Adherence': 'Assiduité',
@@ -1098,8 +1099,8 @@ export default {
   'Sent {0}': 'Envoyé {0}',
   'Still to come': 'À venir',
   'Train myself': 'M’entraîner',
-  'Trained {1} of {0} planned day': '{1} séance sur {0} jour prévu',
-  'Trained {1} of {0} planned days': '{1} séances sur {0} jours prévus',
+  'Trained {1} of {0} planned day': 'Séances faites : {1} sur {0} jour prévu',
+  'Trained {1} of {0} planned days': 'Séances faites : {1} sur {0} jours prévus',
   'Training now': 'En séance',
   'Training now · {0}': 's’entraîne en ce moment · {0}',
   'Unplanned': 'Non prévu',
@@ -1129,7 +1130,7 @@ export default {
   '{0}d': '{0} j',
   '{0}d ago': 'il y a {0} j',
   '{0}h ago': 'il y a {0} h',
-  '{0}h{1}m': '{0} h {1}',
+  '{0}h{1}m': '{0} h {1} min',
   '{0}m': '{0} min',
   '{0}m ago': 'il y a {0} min',
 }
