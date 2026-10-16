@@ -13,6 +13,7 @@
 // slower drifts — no check-in, no training — which are what this list exists to catch before the
 // client stops opening the app.
 import { checkinOverdue } from './checkins.js'
+import { t, tp } from './i18n-core.js'
 
 export const INACTIVE_DAYS = 7
 export const NEW_DAYS = 7
@@ -29,30 +30,30 @@ const noon = iso => Date.parse(String(iso).slice(0, 10) + 'T12:00:00Z')
 // Whole days between a date-ish value (ISO day, ISO timestamp, or ms) and the roster's today.
 export const daysSince = (v, todayIso) => {
   if (v == null) return null
-  const t = typeof v === 'number' ? v : (String(v).length === 10 ? noon(v) : Date.parse(v))
-  if (!Number.isFinite(t)) return null
-  return Math.max(0, Math.round((noon(todayIso) - t) / DAY))
+  const ts = typeof v === 'number' ? v : (String(v).length === 10 ? noon(v) : Date.parse(v))
+  if (!Number.isFinite(ts)) return null
+  return Math.max(0, Math.round((noon(todayIso) - ts) / DAY))
 }
-const ago = n => (n == null ? '' : n === 0 ? 'today' : n === 1 ? 'yesterday' : n + ' days ago')
+const ago = n => (n == null ? '' : n === 0 ? t('today') : n === 1 ? t('yesterday') : tp(n, '{0} day ago', '{0} days ago'))
 
 const REASONS = [
   {
     type: 'program-waiting',
     when: m => m.pending?.length > 0,
-    title: 'Program not answered',
-    detail: (m, today) => 'Sent ' + ago(daysSince(m.pending[0].created, today)),
+    title: () => t('Program not answered'),
+    detail: (m, today) => t('Sent {0}', ago(daysSince(m.pending[0].created, today))),
   },
   {
     type: 'declined',
     when: (m, today) => m.lastDecision?.status === 'declined' && daysSince(m.lastDecision.at, today) <= DECLINE_DAYS,
-    title: 'Declined the last program',
+    title: () => t('Declined the last program'),
     detail: (m, today) => ago(daysSince(m.lastDecision.at, today)),
   },
   {
     type: 'new-client',
     when: (m, today) => m.routines === 0 && daysSince(m.created, today) != null && daysSince(m.created, today) <= NEW_DAYS,
-    title: 'New client, no program yet',
-    detail: (m, today) => 'Joined ' + ago(daysSince(m.created, today)),
+    title: () => t('New client, no program yet'),
+    detail: (m, today) => t('Joined {0}', ago(daysSince(m.created, today))),
   },
   {
     type: 'no-program',
@@ -61,8 +62,8 @@ const REASONS = [
     // served against an API that has not shipped them yet would otherwise label EVERY client
     // "No program" and bury every real signal. An absent field means unknown, so: no row.
     when: m => m.routines === 0,
-    title: 'No program',
-    detail: () => 'Nothing on their plan to train',
+    title: () => t('No program'),
+    detail: () => t('Nothing on their plan to train'),
   },
   {
     type: 'checkin-overdue',
@@ -70,14 +71,14 @@ const REASONS = [
     // agreed to yet, and the row above already says what is missing. `undefined` is an API that
     // predates the field (see 'no-program'); `null` is a client who has genuinely never filed one.
     when: (m, today) => m.lastCheckin !== undefined && checkinOverdue(m, today),
-    title: 'Check-in overdue',
-    detail: (m, today) => (m.lastCheckin ? 'Last one ' + ago(daysSince(m.lastCheckin, today)) : 'None filed yet'),
+    title: () => t('Check-in overdue'),
+    detail: (m, today) => (m.lastCheckin ? t('Last one {0}', ago(daysSince(m.lastCheckin, today))) : t('None filed yet')),
   },
   {
     type: 'inactive',
     when: (m, today) => !m.live && (m.lastWorkout == null || daysSince(m.lastWorkout, today) >= INACTIVE_DAYS),
-    title: 'Not training',
-    detail: (m, today) => (m.lastWorkout ? 'Last workout ' + ago(daysSince(m.lastWorkout, today)) : 'No workouts yet'),
+    title: () => t('Not training'),
+    detail: (m, today) => (m.lastWorkout ? t('Last workout {0}', ago(daysSince(m.lastWorkout, today))) : t('No workouts yet')),
   },
 ]
 
@@ -85,7 +86,7 @@ export function reasonFor(m, todayIso) {
   const i = REASONS.findIndex(r => r.when(m, todayIso))
   if (i < 0) return null
   const r = REASONS[i]
-  return { type: r.type, rank: i, title: r.title, detail: r.detail(m, todayIso) }
+  return { type: r.type, rank: i, title: r.title(), detail: r.detail(m, todayIso) }
 }
 
 export function attentionItems(members, todayIso) {

@@ -13,14 +13,14 @@ before touching anything under `.github/workflows/deploy-*`.
 What this fork adds on top of upstream, none of which upstream's notes below describe:
 
 - **A human coach role, with its own shell.** `App.jsx` renders one of two route tables from
-  `lib/role.js`: a coach gets `/today` (the dashboard, `views/Coach.jsx`) and `/account` with
-  `CoachTabBar`; a client gets `/home` and the training app. The dashboard's old address
-  `/trainer` redirects. (It could not be `/coach` when the split was made — upstream's AI Coach
-  owned that path. That feature has since been removed, but `/today` is what shipped and renaming
-  a live route to reclaim a path buys nothing.) Coach surfaces are deliberately **English-only**:
-  they use raw strings, not `t()`. `views/coach/Business.jsx` — the activity log and account
-  disabling — is the operator surface that convention came from, inherited from the gym `Admin.jsx`
-  that P6 deleted.
+  `lib/role.js`: a coach gets `/today` (the dashboard, `views/coach/CoachToday.jsx`), `/clients`,
+  `/programs` and `/account` with `CoachTabBar`; a client gets `/home` and the training app. The
+  dashboard's old address `/trainer` redirects. (It could not be `/coach` when the split was made
+  — upstream's AI Coach owned that path. That feature has since been removed, but `/today` is what
+  shipped and renaming a live route to reclaim a path buys nothing.) Coach surfaces go through
+  `t()`/`tp()` like the rest of the app — the coach is a French- or Spanish-speaking business
+  owner. They were English-only raw strings until CHW-205 (a convention inherited from the gym
+  `Admin.jsx` that P6 deleted), and files not yet converted still say so in a comment.
 - **`StatsPanels`** (`views/Stats.jsx`) is exported and prop-driven so the coach sees a client's
   own charts by passing a different `S`. Keeping panels prop-driven is what makes every new
   client-side metric free on the coach side — do not reach for `useStore` inside one.
