@@ -4,7 +4,7 @@ import { useStore, DEF, hasData } from '../store/useStore.js'
 import { workoutControls } from '../lib/workout-controls.js'
 import { convertStateUnit } from '../lib/units.js'
 import { useUI } from '../store/useUI.js'
-import { ACCENTS, accentName, todayISO, localTZ, weekStartOf, MONDAY, SUNDAY } from '../lib/format.js'
+import { ACCENTS, accentName, fmtMB, todayISO, localTZ, weekStartOf, MONDAY, SUNDAY } from '../lib/format.js'
 import { effortOf } from '../lib/history.js'
 import { api, webauthnOK, passkeyLogin, passkeyRegister } from '../lib/api.js'
 import { pushSupported, enablePush, disablePush, sendTestPush } from '../lib/push.js'
@@ -470,7 +470,7 @@ const DownloadProgress = forwardRef(function DownloadProgress(_, ref) {
       setPct(p)
       setText(t('{0} %', p))
     } else {
-      setText(t('{0} MB', (received / 1_000_000).toFixed(1)))
+      setText(fmtMB(received))
     }
   })
   return (

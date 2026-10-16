@@ -4,14 +4,14 @@ import { useUI } from '../../store/useUI.js'
 import { api, fetchExerciseMedia, uploadExerciseMedia } from '../../lib/api.js'
 import { setCoachMedia } from '../../lib/coach-media.js'
 import { EXIDX, allExercises, matchesExerciseSearch, mediaRowSrc } from '../../lib/exercises.js'
-import { fmtDate, uid, DAYN } from '../../lib/format.js'
+import { fmtDate, fmtMB, uid, DAYN } from '../../lib/format.js'
 import { inviteLink } from '../../lib/invite.js'
 import { buildPlanBundle } from '../../lib/plan-share.js'
 import { confirmSheet } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { rel } from './parts.jsx'
-import { t, tp, dateLocale } from '../../lib/i18n.js'
+import { t, tp } from '../../lib/i18n.js'
 
 // The coach's sheets: send a program, invite a client, upload a demo. Opened from Today, Clients
 // and a client's page.
@@ -177,7 +177,6 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
    strings are the instruction; they are printed verbatim and never collapsed into "upload
    failed", which would throw away the only thing that says what to change. */
 
-const MB = b => { const d = b < 10485760 ? 1 : 0; return t('{0} MB', (b / 1048576).toLocaleString(dateLocale(), { minimumFractionDigits: d, maximumFractionDigits: d })) }
 // EXIDX carries the custom exercises too (the store registers them on load), so one lookup
 // covers both. Falling back to the raw id keeps a demo for a deleted exercise visible and
 // counted against the cap instead of vanishing from a list it still occupies.
@@ -273,7 +272,9 @@ export function InviteSheet() {
   // which row was tapped.
   const revoke = i => confirmSheet({
     title: t('Revoke this invite?'),
-    message: (i.note ? t('“{0}” — ', i.note) : '') + t('{0} stops working immediately. If you have already sent the link, whoever has it will not be able to join.', i.code),
+    message: i.note
+      ? t('“{1}” — {0} stops working immediately. If you have already sent the link, whoever has it will not be able to join.', i.code, i.note)
+      : t('{0} stops working immediately. If you have already sent the link, whoever has it will not be able to join.', i.code),
     confirmText: t('Revoke'), danger: true,
     onConfirm: () => api('/api/coach/invites/revoke', { method: 'POST', body: JSON.stringify({ code: i.code }) })
       .then(() => { toast(t('Invite revoked')); return load() }).catch(e => toast(e.message))
@@ -343,12 +344,12 @@ export function InviteSheet() {
     {/* Kept rather than hidden once used: this is the record of who came in on which link, and it
         is the only place a coach can see that one they sent was actually taken up. */}
     {!!used.length && <>
-      <h4 className="sec" style={{ marginTop: 18 }}>{t('Joined')}</h4>
+      <h4 className="sec" style={{ marginTop: 18 }}>{t('Joined clients')}</h4>
       <div className="list" style={{ rowGap: 0 }}>
         {used.map(i => <div key={i.code} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
           <div><div className="small" style={{ fontWeight: 600 }}>{i.usedByName || t('someone')}</div>
             <div className="dim" style={{ fontSize: '.72rem' }}>
-              {i.note ? i.note + ' · ' : ''}{t('joined {0}', fmtDate(String(i.usedAt).slice(0, 10)))}</div></div>
+              {i.note ? t('{0} · joined {1}', i.note, fmtDate(String(i.usedAt).slice(0, 10))) : t('joined {0}', fmtDate(String(i.usedAt).slice(0, 10)))}</div></div>
           <span className="dim" style={{ fontSize: '.7rem', fontFamily: 'ui-monospace, monospace' }}>{i.code}</span>
         </div>)}
       </div>
@@ -422,7 +423,7 @@ export function MediaSheet() {
           onClick={() => { setEx(e); setQ('') }}>
           <div><div className="small capitalize" style={{ fontWeight: 600 }}>{e.n}</div>
             <div className="dim" style={{ fontSize: '.72rem' }}>
-              {e.custom ? t('your own exercise') : t(e.bp)}{(byEx[e.id] || []).length ? ' \u00b7 ' + t('{0} uploaded', byEx[e.id].length) : ''}</div></div>
+              {e.custom ? t('your own exercise') : t(e.bp)}{(byEx[e.id] || []).length ? ' \u00b7 ' + tp(byEx[e.id].length, '{0} video uploaded', '{0} videos uploaded') : ''}</div></div>
           <Icon name="chevronRight" className="chev" />
         </div>)}
         {q.trim().length >= 2 && !hits.length && <div className="empty small">{t('Nothing matches that.')}</div>}
@@ -467,7 +468,7 @@ export function MediaSheet() {
                 onClick={() => setPreview(preview === m.id ? null : m.id)}>
                 <div><div className="small">{m.label || t('no label')}</div>
                   <div className="dim" style={{ fontSize: '.72rem' }}>
-                    {MB(m.bytes)} &middot; {fmtDate(String(m.created).slice(0, 10))}</div></div>
+                    {fmtMB(m.bytes)} &middot; {fmtDate(String(m.created).slice(0, 10))}</div></div>
                 {m.status === 'raw'
                   ? <span className="tag" style={{ color: 'var(--yellow)' }}>{t('needs conversion')}</span>
                   : <Icon name={preview === m.id ? 'chevronDown' : 'play'} />}
