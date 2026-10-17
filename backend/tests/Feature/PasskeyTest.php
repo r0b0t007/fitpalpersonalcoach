@@ -11,8 +11,9 @@ use Tests\Support\Passkey;
 
 beforeEach(function () {
     config(['fitpal.rp_id' => 'localhost', 'fitpal.origin' => 'http://localhost:5173', 'fitpal.session_secret' => str_repeat('ab', 32)]);
-    // The package reads its own keys; AppServiceProvider copied them at boot, before this config().
-    config(['webauthn.relying_party.id' => 'localhost', 'webauthn.origins' => 'http://localhost:5173']);
+    // The package reads its own keys (config/webauthn.php, from the same env at boot); the
+    // origins entry is a HOSTNAME, the exact origin is ours (Pipes\CheckOriginExact).
+    config(['webauthn.relying_party.id' => 'localhost', 'webauthn.origins' => 'localhost']);
 });
 
 it('issues base64url options the app can decode, with a resident key required', function () {
@@ -97,6 +98,43 @@ it('names the deployment mistake when the origin does not match', function () {
     expect($r->json('msg.k'))->toBe('{0} — this server is configured with RP_ID={1} and ORIGIN={2}, and both must match the address you opened. See docs/SELF_HOSTING.md.')
         ->and($r->json('msg.v.1'))->toBe('localhost')
         ->and($r->json('msg.v.2'))->toBe('http://localhost:5173');
+});
+
+it('refuses the right host on the wrong port or scheme: the origin must be ORIGIN exactly', function () {
+    // The package alone would let this through (same hostname); the Node API never did.
+    $pk = new Passkey(origin: 'http://localhost:9999');
+    $r = $pk->register($this, 'Omar');
+    $r->assertStatus(400);
+    // The package prefixes its sentences with the ceremony's name.
+    expect($r->json('msg.v.0'))->toBe('Attestation Error: Response origin is not the configured ORIGIN.')
+        ->and($r->json('msg.v.2'))->toBe('http://localhost:5173');
+
+    $good = new Passkey;
+    $good->register($this, 'Omar')->assertOk();
+    $good->origin = 'http://localhost:9999';
+    $good->login($this)->assertStatus(400)->assertJsonPath('msg.v.0', 'Assertion Error: Response origin is not the configured ORIGIN.');
+});
+
+it('answers a malformed credential with a 400, never a 500', function () {
+    $o = $this->postJson('/api/register/options', ['name' => 'Mal'])->json();
+    $broken = ['id' => 'abc', 'rawId' => 'abc', 'type' => 'public-key', 'response' => ['clientDataJSON' => null, 'attestationObject' => null]];
+    $this->postJson('/api/register/verify', ['cid' => $o['cid'], 'credential' => $broken])
+        ->assertStatus(400)->assertJsonPath('msg.v.0', 'malformed credential');
+
+    $pk = new Passkey;
+    $pk->register($this, 'Mal')->assertOk();
+    $o = $this->postJson('/api/login/options', [])->json();
+    $broken = ['id' => $pk->credentialId, 'rawId' => $pk->credentialId, 'type' => 'public-key', 'response' => ['clientDataJSON' => null, 'authenticatorData' => null, 'signature' => null]];
+    $this->postJson('/api/login/verify', ['cid' => $o['cid'], 'credential' => $broken])
+        ->assertStatus(400)->assertJsonPath('msg.v.0', 'malformed credential');
+});
+
+it('treats the ADMIN_UIDS accounts as admins whatever their row says', function () {
+    $user = User::query()->create(['id' => 'abcdefghijklmnop', 'name' => 'Owner']);
+    $token = SessionToken::make($user);
+    $this->withHeader('Authorization', 'Bearer '.$token)->getJson('/api/me')->assertJsonPath('user.admin', false);
+    config(['fitpal.admin_uids' => ['abcdefghijklmnop']]);
+    $this->withHeader('Authorization', 'Bearer '.$token)->getJson('/api/me')->assertJsonPath('user.admin', true)->assertJsonPath('user.coach', true);
 });
 
 it('keeps a disabled account out, and signs out everywhere by bumping the session version', function () {

@@ -11,9 +11,12 @@ use Laragear\WebAuthn\Models\WebAuthnCredential;
 /**
  * A passkey the Node API registered, carried over. db.json kept `{id, userId, publicKey, counter,
  * transports}` with the public key as the base64url COSE bytes; the package stores a PEM, so the
- * COSE map is decoded (EC2 P-256 or RSA) and wrapped in the same SubjectPublicKeyInfo DER the
- * package itself writes at registration. The user handle those authenticators hold is the ASCII
- * of the account id, which is what `user_id` must carry for the login check to pass.
+ * COSE map is decoded and wrapped in the same SubjectPublicKeyInfo DER the package itself writes
+ * at registration. Three key types, because the Node API offered three algorithms (its
+ *
+ * @simplewebauthn default: EdDSA first, then ES256, then RS256): Ed25519 (OKP), P-256 (EC2) and
+ * RSA. The user handle those authenticators hold is the ASCII of the account id, which is what
+ * `user_id` must carry for the login check to pass.
  */
 final class LegacyCredential
 {
@@ -43,7 +46,7 @@ final class LegacyCredential
         return $credential;
     }
 
-    /** The PEM of a COSE_Key: EC2 on P-256 (-7) or RSA (-257). */
+    /** The PEM of a COSE_Key: OKP Ed25519 (-8), EC2 on P-256 (-7) or RSA (-257). */
     public static function toPem(string $cose): string
     {
         $map = CborDecoder::decode($cose);
@@ -52,6 +55,9 @@ final class LegacyCredential
         }
         $bytes = static fn (mixed $v): string => $v instanceof ByteBuffer ? $v->getBinaryString() : (string) $v;
         $der = match ((int) $map[1]) {
+            1 => ((int) ($map[-1] ?? 0)) === 6
+                ? self::sequence(self::sequence(self::oid("\x2B\x65\x70")).self::bitString($bytes($map[-2] ?? '')))
+                : throw new InvalidArgumentException('unsupported OKP curve '.($map[-1] ?? '?')),
             2 => self::sequence(
                 self::sequence(self::oid("\x2A\x86\x48\xCE\x3D\x02\x01").self::oid("\x2A\x86\x48\xCE\x3D\x03\x01\x07"))
                 .self::bitString("\x04".$bytes($map[-2] ?? '').$bytes($map[-3] ?? ''))

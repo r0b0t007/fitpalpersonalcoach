@@ -26,6 +26,7 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
 
     protected $fillable = [
         'id', 'name', 'email', 'admin', 'coach', 'self_serve', 'coach_id', 'disabled', 'sv', 'invited_by',
+        'last_reminder', 'last_checkin_reminder', 'created_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];

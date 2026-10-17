@@ -1,53 +1,27 @@
 <?php
 
+use App\WebAuthn\CacheChallengeRepository;
+
+// Laragear WebAuthn's own keys, fed from the same variables as config/fitpal.php so one set
+// (RP_ID, ORIGIN, RP_NAME) drives everything, as it did for the Node API. The package's
+// WEBAUTHN_* variables are not read.
+
+$origin = rtrim((string) env('ORIGIN', 'http://localhost:5173'), '/');
+
 return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Relying Party
-    |--------------------------------------------------------------------------
-    |
-    | We will use your application information to inform the device who is the
-    | relying party. While only the name is enough, you can further set the
-    | a custom domain as ID and even an icon image data encoded as BASE64.
-    |
-    */
-
     'relying_party' => [
-        'name' => env('WEBAUTHN_NAME', config('app.name')),
-        'id' => env('WEBAUTHN_ID'),
+        'name' => env('RP_NAME', 'FitPal Coach'),
+        'id' => env('RP_ID', 'localhost'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Origins
-    |--------------------------------------------------------------------------
-    |
-    | By default, only your application domain is used as a valid origin for
-    | all ceremonies. If you are using your app as a backend for an app or
-    | UI you may set additional origins to check against the ceremonies.
-    |
-    | For multiple origins, separate them using comma, like `foo,bar`.
-    */
-
-    'origins' => env('WEBAUTHN_ORIGINS'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Challenge configuration
-    |--------------------------------------------------------------------------
-    |
-    | When making challenges your application needs to push at least 16 bytes
-    | of randomness. Since we need to later check them, we'll also store the
-    | bytes for a small amount of time inside this current request session.
-    |
-    | @see https://www.w3.org/TR/webauthn-2/#sctn-cryptographic-challenges
-    |
-    */
+    // The package compares HOSTNAMES here (the origin's host must equal an entry or be a
+    // subdomain of it); the exact-origin check the Node API made is App\WebAuthn\Pipes\CheckOriginExact.
+    'origins' => parse_url($origin, PHP_URL_HOST) ?: 'localhost',
 
     'challenge' => [
         'bytes' => 16,
-        'timeout' => 60,
+        // Seconds. The same figure as the cache entry's TTL, so the two never disagree.
+        'timeout' => CacheChallengeRepository::TTL,
         'key' => '_webauthn',
     ],
 ];

@@ -20,6 +20,8 @@ return [
     // Who may create an account at all. A coach's invite link always works; INVITE_ONLY decides
     // whether anyone WITHOUT one can register. SELF_SERVE_COACH opens the paying path
     // (/#/start): a coach account with no clients, worthless until a licence lands on it.
+    // Account ids that are admins whatever their row says: how the first operator bootstraps.
+    'admin_uids' => array_values(array_filter(array_map('trim', explode(',', (string) env('ADMIN_UIDS', ''))))),
     'invite_only' => $flag('INVITE_ONLY', false),
     'allow_guest' => $flag('ALLOW_GUEST', true),
     'self_serve_coach' => $flag('SELF_SERVE_COACH', false),

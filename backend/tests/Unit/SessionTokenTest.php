@@ -1,6 +1,7 @@
 <?php
 
 use App\Auth\SessionToken;
+use App\Models\User;
 
 beforeEach(fn () => config(['fitpal.session_secret' => '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'fitpal.origin' => 'http://localhost:5173']));
 
@@ -26,3 +27,13 @@ it('names the cookie by the origin scheme', function () {
     config(['fitpal.origin' => 'https://coach.fitpal.ma']);
     expect(SessionToken::cookieName())->toBe('__Host-gymsid')->and(SessionToken::clearCookies())->toHaveCount(2);
 });
+
+it('signs nothing and trusts nothing without a real secret', function (string $secret) {
+    config(['fitpal.session_secret' => $secret]);
+    $user = new User(['id' => 'abcdefghijklmnop', 'sv' => 0]);
+    // A token made under the empty key by someone who knows the format.
+    $payload = 'abcdefghijklmnop:'.(time() * 1000 + 86400000).':0';
+    $forged = $payload.'.'.rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, $secret, true)), '+/', '-_'), '=');
+    expect(SessionToken::parse($forged))->toBeNull()
+        ->and(fn () => SessionToken::make($user))->toThrow(RuntimeException::class);
+})->with(['unset' => [''], 'too short' => ['hunter2']]);

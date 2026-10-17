@@ -27,11 +27,21 @@ final class DataController
         return response($body, 200, ['Content-Type' => 'application/json', 'Cache-Control' => 'no-store']);
     }
 
+    /**
+     * The refusal for a body over the limit. Also what bootstrap/app.php answers when PHP's own
+     * post_max_size refuses the body before this controller runs — the app must get the same
+     * sentence either way, not 'server error'.
+     */
+    public static function tooLarge(): JsonResponse
+    {
+        return Json::error(413, Say::f('your training data is over the {0} MB limit for one sync, so this device could not save to the server. Delete some old workouts, or export a backup and start a fresh profile.', 16), [], ['Connection' => 'close']);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $raw = $request->getContent();
         if (strlen($raw) > self::MAX_BYTES) {
-            return Json::error(413, Say::f('your training data is over the {0} MB limit for one sync, so this device could not save to the server. Delete some old workouts, or export a backup and start a fresh profile.', 16), [], ['Connection' => 'close']);
+            return self::tooLarge();
         }
         $body = json_decode($raw);
         if (! is_object($body) || ! isset($body->state) || ! (is_object($body->state) || is_array($body->state))) {

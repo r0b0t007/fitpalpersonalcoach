@@ -3,6 +3,7 @@
 namespace App\Auth;
 
 use App\Models\User;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Cookie;
 
 /**
@@ -26,8 +27,14 @@ final class SessionToken
         return str_starts_with((string) config('fitpal.origin'), 'https://');
     }
 
+    /** The Node API generated its secret on first boot; this one must be given, or nothing signs. */
+    public const MIN_SECRET_LENGTH = 32;
+
     public static function make(User $user): string
     {
+        if (self::secret() === null) {
+            throw new RuntimeException('SESSION_SECRET is unset or shorter than '.self::MIN_SECRET_LENGTH.' characters; refusing to sign a session');
+        }
         $expiry = (int) floor(microtime(true) * 1000) + (int) config('fitpal.session_days') * 86400000;
         $payload = $user->id.':'.$expiry.':'.(int) ($user->sv ?? 0);
 
@@ -37,7 +44,8 @@ final class SessionToken
     /** @return array{uid: string, exp: int, sv: int}|null */
     public static function parse(?string $token): ?array
     {
-        if ($token === null || $token === '') {
+        // Fail closed: with no secret every token would verify against the empty key.
+        if ($token === null || $token === '' || self::secret() === null) {
             return null;
         }
         $dot = strrpos($token, '.');
@@ -110,6 +118,13 @@ final class SessionToken
 
     private static function sign(string $payload): string
     {
-        return rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, (string) config('fitpal.session_secret'), true)), '+/', '-_'), '=');
+        return rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, (string) self::secret(), true)), '+/', '-_'), '=');
+    }
+
+    private static function secret(): ?string
+    {
+        $secret = (string) config('fitpal.session_secret');
+
+        return strlen($secret) >= self::MIN_SECRET_LENGTH ? $secret : null;
     }
 }

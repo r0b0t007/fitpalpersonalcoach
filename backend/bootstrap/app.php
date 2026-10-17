@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DataController;
 use App\Http\Middleware\CsrfOrigin;
 use App\Http\Middleware\NoStore;
 use App\Http\Middleware\ReflectOrigin;
@@ -10,6 +11,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -52,6 +54,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // A refusal the caller may read: the English sentence (and its template, if any).
         $exceptions->render(fn (ClientSafe $e) => Json::error($e->status, $e->getMessage(), $e->extra, $e->headers));
         $exceptions->render(fn (AuthenticationException $e) => Json::error(401, 'not signed in'));
+        // PHP refused the body (post_max_size) before any controller ran: say what the sync
+        // route would have said. README.md names the ini values production needs.
+        $exceptions->render(fn (PostTooLargeException $e) => DataController::tooLarge());
         // Unknown path or method: the Node API looked routes up by "METHOD /path" and answered
         // 404 for both, before any other check.
         $exceptions->render(fn (NotFoundHttpException $e) => Json::error(404, 'not found'));

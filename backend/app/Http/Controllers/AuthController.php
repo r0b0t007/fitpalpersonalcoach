@@ -8,19 +8,20 @@ use App\Support\Json;
 use App\Support\Say;
 use App\WebAuthn\AssertionValidator;
 use App\WebAuthn\AttestationCreator;
+use App\WebAuthn\AttestationValidator;
 use App\WebAuthn\CacheChallengeRepository;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreation;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreator;
 use Laragear\WebAuthn\Assertion\Validator\AssertionValidation;
 use Laragear\WebAuthn\Attestation\Creator\AttestationCreation;
 use Laragear\WebAuthn\Attestation\Validator\AttestationValidation;
-use Laragear\WebAuthn\Attestation\Validator\AttestationValidator;
+use Laragear\WebAuthn\Contracts\WebAuthnException;
 use Laragear\WebAuthn\Enums\ResidentKey;
 use Laragear\WebAuthn\Enums\UserVerification;
-use Laragear\WebAuthn\Exceptions\AssertionException;
 use Laragear\WebAuthn\Exceptions\AttestationException;
 use Laragear\WebAuthn\Models\WebAuthnCredential;
 use Throwable;
@@ -66,18 +67,21 @@ final class AuthController
 
         try {
             $validation = $validator->send(AttestationValidation::fromRequest(self::credentialRequest($request), $user))->thenReturn();
-        } catch (AttestationException $e) {
-            if (str_contains($e->getMessage(), 'Credential ID already exists')) {
+        } catch (Throwable $e) {
+            if ($e instanceof AttestationException && str_contains($e->getMessage(), 'Credential ID already exists')) {
                 return Json::error(409, 'credential already registered');
             }
 
             return Json::error(400, self::verifyError($e));
         }
 
-        $user->save();
-        $credential = $validation->credential;
-        $credential->authenticatable_id = $user->id;
-        $credential->save();
+        // One transaction: an account without a passkey could never be signed in to.
+        DB::transaction(function () use ($user, $validation) {
+            $user->save();
+            $credential = $validation->credential;
+            $credential->authenticatable_id = $user->id;
+            $credential->save();
+        });
 
         return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user));
     }
@@ -108,7 +112,7 @@ final class AuthController
             $validation = app(AssertionValidator::class)
                 ->send(AssertionValidation::fromRequest(self::credentialRequest($request)))
                 ->thenReturn();
-        } catch (AssertionException $e) {
+        } catch (Throwable $e) {
             return Json::error(400, self::verifyError($e));
         }
 
@@ -156,14 +160,27 @@ final class AuthController
     }
 
     /**
+     * The package's sentences that mean RP_ID or ORIGIN is wrong for the address the app was
+     * opened at (api/verify-error.js matched @simplewebauthn's three the same way). Not "empty
+     * origin": that is a malformed response, not a deployment mistake.
+     */
+    private const MISCONFIGURED = '/different Relying Party ID hash|origin not allowed for this app|origin not made from a secure server|origin is not the configured ORIGIN/i';
+
+    /**
      * What the app shows when a ceremony fails. An RP ID or origin mismatch is a deployment
-     * mistake and says so, with the two values to check; anything else is the library's reason.
-     * Both sentences are translation keys the app already carries.
+     * mistake and says so, with the two values to check; any other refusal is the library's
+     * reason. A credential so malformed that it blew up inside the package (a null field, a
+     * missing id) is not a refusal with a reason: it gets one fixed word, as the Node API's
+     * blanket catch answered 400 for those too. Both sentences are translation keys the app
+     * already carries.
      */
     private static function verifyError(Throwable $e): string
     {
+        if (! $e instanceof WebAuthnException) {
+            return Say::f('verification failed: {0}', 'malformed credential');
+        }
         $msg = $e->getMessage() ?: 'verification failed';
-        if (preg_match('/relying party|origin/i', $msg)) {
+        if (preg_match(self::MISCONFIGURED, $msg)) {
             return Say::f('{0} — this server is configured with RP_ID={1} and ORIGIN={2}, and both must match the address you opened. See docs/SELF_HOSTING.md.', $msg, config('fitpal.rp_id'), config('fitpal.origin'));
         }
 
