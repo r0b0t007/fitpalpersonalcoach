@@ -234,41 +234,66 @@ a scratch subdomain of this account, **`lab.fitpal.ma`**, never on `coach.fitpal
 **The mount works as a plain symlink.** `<docroot>/api` → `backend/public`, with Laravel's own
 `public/.htaccess`: LiteSpeed follows it, rewrites to `index.php`, and the app answers under
 `/api` (`/api/health` 200, `/api/config` 200, unknown route `404 {"error":"not found"}`, preflight
-`204` with the reflected origin). No Passenger block, no app registration in cPanel. At cutover
-the Passenger `.htaccess` directory `~/coach.fitpal.ma/api/` is moved aside and the symlink takes
-its place; rollback is the reverse `mv`.
+`204` with the reflected origin). The lab never had a Node app registered, so it does not show
+what the coach subdomain's registration will do; see the cutover steps below.
 
 **PHP**: CLI and web both `8.5.11` (`/opt/alt/php85`, CloudLinux alt-php, LiteSpeed SAPI under
 the web server). Extensions present: pdo_mysql, pdo_sqlite, sodium, intl, gd, mbstring,
-fileinfo, bcmath, openssl, curl, zip, OPcache. Under the web SAPI: `post_max_size` 1024M,
-`upload_max_filesize` 1024M, `memory_limit` 1024M, `max_execution_time` 1500. **No `.user.ini`
-needed.** Raw bodies of 1, 9, 20, 50 and 95 MB all reached `php://input` byte-exact (SHA-256
-matched) in at most 2.5 s, at 4 MB peak memory when streamed — so R3's upload design (stream
-`php://input` to a temp file while hashing) stands as specified. A 20 MB `PUT /api/data` reaches
-the controller (answers 401 unauthenticated, not 413).
+fileinfo, bcmath, openssl, curl, zip, OPcache. The host's web defaults are `post_max_size` 1024M,
+`upload_max_filesize` 1024M, `memory_limit` 1024M, `max_execution_time` 1500 — but the
+requirement is owned by the repo, not by those defaults: `backend/public/.user.ini` sets 100M /
+100M / 256M / 120 s and ships with every deploy. At the origin, raw bodies of 1, 9, 20, 50 and
+95 MB all reached `php://input` byte-exact (SHA-256 matched) in at most 2.5 s, at 4 MB peak
+memory when streamed; a 20 MB `PUT /api/data` reaches the controller (401 unauthenticated, not
+413).
+
+**Not yet measured: the same through Cloudflare.** Every check above went to the origin with
+`--resolve` (no public DNS for `lab` yet). Production traffic goes through the proxied record,
+and Cloudflare caps request bodies (**100 MB** on Free and Pro) and gives the origin **100 s** to
+answer before a `524`. A 90 MB video is inside the cap but close to it, and a slow mobile upload
+can outlast 100 s. Before R3's upload work is called done: add the `lab` record (below), repeat
+the 50 and 95 MB bodies through the proxy, and time a throttled upload. If either limit bites, the
+answers are a lower `MEDIA_MAX_VIDEO_MB` or a DNS-only (grey-cloud) upload hostname.
 
 **Database**: MariaDB `11.4.13`, **default engine MyISAM, default charset latin1**. MyISAM's
 1000-byte key limit refuses the first `utf8mb4` string index, so `config/database.php` pins
-`'engine' => 'InnoDB'` (the charset is already `utf8mb4` per connection). Production database and
-user created through `uapi Mysql`: `pawputif_fitpalcoach` / `pawputif_fitpal`, password only in
-the server `.env` (mode 600). The scratch run migrated into it; R5 runs `migrate:fresh` before
-the import, so nothing from the lab survives into production.
+`'engine' => 'InnoDB'` for both the `mysql` and `mariadb` connections (the charset is `utf8mb4`
+per connection). CI now guards it: the `backend-mariadb` job in `test.yml` sets a MariaDB 11.4
+server to MyISAM + latin1, runs the migrations up, down and up, and fails on any non-InnoDB table.
 
-**Cron**: one line, `* * * * * cd <app> && /usr/local/bin/php artisan schedule:run`. Over 131
-consecutive minutes it fired in **every minute (0 missed)**, but not on the minute: the start is
-spread across the minute (2 s to 51 s, median 23 s) — the host staggers user crons. A job
-"every minute" can therefore run up to ~50 s late; reminders keyed on `hh:mm` are unaffected,
-rest-timer pushes delayed by a few seconds must not depend on cron alone (the spec's fallback, a
-client-side timer with a local notification, stands).
+Two databases on the account, each with its own user, passwords only in each app's `.env` (mode
+600): **production** `pawputif_fitpalcoach` / `pawputif_fitpal` — empty, never touched by the lab
+(it was briefly used for the first migration and then wiped); **lab** `pawputif_fitlab` /
+`pawputif_fitlab`. The lab runs `APP_ENV=production`, `APP_DEBUG=false`, and has no production
+credential. **Tear the lab down before the cutover** (the app directory, the `lab` symlink, its
+database and user), so nothing scratch is reachable once real data exists.
 
-**Queue under LVE**: `queue:work database --max-time=55 --sleep=1 --stop-when-empty` started
-from the scheduler with `withoutOverlapping()->runInBackground()`. Six 20-second jobs: the first
-worker ran three (55 s budget) and exited cleanly, the next minute's worker ran the other three;
-no LVE kill, no failed job, 26 MB per worker. That is the production pattern.
+**Cron**: one line, with output discarded — cPanel mails any cron output to the account contact,
+and `schedule:run` prints on every run:
 
-**Two things that bit, both fixed in the repo**: the empty `resources/views` directory is not
-tracked by git, and `php artisan optimize` fails without it (`View path not found`) —
-`resources/views/.gitkeep` now exists; and the MyISAM default above.
+```
+* * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run >/dev/null 2>&1
+```
+
+Over 131 consecutive minutes it fired in **every minute (0 missed)**, but not on the minute: the
+start is spread across the minute (2 s to 51 s, median 23 s) — the host staggers user crons. A job
+"every minute" can therefore run up to ~50 s late; reminders keyed on `hh:mm` are unaffected, and
+rest-timer pushes keep the spec's fallback (a client-side timer with a local notification).
+
+**Queue under LVE**: `queue:work database --max-time=55 --sleep=1 --stop-when-empty` from the
+scheduler, `runInBackground()`. Six 20-second jobs: the first worker ran three (55 s budget) and
+exited cleanly, the next minute's worker ran the other three; no LVE kill, no failed job, 26 MB per
+worker. **This schedule is in the repo** (`backend/routes/console.php`), with
+`withoutOverlapping(2)`: the overlap lock is released by the background process's finish callback,
+which never runs if the host kills the worker, and Laravel's default expiry is 24 hours — every
+push and reminder would silently wait until tomorrow.
+
+**One thing that bit**: `php artisan optimize` failed with `View path not found`. The cause was
+`storage/framework/views` missing on the box — the scratch copy skipped `storage/` — and a config
+cache built while it was missing. Git tracks the `storage/framework/*` skeleton, so a checkout has
+it; but **R5's deploy excludes `storage/` from the rsync**, so the first deploy must create
+`storage/framework/{cache/data,sessions,views}` and `storage/logs` on the server (once, before
+`optimize`).
 
 **Careful with `crontab -`**: replacing the crontab from a pipeline that fails half-way installs
 a crontab missing the other lines. During this measurement the account's existing
@@ -278,9 +303,31 @@ still contains every expected line, and only then `crontab <file>`.
 
 **TLS and DNS**: the vhost serves the server's shared `*.web-hosting.com` certificate until
 AutoSSL issues one, and AutoSSL needs public DNS. `lab.fitpal.ma` has **no DNS record** yet (the
-Cloudflare token available to CI and wrangler can read zones but not edit DNS), so every check
-above went to the origin with `--resolve lab.fitpal.ma:443:198.54.116.94`. For public access add
-in Cloudflare: `A lab 198.54.116.94 (proxied)`, as for `coach`.
+Cloudflare token available to CI and wrangler can read zones but not edit DNS). For public access
+add in Cloudflare: `A lab 198.54.116.94 (proxied)`, as for `coach`.
+
+### Cutover steps this section adds (R5)
+
+In this order; each one closes a way the old mount could come back or the new one could vanish.
+
+1. **`DEPLOY_API=false`** (repository variable) so a push to `api/**` cannot redeploy Node.
+2. **Exclude `/api` as a symlink in `deploy-web.yml`**: today it has `--exclude='/api/'`, and an
+   rsync rule ending in `/` matches directories only. Once `api` is a symlink the next frontend
+   deploy's `--delete` removes it and the API is gone. Add `--exclude='/api'` beside the existing
+   rule **before** the symlink exists. (Not changed in CHW-227: deploy workflows are edited by the
+   owner.)
+3. **Delete the Node.js app registration** for `coach.fitpal.ma/api` in cPanel → Setup Node.js
+   App (or `cloudlinux-selector destroy --json --interpreter nodejs --app-root
+   fitpal-coach-api`). Left registered, a restart or reconfigure rewrites `<docroot>/api/.htaccess`
+   with its Passenger block — which, through the symlink, is `backend/public/.htaccess`.
+4. **Move the Passenger directory outside the docroot**, not beside it:
+   `mv ~/coach.fitpal.ma/api ~/fitpal-coach-api-mount.bak`. Anything left inside
+   `~/coach.fitpal.ma/` other than the excluded paths is deleted by the next web deploy, and with
+   it the rollback.
+5. `ln -s ~/fitpal-coach-backend/public ~/coach.fitpal.ma/api`, then the checks below.
+
+Rollback: remove the symlink, `mv ~/fitpal-coach-api-mount.bak ~/coach.fitpal.ma/api`,
+re-register the Node app with the same app root and URI, `DEPLOY_API=true`.
 
 ## Checking it worked
 

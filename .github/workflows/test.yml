@@ -205,3 +205,57 @@ jobs:
         working-directory: backend
       - run: ./vendor/bin/pest --ci
         working-directory: backend
+
+  # The migrations against the database production runs, which SQLite cannot stand in for: the
+  # cPanel MariaDB defaults to MyISAM (1000-byte key limit) and latin1, and failed the first
+  # migration in CHW-227 until config/database.php pinned InnoDB. The server default is set to
+  # MyISAM here on purpose, so dropping that pin, or an index too long for it, goes red in CI
+  # instead of during the cutover.
+  backend-mariadb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: fitpal
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, sodium, pdo_mysql, gd, fileinfo, bcmath
+          coverage: none
+      - id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist --no-progress
+        working-directory: backend
+      - name: Make the server look like the host (MyISAM, latin1)
+        run: |
+          mysql -h127.0.0.1 -uroot -proot -e "SET GLOBAL default_storage_engine=MyISAM; ALTER DATABASE fitpal CHARACTER SET latin1 COLLATE latin1_swedish_ci;"
+          mysql -h127.0.0.1 -uroot -proot -N -e "SELECT @@default_storage_engine, @@version"
+      - name: Migrate, roll back, migrate again
+        working-directory: backend
+        env:
+          DB_CONNECTION: mariadb
+          DB_HOST: 127.0.0.1
+          DB_PORT: '3306'
+          DB_DATABASE: fitpal
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: |
+          cp .env.example .env && php artisan key:generate --quiet
+          php artisan migrate --force
+          php artisan migrate:rollback --force
+          php artisan migrate --force
+          mysql -h127.0.0.1 -uroot -proot -N -e "SELECT table_name, engine FROM information_schema.tables WHERE table_schema='fitpal' AND engine <> 'InnoDB'" | tee /tmp/not-innodb
+          test ! -s /tmp/not-innodb

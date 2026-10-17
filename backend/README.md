@@ -42,10 +42,10 @@ read against the Node suite it replaces.
 
 The contract has bodies stock PHP defaults refuse: a sync is up to 16 MB of JSON (`PUT
 /api/data`), an exercise video up to `MEDIA_MAX_VIDEO_MB` (90) raw. The test suite cannot see
-these values. **The cPanel host already exceeds every one of them** (measured in CHW-227 under the
-web SAPI: 1024M / 1024M / 1024M / 1500 s; a 95 MB raw POST reached `php://input` intact), so
-nothing needs setting there; this table is for any other host, via the PHP selector or a
-`.user.ini` in `public/`.
+these values, so the repo owns them: **`public/.user.ini`** sets the minimums below and ships with
+every deploy. (The cPanel host's own defaults are higher today — 1024M / 1024M / 1024M / 1500 s,
+measured in CHW-227 — but a requirement that rests on a host default breaks the day the default
+changes.) On a server that ignores `.user.ini` (mod_php), set the same values in its PHP config.
 
 | ini | at least | why |
 |---|---|---|
