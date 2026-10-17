@@ -219,6 +219,69 @@ holding the pre-fix copy: Caching → Configuration → Custom Purge → **URL**
 serves `fitpal.ma`, `gym.fitpal.ma` and `app.fitpal.ma`. No purge is needed after later
 deploys; that is the whole point of `REVALIDATED`.
 
+## Laravel backend (draft — measured in CHW-227, finalised at cutover in R5)
+
+The Laravel port (`backend/`) replaces the Node API at cutover. Everything below was measured on
+a scratch subdomain of this account, **`lab.fitpal.ma`**, never on `coach.fitpal.ma`.
+
+**Layout on the box** (scratch names; production in brackets):
+
+```
+~/fitpal-coach-lab/backend/       the app: source + vendor/ + .env   [~/fitpal-coach-backend/]
+~/lab.fitpal.ma/api  ->  ~/fitpal-coach-lab/backend/public           [~/coach.fitpal.ma/api]
+```
+
+**The mount works as a plain symlink.** `<docroot>/api` → `backend/public`, with Laravel's own
+`public/.htaccess`: LiteSpeed follows it, rewrites to `index.php`, and the app answers under
+`/api` (`/api/health` 200, `/api/config` 200, unknown route `404 {"error":"not found"}`, preflight
+`204` with the reflected origin). No Passenger block, no app registration in cPanel. At cutover
+the Passenger `.htaccess` directory `~/coach.fitpal.ma/api/` is moved aside and the symlink takes
+its place; rollback is the reverse `mv`.
+
+**PHP**: CLI and web both `8.5.11` (`/opt/alt/php85`, CloudLinux alt-php, LiteSpeed SAPI under
+the web server). Extensions present: pdo_mysql, pdo_sqlite, sodium, intl, gd, mbstring,
+fileinfo, bcmath, openssl, curl, zip, OPcache. Under the web SAPI: `post_max_size` 1024M,
+`upload_max_filesize` 1024M, `memory_limit` 1024M, `max_execution_time` 1500. **No `.user.ini`
+needed.** Raw bodies of 1, 9, 20, 50 and 95 MB all reached `php://input` byte-exact (SHA-256
+matched) in at most 2.5 s, at 4 MB peak memory when streamed — so R3's upload design (stream
+`php://input` to a temp file while hashing) stands as specified. A 20 MB `PUT /api/data` reaches
+the controller (answers 401 unauthenticated, not 413).
+
+**Database**: MariaDB `11.4.13`, **default engine MyISAM, default charset latin1**. MyISAM's
+1000-byte key limit refuses the first `utf8mb4` string index, so `config/database.php` pins
+`'engine' => 'InnoDB'` (the charset is already `utf8mb4` per connection). Production database and
+user created through `uapi Mysql`: `pawputif_fitpalcoach` / `pawputif_fitpal`, password only in
+the server `.env` (mode 600). The scratch run migrated into it; R5 runs `migrate:fresh` before
+the import, so nothing from the lab survives into production.
+
+**Cron**: one line, `* * * * * cd <app> && /usr/local/bin/php artisan schedule:run`. Over 131
+consecutive minutes it fired in **every minute (0 missed)**, but not on the minute: the start is
+spread across the minute (2 s to 51 s, median 23 s) — the host staggers user crons. A job
+"every minute" can therefore run up to ~50 s late; reminders keyed on `hh:mm` are unaffected,
+rest-timer pushes delayed by a few seconds must not depend on cron alone (the spec's fallback, a
+client-side timer with a local notification, stands).
+
+**Queue under LVE**: `queue:work database --max-time=55 --sleep=1 --stop-when-empty` started
+from the scheduler with `withoutOverlapping()->runInBackground()`. Six 20-second jobs: the first
+worker ran three (55 s budget) and exited cleanly, the next minute's worker ran the other three;
+no LVE kill, no failed job, 26 MB per worker. That is the production pattern.
+
+**Two things that bit, both fixed in the repo**: the empty `resources/views` directory is not
+tracked by git, and `php artisan optimize` fails without it (`View path not found`) —
+`resources/views/.gitkeep` now exists; and the MyISAM default above.
+
+**Careful with `crontab -`**: replacing the crontab from a pipeline that fails half-way installs
+a crontab missing the other lines. During this measurement the account's existing
+`~/pawpawcare/backend` scheduler line was dropped that way for about one minute and restored by
+hand. Edit crontabs by writing the old one to a file, filtering that file, checking the result
+still contains every expected line, and only then `crontab <file>`.
+
+**TLS and DNS**: the vhost serves the server's shared `*.web-hosting.com` certificate until
+AutoSSL issues one, and AutoSSL needs public DNS. `lab.fitpal.ma` has **no DNS record** yet (the
+Cloudflare token available to CI and wrangler can read zones but not edit DNS), so every check
+above went to the origin with `--resolve lab.fitpal.ma:443:198.54.116.94`. For public access add
+in Cloudflare: `A lab 198.54.116.94 (proxied)`, as for `coach`.
+
 ## Checking it worked
 
 ```

@@ -40,9 +40,12 @@ read against the Node suite it replaces.
 
 ## PHP settings production needs
 
-The contract has bodies PHP's defaults refuse: a sync is up to 16 MB of JSON (`PUT /api/data`),
-an exercise video up to `MEDIA_MAX_VIDEO_MB` (90) raw. Set these in the cPanel PHP selector (or
-`.user.ini`) for the backend's PHP version; the test suite cannot see them.
+The contract has bodies stock PHP defaults refuse: a sync is up to 16 MB of JSON (`PUT
+/api/data`), an exercise video up to `MEDIA_MAX_VIDEO_MB` (90) raw. The test suite cannot see
+these values. **The cPanel host already exceeds every one of them** (measured in CHW-227 under the
+web SAPI: 1024M / 1024M / 1024M / 1500 s; a 95 MB raw POST reached `php://input` intact), so
+nothing needs setting there; this table is for any other host, via the PHP selector or a
+`.user.ini` in `public/`.
 
 | ini | at least | why |
 |---|---|---|
