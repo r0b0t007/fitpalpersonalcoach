@@ -7,6 +7,7 @@ on:
     paths:
       - 'frontend/**'
       - 'api/**'
+      - 'backend/**'
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
       - '.github/workflows/test.yml'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'frontend/**'
       - 'api/**'
+      - 'backend/**'
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
       - '.github/workflows/test.yml'
@@ -174,3 +176,32 @@ jobs:
       # module with 33 green tests standing over a server that died on startup.
       - run: npm run check:node-loadable
         working-directory: mcp
+
+  # The Laravel port (backend/), not yet deployed. PHP 8.4 is the floor (composer.json; Laravel 13,
+  # Pest 5 and Symfony 8 all need it) and the cPanel host runs 8.5. Pest runs the feature tests on
+  # an in-memory SQLite. pint --test parses every file, so there is no separate syntax step.
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, sodium, pdo_sqlite, gd, fileinfo, bcmath
+          coverage: none
+      - id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist --no-progress
+        working-directory: backend
+      - run: cp .env.example .env && php artisan key:generate --quiet
+        working-directory: backend
+      - run: ./vendor/bin/pint --test
+        working-directory: backend
+      - run: ./vendor/bin/pest --ci
+        working-directory: backend

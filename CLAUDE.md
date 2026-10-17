@@ -45,6 +45,12 @@ installable as a home-screen app, optional Capacitor shells for standalone Andro
 frontend/  React 19 + Vite app (src/views, src/components, src/store, src/lib). Builds to static files.
            android/ + ios/ are the Capacitor shells for the standalone mobile app (docs/MOBILE.md).
 api/       backend — server.js (Node, no framework), deps: @simplewebauthn/server, web-push.
+           STILL WHAT PRODUCTION RUNS. Being replaced by backend/ (below); see the spec.
+backend/   the Laravel port of the API, built milestone by milestone (Linear R0–R5) and not yet
+           deployed. Same paths, same shapes, same English error strings (they are the app's
+           translation keys). Design: docs/superpowers/specs/2026-10-17-laravel-backend-design.md.
+           Run: backend/README.md. The "two dependencies" rule below is the Node API's; the Laravel
+           side keeps Composer dependencies few and justified, not minimal.
 mcp/       optional MCP server — read-only stdio bridge exposing a user's workouts/1RM/muscle
            balance to LLM clients (Claude Desktop, Cursor…). Not part of a deploy; only
            runs when an LLM client spawns it.
@@ -96,11 +102,12 @@ merge from. The paragraph upstream has here — that GitLab is canonical and the
 are dormant mirrors — is false for this repo and inverted: nothing runs on GitLab, and GitHub is
 both the test gate and the deploy path.
 
-Five jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
-(`coach-smoke.sh`) and `mcp`. There used to be `api-image` and `web-image` too, which built and
-booted the Docker images; those images were never part of how this deploys and are gone.
-**`test.yml` has path filters**; anything outside `frontend/`, `api/`, `mcp/` and those two
-scripts runs no checks at all, and GitHub reports "no checks" rather than failing.
+Six jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
+(`coach-smoke.sh`), `mcp` and `backend` (PHP 8.4, `pint --test`, Pest on in-memory SQLite). There
+used to be `api-image` and `web-image` too, which built and booted the Docker images; those images
+were never part of how this deploys and are gone. **`test.yml` has path filters**; anything outside
+`frontend/`, `api/`, `mcp/`, `backend/` and those two scripts runs no checks at all, and GitHub
+reports "no checks" rather than failing.
 
 Several `check-*.mjs` scripts guard things a test cannot see, and are wired into CI:
 
