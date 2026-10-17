@@ -190,7 +190,11 @@ body.resting #app{padding-bottom:calc(250px + var(--sab))}
 #app.vfade{animation:viewfade var(--med) var(--ease)}
 
 /* large title, the way a nav bar does it */
-.hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:8px 0 18px}
+/* flex-wrap: the trailing button drops under the title, kept right, when the title's longest word
+   and the button do not fit side by side ("Nouveau programme" beside "Programmes" on a 360px
+   phone). A flex item never shrinks below its longest word, so nothing wraps that used to fit. */
+.hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:8px 0 18px;flex-wrap:wrap}
+.hdr > .btn.sm:last-child{margin-left:auto}
 .hdr h1{font-size:34px;line-height:1.06;font-weight:700;letter-spacing:-.028em}
 .hdr .sub{color:var(--label-2);font-size:15px;letter-spacing:-.006em;margin-top:4px}
 
@@ -310,6 +314,10 @@ h4.sec{
 .btn.sm{padding:8px 14px;width:auto;font-size:15px;border-radius:var(--r-sm);gap:5px}
 .btn.sm .icn{font-size:16px}
 .btn.xs{padding:5px 10px;width:auto;font-size:13px;border-radius:7px;gap:4px}
+/* A small button is as wide as its label, so the label never wraps inside it and the button does
+   not shrink: the text beside it wraps instead. French "Faire le point" broke into three lines
+   beside the check-in card's sentence (CHW-209). */
+.btn.sm,.btn.xs{white-space:nowrap;flex:none}
 .btn:disabled{opacity:.32;pointer-events:none}
 
 /* ----------------------------------------------------------- tab bar ----- */
@@ -564,6 +572,10 @@ h4.sec{
 .seg button:active{opacity:.5}
 /* sitting in a list row: shrink to content instead of filling the row */
 .seg-inline{flex:none;min-width:132px}
+/* Equal segments in a control sized to its labels: as flex items they got the average label width,
+   so the longest ("Dimanche", "Compacte") ran into the edge. A grid of 1fr columns sizes every
+   column to the widest label; .seg-sel, absolutely placed, still spans exactly one of them. */
+.seg-inline{display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr}
 /* A row holding one (Theme: Sombre / Clair / Système) gives the title at least its longest word and
    lets the control drop to its own line, right-aligned, when even that does not fit. Before, the
    control kept its width and the title went under it ("Thè…") in French and Spanish. */

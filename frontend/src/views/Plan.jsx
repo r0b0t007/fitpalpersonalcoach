@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { DAYN, weekOrder, weekStartOf, uid, exCount } from '../lib/format.js'
-import { t } from '../lib/i18n.js'
+import { t, tp } from '../lib/i18n.js'
 import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
@@ -49,7 +49,7 @@ export default function Plan() {
           return <div key={d} className="item" style={{ display: 'block', padding: '10px 14px' }}>
             <div className="row between" style={{ marginBottom: 6 }}>
               <div className="tt">{t(DAYN[d])}</div>
-              <div className="small dim">{t('{0} routines', dayRoutines.length)}</div>
+              <div className="small dim">{tp(dayRoutines.length, '{0} routine', '{0} routines')}</div>
             </div>
             {dayRoutines.map(r => <div key={r.id} className="row" style={{ gap: 8, padding: '4px 0 4px 8px' }}>
               <span className="lrow-i" style={{ width: 26, height: 26, fontSize: 14 }}><Icon name={glyphOf(r.emoji)} /></span>

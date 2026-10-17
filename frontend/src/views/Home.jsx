@@ -215,7 +215,7 @@ export default function Home() {
         <div>
           <div className="tt">{t('Weekly check-in')}</div>
           <div className="ss">{checkinStreak(S, todayISO()) > 0
-            ? t('{0} weeks running — keep it going.', checkinStreak(S, todayISO()))
+            ? tp(checkinStreak(S, todayISO()), '{0} week running — keep it going.', '{0} weeks running — keep it going.')
             : t('Five quick scales and anything your coach should know.')}</div>
         </div>
         <Button size="sm" icon="plus" onClick={() => checkinSheet()}>{t('Check in')}</Button>
@@ -285,7 +285,7 @@ export default function Home() {
         <div>
           <div className="row" style={{ gap: 7, fontSize: 22, fontWeight: 600, letterSpacing: '-.021em' }}>
             <Icon name="flame" style={{ color: 'var(--orange)' }} />
-            {t('{0} week streak', streakWeeks(S))}
+            {tp(streakWeeks(S), '{0} week streak', '{0} weeks in a row')}
           </div>
           <div className="muted small" style={{ marginTop: 2 }}>{wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {tp(S.workouts.length, '{0} workout total', '{0} workouts total')}</div>
         </div>

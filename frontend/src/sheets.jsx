@@ -144,7 +144,7 @@ function StarterPlanChooser({ close }) {
         const { name, about } = PLAN_COPY[id]()
         return <div key={id} className="item" {...tappable(() => choose(id, name))}>
           <span className="lrow-i" style={{ background: 'var(--surface-3)' }}><Icon name="sparkles" /></span>
-          <div className="grow"><div className="tt">{name}</div><div className="ss">{t('{0} days per week', days)} · {about}</div></div>
+          <div className="grow"><div className="tt">{name}</div><div className="ss">{tp(days, '{0} day per week', '{0} days per week')} · {about}</div></div>
           <Icon name="chevronRight" className="chev" />
         </div>
       })}
@@ -483,7 +483,7 @@ function ImportSummary({ parsed, close }) {
     close()
     toast(isBW
       ? t('{0} weigh-ins imported', res.added)
-      : t('{0} workouts imported', res.added))
+      : tp(res.added, '{0} workout imported', '{0} workouts imported'))
   }
 
   return <>
@@ -513,7 +513,7 @@ function ImportSummary({ parsed, close }) {
       {t('The file does not say which unit it uses — numbers are imported as they are.')}
     </div>}
     {have > 0 && <div className="small dim" style={{ marginBottom: 10 }}>
-      {t('{0} days already have data here and will be left alone.', have)}
+      {tp(have, '{0} day already has data here and will be left alone.', '{0} days already have data here and will be left alone.')}
     </div>}
     {/* The file rated its sets. Say so: the column is off by default, so the ratings would
         otherwise arrive invisibly and look like they had been dropped. */}
@@ -630,12 +630,12 @@ function HevyImportSheet({ close }) {
       if (wantWorkouts && payload.workouts.workouts.length) {
         const res = mergeImport(s, payload.workouts)
         addedW = res.added
-        parts.push(t('{0} workouts imported', res.added))
+        parts.push(tp(res.added, '{0} workout imported', '{0} workouts imported'))
       }
       if (wantRoutines && payload.routines.routines.length) {
         const res = mergeHevyRoutines(s, payload.routines)
         addedR = res.added
-        parts.push(t('{0} routines imported', res.added))
+        parts.push(tp(res.added, '{0} routine imported', '{0} routines imported'))
       }
       if (wantBody && payload.bodyweight.bodyweight.length) {
         const res = mergeImport(s, payload.bodyweight)
@@ -928,7 +928,7 @@ function ExerciseHistory({ exId }) {
       <Icon name="trophy" style={{ fontSize: 14, color: 'var(--yellow)' }} />
       {t('Best:')} <b className="accent">{fmtNum(onE1 ? e1Best : h.best)} {onE1 ? st.unit : unit}</b>
     </div>
-    <h4 className="sec">{h.sessions.length < h.total ? t('Last {0} sessions', h.sessions.length) : t('Sessions')}</h4>
+    <h4 className="sec">{h.sessions.length < h.total ? tp(h.sessions.length, 'Last session', 'Last {0} sessions') : t('Sessions')}</h4>
     <div className="list">
       {h.sessions.map(s => <div key={s.id} className="item" style={{ alignItems: 'flex-start' }}>
         <div className="grow">
@@ -1759,7 +1759,7 @@ function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAcce
     // accepted first would risk a program that was never actually added.
     update(s => mergePlan(s, bundle, { schedule }))
     close()
-    toast(t('Added {0} routines to your plan', bundle.routineCount))
+    toast(tp(bundle.routineCount, 'Added {0} routine to your plan', 'Added {0} routines to your plan'))
     onAccept?.()
     nav('/plan')
   }
@@ -1948,7 +1948,7 @@ function WorkoutDetail({ w, close }) {
           <div className="row" style={{ gap: 7, fontWeight: 600 }}>
             {r && <Icon name={glyphOf(r.emoji)} />}{r ? r.name : t('Freestyle')}
           </div>
-          <div className="small dim">{t('{0} sets', setN)} · {fmtVol(vol, st.unit)}</div>
+          <div className="small dim">{tp(setN, '{0} set', '{0} sets')} · {fmtVol(vol, st.unit)}</div>
         </div>
         {g.items.map(([e, i]) => entryRow(e, i))}
       </div>
@@ -2014,7 +2014,7 @@ export function WorkoutRow({ w, onClick }) {
   return <div className="item" {...tappable(onClick)}>
     <span className="lrow-i" style={{ width: 34, height: 34, borderRadius: 8, fontSize: 19 }}><Icon name={glyph} /></span>
     <div className="grow"><div className="tt">{w.name}</div>
-      <div className="ss">{[fmtDate(w.d, true), ...durPart(w.end - w.start), t('{0} sets', setsDone(w)), fmtVol(w.vol, st.unit)].join(' · ')}</div></div>
+      <div className="ss">{[fmtDate(w.d, true), ...durPart(w.end - w.start), tp(setsDone(w), '{0} set', '{0} sets'), fmtVol(w.vol, st.unit)].join(' · ')}</div></div>
     {w.prs && w.prs.length > 0 && <span className="pr"><Icon name="trophy" />{w.prs.length} PR</span>}
     <Icon name="chevronRight" className="chev" />
   </div>
@@ -2341,7 +2341,7 @@ function FinishSummary({ w, prs, e1prs = [], close }) {
     <div className="tiles" style={{ textAlign: 'left' }}>
       <div className="tile"><div className="l">{t('Duration')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtDur(w.end - w.start)}</div></div>
       <div className="tile"><div className="l">{t('Volume')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{fmtVol(w.vol, st.unit)}</div></div>
-      <div className="tile"><div className="l">{t('Sets')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{t('{0} sets · {1} work', setsDone(w), workSetsDone(w))}</div></div>
+      <div className="tile"><div className="l">{t('Sets')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{tp(setsDone(w), '{0} set · {1} work', '{0} sets · {1} work', workSetsDone(w))}</div></div>
       <div className="tile"><div className="l">{t('PRs')}</div><div className="v" style={{ fontSize: 20 }}>{prs.length || '—'}</div></div>
     </div>
     {(prs.length > 0 || e1prs.length > 0) && <div style={{ textAlign: 'left', marginBottom: 12 }}>
