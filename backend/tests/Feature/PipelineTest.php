@@ -64,6 +64,13 @@ it('names the refusal the app translates', function () {
         ->assertStatus(403)->assertExactJson(['error' => 'cross-origin request refused']);
 });
 
+it('answers a guest with 401 even without an Accept header, as the app sends none', function () {
+    // The app's fetch wrapper sets Content-Type but never Accept; Laravel must not try to
+    // redirect such a request to a login page it does not have.
+    $this->get('/api/me')->assertStatus(401)->assertExactJson(['error' => 'not signed in']);
+    $this->get('/api/data')->assertStatus(401);
+});
+
 it('never applies the forgery rules to reads', function () {
     $this->getJson('/api/health', ['Sec-Fetch-Site' => 'cross-site'])->assertOk();
 });

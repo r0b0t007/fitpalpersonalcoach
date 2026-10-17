@@ -33,6 +33,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Laravel's own HandleCors would answer `*` from config/cors.php first, so it goes.
         $middleware->remove(HandleCors::class);
         $middleware->prepend(ReflectOrigin::class);
+        // A guest is never redirected: there is no login page here, and the app's fetch sends no
+        // Accept header, so without this Laravel would look up a `login` route and 500.
+        $middleware->redirectGuestsTo(fn () => null);
         // The rest of the JSON API's pipeline: no-store on every answer, then the forgery check.
         // No throttling, no sessions, no cookie encryption: the session is a signed token the app
         // sends itself.

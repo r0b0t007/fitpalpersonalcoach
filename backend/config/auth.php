@@ -42,6 +42,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // The JSON API: the signed session token from the cookie or the Bearer header (AppServiceProvider).
+        'api' => [
+            'driver' => 'fitpal-token',
+            'provider' => 'users',
+        ],
     ],
 
     /*

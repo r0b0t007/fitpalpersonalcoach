@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DataController;
 use App\Http\Controllers\MetaController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +21,20 @@ use Illuminate\Support\Facades\Route;
 $routes = static function (): void {
     Route::get('/health', [MetaController::class, 'health']);
     Route::get('/config', [MetaController::class, 'config']);
+
+    // Passkeys. These four carry their own credential (a challenge id) and are CSRF-exempt.
+    Route::post('/register/options', [AuthController::class, 'registerOptions']);
+    Route::post('/register/verify', [AuthController::class, 'registerVerify']);
+    Route::post('/login/options', [AuthController::class, 'loginOptions']);
+    Route::post('/login/verify', [AuthController::class, 'loginVerify']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+
+    Route::middleware('auth:api')->group(function (): void {
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/logout/all', [AuthController::class, 'logoutAll']);
+        Route::get('/data', [DataController::class, 'show']);
+        Route::put('/data', [DataController::class, 'store']);
+    });
 };
 
 Route::prefix('api')->group($routes);

@@ -2,31 +2,85 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laragear\WebAuthn\Contracts\WebAuthnAuthenticatable;
+use Laragear\WebAuthn\WebAuthnAuthentication;
+use Laragear\WebAuthn\WebAuthnData;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+/**
+ * One row per account: coaches, their clients, and the owner. The id is the 16-character
+ * base64url string the Node API minted (12 random bytes), kept so every reference in the imported
+ * data — coachId, invitedBy, media rows, the passkeys' user handles — still points at the row.
+ */
+class User extends Authenticatable implements WebAuthnAuthenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, WebAuthnAuthentication;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    public const UPDATED_AT = null;
+
+    protected $fillable = [
+        'id', 'name', 'email', 'admin', 'coach', 'self_serve', 'coach_id', 'disabled', 'sv', 'invited_by',
+    ];
+
+    protected $hidden = ['password', 'remember_token'];
+
     protected function casts(): array
     {
         return [
+            'admin' => 'boolean',
+            'coach' => 'boolean',
+            'self_serve' => 'boolean',
+            'disabled' => 'boolean',
+            'sv' => 'integer',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'created_at' => 'datetime',
         ];
+    }
+
+    /** 16 base64url characters, as the Node API made them. */
+    public static function newId(): string
+    {
+        return rtrim(strtr(base64_encode(random_bytes(12)), '+/', '-_'), '=');
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->admin || in_array($this->id, config('fitpal.admin_uids', []), true);
+    }
+
+    /** Admins coach implicitly — they run the instance — but a coach is not an admin. */
+    public function isCoach(): bool
+    {
+        return $this->coach || $this->isAdmin();
+    }
+
+    /** The one shape of "who am I" the app sees, from /me and both verify routes. */
+    public function toPublic(): array
+    {
+        $coach = $this->coach_id ? self::query()->find($this->coach_id) : null;
+
+        return [
+            'id' => $this->id, 'name' => $this->name, 'admin' => $this->isAdmin(), 'coach' => $this->isCoach(),
+            'coachName' => $coach?->name,
+        ];
+    }
+
+    /** What the authenticator shows for this passkey: the name twice, since accounts have no email. */
+    public function webAuthnData(): WebAuthnData
+    {
+        return WebAuthnData::make($this->name, $this->name);
+    }
+
+    /** The bytes an authenticator stores as the user handle: the ASCII of the id, as the Node API sent it. */
+    public function webAuthnHandle(): string
+    {
+        return rtrim(strtr(base64_encode($this->id), '+/', '-_'), '=');
     }
 }
