@@ -49,8 +49,7 @@ final class Passkey
     public function attest(array $options, bool $uv = true): array
     {
         $this->userHandle = $options['user']['id'];
-        $details = openssl_pkey_get_details($this->key);
-        $cose = self::cbor([1 => 2, 3 => -7, -1 => 1, -2 => $details['ec']['x'], -3 => $details['ec']['y']]);
+        $cose = self::cbor($this->coseMap());
         $credId = self::unb64u($this->credentialId);
         $authData = hash('sha256', $options['rp']['id'], true).chr(($uv ? 0x05 : 0x01) | 0x40).pack('N', 0)
             .str_repeat("\0", 16).pack('n', strlen($credId)).$credId.$cose;
@@ -88,9 +87,19 @@ final class Passkey
     /** The COSE key bytes, base64url, as the Node API stored them in db.json. */
     public function coseKey(): string
     {
-        $details = openssl_pkey_get_details($this->key);
+        return self::b64u(self::cbor($this->coseMap()));
+    }
 
-        return self::b64u(self::cbor([1 => 2, 3 => -7, -1 => 1, -2 => $details['ec']['x'], -3 => $details['ec']['y']]));
+    /**
+     * The COSE_Key map of the P-256 public key. OpenSSL hands back x and y as minimal big-endian
+     * integers, so about one key in 128 has a 31-byte coordinate; an authenticator always sends
+     * 32, and the package rightly refuses anything else. Pad, or the suite fails at random.
+     */
+    private function coseMap(): array
+    {
+        $ec = openssl_pkey_get_details($this->key)['ec'];
+
+        return [1 => 2, 3 => -7, -1 => 1, -2 => str_pad($ec['x'], 32, "\0", STR_PAD_LEFT), -3 => str_pad($ec['y'], 32, "\0", STR_PAD_LEFT)];
     }
 
     public function publicKeyPem(): string
