@@ -8,6 +8,13 @@ Branded HTML email for FitPal Coach outreach. Three files, same design, one per 
 | `coach-intro-en.html` | English | `https://fitpal.ma/en/` |
 | `coach-intro-es.html` | Spanish | `https://fitpal.ma/es/` |
 
+One more is planned, not yet written: the **sign-in link** the backend mails a coach who signs
+in by email (spec §4a, milestone R4). It is transactional, not outreach — sent by the Laravel
+backend through the mail API, text and HTML parts, in the coach's language — but it uses this
+folder's palette so the mail and the app read as one product. It is designed first as `E1 Sign-in
+link` in the Claude Design project, then lands here as `signin-link-{fr,en,es}.html` beside a
+Blade view in `backend/resources/views/mail/` that embeds the same markup.
+
 ## Why this folder is not inside `site-coach/`
 
 Because `site-coach/` is the Cloudflare Pages deploy root, and **everything in it is publicly

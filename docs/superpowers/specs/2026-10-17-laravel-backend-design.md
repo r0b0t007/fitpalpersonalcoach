@@ -22,7 +22,8 @@ behind `/api`.
 | Backend | Laravel 13 (PHP 8.4+: the floor Laravel 13, Pest 5 and Symfony 8 share; the host runs 8.5), `backend/` in this repository. Frontend unchanged. |
 | Hosting | The same cPanel account. Composer runs in CI; `vendor/` is rsynced. No supervisor, no Redis. (The account already runs a Laravel app, `~/pawpawcare/backend`, with a cron `schedule:run`.) |
 | Database | MySQL/MariaDB in production; SQLite for local development, tests and self-hosters. Media files stay on disk under `DATA_DIR/media`. |
-| Auth | Passkeys stay. Existing credentials are imported so nobody re-registers. Coaches give an email at signup; clients stay passkey-only. The owner's Filament login is email + password. |
+| Auth | Passkeys stay. Existing credentials are imported so nobody re-registers. Coaches give an email at signup and can also **sign in by magic link** (§4a) — the recovery path when a passkey is lost; an account may hold several passkeys. Clients stay passkey-only via invite links. No passwords anywhere but the owner's Filament login (email + password). |
+| Tenancy enforcement | Structural, not per route (§5): a request-scoped coach context, a global scope on every tenant-owned model, policies for the one-off checks, and a cross-tenant test that walks every coach route. |
 | Port scope | The gym leftovers are dropped: the timetable (`/api/sessions`, `/api/coach/sessions`, `/api/admin/sessions/*`) and access requests (`/api/access/request`, `/api/admin/requests/*`). 52 routes are ported. |
 | Tenancy | One shared instance. A licence is a coach account with a cap on active clients. |
 | Tiers | Three, by client cap only, identical features: solo 10, pro 30, studio 75. |
@@ -81,10 +82,11 @@ backend/
 ```
 
 ### Tables
-`users` (id string 16 PK, name, email nullable unique, email_verified_at, password nullable,
+`users` (id string 16 PK, name, email nullable unique, email_verified_at, lang, password nullable,
 admin, coach, self_serve, coach_id, disabled, sv, invited_by, last_reminder,
 last_checkin_reminder, licence_id, created_at) · `webauthn_credentials` (package table plus
-`legacy_cose`) · `user_states` (user_id PK, state LONGTEXT raw JSON, ts) · `coach_programs` (id,
+`legacy_cose`) · `login_links` (id, user_id, token_hash, created_at, expires_at, used_at, ip;
+§4a) · `user_states` (user_id PK, state LONGTEXT raw JSON, ts) · `coach_programs` (id,
 coach_id, name, bundle raw, created, updated) · `invites` (code PK, note, created_by, coach_id,
 used_by, used_at, revoked, revoked_at, revoked_reason) · `assignments` (id, coach_id, coach_name,
 member_id, bundle raw, note, schedule, status, decided_at, created) · `exercise_media` (id, ex_id,
@@ -130,6 +132,37 @@ group also answers the prefix-stripped `/health` in case a proxy strips it.
   `make:filament-user`; the panel lives under the `/api` mount at `/admin-panel`, restricted to
   `admin = true`.
 
+### 4a. Coach sign-in by email (magic link) — R4
+Passkeys are the primary sign-in and the only one for clients. A coach also has an email, and
+with it a second way in that doubles as recovery: a new laptop, a reset phone or a cleared
+browser must not be a support ticket to the owner. Decided 2026-10-17; no passwords.
+
+- **Request.** `POST /api/login/email {email}` always answers `200 {ok: true}` — unknown address,
+  a client's address, a disabled account and a throttled caller all look the same, so the route
+  cannot be used to enumerate accounts. When the address belongs to a coach (or admin) a link
+  `ORIGIN/#/link?t=<token>` is mailed. Rate limits through `RateLimiter`: 3 per email per 15 min,
+  10 per IP per hour; a refusal is audited as `login.link.throttled`, still `200`.
+- **Token.** 32 random bytes, base64url in the link, SHA-256 in `login_links.token_hash`.
+  15-minute expiry, single use; issuing a new one marks the older unused ones for that user as
+  used. Nothing of the token is logged.
+- **Redeem.** `POST /api/login/link {t}`: hash, find, require unused and unexpired and the user
+  not disabled → mark used, set `email_verified_at` if null, issue the session exactly as a
+  passkey login does (`SessionToken::cookies`, same `sv` rules), audit `login.link`. Refusals,
+  both translation keys: `400 'this sign-in link has expired — request a new one'`, `400 'this
+  sign-in link was already used'`.
+- **Second passkey.** After a link login on a device with no passkey for the account, the app
+  offers to add one: `POST /api/passkeys/options` and `/passkeys/verify` under `auth:api`, the
+  registration ceremony against the signed-in user (same pipes, `uniqueCredentials` on). One
+  account, several passkeys; the model already allows it.
+- **Signup is unchanged** (`/#/start`: name + email + passkey). The verification mail *is* the
+  first magic link, so verifying the address and proving it signs in are one action.
+- **CSRF.** `login/email` and `login/link` join `CsrfOrigin::EXEMPT` beside the other `login/*`
+  routes. **Mail.** One branded template under `email/` (text and HTML), in the user's `lang`
+  (stored at signup from the app's `getLang()`), sent through the transactional API of §2.
+- **Tests.** Issuance is silent for unknown and client addresses; single use; expiry; throttling;
+  disabled account refused; the link login sets the same cookie and dies with `logout/all` like
+  any token; a second passkey attaches and either one logs in.
+
 ### Routes ported (52), same paths and shapes
 health · config (plus `billing, self_serve, plans, trial_days`) · me · register/options, verify ·
 login/options, verify · logout · logout/all · pair/create, redeem · data GET, PUT (16 MB, strips
@@ -140,7 +173,8 @@ used, canInvite, reason`), new, revoke · coach/member/release · coach/assign �
 withdraw · media/exercise POST · media/exercises GET (scoped per coach) · media/ex GET, HEAD ·
 media/photo POST, GET, HEAD · media/photos GET · admin/users · admin/user · admin/user/disable,
 coach, assign-coach · admin/invites GET, new, revoke · admin/audit GET, clear.
-New: billing/checkout, webhook, me, portal · admin/licence/grant, revoke.
+New: billing/checkout, webhook, me, portal · admin/licence/grant, revoke · login/email, login/link
+· passkeys/options, verify (§4a).
 Dropped: the 11 timetable and access-request routes; `config.request_access` is always `false`.
 
 ### Media
@@ -160,10 +194,49 @@ assignment pushes are jobs), `fitpal:prune` hourly (assignments, audit retention
 challenges and presence). Push goes through `minishlink/web-push` with the imported VAPID keys;
 404/410 deletes the subscription; private-address endpoints are refused.
 
-## 5. Multi-tenant fix
-Demo videos are visible only to the uploading coach and their clients (`mediaVisible`); the
-per-exercise cap counts that coach's rows; the stored filename carries the uploader so two coaches'
-identical bytes do not collide. Admins see everything and are never counted as tenants.
+## 5. Tenancy — by construction, not by route (R2)
+
+One shared instance; the tenant is a coach account (`users.coach = true`). Every tenant-owned row
+carries `coach_id`: `users` (the clients), `invites`, `assignments`, `coach_programs`,
+`exercise_media`. `progress_photos` and `user_states` belong to the *client* and are reached
+through them. Admins see everything and are never a tenant.
+
+The Node API kept this boundary by hand inside each route (`requireCoach` + `canCoachMember`,
+`db.invites.filter(i => i.coachId === coach.id)`, `a.coachId !== coach.id → 404`, `mediaVisible`)
+and the smoke suite checks it route by route. A hand-written filter is exactly what the next route
+forgets, so the port makes the boundary structural, in three layers that are each tested alone:
+
+1. **Who is acting.** `RequireCoach` middleware (401 `not signed in`, 403 `forbidden`, as today)
+   then sets the request's `CoachContext` to that user. Admin routes use `RequireAdmin` and leave
+   the context empty.
+2. **What queries see.** Trait `OwnedByCoach` on the five models: a global scope adding
+   `where coach_id = <context coach>` whenever a context is set and the actor is not admin, and a
+   `creating` hook filling `coach_id` from the context so a controller cannot forget it. Admin or
+   no context (the admin panel, the scheduler, the import) → unscoped. For clients the scope lives
+   on `User::clients()`, the one query builder every roster read uses, not on `User` itself
+   (coaches and admins are users too). Controllers never write `where('coach_id', …)` by hand;
+   the licence cap's `used` is `User::clients()` counted.
+3. **What a route may touch.** Policies for the checks that are not a plain filter:
+   `canCoachMember` (own and not disabled; admin any), reading a client's photos (the client,
+   their coach, admin), releasing a member. Answers stay the Node API's: **403, never 404, when
+   the id exists but is not theirs** (no enumeration of the membership); 404 only for a coach's
+   own missing program, invite or assignment — exactly as the smoke suite pins.
+
+Database: `coach_id` columns are foreign keys to `users.id` (`set null` for clients and invites,
+`cascade` for programs, assignments and media rows; the file prune is the scheduler's), with
+composite indexes `(coach_id, created)` where lists are read.
+
+Demo videos stay visible only to the uploading coach and their clients; the per-exercise cap
+counts that coach's rows; the stored filename carries the uploader so two coaches' identical bytes
+do not collide.
+
+Tests that make it hold: a shared Pest fixture `twoCoaches()` (coach A with clients a1 and a2,
+coach B with b1, an unassigned u1, a disabled d1) used by every coaching feature test; a
+`CrossTenantTest` that walks every coach route with A's token asking for B's ids and asserts the
+403/404/empty answer the Node table gives; a reflection test that every model whose table has a
+`coach_id` column uses `OwnedByCoach`, so a new model cannot opt out silently; and the ported
+smoke sections by name ("role gating", "roster scoping", "reading a member", "invite scoping",
+"another coach's library is separate", "media visibility").
 
 ## 6. Licensing and Creem
 
@@ -209,9 +282,20 @@ exported `RegisterSheet`, then the checkout redirect) · `lib/billing.js` helper
 `lib/checkout-return.js` (`?checkout_id=` before the hash, like `?invite=`) · `store/useStore.js`
 `licence` and `loadLicence()` · CoachAccount "Plan & billing" section · CoachToday banner card
 (activating, trialing, past_due, lapsed, over_cap) with the post-checkout poll · InviteSheet
-at-cap copy · Login `full` copy · the "Request access" form removed. The four screens are designed
-first in the Claude Design project "FitPal Coach redesign" (`S4 Start`, `C20 Account Plan and
-Billing`, `C21 Today Banners`, `C22 Invite At Cap`) under its CLAUDE.md rules.
+at-cap copy · Login `full` copy · the "Request access" form removed · **the email sign-in (§4a)**:
+`views/Login.jsx` gains "Sign in with email" under the passkey button (not in guest mode) → inline
+email field → "Check your inbox" state; `views/Link.jsx` on `/link` consumes `?t=` once (spinner →
+`/today`, or the expired/used sentence with "Send a new link"); `components/AddPasskeySheet.jsx`
+offered once per device after a link login (dismissable, remembered in `localStorage`); an
+Account "Email" row with the address, its verified state and "Change email" (re-verified by
+link). Audit labels `login.link`, `login.link.throttled` in `lib/audit.js`.
+
+The screens are designed first in the Claude Design project "FitPal Coach redesign" under its
+CLAUDE.md rules, in one session: `S4 Start`, `C20 Account Plan and Billing`, `C21 Today Banners`,
+`C22 Invite At Cap`, and for §4a `S5 Login – email path` (passkey primary, email secondary, the
+inline form and the inbox state), `S6 Link landing` (loading, signed in, expired), `S7 Add passkey
+sheet`, `C23 Account – Email row`, and the mail itself `E1 Sign-in link` (mobile width, French
+copy, the `email/` palette).
 
 ## 8. Filament admin (owner only)
 Users (filters coach/client/disabled; actions disable, make coach, assign coach, grant manual
@@ -231,9 +315,11 @@ into `.env` values. Media files are not moved: the `media` disk points at `DATA_
 ## 10. Testing
 Pest unit tests for the ported pure classes (the `domain.test.mjs` cases); feature tests named
 after the `coach-smoke.sh` sections so coverage is auditable; a response-shape diff script that
-runs the same seeded data through the Node API and the Laravel API; vitest for the new screens;
-the existing frontend checks (`check-locales`, `check-source-strings --strict`); the `check-*`
-guards re-pointed at `backend/` (error strings, audit labels, adherence window, check-in day).
+runs the same seeded data through the Node API and the Laravel API; the tenancy tests of §5
+(`twoCoaches()`, `CrossTenantTest`, the `OwnedByCoach` reflection test); the magic-link tests of
+§4a; vitest for the new screens (including `Link.jsx`'s three states); the existing frontend
+checks (`check-locales`, `check-source-strings --strict`); the `check-*` guards re-pointed at
+`backend/` (error strings, audit labels, adherence window, check-in day).
 
 ## 11. Cutover
 `deploy-backend.yml` (Composer `--no-dev` in CI, rsync to `~/fitpal-coach-backend/` excluding
