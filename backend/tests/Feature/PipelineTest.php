@@ -64,6 +64,25 @@ it('names the refusal the app translates', function () {
         ->assertStatus(403)->assertExactJson(['error' => 'cross-origin request refused']);
 });
 
+it('answers a guest with 401 even without an Accept header, as the app sends none', function () {
+    // The app's fetch wrapper sets Content-Type but never Accept; Laravel must not try to
+    // redirect such a request to a login page it does not have.
+    $this->get('/api/me')->assertStatus(401)->assertExactJson(['error' => 'not signed in']);
+    $this->get('/api/data')->assertStatus(401);
+});
+
+it('answers a body PHP itself refuses with the sync route\'s 413, not "server error"', function () {
+    // ValidatePostSize (global) throws before any route runs; the device must still read why.
+    $max = ini_parse_quantity((string) ini_get('post_max_size'));
+    if ($max <= 0) {
+        $this->markTestSkipped('post_max_size is unlimited here');
+    }
+    $this->call('PUT', '/api/data', server: ['CONTENT_LENGTH' => $max + 1, 'CONTENT_TYPE' => 'application/json'])
+        ->assertStatus(413)
+        ->assertHeader('Connection', 'close')
+        ->assertJsonPath('msg.k', 'your training data is over the {0} MB limit for one sync, so this device could not save to the server. Delete some old workouts, or export a backup and start a fresh profile.');
+});
+
 it('never applies the forgery rules to reads', function () {
     $this->getJson('/api/health', ['Sec-Fetch-Site' => 'cross-site'])->assertOk();
 });

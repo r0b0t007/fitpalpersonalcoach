@@ -107,11 +107,22 @@ group also answers the prefix-stripped `/health` in case a proxy strips it.
   Bearer; verify HMAC against `SESSION_SECRET` (imported from `DATA_DIR/secret`), expiry, user
   exists, not disabled, `sv` matches. `issueToken(user)` and the two Set-Cookie headers as today.
   Pairing codes (8 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, 5-minute TTL, one-shot).
-- WebAuthn through Laragear WebAuthn, shaped to today's four routes with the `cid` round trip
-  (a cache-table challenge repository keyed by `cid`). The R0 spike proves, before anything else
-  is built: (a) the options JSON works with the React client unchanged; (b) an imported credential
-  (COSE → PEM) logs in; (c) a legacy user handle is accepted. If (b) or (c) fails in Laragear's
-  pipeline, the four routes are redone on `web-auth/webauthn-lib`; the contract is the same.
+- WebAuthn through Laragear WebAuthn 5, shaped to today's four routes with the `cid` round trip
+  (a cache challenge repository keyed by `cid`, five minutes, one use). **R0 result (CHW-226):
+  go, with three of the package's pipes swapped for ours**, because its defaults contradict the
+  contract: `SetResidentKeyConfiguration` forces user verification to "required" when a resident
+  key is required (the Node API sent "preferred" and never insisted on the UV bit);
+  `AddUserDescriptor` emits `user.id` as a hex UUID (the app base64url-decodes it, and existing
+  passkeys hold the ASCII of the 16-character account id as their handle); `CheckCredentialIsForUser`
+  demands a UUID handle. `App\WebAuthn\Pipes\{SetResidentKeyRequired, AddUserHandle,
+  CheckUserHandle}` replace them; the credential's `user_id` holds the base64url handle. Everything
+  else (challenge, attestation parsing, origin and RP checks, signature, counter) is the package's
+  code. Proven by a software authenticator (`backend/tools/passkey-sim.mjs`, and
+  `tests/Support/Passkey.php` in the suite): a credential registered on the Node API, imported with
+  `fitpal:import-legacy` (COSE → PEM in `App\WebAuthn\LegacyCredential`), logs in on Laravel with
+  its counter advancing; a fresh registration and login work with the exact JSON the React app
+  posts. Registration creates the account inside the ceremony: the options call takes a name and
+  answers with a handle for an unsaved user; verify writes the user and the credential together.
 - Coach signup: `POST /api/register/options {name, email, coach: true}`, gated by
   `SELF_SERVE_COACH`. The email is stored; verification is a signed link sent through the mail
   API and is not blocking (Creem's receipt goes to the checkout email anyway).

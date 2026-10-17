@@ -6,19 +6,28 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
+        // The account row the Node API kept in db.json's `users`, column for column, plus email
+        // and password for the SaaS (coaches' email, the owner's Filament login).
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
+            $table->string('id', 16)->primary();
+            $table->string('name', 40);
+            $table->string('email')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
+            $table->string('password')->nullable();
+            $table->boolean('admin')->default(false);
+            $table->boolean('coach')->default(false);
+            $table->boolean('self_serve')->default(false);
+            $table->string('coach_id', 16)->nullable()->index();
+            $table->boolean('disabled')->default(false);
+            $table->unsignedInteger('sv')->default(0);
+            $table->string('invited_by', 40)->nullable();
+            $table->string('last_reminder', 10)->nullable();
+            $table->string('last_checkin_reminder', 10)->nullable();
+            $table->string('licence_id', 32)->nullable();
             $table->rememberToken();
-            $table->timestamps();
+            $table->timestamp('created_at')->useCurrent();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
@@ -27,9 +36,10 @@ return new class extends Migration
             $table->timestamp('created_at')->nullable();
         });
 
+        // Laravel's own sessions table, used only by the Filament panel's web guard.
         Schema::create('sessions', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
+            $table->string('user_id', 16)->nullable()->index();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->longText('payload');
@@ -37,9 +47,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('users');
