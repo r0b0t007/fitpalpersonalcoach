@@ -58,7 +58,7 @@ export default function Clients() {
             {!m.pending?.length && m.lastDecision?.status === 'accepted' && <span className="tag acc" style={{ marginLeft: 6 }}>{t('accepted')}</span>}
           </div>
           <div className="ss">
-            {m.live ? t('training now · {0}', m.live.name)
+            {m.live ? t('Now training · {0}', m.live.name)
               : reason ? reason.title + ' · ' + reason.detail
                 : tp(m.workouts, '{0} workout', '{0} workouts') + (m.lastWorkout ? ' · ' + t('last {0}', fmtDate(m.lastWorkout)) : '') + ' · ' + t('synced {0}', rel(m.lastSync))}
           </div>

@@ -1,6 +1,7 @@
 """Generate responsive AVIF/WebP variants for site-coach and right-size the video poster.
 
-Run: python scripts/build-images.py
+Run: python scripts/build-images.py           (variants older than their master)
+     python scripts/build-images.py --force   (every variant)
 
 The -NNNw.avif / -NNNw.webp variants are derived from the originals, which stay in the repo as
 the masters, so re-running only ever rewrites derived files.
@@ -30,6 +31,7 @@ Two decisions worth knowing before changing this:
 
 import io
 import os
+import sys
 from PIL import Image
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -58,14 +60,23 @@ def variant_name(rel, w, fmt):
     return '%s-%dw.%s' % (stem, w, fmt)
 
 
-def build_variants():
+def build_variants(force=False):
+    """Writes the variants whose master is newer, or every variant with force (--force).
+
+    Re-encoding an unchanged master writes different bytes whenever the encoder changes, which
+    put six untouched Spanish variants into a re-shoot's diff. A missing master is an error,
+    not a skip: the pages point at its variants, and the device frame would render empty."""
     total_src = 0
     total_out = 0
     rows = []
+    missing = []
     for rel, widths, formats in JOBS:
         src = os.path.join(SITE, rel)
         if not os.path.exists(src):
-            print('  skip (missing) %s' % rel)
+            missing.append(rel)
+            continue
+        outs = [os.path.join(SITE, variant_name(rel, w, f)) for w in widths for f in formats]
+        if not force and all(os.path.exists(o) and os.path.getmtime(o) >= os.path.getmtime(src) for o in outs):
             continue
         total_src += os.path.getsize(src)
         im = Image.open(src)
@@ -93,6 +104,9 @@ def build_variants():
     for name, size in rows:
         print('  %-46s %7.1f KiB' % (name, size / 1024))
     print('\n  originals %.0f KiB -> variants %.0f KiB' % (total_src / 1024, total_out / 1024))
+    for rel in missing:
+        print('  ERROR missing master %s' % rel, file=sys.stderr)
+    return missing
 
 
 def build_posters():
@@ -124,5 +138,6 @@ def build_posters():
 
 
 if __name__ == '__main__':
-    build_variants()
+    missing = build_variants(force='--force' in sys.argv)
     build_posters()
+    sys.exit(1 if missing else 0)

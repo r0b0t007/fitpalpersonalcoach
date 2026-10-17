@@ -1144,7 +1144,7 @@ export default {
   'synced {0}': 'synchronisiert {0}',
   'today': 'heute',
   'today still to come': 'heute steht noch aus',
-  'training now · {0}': 'trainiert gerade · {0}',
+  'Now training · {0}': 'Trainiert gerade · {0}',
   'yesterday': 'gestern',
   '{0} client': '{0} Klient',
   '{0} clients': '{0} Klienten',

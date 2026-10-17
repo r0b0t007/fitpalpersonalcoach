@@ -97,8 +97,10 @@ To refilm them, see `docs/VIDEO_CAPTURE.md`. Two things that are specific to the
   ```
 
   Restart the API afterwards — it holds state in memory. The coach screens follow the same rule
-  (CHW-212): the coach's own `S.lang` sets their language, so set it on `state-coachA.json`
-  the same way, or from the app, before each language's pair of shots.
+  (CHW-212): the coach's own `S.lang` sets their language. Set it from the app, signed in as
+  the capture instance's coach (Account → Training settings → Language), before each language's
+  pair of shots. Not by editing a file: the coach's id is whatever `seed-demo.mjs` found in
+  db.json, and a coach who never changed a setting has no state file yet.
 - **"Training now" cannot be seeded.** It reads in-memory presence with a ~70 second TTL, so
   `seed-demo.mjs` cannot fake it. Have a demo client POST `/api/activity` immediately before the
   capture and the live state on the screenshot is genuinely real.

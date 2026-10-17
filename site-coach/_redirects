@@ -1,0 +1,15 @@
+# Cloudflare Pages redirects. Format: <from> <to> <status>.
+#
+# The coach screenshots were one English-only set until CHW-212 shot them per language. Their old
+# URLs were live and may be indexed or linked (Search Console, shared decks), so they point at
+# the English set, which is what they showed.
+/img/screens/coach-today.png             /img/screens/coach-today-en.png             301
+/img/screens/coach-today-360w.avif       /img/screens/coach-today-en-360w.avif       301
+/img/screens/coach-today-360w.webp       /img/screens/coach-today-en-360w.webp       301
+/img/screens/coach-today-720w.avif       /img/screens/coach-today-en-720w.avif       301
+/img/screens/coach-today-720w.webp       /img/screens/coach-today-en-720w.webp       301
+/img/screens/coach-clients.png           /img/screens/coach-clients-en.png           301
+/img/screens/coach-clients-360w.avif     /img/screens/coach-clients-en-360w.avif     301
+/img/screens/coach-clients-360w.webp     /img/screens/coach-clients-en-360w.webp     301
+/img/screens/coach-clients-720w.avif     /img/screens/coach-clients-en-720w.avif     301
+/img/screens/coach-clients-720w.webp     /img/screens/coach-clients-en-720w.webp     301
