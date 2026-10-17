@@ -2,16 +2,18 @@
 
 namespace App\WebAuthn;
 
+use App\WebAuthn\Pipes\CheckCounterNotReplayed;
 use App\WebAuthn\Pipes\CheckOriginExact;
 use App\WebAuthn\Pipes\CheckUserHandle;
 use Laragear\WebAuthn\Assertion\Validator\AssertionValidator as BaseValidator;
 use Laragear\WebAuthn\Assertion\Validator\Pipes;
 
 /**
- * The package's login-verification pipeline with one pipe swapped and one added: the user-handle
+ * The package's login-verification pipeline with two pipes swapped and one added: the user-handle
  * check accepts our base64url handle (and the absence of one) instead of demanding a UUID
- * (Pipes\CheckUserHandle), and the origin must be ORIGIN exactly (Pipes\CheckOriginExact).
- * Signature, counter and RP checks are the package's own.
+ * (Pipes\CheckUserHandle); a replayed counter is refused without disabling the passkey
+ * (Pipes\CheckCounterNotReplayed); and the origin must be ORIGIN exactly (Pipes\CheckOriginExact).
+ * Signature and RP checks are the package's own.
  */
 final class AssertionValidator extends BaseValidator
 {
@@ -29,7 +31,7 @@ final class AssertionValidator extends BaseValidator
         Pipes\CheckRelyingPartyHashSame::class,
         Pipes\CheckUserInteraction::class,
         Pipes\CheckPublicKeySignature::class,
-        Pipes\CheckPublicKeyCounterCorrect::class,
+        CheckCounterNotReplayed::class,
         Pipes\IncrementCredentialCounter::class,
         Pipes\FireCredentialAssertedEvent::class,
     ];

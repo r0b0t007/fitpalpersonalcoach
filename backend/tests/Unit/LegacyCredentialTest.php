@@ -32,7 +32,13 @@ it('converts an RSA key', function () {
     expect(trim(LegacyCredential::toPem($cose)))->toBe(trim($d['key']));
 });
 
-it('refuses a key type it does not know rather than importing junk', function () {
+it('refuses a key type, curve or shape it does not know rather than importing a key that can never verify', function () {
+    $x32 = str_repeat("\x11", 32);
     expect(fn () => LegacyCredential::toPem("\xa1\x01\x04"))->toThrow(InvalidArgumentException::class, 'unsupported COSE key type 4')
-        ->and(fn () => LegacyCredential::toPem("\xa2\x01\x01\x20\x07"))->toThrow(InvalidArgumentException::class, 'unsupported OKP curve 7');
+        ->and(fn () => LegacyCredential::toPem("\xa2\x01\x01\x20\x07"))->toThrow(InvalidArgumentException::class, 'unsupported OKP curve 7')
+        // EC2 on P-384 (crv 2) with 32-byte coordinates: wrong curve.
+        ->and(fn () => LegacyCredential::toPem(Passkey::cbor([1 => 2, 3 => -7, -1 => 2, -2 => $x32, -3 => $x32])))->toThrow(InvalidArgumentException::class, 'unsupported EC2 curve 2')
+        // P-256 with a 31-byte x: not a point the package could ever verify against.
+        ->and(fn () => LegacyCredential::toPem(Passkey::cbor([1 => 2, 3 => -7, -1 => 1, -2 => substr($x32, 1), -3 => $x32])))->toThrow(InvalidArgumentException::class, 'malformed point')
+        ->and(fn () => LegacyCredential::toPem(Passkey::cbor([1 => 3, 3 => -257, -1 => '', -2 => "\x01\x00\x01"])))->toThrow(InvalidArgumentException::class, 'RSA key without modulus');
 });

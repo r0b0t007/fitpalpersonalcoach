@@ -81,6 +81,32 @@ it('refuses an unknown passkey, a spent challenge and a replayed counter', funct
     // A cloned authenticator replays an old counter: refused, and the reason is the library's.
     $pk->counter = 0;
     $pk->login($this)->assertStatus(400)->assertJsonPath('msg.k', 'verification failed: {0}');
+    // Refused, not bricked: the package would have disabled the passkey for good; the Node API
+    // refused that one attempt, and the next honest one signs in.
+    $stored = WebAuthnCredential::query()->find($pk->credentialId);
+    expect($stored->disabled_at)->toBeNull();
+    $pk->counter = (int) $stored->counter;
+    $pk->login($this)->assertOk();
+});
+
+it('refuses arrays where strings belong instead of tripping over them', function () {
+    $this->postJson('/api/login/verify', ['cid' => [], 'credential' => ['id' => []]])
+        ->assertStatus(400)->assertExactJson(['error' => 'challenge expired — try again']);
+    $o = $this->postJson('/api/login/options', [])->json();
+    $this->postJson('/api/login/verify', ['cid' => $o['cid'], 'credential' => ['id' => ['x']]])
+        ->assertStatus(404)->assertExactJson(['error' => 'unknown passkey — create a profile first']);
+    $this->postJson('/api/register/verify', ['cid' => ['x'], 'credential' => 'nope'])
+        ->assertStatus(400)->assertExactJson(['error' => 'challenge expired — try again']);
+});
+
+it('lets the Bearer decide when two cookies of one name disagree, as the Node API did', function () {
+    $pk = new Passkey;
+    $uid = $pk->register($this, 'Two')->json('user.id');
+    $token = SessionToken::make(User::query()->find($uid));
+    $this->call('GET', '/api/me', server: ['HTTP_COOKIE' => 'gymsid=a; gymsid=b'])->assertStatus(401);
+    $this->call('GET', '/api/me', server: ['HTTP_COOKIE' => 'gymsid=a; gymsid=b', 'HTTP_AUTHORIZATION' => 'Bearer '.$token])->assertOk();
+    // One cookie that is simply wrong still shadows the Bearer.
+    $this->call('GET', '/api/me', server: ['HTTP_COOKIE' => 'gymsid=a', 'HTTP_AUTHORIZATION' => 'Bearer '.$token])->assertStatus(401);
 });
 
 it('rejects a credential whose handle names another account', function () {
@@ -120,6 +146,9 @@ it('answers a malformed credential with a 400, never a 500', function () {
     $broken = ['id' => 'abc', 'rawId' => 'abc', 'type' => 'public-key', 'response' => ['clientDataJSON' => null, 'attestationObject' => null]];
     $this->postJson('/api/register/verify', ['cid' => $o['cid'], 'credential' => $broken])
         ->assertStatus(400)->assertJsonPath('msg.v.0', 'malformed credential');
+    // ...and the challenge is spent by that attempt: a good credential cannot follow on the same cid.
+    $this->postJson('/api/register/verify', ['cid' => $o['cid'], 'credential' => (new Passkey)->attest($o['options'])])
+        ->assertStatus(400)->assertExactJson(['error' => 'challenge expired — try again']);
 
     $pk = new Passkey;
     $pk->register($this, 'Mal')->assertOk();

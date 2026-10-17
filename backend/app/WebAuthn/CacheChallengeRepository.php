@@ -28,6 +28,8 @@ final class CacheChallengeRepository implements WebAuthnChallengeRepository
 
     public const EXTRA_ATTRIBUTE = 'webauthn.extra';
 
+    public const TAKEN_ATTRIBUTE = 'webauthn.taken';
+
     public function __construct(private readonly Cache $cache, private readonly Request $request) {}
 
     public function store(AttestationCreation|AssertionCreation $ceremony, Challenge $challenge): void
@@ -42,7 +44,12 @@ final class CacheChallengeRepository implements WebAuthnChallengeRepository
 
     public function pull(AttestationValidation|AssertionValidation $ceremony): ?Challenge
     {
-        $entry = self::take($this->cache, (string) $this->request->input('cid'));
+        // The controller took the entry before starting the pipeline (takeFor); this is it.
+        $entry = $this->request->attributes->get(self::TAKEN_ATTRIBUTE);
+        if (! is_array($entry)) {
+            $cid = $this->request->input('cid');
+            $entry = self::take($this->cache, is_string($cid) ? $cid : '');
+        }
         if ($entry === null) {
             return null;
         }
@@ -51,12 +58,19 @@ final class CacheChallengeRepository implements WebAuthnChallengeRepository
         return $challenge->isValid() ? $challenge : null;
     }
 
-    /** Reads an entry without taking it, for the controller to know whose ceremony this is. */
-    public static function peek(Cache $cache, string $cid): ?array
+    /**
+     * Takes the entry out of the cache for this request's ceremony, so the challenge is spent on
+     * first use whatever happens next: a body too malformed to reach the pipeline's own
+     * RetrieveChallenge must not leave it replayable (the Node API's takeChallenge).
+     */
+    public static function takeFor(Cache $cache, Request $request, string $cid): ?array
     {
-        $entry = $cid !== '' ? $cache->get(self::key($cid)) : null;
+        $entry = self::take($cache, $cid);
+        if ($entry !== null) {
+            $request->attributes->set(self::TAKEN_ATTRIBUTE, $entry);
+        }
 
-        return is_array($entry) ? $entry : null;
+        return $entry;
     }
 
     public static function take(Cache $cache, string $cid): ?array

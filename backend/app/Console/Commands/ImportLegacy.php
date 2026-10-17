@@ -43,7 +43,8 @@ final class ImportLegacy extends Command
             if (empty($u['id']) || ! is_string($u['id'])) {
                 continue;
             }
-            User::query()->updateOrCreate(['id' => $u['id']], [
+            $user = User::query()->firstOrNew(['id' => $u['id']]);
+            $user->fill([
                 'name' => mb_substr((string) ($u['name'] ?? ''), 0, 40),
                 'admin' => ! empty($u['admin']),
                 'coach' => ! empty($u['coach']),
@@ -53,8 +54,15 @@ final class ImportLegacy extends Command
                 'invited_by' => $u['invitedBy'] ?? null,
                 'last_reminder' => $u['lastReminder'] ?? null,
                 'last_checkin_reminder' => $u['lastCheckinReminder'] ?? null,
-                'created_at' => $u['created'] ?? now(),
             ]);
+            // The Node API wrote `created` as null for its oldest accounts. Those get the date of
+            // the FIRST import and keep it: a rerun must not move anyone's creation date.
+            if (! empty($u['created'])) {
+                $user->created_at = $u['created'];
+            } elseif (! $user->exists) {
+                $user->created_at = now();
+            }
+            $user->save();
             $users++;
         }
 

@@ -23,6 +23,7 @@ use Laragear\WebAuthn\Contracts\WebAuthnException;
 use Laragear\WebAuthn\Enums\ResidentKey;
 use Laragear\WebAuthn\Enums\UserVerification;
 use Laragear\WebAuthn\Exceptions\AttestationException;
+use Laragear\WebAuthn\JsonTransport;
 use Laragear\WebAuthn\Models\WebAuthnCredential;
 use Throwable;
 
@@ -59,14 +60,15 @@ final class AuthController
 
     public function registerVerify(Request $request, AttestationValidator $validator): JsonResponse
     {
-        $entry = CacheChallengeRepository::peek($this->cache, (string) $request->input('cid'));
+        // Spent now, whatever the body turns out to be: one challenge, one attempt.
+        $entry = CacheChallengeRepository::takeFor($this->cache, $request, self::str($request, 'cid'));
         if ($entry === null || empty($entry['extra']['uid'])) {
             return Json::error(400, 'challenge expired — try again');
         }
         $user = new User(['id' => $entry['extra']['uid'], 'name' => $entry['extra']['name']]);
 
         try {
-            $validation = $validator->send(AttestationValidation::fromRequest(self::credentialRequest($request), $user))->thenReturn();
+            $validation = $validator->send(new AttestationValidation($user, self::transport($request, AttestationValidation::REQUEST_KEYS)))->thenReturn();
         } catch (Throwable $e) {
             if ($e instanceof AttestationException && str_contains($e->getMessage(), 'Credential ID already exists')) {
                 return Json::error(409, 'credential already registered');
@@ -96,21 +98,18 @@ final class AuthController
 
     public function loginVerify(Request $request): JsonResponse
     {
-        $cid = (string) $request->input('cid');
-        if (CacheChallengeRepository::peek($this->cache, $cid) === null) {
+        // Spent now, whatever the body turns out to be: one challenge, one attempt.
+        if (CacheChallengeRepository::takeFor($this->cache, $request, self::str($request, 'cid')) === null) {
             return Json::error(400, 'challenge expired — try again');
         }
-        $credential = WebAuthnCredential::query()->find((string) $request->input('credential.id', ''));
+        $credential = WebAuthnCredential::query()->find(self::str($request, 'credential.id'));
         if ($credential === null) {
-            // The challenge is spent either way, as the Node API's takeChallenge did.
-            CacheChallengeRepository::take($this->cache, $cid);
-
             return Json::error(404, 'unknown passkey — create a profile first');
         }
 
         try {
             $validation = app(AssertionValidator::class)
-                ->send(AssertionValidation::fromRequest(self::credentialRequest($request)))
+                ->send(new AssertionValidation(self::transport($request, AssertionValidation::REQUEST_KEYS)))
                 ->thenReturn();
         } catch (Throwable $e) {
             return Json::error(400, self::verifyError($e));
@@ -148,15 +147,23 @@ final class AuthController
         return Json::ok(['user' => $request->user()->toPublic()]);
     }
 
+    /** A string input, or '' — an array where a string belongs is a refusal, not a warning. */
+    private static function str(Request $request, string $key): string
+    {
+        $value = $request->input($key);
+
+        return is_string($value) ? $value : '';
+    }
+
     /**
-     * The package reads the credential from the request's top level; the app nests it under
-     * `credential`, so a request carrying just that object is what the validator sees.
+     * The credential the app nests under `credential`, as the transport the package's
+     * validations read (fromRequest would look at the request's top level).
      */
-    private static function credentialRequest(Request $request): Request
+    private static function transport(Request $request, array $keys): JsonTransport
     {
         $credential = $request->input('credential');
 
-        return Request::create('/', 'POST', is_array($credential) ? $credential : []);
+        return new JsonTransport(is_array($credential) ? array_intersect_key($credential, array_flip($keys)) : []);
     }
 
     /**
