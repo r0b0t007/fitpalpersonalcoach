@@ -39,16 +39,16 @@ SITE = os.path.join(HERE, 'site-coach')
 JOBS = [
     ('img/coach-hero.jpg', [400, 800, 1100], ('avif', 'webp')),
     ('img/coaches.jpg', [600, 1200, 1800], ('avif', 'webp')),
-    ('img/screens/coach-today.png', [360, 720], ('avif', 'webp')),
-    ('img/screens/coach-clients.png', [360, 720], ('avif', 'webp')),
-    ('img/screens/client-home-fr.png', [360, 720], ('avif', 'webp')),
-    ('img/screens/client-stats-fr.png', [360, 720], ('avif', 'webp')),
-    ('img/screens/client-home-en.png', [360, 720], ('avif', 'webp')),
-    ('img/screens/client-stats-en.png', [360, 720], ('avif', 'webp')),
+] + [
+    # Every app screenshot exists once per page language: a French coach reading the French page
+    # sees the app in French (CHW-212 for the coach screens, which were English-only until then).
+    ('img/screens/%s-%s.png' % (shot, lang), [360, 720], ('avif', 'webp'))
+    for shot in ('coach-today', 'coach-clients', 'client-home', 'client-stats')
+    for lang in ('fr', 'en', 'es')
 ]
 
 # The poster is rewritten in place at a sane size rather than given variants. See the note above.
-POSTERS = [('img/promo-poster-fr.jpg', 800), ('img/promo-poster-en.jpg', 800)]
+POSTERS = [('img/promo-poster-%s.jpg' % lang, 800) for lang in ('fr', 'en', 'es')]
 
 QUALITY = {'avif': 55, 'webp': 78, 'jpeg': 82}
 

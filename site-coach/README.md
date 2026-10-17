@@ -40,14 +40,13 @@ en/legal.html           EN legal
 es/legal.html           ES legal
 styles.css              the whole design system, one file
 site.js                 menu, scroll reveal, hero video
-img/screens/*.png       real app screenshots (see below). The two CLIENT screens exist
-                        per locale (`-fr` / `-en` / `-es`). The coach screens exist in Spanish
-                        (`coach-*-es`, CHW-203); the French and English pages still use the
-                        English-only `coach-today` / `coach-clients`, shot before the dashboard
-                        was translated (CHW-205..208) - re-shoot those per locale (CHW-212).
+img/screens/*.png       real app screenshots (see below), every one per locale (`-fr` /
+                        `-en` / `-es`): client-home, client-stats, coach-today, coach-clients.
+                        Their AVIF/WebP variants come from `python scripts/build-images.py`.
                         "Training now" is live presence: POST /api/activity for two demo clients
                         right before each capture, and drop any non-demo client from the capture
-                        instance or the counters will not read 6.
+                        instance or the counters will not read 6. Name those two live sessions in
+                        the page's language ("Bas du corps", "Tren inferior"): the name is shown.
 img/og-{fr,en,es}.png   1200x630 social cards, one layout in three languages, all ending in
                         fitpal.ma (rendered from an HTML card in headless Chrome, Archivo)
 img/promo-poster-{fr,en,es}.jpg  hero video poster (the frame at 10.1s, 800x450)
@@ -97,9 +96,9 @@ To refilm them, see `docs/VIDEO_CAPTURE.md`. Two things that are specific to the
     fs.writeFileSync(p, JSON.stringify(s))" "$DATA_DIR/state-demo-karim.json"
   ```
 
-  Restart the API afterwards — it holds state in memory. The coach screens stay English on
-  purpose; `frontend/` coach surfaces use raw strings rather than `t()`, which `CLAUDE.md`
-  documents as deliberate.
+  Restart the API afterwards — it holds state in memory. The coach screens follow the same rule
+  (CHW-212): the coach's own `S.lang` sets their language, so set it on `state-coachA.json`
+  the same way, or from the app, before each language's pair of shots.
 - **"Training now" cannot be seeded.** It reads in-memory presence with a ~70 second TTL, so
   `seed-demo.mjs` cannot fake it. Have a demo client POST `/api/activity` immediately before the
   capture and the live state on the screenshot is genuinely real.
@@ -235,7 +234,3 @@ ask hits a dead end. That is the one failure no other check in the job can see.
 - `wa.me/212600000000` is a placeholder. So is `contact@fitpal.ma`.
 - Company name, address, legal form and registration number in both legal pages are bracketed
   markers (`[raison sociale a completer]`, `[legal form and capital]`, and so on).
-
-Not a blocker:
-
-- The coach screenshots are still the English dashboard; it is translated now, so they should be re-shot per locale.
