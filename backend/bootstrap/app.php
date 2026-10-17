@@ -9,9 +9,12 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -50,6 +53,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // 404 for both, before any other check.
         $exceptions->render(fn (NotFoundHttpException $e) => Json::error(404, 'not found'));
         $exceptions->render(fn (MethodNotAllowedHttpException $e) => Json::error(404, 'not found'));
+        // Laravel's own framework-level refusals (abort(), the throttler's 429, maintenance's
+        // 503, validation) keep their status in the envelope. Routes refuse through ClientSafe,
+        // whose sentences the app translates; this is the net under anything that does not.
+        $exceptions->render(fn (HttpExceptionInterface $e) => Json::error($e->getStatusCode(), $e->getMessage() !== '' ? $e->getMessage() : ($e->getStatusCode() >= 500 ? 'server error' : 'request refused'), [], $e->getHeaders()));
+        $exceptions->render(fn (ValidationException $e) => Json::error(400, (string) collect($e->errors())->flatten()->first()));
+        $exceptions->render(fn (HttpResponseException $e) => $e->getResponse());
         // Everything else is a bug; its message is for the log, not the browser.
         $exceptions->render(function (Throwable $e, Request $request) {
             if (config('app.debug') || ! $request->expectsJson() && $request->is('admin-panel*', 'api/admin-panel*')) {

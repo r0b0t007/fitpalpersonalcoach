@@ -102,11 +102,12 @@ merge from. The paragraph upstream has here — that GitLab is canonical and the
 are dormant mirrors — is false for this repo and inverted: nothing runs on GitLab, and GitHub is
 both the test gate and the deploy path.
 
-Five jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
-(`coach-smoke.sh`) and `mcp`. There used to be `api-image` and `web-image` too, which built and
-booted the Docker images; those images were never part of how this deploys and are gone.
-**`test.yml` has path filters**; anything outside `frontend/`, `api/`, `mcp/` and those two
-scripts runs no checks at all, and GitHub reports "no checks" rather than failing.
+Six jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
+(`coach-smoke.sh`), `mcp` and `backend` (PHP 8.4, `pint --test`, Pest on in-memory SQLite). There
+used to be `api-image` and `web-image` too, which built and booted the Docker images; those images
+were never part of how this deploys and are gone. **`test.yml` has path filters**; anything outside
+`frontend/`, `api/`, `mcp/`, `backend/` and those two scripts runs no checks at all, and GitHub
+reports "no checks" rather than failing.
 
 Several `check-*.mjs` scripts guard things a test cannot see, and are wired into CI:
 

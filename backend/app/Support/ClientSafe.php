@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -14,5 +15,14 @@ final class ClientSafe extends RuntimeException
     public function __construct(public readonly int $status, string $message, public readonly array $extra = [], public readonly array $headers = [])
     {
         parent::__construct($message);
+    }
+
+    /**
+     * A refusal is not an error: one warning line, as the Node dispatcher's `refused` log, not a
+     * stack trace per retry of an over-size upload. Laravel calls this instead of its reporter.
+     */
+    public function report(): void
+    {
+        Log::warning('refused', ['status' => $this->status, 'message' => $this->getMessage()]);
     }
 }

@@ -31,7 +31,8 @@ return [
     'session_days' => max(1, (int) env('SESSION_DAYS', 90)),
 
     // Media files stay on disk, outside the document root, where the Node API wrote them.
-    'data_dir' => env('DATA_DIR', storage_path('app/fitpal')),
+    // `?:` not a default argument: `DATA_DIR=` left blank in .env must mean the default too.
+    'data_dir' => env('DATA_DIR') ?: storage_path('app/fitpal'),
     'media_max_video_mb' => max(1, (int) env('MEDIA_MAX_VIDEO_MB', 90)),
     'media_max_photo_mb' => max(1, (int) env('MEDIA_MAX_PHOTO_MB', 12)),
 

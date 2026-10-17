@@ -4,6 +4,7 @@
 
 use App\Support\ClientSafe;
 use App\Support\Say;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 beforeEach(function () {
@@ -13,7 +14,15 @@ beforeEach(function () {
         Route::post('/api/_probe', fn () => response()->json(['ok' => true]));
         Route::get('/api/_refuse', fn () => throw new ClientSafe(429, Say::f('that exercise already has {0} videos', 6), ['left' => 0], ['Connection' => 'close']));
         Route::get('/api/_boom', fn () => throw new RuntimeException('database password is hunter2'));
+        Route::get('/api/_abort', fn () => abort(403, 'nope'));
+        Route::post('/api/_validate', fn (Request $r) => $r->validate(['name' => 'required']));
     });
+});
+
+it('keeps the status of a framework refusal when debug is off, instead of turning it into a 500', function () {
+    config(['app.debug' => false]);
+    $this->getJson('/api/_abort')->assertStatus(403)->assertExactJson(['error' => 'nope']);
+    $this->postJson('/api/_validate', [], ['Sec-Fetch-Site' => 'same-origin'])->assertStatus(400)->assertJsonPath('error', 'The name field is required.');
 });
 
 it('reflects the caller origin and never allows credentials', function () {

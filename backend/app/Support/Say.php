@@ -26,9 +26,13 @@ final class Say
             static fn (array $m) => array_key_exists((int) $m[1], $values) ? (string) $values[(int) $m[1]] : $m[0],
             $template,
         );
+        // Re-saying moves a sentence to the newest end, so under a long-lived worker the oldest
+        // UNUSED one is what goes; unset by key rather than array_shift, which would renumber a
+        // purely numeric sentence out of reach.
+        unset(self::$said[$text]);
         self::$said[$text] = ['k' => $template, 'v' => array_values($values)];
         if (count(self::$said) > 200) {
-            array_shift(self::$said);
+            unset(self::$said[array_key_first(self::$said)]);
         }
 
         return $text;

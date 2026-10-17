@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Support\Json;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -29,8 +30,8 @@ final class CsrfOrigin
         'POST /api/register/options', 'POST /api/register/verify',
         'POST /api/login/options', 'POST /api/login/verify',
         'POST /api/pair/redeem',
-        // The webhook's credential is its HMAC signature, checked in the route.
-        'POST /api/billing/webhook',
+        // Not the billing webhook: Creem sends no Origin, so rule 5 passes it, and a page that
+        // forges one is refused here before the route's HMAC check ever runs.
     ];
 
     public function handle(Request $request, Closure $next): Response
@@ -38,6 +39,13 @@ final class CsrfOrigin
         if ($this->ok($request)) {
             return $next($request);
         }
+        // A wrong ORIGIN in .env shows up only here, so say what was compared (as the Node API did).
+        Log::warning('refused cross-origin', [
+            'path' => $request->getMethod().' '.$request->getPathInfo(),
+            'origin' => $request->headers->get('Origin'),
+            'sec_fetch_site' => $request->headers->get('Sec-Fetch-Site'),
+            'expected' => config('fitpal.origin'),
+        ]);
 
         return Json::error(403, 'cross-origin request refused');
     }

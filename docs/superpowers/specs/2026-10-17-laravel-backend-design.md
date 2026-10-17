@@ -19,7 +19,7 @@ behind `/api`.
 
 | Topic | Decision |
 |---|---|
-| Backend | Laravel 12 (PHP 8.2+), `backend/` in this repository. Frontend unchanged. |
+| Backend | Laravel 13 (PHP 8.4+: the floor Laravel 13, Pest 5 and Symfony 8 share; the host runs 8.5), `backend/` in this repository. Frontend unchanged. |
 | Hosting | The same cPanel account. Composer runs in CI; `vendor/` is rsynced. No supervisor, no Redis. (The account already runs a Laravel app, `~/pawpawcare/backend`, with a cron `schedule:run`.) |
 | Database | MySQL/MariaDB in production; SQLite for local development, tests and self-hosters. Media files stay on disk under `DATA_DIR/media`. |
 | Auth | Passkeys stay. Existing credentials are imported so nobody re-registers. Coaches give an email at signup; clients stay passkey-only. The owner's Filament login is email + password. |
@@ -233,7 +233,7 @@ disable `deploy-api.yml`; final tar of `DATA_DIR`; stop the Node app in cPanel; 
 paired phone, a client sync, media playback and a push; grant the existing coach a manual
 licence; switch Creem to live keys. Rollback: restore the Passenger mount and restart Node; the
 files on disk are untouched for seven days. Then retire `api/`, its workflows and CI jobs, and
-rewrite the docs (`SELF_HOSTING.md`: PHP 8.2 with SQLite or MySQL and one cron line;
+rewrite the docs (`SELF_HOSTING.md`: PHP 8.4 with SQLite or MySQL and one cron line;
 `DEPLOY_COACH_SUBDOMAIN.md`; `CLAUDE.md`). The MCP server, which reads the JSON files, needs a
 database adapter before it works again; it is not deployed.
 

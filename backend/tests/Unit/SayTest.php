@@ -29,3 +29,23 @@ it('keeps at most 200 templates', function () {
     }
     expect(Say::saidAs('n 1'))->toBeNull()->and(Say::saidAs('n 250'))->not->toBeNull();
 });
+
+it('evicts the sentence unused the longest, and keeps a numeric sentence findable', function () {
+    $text = Say::f('{0} sets', 3);
+    for ($i = 0; $i < 199; $i++) {
+        Say::f('filler {0}', $i);
+    }
+    Say::f('{0} sets', 3);        // said again: it is the newest now
+    Say::f('one more {0}', 1);    // 201st distinct: the oldest filler goes, not "3 sets"
+    expect(Say::saidAs($text))->toBe(['k' => '{0} sets', 'v' => [3]])
+        ->and(Say::saidAs('filler 0'))->toBeNull()
+        ->and(Say::saidAs('filler 1'))->not->toBeNull();
+
+    $n = Say::f('{0}', 7);
+    for ($i = 0; $i < 205; $i++) {
+        Say::f('more {0}', $i);
+    }
+    expect(Say::saidAs($n))->toBeNull()->and(Say::saidAs('more 204'))->not->toBeNull();
+    Say::f('{0}', 7);
+    expect(Say::saidAs('7'))->toBe(['k' => '{0}', 'v' => [7]]);
+});
