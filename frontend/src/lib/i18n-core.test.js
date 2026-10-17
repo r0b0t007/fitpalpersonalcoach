@@ -102,3 +102,24 @@ describe('tp', () => {
     expect(tp(3, '{0} set of {1}', '{0} sets of {1}', 'Squat')).toBe('3 sets of Squat')
   })
 })
+
+// CHW-209: capFirst stands in for ::first-letter where CSS cannot reach, so it must change text
+// exactly where index.css sets sentence case: French and Spanish, not English or German.
+describe('capFirst', () => {
+  it('capitalises the first letter in fr and es, in that language', async () => {
+    const core = await import('./i18n-core.js')
+    core._setLangState('fr', {}, null, null)
+    expect(core.capFirst('élastique')).toBe('Élastique')
+    core._setLangState('es', {}, null, null)
+    expect(core.capFirst('barra')).toBe('Barra')
+    expect(core.capFirst('')).toBe('')
+  })
+
+  it('leaves English and German to the stylesheet', async () => {
+    const core = await import('./i18n-core.js')
+    core._setLangState('en', {}, null, null)
+    expect(core.capFirst('barbell')).toBe('barbell')
+    core._setLangState('de', {}, null, null)
+    expect(core.capFirst('barbell')).toBe('barbell')
+  })
+})

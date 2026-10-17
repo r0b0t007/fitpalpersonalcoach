@@ -1,6 +1,6 @@
 import { EXDB } from './exercises-data.js'
 import { USER_EXERCISE_MUSCLE_OVERRIDES, exerciseMuscleMetadataFor } from './exercise-muscle-batch-1.js'
-import { t, getVersion, exerciseNameSearchText } from './i18n-core.js'
+import { t, getVersion, getLang, DEFAULT_LANG, localExerciseName, exerciseNameSearchText } from './i18n-core.js'
 import { coachMediaFor, isPhotoRow, isVideoRow } from './coach-media.js'
 
 export { EXDB }
@@ -84,8 +84,26 @@ export function registerCustom(list) {
   customIds = (list || []).map(e => e.id)
   ;(list || []).forEach(e => { EXIDX[e.id] = e })
 }
+// The built-ins in the reader's alphabetical order. EXDB is stored in English order, so a French
+// or Spanish list ran "Sit-up 3/4, Flexion latérale…, Crunch bicyclette" (CHW-209). Sorted by the
+// translated name with the language's own collation, once per language change; English keeps
+// the stored order untouched.
+let orderedFor = -1, ordered = CATALOGUE
+function catalogueInOrder() {
+  if (orderedFor !== getVersion()) {
+    orderedFor = getVersion()
+    const lang = getLang()
+    if (lang === DEFAULT_LANG) ordered = CATALOGUE
+    else {
+      const { compare } = new Intl.Collator(lang, { sensitivity: 'base', numeric: true })
+      ordered = CATALOGUE.map(e => [localExerciseName(e), e]).sort((a, b) => compare(a[0], b[0])).map(p => p[1])
+    }
+  }
+  return ordered
+}
+
 // Full searchable catalogue — customs first so your own exercises are easy to find.
-export const allExercises = st => [...(st.customEx || []), ...CATALOGUE]
+export const allExercises = st => [...(st.customEx || []), ...catalogueInOrder()]
 
 function searchableText(value) {
   if (Array.isArray(value)) return value.map(searchableText).join(' ')

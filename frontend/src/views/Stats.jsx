@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore.js'
 import { EXIDX, matchExercise } from '../lib/exercises.js'
 import { lastBW, streakWeeks, setLabel, modeOf, effortOf, metricModeForEntry, metricRowsForEntry, bestWeightForEntry } from '../lib/history.js'
 import { fmtNum, fmtDate, fmtVol, todayISO, weekStartOf } from '../lib/format.js'
-import { t, exerciseNameFor, getLang } from '../lib/i18n.js'
+import { t, tp, exerciseNameFor, getLang } from '../lib/i18n.js'
 import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, measureSheet, WorkoutRow, bwDeltaColor } from '../sheets.jsx'
 import LineChart from '../components/LineChart.jsx'
 import { SITE_LABEL, deltasOver, latestBySite, lengthUnit, seriesFor, sitesUsed } from '../lib/measurements.js'
@@ -153,7 +153,7 @@ function MuscleBalance({ S }) {
           onClick={() => { setHard(h => !h); setSel(null) }}>{on ? t('Hard') : t('All')}</Button>}
       </div>
       <Segmented className="seg-range" value={win} onChange={v => { setWin(v); setSel(null) }}
-        options={[{ value: 7, label: t('Week') }, { value: 30, label: '30d' }, { value: 90, label: '90d' }, { value: 0, label: t('All') }]} />
+        options={[{ value: 7, label: t('Week') }, { value: 30, label: t('{0}d', 30) }, { value: 90, label: t('{0}d', 90) }, { value: 0, label: t('All') }]} />
       {inWin.length ? <>
         <BodyMap className="tappable" load={load} body={S.body} selected={sel}
           onMuscle={m => setSel(s => (s === m ? null : m))} />
@@ -201,7 +201,7 @@ function MuscleBalance({ S }) {
                   ? <span className="dim" style={{ fontSize: 11, marginLeft: 6 }}>{t('primary')}</span>
                   : <span className="dim" style={{ fontSize: 11, marginLeft: 6 }}>{t('secondary')}</span>}
               </span>
-              <span className="small dim" style={{ display: 'block', fontWeight: 400 }}>{t('Est. 1RM')}: {fmtNum(row.est)} {S.unit} · {fmtDate(row.estDate, true)}</span>
+              <span className="small dim" style={{ display: 'block', fontWeight: 400 }}>{t('Est. 1RM: {0}', fmtNum(row.est) + ' ' + S.unit)} · {fmtDate(row.estDate, true)}</span>
             </span>
             <span className="bar" style={{ alignSelf: 'center' }}><i style={{ width: '100%', background: 'linear-gradient(to right, var(--acc) ' + Math.round(row.decay * 100) + '%, var(--surface-2) ' + Math.round(row.decay * 100) + '%)' }} /></span>
             <span className="v" style={{ alignSelf: 'center' }}>{fmtNum(row.current)} {S.unit}<span className="dim"> · {Math.round(row.decay * 100)}%</span></span>
@@ -244,14 +244,14 @@ function EffortCard({ S }) {
   const maxBin = Math.max(1, ...hist.map(b => b.n))
   // The week's set count rides along in the tooltip, because the pair is the reading:
   // volume up with effort up is fatigue piling up, volume up with effort flat is adaptation.
-  const pts = weeks.map(w => ({ t: w.t, y: toScale(kind, w.rir), note: t('{0} sets', w.sets) }))
+  const pts = weeks.map(w => ({ t: w.t, y: toScale(kind, w.rir), note: tp(w.sets, '{0} set', '{0} sets') }))
   // Bins run hardest-first in both scales: RIR 0 and RPE 10 are the same set.
   const binLabel = b => kind === 'rpe' ? (b.tail ? '≤ 6' : String(10 - b.rir)) : (b.tail ? b.rir + '+' : String(b.rir))
 
   return <div className="card">
     <h2>{t('Effort')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('how close to failure')}</span></h2>
     <Segmented className="seg-range" value={win} onChange={setWin}
-      options={[{ value: 30, label: '30d' }, { value: 90, label: '90d' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
+      options={[{ value: 30, label: t('{0}d', 30) }, { value: 90, label: t('{0}d', 90) }, { value: 365, label: t('{0}Y', 1) }, { value: 0, label: t('All') }]} />
     {sum.rated === 0 ? <div className="muted small">{t('No rated sets in this period.')}</div> : <>
       <div className="row between" style={{ alignItems: 'flex-end', gap: 12 }}>
         <div>
@@ -335,7 +335,7 @@ function MeasurementsCard({ S, readOnly }) {
                 {/* Down is the wanted direction at the waist and the unwanted one at the arm, so
                     the delta is never coloured -- only the client and their coach know which. */}
                 {d && <span className="dim" style={{ fontSize: '.72rem' }}>
-                  <span className="signed">{(d.delta > 0 ? '+' : '') + fmtNum(d.delta)}</span> {t('in {0} days', d.days)}
+                  <span className="signed">{(d.delta > 0 ? '+' : '') + fmtNum(d.delta)}</span> {tp(d.days, 'in {0} day', 'in {0} days')}
                 </span>}
                 <b>{fmtNum(latest[k].v)} {unit}</b>
               </span>
@@ -373,7 +373,7 @@ function NutritionCard({ S, readOnly }) {
     </div>
     <MacroRows totals={totalsFor(S, today)} target={target} compact />
     <Segmented className="seg-range" value={range} onChange={setRange}
-      options={[{ value: 7, label: '1W' }, { value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 0, label: t('All') }]} />
+      options={[{ value: 7, label: t('{0}W', 1) }, { value: 30, label: t('{0}M', 1) }, { value: 90, label: t('{0}M', 3) }, { value: 0, label: t('All') }]} />
     {pts.length
       ? <>
         <div className="chart"><LineChart points={pts} h={150} unit="kcal" color="var(--teal)" goal={target?.kcal || null} /></div>
@@ -562,7 +562,7 @@ export function StatsPanels({ S, readOnly = false }) {
           </div>
         </div>
         <Segmented className="seg-range" value={range} onChange={setRange}
-          options={[{ value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
+          options={[{ value: 30, label: t('{0}M', 1) }, { value: 90, label: t('{0}M', 3) }, { value: 365, label: t('{0}Y', 1) }, { value: 0, label: t('All') }]} />
         <div className="chart"><LineChart points={bwPts} h={160} unit={S.unit} goal={S.targetW} /></div>
       </div>
 

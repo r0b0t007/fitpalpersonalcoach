@@ -17,7 +17,9 @@ import { SendSheet } from './sheets.jsx'
 // longer than a sheet is comfortable. The segments split what used to be one very long scroll.
 // A function, so the labels are read in the current language at render.
 const TABS = () => [
-  { value: 'overview', label: t('Overview') }, { value: 'program', label: t('Program') },
+  // "Plan", not "Program": the tab shows the client's own routines and week, what their app calls
+  // Plan, and French "Programme" is wider than a fifth of a phone (CHW-209).
+  { value: 'overview', label: t('Overview') }, { value: 'program', label: t('Plan') },
   { value: 'checkins', label: t('Check-ins') }, { value: 'photos', label: t('Photos') }, { value: 'stats', label: t('Stats') },
 ]
 // A logged workout's one-line summary, shared by the overview and the history list.
@@ -96,11 +98,13 @@ export default function ClientDetail() {
     : open(null))
 
   return <div className="narrow">
-    <div className="hdr">
+    {/* As on Today: the button keeps its label on one line and drops under the name when both do
+        not fit ("Envoyer un programme" beside a two-word name is wider than a phone). */}
+    <div className="hdr" style={{ flexWrap: 'wrap' }}>
       <button className="iconbtn" onClick={() => nav('/clients')} aria-label={t('Back')}><Icon name="chevronLeft" /></button>
-      <div style={{ flex: 1, marginLeft: 8 }}><h1 className="capitalize" style={{ margin: 0 }}>{d.user.name}</h1>
+      <div style={{ flex: '1 1 0', minWidth: 'min-content', marginLeft: 8 }}><h1 className="capitalize name" style={{ margin: 0 }}>{d.user.name}</h1>
         <div className="sub">{d.user.created ? t('Client since {0}', fmtDate(String(d.user.created).slice(0, 10))) : ''}{row?.live ? ' · ' + t('training now') : ''}</div></div>
-      <Button variant="tinted" size="sm" icon="clipboard" onClick={send}>{t('Send a program')}</Button>
+      <div style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}><Button variant="tinted" size="sm" icon="clipboard" onClick={send}>{t('Send a program')}</Button></div>
     </div>
 
     <Segmented className="seg-range" options={TABS()} value={tab} onChange={setTab} />
