@@ -45,6 +45,12 @@ installable as a home-screen app, optional Capacitor shells for standalone Andro
 frontend/  React 19 + Vite app (src/views, src/components, src/store, src/lib). Builds to static files.
            android/ + ios/ are the Capacitor shells for the standalone mobile app (docs/MOBILE.md).
 api/       backend — server.js (Node, no framework), deps: @simplewebauthn/server, web-push.
+           STILL WHAT PRODUCTION RUNS. Being replaced by backend/ (below); see the spec.
+backend/   the Laravel port of the API, built milestone by milestone (Linear R0–R5) and not yet
+           deployed. Same paths, same shapes, same English error strings (they are the app's
+           translation keys). Design: docs/superpowers/specs/2026-10-17-laravel-backend-design.md.
+           Run: backend/README.md. The "two dependencies" rule below is the Node API's; the Laravel
+           side keeps Composer dependencies few and justified, not minimal.
 mcp/       optional MCP server — read-only stdio bridge exposing a user's workouts/1RM/muscle
            balance to LLM clients (Claude Desktop, Cursor…). Not part of a deploy; only
            runs when an LLM client spawns it.
