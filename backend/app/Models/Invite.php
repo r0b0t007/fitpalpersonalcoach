@@ -18,10 +18,16 @@ class Invite extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['code', 'note', 'created_by', 'coach_id', 'created', 'used_by', 'used_at', 'revoked', 'revoked_at', 'revoked_reason'];
+    protected $fillable = ['code', 'note', 'created_by', 'created', 'used_by', 'used_at', 'revoked', 'revoked_at', 'revoked_reason'];
 
     protected function casts(): array
     {
         return ['revoked' => 'boolean'];
+    }
+
+    /** Codes are unique across ALL coaches (the primary key), so the collision check is too. */
+    public static function codeTaken(string $code): bool
+    {
+        return static::acrossCoaches()->whereKey($code)->exists(); // across coaches: the code is a global key
     }
 }

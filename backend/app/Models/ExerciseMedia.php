@@ -21,7 +21,7 @@ class ExerciseMedia extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'ex_id', 'coach_id', 'file', 'label', 'bytes', 'mime', 'status', 'created'];
+    protected $fillable = ['id', 'ex_id', 'file', 'label', 'bytes', 'mime', 'status', 'created'];
 
     protected function casts(): array
     {

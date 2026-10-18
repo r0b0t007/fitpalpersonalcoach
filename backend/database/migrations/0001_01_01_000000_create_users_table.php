@@ -19,7 +19,10 @@ return new class extends Migration
             $table->boolean('admin')->default(false);
             $table->boolean('coach')->default(false);
             $table->boolean('self_serve')->default(false);
+            // A client's coach. Deleting the coach leaves the client unassigned, never pointing at
+            // an account that is gone (the coaching tables restrict deleting a coach who has rows).
             $table->string('coach_id', 16)->nullable()->index();
+            $table->foreign('coach_id')->references('id')->on('users')->nullOnDelete();
             $table->boolean('disabled')->default(false);
             $table->unsignedInteger('sv')->default(0);
             $table->string('invited_by', 40)->nullable();

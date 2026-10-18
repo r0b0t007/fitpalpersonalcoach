@@ -53,16 +53,27 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     }
 
     /**
-     * A coach's clients. The coach is passed EXPLICITLY, never read from the request's coach
-     * context: the licence cap counts these where there is no context at all (invite redeem,
-     * sign-up, the billing webhook, the admin panel, the scheduler). User itself is deliberately
-     * not scoped — coaches and admins are users too, and /me must always find its own row.
+     * A coach's clients, disabled ones included. The coach is passed EXPLICITLY, never read from
+     * the request's coach context: these are counted where there is no context at all (invite
+     * redeem, sign-up, the billing webhook, the admin panel, the scheduler). User itself is
+     * deliberately not scoped — coaches and admins are users too, and /me must always find its row.
      *
      * @return Builder<User>
      */
     public static function clientsOf(User|string $coach): Builder
     {
         return static::query()->where('coach_id', $coach instanceof User ? $coach->id : $coach);
+    }
+
+    /**
+     * The clients that take a seat: not disabled. This is what the licence cap's `used` counts
+     * (spec §6, "a cap on active clients") — a disabled client frees their seat.
+     *
+     * @return Builder<User>
+     */
+    public static function activeClientsOf(User|string $coach): Builder
+    {
+        return static::clientsOf($coach)->where('disabled', false);
     }
 
     public function isAdmin(): bool

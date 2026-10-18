@@ -74,7 +74,6 @@ final class ImportLegacy extends Command
                 // nothing there, so it must grant nothing here.
                 'admin' => ($u['admin'] ?? null) === true,
                 'coach' => ($u['coach'] ?? null) === true,
-                'coach_id' => $u['coachId'] ?? null,
                 'disabled' => ! empty($u['disabled']),
                 'sv' => (int) ($u['sv'] ?? 0),
                 'invited_by' => $u['invitedBy'] ?? null,
@@ -92,8 +91,24 @@ final class ImportLegacy extends Command
             $users++;
         }
 
-        $creds = 0;
+        // Second pass, now that every account exists: who coaches whom. users.coach_id is a foreign
+        // key, and db.json may list a client before their coach. A coachId naming no account (Node
+        // answered coachName null for it) is left empty and reported.
         $skipped = [];
+        foreach ($db['users'] ?? [] as $u) {
+            if (! is_string($u['id'] ?? null) || ! array_key_exists($u['id'], $seen) || $seen[$u['id']] === 'linked') {
+                continue;
+            }
+            $seen[$u['id']] = 'linked';
+            $coach = is_string($u['coachId'] ?? null) ? $u['coachId'] : null;
+            if ($coach !== null && ! User::query()->whereKey($coach)->exists()) {
+                $skipped[] = "coach of {$u['id']} ($coach: no such account)";
+                $coach = null;
+            }
+            User::query()->whereKey($u['id'])->update(['coach_id' => $coach]);
+        }
+
+        $creds = 0;
         foreach ($db['creds'] ?? [] as $c) {
             $user = isset($c['userId']) ? User::query()->find($c['userId']) : null;
             if ($user === null || empty($c['id']) || empty($c['publicKey'])) {

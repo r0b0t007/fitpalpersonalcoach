@@ -26,10 +26,14 @@ final class Access
         return $coach->isAdmin() || $member->coach_id === $coach->id;
     }
 
-    /** Progress photos: the client themselves, the coach who may coach them, or an admin. */
+    /**
+     * Progress photos (api/server.js GET /api/media/photo): the client themselves, or whoever may
+     * coach them — which includes an admin, but through canCoachMember, so not for a disabled
+     * member, and not by a disabled admin.
+     */
     public static function canSeePhotos(User $viewer, User $owner): bool
     {
-        return $viewer->id === $owner->id || $viewer->isAdmin() || self::canCoachMember($viewer, $owner);
+        return $viewer->id === $owner->id || self::canCoachMember($viewer, $owner);
     }
 
     /**

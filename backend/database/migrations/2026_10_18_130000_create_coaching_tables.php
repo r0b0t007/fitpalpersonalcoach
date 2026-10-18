@@ -11,8 +11,11 @@ use Illuminate\Support\Facades\Schema;
 // Timestamps are the Node API's ISO strings ("2026-05-01T10:20:30.000Z"), kept as strings: the
 // app reads them back verbatim, and an import must not reformat them. ISO-8601 sorts as text.
 //
-// users.coach_id (a client's coach) has no foreign key: SQLite cannot add one to an existing
-// table. Detaching a coach's clients is done in code, as the Node API's detachCoach did.
+// Every coach_id here RESTRICTS deletion of the user. The Node API never deleted an account: losing
+// the coach role or being disabled ran detachCoach, which revoked the coach's open codes (with a
+// reason) and expired their offers but kept the record. A database cascade would do neither — it
+// would leave open codes working as general codes, or erase the history — so deleting a coach who
+// has rows must go through that explicit path, and the database refuses anything else.
 return new class extends Migration
 {
     public function up(): void
@@ -30,7 +33,7 @@ return new class extends Migration
             $table->boolean('revoked')->default(false);
             $table->string('revoked_at', 30)->nullable();
             $table->string('revoked_reason', 60)->nullable();
-            $table->foreign('coach_id')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('coach_id')->references('id')->on('users')->restrictOnDelete();
             $table->index(['coach_id', 'created']);
         });
 
@@ -44,7 +47,7 @@ return new class extends Migration
             $table->longText('bundle');   // raw JSON, never round-tripped: {} must stay {}
             $table->string('created', 30);
             $table->string('updated', 30);
-            $table->foreign('coach_id')->references('id')->on('users')->cascadeOnDelete();
+            $table->foreign('coach_id')->references('id')->on('users')->restrictOnDelete();
             $table->unique(['coach_id', 'program_id']);
         });
 
@@ -60,8 +63,8 @@ return new class extends Migration
             $table->string('status', 16);
             $table->string('created', 30);
             $table->string('decided_at', 30)->nullable();
-            $table->foreign('coach_id')->references('id')->on('users')->cascadeOnDelete();
-            $table->foreign('member_id')->references('id')->on('users')->cascadeOnDelete();
+            $table->foreign('coach_id')->references('id')->on('users')->restrictOnDelete();
+            $table->foreign('member_id')->references('id')->on('users')->restrictOnDelete();
             $table->index(['coach_id', 'created']);
             $table->index(['member_id', 'status']);
         });
@@ -77,7 +80,7 @@ return new class extends Migration
             $table->string('mime', 64);
             $table->string('status', 16);
             $table->string('created', 30);
-            $table->foreign('coach_id')->references('id')->on('users')->cascadeOnDelete();
+            $table->foreign('coach_id')->references('id')->on('users')->restrictOnDelete();
             $table->index(['coach_id', 'ex_id']);
         });
     }

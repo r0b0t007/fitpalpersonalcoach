@@ -12,5 +12,5 @@ class CoachProgram extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['coach_id', 'program_id', 'name', 'bundle', 'created', 'updated'];
+    protected $fillable = ['program_id', 'name', 'bundle', 'created', 'updated'];
 }

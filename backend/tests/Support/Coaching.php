@@ -7,6 +7,7 @@ use App\Models\CoachProgram;
 use App\Models\ExerciseMedia;
 use App\Models\Invite;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The shared coaching fixture (spec §5): two coaches with their own clients and their own rows in
@@ -32,14 +33,25 @@ final class Coaching
         $f->u1 = $u('tU1000000000000x', 'Unassigned');
 
         // One row per coach in every tenant-owned table, written with no context (as the import does).
+        $when = '2026-05-01T00:00:00.000Z';
         foreach (['a' => $f->a, 'b' => $f->b, 'admin' => $f->admin] as $k => $coach) {
-            Invite::query()->create(['code' => strtoupper("INV{$k}0000000000"), 'coach_id' => $coach->id, 'created_by' => $coach->id, 'created' => '2026-05-01T00:00:00.000Z']);
-            CoachProgram::query()->create(['coach_id' => $coach->id, 'program_id' => "prog-$k", 'name' => "Program $k", 'bundle' => '{"week":{}}', 'created' => '2026-05-01T00:00:00.000Z', 'updated' => '2026-05-01T00:00:00.000Z']);
-            ExerciseMedia::query()->create(['id' => "media$k", 'ex_id' => '0001', 'coach_id' => $coach->id, 'file' => "0001-$k.mp4", 'bytes' => 10, 'mime' => 'video/mp4', 'status' => 'ready', 'created' => '2026-05-01T00:00:00.000Z']);
+            self::own(new Invite, $coach, ['code' => strtoupper("INV{$k}0000000000"), 'created_by' => $coach->id, 'created' => $when]);
+            self::own(new CoachProgram, $coach, ['program_id' => "prog-$k", 'name' => "Program $k", 'bundle' => '{"week":{}}', 'created' => $when, 'updated' => $when]);
+            self::own(new ExerciseMedia, $coach, ['id' => "media$k", 'ex_id' => '0001', 'file' => "0001-$k.mp4", 'bytes' => 10, 'mime' => 'video/mp4', 'status' => 'ready', 'created' => $when]);
         }
-        Assignment::query()->create(['id' => 'assignA', 'coach_id' => $f->a->id, 'coach_name' => 'Coach A', 'member_id' => $f->a1->id, 'bundle' => '{}', 'status' => 'pending', 'created' => '2026-05-01T00:00:00.000Z']);
-        Assignment::query()->create(['id' => 'assignB', 'coach_id' => $f->b->id, 'coach_name' => 'Coach B', 'member_id' => $f->b1->id, 'bundle' => '{}', 'status' => 'pending', 'created' => '2026-05-01T00:00:00.000Z']);
+        self::own(new Assignment, $f->a, ['id' => 'assignA', 'coach_name' => 'Coach A', 'member_id' => $f->a1->id, 'bundle' => '{}', 'status' => 'pending', 'created' => $when]);
+        self::own(new Assignment, $f->b, ['id' => 'assignB', 'coach_name' => 'Coach B', 'member_id' => $f->b1->id, 'bundle' => '{}', 'status' => 'pending', 'created' => $when]);
+        // B's offer to A's client: an assignment belongs to its member as much as its coach.
+        self::own(new Assignment, $f->b, ['id' => 'assignBtoA1', 'coach_name' => 'Coach B', 'member_id' => $f->a1->id, 'bundle' => '{}', 'status' => 'pending', 'created' => $when]);
 
         return $f;
+    }
+
+    /** A row owned by $coach, written the way the import does: coach_id is never mass-assignable. */
+    public static function own(Model $row, User $coach, array $attributes): Model
+    {
+        $row->forceFill($attributes + ['coach_id' => $coach->id])->save();
+
+        return $row;
     }
 }
