@@ -59,7 +59,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => ! $request->is('admin-panel*', 'api/admin-panel*'));
 
         // A refusal the caller may read: the English sentence (and its template, if any).
-        $exceptions->render(fn (ClientSafe $e) => Json::error($e->status, $e->getMessage(), $e->extra, $e->headers));
+        $exceptions->render(fn (ClientSafe $e) => Json::error($e->status, $e->getMessage(), $e->extra, $e->headers)); // relayed: checked where each ClientSafe is thrown
         $exceptions->render(fn (AuthenticationException $e) => Json::error(401, 'not signed in'));
         // PHP refused the body (post_max_size) before any controller ran: say what the sync
         // route would have said. README.md names the ini values production needs.
@@ -69,10 +69,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (NotFoundHttpException $e) => Json::error(404, 'not found'));
         $exceptions->render(fn (MethodNotAllowedHttpException $e) => Json::error(404, 'not found'));
         // Laravel's own framework-level refusals (abort(), the throttler's 429, maintenance's
-        // 503, validation) keep their status in the envelope. Routes refuse through ClientSafe,
-        // whose sentences the app translates; this is the net under anything that does not.
-        $exceptions->render(fn (HttpExceptionInterface $e) => Json::error($e->getStatusCode(), $e->getMessage() !== '' ? $e->getMessage() : ($e->getStatusCode() >= 500 ? 'server error' : 'request refused'), [], $e->getHeaders()));
-        $exceptions->render(fn (ValidationException $e) => Json::error(400, (string) collect($e->errors())->flatten()->first()));
+        // 503, validation) keep their status in the envelope, but never their framework text
+        // ("Too Many Attempts.", "Service Unavailable"): the app shows `error` translated, and
+        // only the catalogue's sentences can be. Routes refuse through ClientSafe or a literal
+        // with a sentence of their own; this is the net under anything that does not.
+        $exceptions->render(fn (HttpExceptionInterface $e) => Json::error($e->getStatusCode(), Json::refusal($e->getStatusCode()), [], $e->getHeaders()));
+        $exceptions->render(fn (ValidationException $e) => Json::error(400, Json::refusal(400)));
         $exceptions->render(fn (HttpResponseException $e) => $e->getResponse());
         // Everything else is a bug; its message is for the log, not the browser.
         $exceptions->render(function (Throwable $e, Request $request) {

@@ -102,8 +102,11 @@ merge from. The paragraph upstream has here — that GitLab is canonical and the
 are dormant mirrors — is false for this repo and inverted: nothing runs on GitLab, and GitHub is
 both the test gate and the deploy path.
 
-Six jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
-(`coach-smoke.sh`), `mcp` and `backend` (PHP 8.4, `pint --test`, Pest on in-memory SQLite). There
+Seven jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
+(`coach-smoke.sh`), `mcp`, `backend` (PHP 8.4, `pint --test`, Pest on in-memory SQLite, the
+migrations on a MyISAM-default MariaDB, `backend/scripts/check-error-strings.mjs`) and `contract`
+(the Node API and Laravel side by side on one seeded data dir, every ported route diffed by
+`backend/tools/contract/diff.mjs`; intended differences are listed in it with reasons). There
 used to be `api-image` and `web-image` too, which built and booted the Docker images; those images
 were never part of how this deploys and are gone. **`test.yml` has path filters**; anything outside
 `frontend/`, `api/`, `mcp/`, `backend/` and those two scripts runs no checks at all, and GitHub

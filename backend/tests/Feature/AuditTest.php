@@ -4,7 +4,6 @@
 // (api/server.js: audit, auditKeep, GET /api/admin/audit, POST /api/admin/audit/clear).
 
 use App\Audit\Audit;
-use App\Auth\SessionToken;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,11 +19,6 @@ beforeEach(function () {
     $this->coach = User::query()->create(['id' => 'coach00000000000', 'name' => 'Coach', 'coach' => true]);
 });
 
-function bearerFor(User $u): array
-{
-    return ['Authorization' => 'Bearer '.SessionToken::make($u)];
-}
-
 function events(): array
 {
     return DB::table('audit_events')->orderBy('id')->pluck('ev')->all();
@@ -35,7 +29,7 @@ it('refuses the routes to anyone but an admin, and records only the 403', functi
     $this->postJson('/api/admin/audit/clear')->assertStatus(401);
     expect(events())->toBe([]);
 
-    $this->getJson('/api/admin/audit', bearerFor($this->coach))->assertStatus(403)->assertExactJson(['error' => 'forbidden']);
+    $this->getJson('/api/admin/audit', bearer($this->coach))->assertStatus(403)->assertExactJson(['error' => 'forbidden']);
     $row = DB::table('audit_events')->first();
     expect($row->ev)->toBe('admin.denied')->and((bool) $row->ok)->toBeFalse()->and($row->uid)->toBe('coach00000000000');
 });
@@ -48,7 +42,7 @@ it('pages newest first by id, filters by category and by failures, in Node\'s sh
     Audit::record($req, 'auth.login.fail', ['ok' => false, 'msg' => 'unknown-credential']);
     Audit::record($req, 'admin.invite.create', ['user' => $this->admin, 'target' => $this->coach]);
 
-    $r = $this->getJson('/api/admin/audit?limit=3', bearerFor($this->admin))->assertOk();
+    $r = $this->getJson('/api/admin/audit?limit=3', bearer($this->admin))->assertOk();
     expect($r->json('total'))->toBe(7)
         ->and(array_column($r->json('events'), 'ev'))->toBe(['admin.invite.create', 'auth.login.fail', 'auth.login.ok'])
         ->and($r->json('nextBefore'))->toBe($r->json('events.2.id'))
@@ -59,15 +53,15 @@ it('pages newest first by id, filters by category and by failures, in Node\'s sh
     expect($r->json('events.0'))->toHaveKeys(['id', 'ts', 'ev', 'ok', 'uid', 'name', 'tgt', 'tname'])->not->toHaveKey('msg')
         ->and($r->json('events.1'))->toBe(['id' => $r->json('events.1.id'), 'ts' => $r->json('events.1.ts'), 'ev' => 'auth.login.fail', 'ok' => false, 'msg' => 'unknown-credential']);
 
-    $next = $this->getJson('/api/admin/audit?limit=3&before='.$r->json('nextBefore'), bearerFor($this->admin))->json('events');
+    $next = $this->getJson('/api/admin/audit?limit=3&before='.$r->json('nextBefore'), bearer($this->admin))->json('events');
     expect(count($next))->toBe(3)->and($next[0]['id'])->toBeLessThan($r->json('nextBefore'));
 
-    expect($this->getJson('/api/admin/audit?cat=auth', bearerFor($this->admin))->json('total'))->toBe(6)
-        ->and($this->getJson('/api/admin/audit?cat=admin', bearerFor($this->admin))->json('total'))->toBe(1)
-        ->and($this->getJson('/api/admin/audit?cat=fail', bearerFor($this->admin))->json('total'))->toBe(1)
-        ->and($this->getJson('/api/admin/audit?cat=au', bearerFor($this->admin))->json('total'))->toBe(0)      // a prefix of a word is not a category
-        ->and($this->getJson('/api/admin/audit?cat=%25', bearerFor($this->admin))->json('total'))->toBe(0)
-        ->and($this->getJson('/api/admin/audit?limit=999', bearerFor($this->admin))->json('events'))->toHaveCount(7);
+    expect($this->getJson('/api/admin/audit?cat=auth', bearer($this->admin))->json('total'))->toBe(6)
+        ->and($this->getJson('/api/admin/audit?cat=admin', bearer($this->admin))->json('total'))->toBe(1)
+        ->and($this->getJson('/api/admin/audit?cat=fail', bearer($this->admin))->json('total'))->toBe(1)
+        ->and($this->getJson('/api/admin/audit?cat=au', bearer($this->admin))->json('total'))->toBe(0)      // a prefix of a word is not a category
+        ->and($this->getJson('/api/admin/audit?cat=%25', bearer($this->admin))->json('total'))->toBe(0)
+        ->and($this->getJson('/api/admin/audit?limit=999', bearer($this->admin))->json('events'))->toHaveCount(7);
 });
 
 it('clears the log, records the clear, and never reuses an id', function () {
@@ -75,7 +69,7 @@ it('clears the log, records the clear, and never reuses an id', function () {
     Audit::record($req, 'auth.login.ok', ['user' => $this->coach]);
     $last = (int) DB::table('audit_events')->max('id');
 
-    $this->postJson('/api/admin/audit/clear', [], bearerFor($this->admin))->assertOk()->assertExactJson(['ok' => true]);
+    $this->postJson('/api/admin/audit/clear', [], bearer($this->admin))->assertOk()->assertExactJson(['ok' => true]);
     $rows = DB::table('audit_events')->get();
     expect($rows)->toHaveCount(1)->and($rows[0]->ev)->toBe('admin.audit.clear')->and($rows[0]->id)->toBeGreaterThan($last);
 });
@@ -88,7 +82,7 @@ it('keeps only what retention allows, on read and when pruned', function () {
         Audit::record(Request::create('/'), 'auth.login.ok', ['user' => $this->coach]);
     }
 
-    expect($this->getJson('/api/admin/audit', bearerFor($this->admin))->json('total'))->toBe(3);   // the 3 newest, none of the old
+    expect($this->getJson('/api/admin/audit', bearer($this->admin))->json('total'))->toBe(3);   // the 3 newest, none of the old
     Audit::prune();
     expect(DB::table('audit_events')->count())->toBe(3);
 });
@@ -121,8 +115,8 @@ it('records the sign-in story with Node\'s event names and reason codes', functi
     $this->postJson('/api/login/verify', ['cid' => 'nope', 'credential' => []])->assertStatus(400);
     $this->postJson('/api/register/verify', ['cid' => 'nope', 'credential' => []])->assertStatus(400);
     $nadia = User::query()->where('name', 'Nadia')->first();
-    $this->postJson('/api/logout', [], bearerFor($nadia))->assertOk();
-    $this->postJson('/api/logout/all', [], bearerFor($nadia))->assertOk();
+    $this->postJson('/api/logout', [], bearer($nadia))->assertOk();
+    $this->postJson('/api/logout/all', [], bearer($nadia))->assertOk();
     $nadia->update(['disabled' => true]);
     $pk->login($this)->assertStatus(403);
 
@@ -173,7 +167,7 @@ it('counts the AUDIT_MAX window among rows inside AUDIT_DAYS, as Node did (age f
     config(['fitpal.audit.max' => 2, 'fitpal.audit.days' => 1]);
 
     // 3 recent rows, cap 2: the two newest; the two expired ones never count towards the cap.
-    expect(array_column($this->getJson('/api/admin/audit', bearerFor($this->admin))->json('events'), 'ev'))->toBe(['auth.logout.all', 'auth.logout'])
+    expect(array_column($this->getJson('/api/admin/audit', bearer($this->admin))->json('events'), 'ev'))->toBe(['auth.logout.all', 'auth.logout'])
         ->and(Audit::prune())->toBe(3)
         ->and(DB::table('audit_events')->pluck('ev')->all())->toBe(['auth.logout', 'auth.logout.all']);
 });
@@ -190,7 +184,7 @@ it('prunes hourly from the scheduler, and on write only past 1.25 × AUDIT_MAX',
 it('ignores an array where a string belongs, as Node did, instead of a 500', function () {
     // For Node `?cat[]=auth` is another key: searchParams.get('cat') is null, so no filter at all.
     Audit::record(Request::create('/'), 'auth.login.ok');
-    $this->getJson('/api/admin/audit?cat[]=fail&limit[]=1&before[]=9', bearerFor($this->admin))
+    $this->getJson('/api/admin/audit?cat[]=fail&limit[]=1&before[]=9', bearer($this->admin))
         ->assertOk()->assertJsonPath('total', 1)->assertJsonCount(1, 'events');
 });
 
@@ -264,7 +258,7 @@ it('reads limit and before as numbers, as Node did', function () {
     foreach (range(1, 3) as $i) {
         Audit::record(Request::create('/'), 'auth.login.ok');
     }
-    $get = fn (string $qs) => $this->getJson('/api/admin/audit?'.$qs, bearerFor($this->admin))->json();
+    $get = fn (string $qs) => $this->getJson('/api/admin/audit?'.$qs, bearer($this->admin))->json();
     expect($get('before=-1')['events'])->toBe([])                       // id < -1: nothing
         ->and(count($get('limit=0.5')['events']))->toBe(1)              // max(1, 0.5) → 1
         ->and($get('limit=1.5')['nextBefore'])->toBeNull()              // 1 row is not 1.5

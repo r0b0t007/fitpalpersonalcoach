@@ -3,6 +3,7 @@
 // CORS, CSRF-by-origin and the error envelope: the three behaviours every later route inherits.
 
 use App\Support\ClientSafe;
+use App\Support\Json;
 use App\Support\Say;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -19,11 +20,17 @@ beforeEach(function () {
     });
 });
 
-it('keeps the status of a framework refusal when debug is off, instead of turning it into a 500', function () {
+it('keeps the status of a framework refusal, with a sentence the app can translate', function () {
     config(['app.debug' => false]);
-    $this->getJson('/api/_abort')->assertStatus(403)->assertExactJson(['error' => 'nope']);
-    $this->postJson('/api/_validate', [], ['Sec-Fetch-Site' => 'same-origin'])->assertStatus(400)->assertJsonPath('error', 'The name field is required.');
+    // The framework's own text ('nope', "The name field is required.") never reaches the app:
+    // it could not be translated. The status stays; the sentence is the catalogue's.
+    $this->getJson('/api/_abort')->assertStatus(403)->assertExactJson(['error' => 'forbidden']);
+    $this->postJson('/api/_validate', [], ['Sec-Fetch-Site' => 'same-origin'])->assertStatus(400)->assertExactJson(['error' => 'forbidden']);
 });
+
+it('maps every framework status onto a translated sentence', function (int $status, string $sentence) {
+    expect(Json::refusal($status))->toBe($sentence);
+})->with([[401, 'not signed in'], [403, 'forbidden'], [404, 'not found'], [405, 'not found'], [429, 'forbidden'], [503, 'server error'], [500, 'server error']]);
 
 it('reflects the caller origin and never allows credentials', function () {
     $r = $this->getJson('/api/health', ['Origin' => 'https://localhost']);

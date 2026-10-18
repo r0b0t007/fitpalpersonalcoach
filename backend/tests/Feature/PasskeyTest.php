@@ -24,6 +24,8 @@ it('issues base64url options the app can decode, with a resident key required', 
         ->and($o['authenticatorSelection']['residentKey'])->toBe('required')
         ->and($o['authenticatorSelection']['userVerification'])->toBe('preferred')
         ->and($o['attestation'])->toBe('none')
+        ->and($o['timeout'])->toBe(60_000)   // Node's prompt timeout, not the 5-minute challenge life
+        ->and($this->postJson('/api/login/options', [])->json('options.timeout'))->toBe(60_000)
         ->and($o['user']['id'])->toMatch('/^[A-Za-z0-9_-]+$/')
         ->and(base64_decode(strtr($o['user']['id'], '-_', '+/')))->toHaveLength(16)   // the account id's ASCII bytes
         ->and($o['challenge'])->toMatch('/^[A-Za-z0-9_-]+$/');
