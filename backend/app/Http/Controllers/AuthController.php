@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Audit\Audit;
+use App\Auth\Bootstrap;
+use App\Auth\InviteGate;
 use App\Auth\SessionToken;
 use App\Auth\TokenGuard;
 use App\Models\User;
@@ -16,6 +18,7 @@ use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreation;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreator;
 use Laragear\WebAuthn\Assertion\Validator\AssertionValidation;
@@ -47,7 +50,16 @@ final class AuthController
         if ($name === '') {
             return Json::error(400, 'name required');
         }
-        $code = strtoupper(trim((string) $request->input('code', '')));
+        $code = strtoupper(trim(self::str($request, 'code')));
+        // A code is looked up whenever one is SUPPLIED, and REQUIRED only when INVITE_ONLY is on:
+        // a coach's invite link works on an open instance too. Who may create an account at all is
+        // a separate question from taking a client on.
+        if (config('fitpal.invite_only') && ! Bootstrap::matches($code, User::query()->count()) && ! InviteGate::redeemable($code)) {
+            // The rejected code itself is never recorded: a near-miss guess in the log is a liability.
+            Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'invite-rejected']);
+
+            return Json::error(403, 'a valid invite code is required');
+        }
 
         // An unsaved account, so the ceremony has a user to describe and a handle to issue.
         $user = new User(['id' => User::newId(), 'name' => $name]);
@@ -84,13 +96,38 @@ final class AuthController
             return Json::error(400, self::verifyError($e));
         }
 
-        // One transaction: an account without a passkey could never be signed in to.
-        DB::transaction(function () use ($user, $validation) {
-            $user->save();
-            $credential = $validation->credential;
-            $credential->authenticatable_id = $user->id;
-            $credential->save();
+        // The code is re-checked now rather than trusted from options: an invite may have been used
+        // or revoked since, and the bootstrap code dies the moment any account exists. The check
+        // and the insert are one critical section, so two people finishing at once cannot both
+        // pass "no users yet" and both become admin (Node relied on having no await in between).
+        $code = (string) ($entry['extra']['code'] ?? '');
+        $refused = $this->cache->lock('register:gate', 10)->block(5, function () use ($request, $user, $validation, $code) {
+            $bootstrap = Bootstrap::matches($code, User::query()->count());
+            $invite = $bootstrap ? null : InviteGate::redeemable($code);
+            if (config('fitpal.invite_only') && ! $bootstrap && ! $invite) {
+                Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'invite-invalid']);
+
+                return Json::error(403, 'invite code is no longer valid — ask for a new one');
+            }
+            // Stored on the row, which isAdmin() honours: the code is inert from here on.
+            if ($bootstrap) {
+                $user->admin = true;
+                // json_encode, not raw: the name is caller-supplied and could forge log lines.
+                Log::notice('[bootstrap] first account '.json_encode($user->name)." ({$user->id}) created via BOOTSTRAP_CODE and granted admin — clear BOOTSTRAP_CODE now.");
+            }
+            // One transaction: an account without a passkey could never be signed in to.
+            DB::transaction(function () use ($user, $validation) {
+                $user->save();
+                $credential = $validation->credential;
+                $credential->authenticatable_id = $user->id;
+                $credential->save();
+            });
+
+            return null;
         });
+        if ($refused !== null) {
+            return $refused;
+        }
         // Node put the invite code the account came in with in msg; invites arrive in R2.
         Audit::record($request, 'auth.register.ok', ['user' => $user]);
 
