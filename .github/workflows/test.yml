@@ -252,7 +252,7 @@ jobs:
 
   # Does the Laravel backend answer like the Node API? Both servers run on the same seeded data
   # (backend/tools/contract/seed.mjs → Node's DATA_DIR as-is, Laravel through
-  # `fitpal:import-legacy --verify`), with the same session secret, and every R1 route is called on
+  # `fitpal:import-legacy --verify`), with the same session secret, and every ported route is called on
   # both: status, error strings and envelopes, bodies (exactly, or by shape where values must
   # differ) and the headers the app relies on. Intended differences are listed, with reasons, in
   # the tool; anything else fails the build.
@@ -304,7 +304,7 @@ jobs:
             [ "$a$b" = 200200 ] && exit 0; sleep 1
           done
           echo "node $a laravel $b"; cat /tmp/node.log /tmp/laravel.log; exit 1
-      - name: Diff every R1 route
+      - name: Diff every ported route
         run: node backend/tools/contract/diff.mjs --node http://localhost:3101 --laravel http://localhost:3102 --data "$DATA"
       - name: Server logs
         if: failure()

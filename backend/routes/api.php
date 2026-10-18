@@ -2,10 +2,12 @@
 
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CoachRosterController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PairController;
 use App\Http\Middleware\RequireAdmin;
+use App\Http\Middleware\RequireCoach;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -40,6 +42,13 @@ $routes = static function (): void {
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);
+
+        // Coach routes act as the coach (CoachContext): every tenant-owned model is scoped to them.
+        Route::middleware(RequireCoach::class)->group(function (): void {
+            Route::get('/coach/members', [CoachRosterController::class, 'members']);
+            Route::get('/coach/member', [CoachRosterController::class, 'member']);
+            Route::post('/coach/member/release', [CoachRosterController::class, 'release']);
+        });
 
         Route::middleware(RequireAdmin::class)->group(function (): void {
             Route::get('/admin/audit', [AuditController::class, 'index']);

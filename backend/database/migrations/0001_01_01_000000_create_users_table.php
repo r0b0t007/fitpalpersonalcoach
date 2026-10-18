@@ -4,6 +4,9 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+// Edited in place, not amended by new migrations, until the first production `migrate` (R5): no
+// database but throwaway ones has run it — the tests' in-memory SQLite and the scratch lab, which
+// is rebuilt with migrate:fresh. From the cutover on, every schema change is a new migration.
 return new class extends Migration
 {
     public function up(): void
@@ -30,7 +33,14 @@ return new class extends Migration
             $table->string('last_checkin_reminder', 10)->nullable();
             $table->string('licence_id', 32)->nullable();
             $table->rememberToken();
-            $table->timestamp('created_at')->useCurrent();
+            // Milliseconds, and nullable: Node's `created` is an ISO string with milliseconds, and
+            // its oldest accounts have none. The roster sends it back verbatim, and adherence clamps
+            // its window to it — a made-up date would excuse every session missed before it.
+            $table->timestamp('created_at', 3)->nullable()->useCurrent();
+            // The account's position in Node's db.json, set by the import. Node listed accounts in
+            // that order, and its undated oldest ones cannot be ordered any other way; accounts
+            // made here have none and follow, by creation date (User::scopeSignupOrder).
+            $table->unsignedInteger('legacy_order')->nullable();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

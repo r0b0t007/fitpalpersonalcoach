@@ -25,6 +25,9 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
 
     public const UPDATED_AT = null;
 
+    /** Milliseconds kept: `created` round-trips to the app exactly as Node wrote it. */
+    protected $dateFormat = 'Y-m-d H:i:s.v';
+
     protected $fillable = [
         'id', 'name', 'email', 'admin', 'coach', 'self_serve', 'disabled', 'sv', 'invited_by',
         'last_reminder', 'last_checkin_reminder', 'created_at',
@@ -66,6 +69,17 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     }
 
     /**
+     * Node's order for account lists (db.users as stored): imported accounts in their db.json
+     * position, then accounts made here by creation date. The id breaks a tie in the same
+     * millisecond, which Node's array order would have broken by signup order.
+     */
+    public function scopeSignupOrder(Builder $query): Builder
+    {
+        return $query->orderByRaw('legacy_order is null')->orderBy('legacy_order')
+            ->orderBy('created_at')->orderBy('id');
+    }
+
+    /**
      * The clients that take a seat: not disabled. This is what the licence cap's `used` counts
      * (spec §6, "a cap on active clients") — a disabled client frees their seat.
      *
@@ -85,6 +99,12 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     public function isCoach(): bool
     {
         return $this->coach || $this->isAdmin();
+    }
+
+    /** `created` as Node wrote it ("2026-05-01T10:20:30.123Z"), or null for the oldest accounts. */
+    public function createdIso(): ?string
+    {
+        return $this->created_at?->utc()->format('Y-m-d\TH:i:s.v\Z');
     }
 
     /** The one shape of "who am I" the app sees, from /me and both verify routes. */

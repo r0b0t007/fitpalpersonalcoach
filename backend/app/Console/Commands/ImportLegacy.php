@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\UserState;
 use App\Support\Json;
 use App\WebAuthn\LegacyCredential;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Support\Facades\DB;
@@ -57,7 +58,8 @@ final class ImportLegacy extends Command
 
         $users = 0;
         $seen = [];
-        foreach ($db['users'] ?? [] as $u) {
+        $skipped = [];
+        foreach ($db['users'] ?? [] as $position => $u) {
             if (empty($u['id']) || ! is_string($u['id'])) {
                 continue;
             }
@@ -80,13 +82,14 @@ final class ImportLegacy extends Command
                 'last_reminder' => $u['lastReminder'] ?? null,
                 'last_checkin_reminder' => $u['lastCheckinReminder'] ?? null,
             ]);
-            // The Node API wrote `created` as null for its oldest accounts. Those get the date of
-            // the FIRST import and keep it: a rerun must not move anyone's creation date.
-            if (! empty($u['created'])) {
-                $user->created_at = $u['created'];
-            } elseif (! $user->exists) {
-                $user->created_at = now();
-            }
+            // Verbatim, milliseconds included. The Node API's oldest accounts have no `created`,
+            // and keep none: the app reads null as "joined before we kept dates". Node only ever
+            // wrote an ISO string; anything else is reported and kept as no date, never allowed
+            // to stop the import halfway through the accounts.
+            $user->created_at = self::createdAt($u['created'] ?? null, $u['id'], $skipped);
+            // db.json's order is the roster's (Node listed db.users as stored). Kept, so the
+            // undated oldest accounts — which no date can order — stay where Node had them.
+            $user->legacy_order = (int) $position;
             $user->save();
             $users++;
         }
@@ -94,7 +97,6 @@ final class ImportLegacy extends Command
         // Second pass, now that every account exists: who coaches whom. users.coach_id is a foreign
         // key, and db.json may list a client before their coach. A coachId naming no account (Node
         // answered coachName null for it) is left empty and reported.
-        $skipped = [];
         $exists = array_flip(User::query()->pluck('id')->all());
         $current = User::query()->whereNotNull('coach_id')->pluck('coach_id', 'id')->all();
         foreach ($db['users'] ?? [] as $u) {
@@ -278,6 +280,24 @@ final class ImportLegacy extends Command
      *
      * @param  array<int, array>  $rows  the log, keyed by id
      */
+    /** An account's `created` as Node wrote it (an ISO string), or null — reported when it was something else. */
+    private static function createdAt(mixed $created, string $id, array &$skipped): ?Carbon
+    {
+        if ($created === null || $created === '') {
+            return null;
+        }
+        if (is_string($created) && preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/', $created)) {
+            try {
+                return Carbon::parse($created);
+            } catch (Throwable) {
+                // falls through to the report below
+            }
+        }
+        $skipped[] = "created of $id (".json_encode($created).': not an ISO date; kept as none)';
+
+        return null;
+    }
+
     private static function auditConflicts(array $rows): ?string
     {
         $min = min(array_keys($rows));

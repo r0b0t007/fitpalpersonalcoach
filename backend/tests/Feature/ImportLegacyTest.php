@@ -24,7 +24,7 @@ it('imports accounts with their dates, their passkeys and their raw state, and c
     $pk->userHandle = Passkey::b64u($uid);
     file_put_contents($this->dir.'/db.json', json_encode([
         'users' => [
-            ['id' => $uid, 'name' => 'Imported', 'coach' => true, 'sv' => 2, 'created' => '2025-03-04T10:20:30.000Z', 'lastReminder' => '2026-10-01', 'lastCheckinReminder' => '2026-09-28'],
+            ['id' => $uid, 'name' => 'Imported', 'coach' => true, 'sv' => 2, 'created' => '2025-03-04T10:20:30.123Z', 'lastReminder' => '2026-10-01', 'lastCheckinReminder' => '2026-09-28'],
             // The Node API's oldest accounts have `created: null`.
             ['id' => 'oldtimer00000000', 'name' => 'Old', 'created' => null],
         ],
@@ -36,8 +36,8 @@ it('imports accounts with their dates, their passkeys and their raw state, and c
     $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful()->expectsOutputToContain('users 2 · passkeys 1 · states 1');
 
     $user = User::query()->find($uid);
-    $firstRunDate = User::query()->find('oldtimer00000000')->created_at;
-    expect($user->created_at->toIso8601ZuluString())->toBe('2025-03-04T10:20:30Z')
+    expect($user->createdIso())->toBe('2025-03-04T10:20:30.123Z')   // milliseconds kept
+        ->and(User::query()->find('oldtimer00000000')->createdIso())->toBeNull()
         ->and($user->last_reminder)->toBe('2026-10-01')
         ->and($user->last_checkin_reminder)->toBe('2026-09-28')
         ->and($user->sv)->toBe(2)
@@ -49,13 +49,13 @@ it('imports accounts with their dates, their passkeys and their raw state, and c
     $this->withHeader('Authorization', 'Bearer '.SessionToken::make($user))->get('/api/data')
         ->assertOk()->assertContent('{"state":{"routines":{},"units":"kg","_ts":1700000000000}}');
 
-    // Idempotent: the same directory again changes nothing and fails nothing — including the
-    // creation date of an account that had none, which keeps the FIRST import's.
+    // Idempotent: the same directory again changes nothing and fails nothing — an account with
+    // no creation date still has none.
     $this->travel(3)->days();
     $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful();
     expect(User::query()->count())->toBe(2)
-        ->and(User::query()->find($uid)->created_at->toIso8601ZuluString())->toBe('2025-03-04T10:20:30Z')
-        ->and(User::query()->find('oldtimer00000000')->created_at->equalTo($firstRunDate))->toBeTrue();
+        ->and(User::query()->find($uid)->createdIso())->toBe('2025-03-04T10:20:30.123Z')
+        ->and(User::query()->find('oldtimer00000000')->createdIso())->toBeNull();
 });
 
 it('verifies every account through /me and /data, and fails on a mismatch', function () {
@@ -102,4 +102,18 @@ it('verifies strictly: a changed type, a cut name and a duplicate id all count',
     DB::table('user_states')->where('user_id', 'vstrict000000000')->update(['state' => '{"_ts":"5","unit":false,"n":1}']);
     $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify-only' => true])->assertFailed()
         ->expectsOutputToContain('vstrict000000000: /data differs');
+});
+
+it('keeps db.json\'s order, and reports a creation date that is not one instead of stopping', function () {
+    file_put_contents($this->dir.'/db.json', json_encode(['users' => [
+        ['id' => 'zzEpoch000000000', 'name' => 'Epoch', 'created' => 1715000000000],
+        ['id' => 'aaGarbled0000000', 'name' => 'Garbled', 'created' => 'last tuesday'],
+        ['id' => 'mmFine0000000000', 'name' => 'Fine', 'created' => '2026-01-01T00:00:00.000Z'],
+    ], 'creds' => []]));
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful()
+        ->expectsOutputToContain('users 3')
+        ->expectsOutputToContain('created of zzEpoch000000000 (1715000000000: not an ISO date; kept as none)');
+    expect(User::query()->find('zzEpoch000000000')->createdIso())->toBeNull()
+        ->and(User::query()->find('mmFine0000000000')->createdIso())->toBe('2026-01-01T00:00:00.000Z')
+        ->and(User::query()->signupOrder()->pluck('id')->all())->toBe(['zzEpoch000000000', 'aaGarbled0000000', 'mmFine0000000000']);
 });
