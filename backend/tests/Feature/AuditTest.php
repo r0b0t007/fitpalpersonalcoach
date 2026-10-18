@@ -163,12 +163,14 @@ it('imports audit.log with its ids, skips torn lines, and carries the sequence o
 });
 
 it('counts the AUDIT_MAX window among rows inside AUDIT_DAYS, as Node did (age first)', function () {
-    config(['fitpal.audit.max' => 2, 'fitpal.audit.days' => 1]);
     $old = Audit::now() - 2 * 86_400_000;
-    DB::table('audit_events')->insert([['ts' => $old, 'ev' => 'auth.login.ok', 'ok' => true], ['ts' => $old, 'ev' => 'auth.login.ok', 'ok' => true]]);
-    Audit::record(Request::create('/'), 'auth.login.ok');
-    Audit::record(Request::create('/'), 'auth.logout');
-    Audit::record(Request::create('/'), 'auth.logout.all');
+    $now = Audit::now();
+    DB::table('audit_events')->insert([
+        Audit::row(['ts' => $old, 'ev' => 'auth.login.ok']), Audit::row(['ts' => $old, 'ev' => 'auth.login.ok']),
+        Audit::row(['ts' => $now, 'ev' => 'auth.login.ok']), Audit::row(['ts' => $now, 'ev' => 'auth.logout']),
+        Audit::row(['ts' => $now, 'ev' => 'auth.logout.all']),
+    ]);
+    config(['fitpal.audit.max' => 2, 'fitpal.audit.days' => 1]);
 
     // 3 recent rows, cap 2: the two newest; the two expired ones never count towards the cap.
     expect(array_column($this->getJson('/api/admin/audit', bearerFor($this->admin))->json('events'), 'ev'))->toBe(['auth.logout.all', 'auth.logout'])
@@ -176,13 +178,13 @@ it('counts the AUDIT_MAX window among rows inside AUDIT_DAYS, as Node did (age f
         ->and(DB::table('audit_events')->pluck('ev')->all())->toBe(['auth.logout', 'auth.logout.all']);
 });
 
-it('prunes from the scheduler every hour, not on the request path', function () {
+it('prunes hourly from the scheduler, and on write only past 1.25 × AUDIT_MAX', function () {
     $this->artisan('schedule:list')->expectsOutputToContain('audit:prune');
-    config(['fitpal.audit.max' => 1]);
-    foreach (range(1, 250) as $i) {
+    config(['fitpal.audit.max' => 100]);
+    foreach (range(1, 120) as $i) {
         Audit::record(Request::create('/'), 'auth.login.ok');
     }
-    expect(DB::table('audit_events')->count())->toBe(250);   // writing never deletes
+    expect(DB::table('audit_events')->count())->toBe(120);   // under 125: an ordinary sign-in never deletes
 });
 
 it('ignores an array where a string belongs, as Node did, instead of a 500', function () {
@@ -201,9 +203,70 @@ it('refuses to import an audit log into a table that holds other events', functi
 
     $this->artisan('fitpal:import-legacy', ['dataDir' => $dir])->assertSuccessful()
         ->expectsOutputToContain('audit 0')
-        ->expectsOutputToContain('not from this log');
+        ->expectsOutputToContain('share an id');
     expect(DB::table('audit_events')->pluck('ev')->all())->toBe(['auth.logout']);   // untouched
 
     array_map('unlink', glob($dir.'/*'));
     rmdir($dir);
+});
+
+function auditDir(array $lines): string
+{
+    $dir = sys_get_temp_dir().'/fitpal-audit-'.bin2hex(random_bytes(4));
+    mkdir($dir);
+    file_put_contents($dir.'/db.json', json_encode(['users' => [], 'creds' => []]));
+    file_put_contents($dir.'/audit.log', implode("\n", array_map('json_encode', $lines))."\n");
+
+    return $dir;
+}
+
+it('re-imports at cutover after Node has compacted its oldest lines away', function () {
+    $ev = fn (int $id) => ['id' => $id, 'ts' => 1790000000000 + $id, 'ev' => 'auth.login.ok', 'ok' => true];
+    // The rehearsal import: ids 1..6.
+    $this->artisan('fitpal:import-legacy', ['dataDir' => auditDir(array_map($ev, range(1, 6)))])->expectsOutputToContain('audit 6');
+    // Cutover: Node kept running, compacted 1..3 away and wrote 7..9.
+    $this->artisan('fitpal:import-legacy', ['dataDir' => auditDir(array_map($ev, range(4, 9)))])->assertSuccessful()
+        ->expectsOutputToContain('audit 3')
+        ->doesntExpectOutputToContain('fresh database');
+    expect(DB::table('audit_events')->orderBy('id')->pluck('id')->all())->toBe(range(1, 9));
+});
+
+it('refuses a log that a row inside or above its range contradicts', function () {
+    $ev = fn (int $id, string $name = 'auth.login.ok') => ['id' => $id, 'ts' => 1790000000000 + $id, 'ev' => $name, 'ok' => true];
+    DB::table('audit_events')->insert(Audit::row($ev(5, 'auth.logout')));          // same id, other event
+    $this->artisan('fitpal:import-legacy', ['dataDir' => auditDir(array_map($ev, range(4, 6)))])->expectsOutputToContain('share an id');
+
+    DB::table('audit_events')->delete();
+    DB::table('audit_events')->insert(Audit::row($ev(50)));                         // newer than the log
+    $this->artisan('fitpal:import-legacy', ['dataDir' => auditDir(array_map($ev, range(4, 6)))])->expectsOutputToContain('newer than the log');
+
+    DB::table('audit_events')->delete();
+    DB::table('audit_events')->insert(Audit::row(['ts' => 1, 'ev' => 'auth.logout'] + ['id' => 5]));   // a gap row inside the range
+    $this->artisan('fitpal:import-legacy', ['dataDir' => auditDir([$ev(4), $ev(6)])])->expectsOutputToContain('inside the log');
+});
+
+it('stops pruning while the log is off, so turning it off freezes the trail', function () {
+    config(['fitpal.audit.days' => 1]);
+    DB::table('audit_events')->insert(Audit::row(['ts' => 1, 'ev' => 'auth.login.ok']));
+    config(['fitpal.audit.enabled' => false]);
+    expect(Audit::prune())->toBe(0)->and(DB::table('audit_events')->count())->toBe(1);
+});
+
+it('trims a flood back to AUDIT_MAX on write, as Node compacted at 1.25 × AUDIT_MAX', function () {
+    config(['fitpal.audit.max' => 8]);
+    foreach (range(1, 30) as $i) {
+        Audit::record(Request::create('/'), 'auth.login.fail', ['ok' => false, 'msg' => 'challenge-expired']);
+    }
+    expect(DB::table('audit_events')->count())->toBeLessThanOrEqual(10);   // never far past 1.25 × 8
+});
+
+it('reads limit and before as numbers, as Node did', function () {
+    foreach (range(1, 3) as $i) {
+        Audit::record(Request::create('/'), 'auth.login.ok');
+    }
+    $get = fn (string $qs) => $this->getJson('/api/admin/audit?'.$qs, bearerFor($this->admin))->json();
+    expect($get('before=-1')['events'])->toBe([])                       // id < -1: nothing
+        ->and(count($get('limit=0.5')['events']))->toBe(1)              // max(1, 0.5) → 1
+        ->and($get('limit=1.5')['nextBefore'])->toBeNull()              // 1 row is not 1.5
+        ->and(count($get('before=abc')['events']))->toBe(3);            // NaN → Infinity
 });

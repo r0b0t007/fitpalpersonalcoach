@@ -5,6 +5,7 @@ namespace App\Audit;
 use App\Models\User;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -18,12 +19,17 @@ use Throwable;
  * Writing never throws: a log that cannot be written must not break signing in.
  *
  * Retention (AUDIT_DAYS, then the newest AUDIT_MAX of what is left) is defined once, in kept():
- * the read path applies it, so nothing past retention is ever served, and prune() — scheduled
- * hourly in routes/console.php, as the Node API compacted hourly — deletes the rest, off the
- * request path and on an idle instance too.
+ * the read path applies it, so nothing past retention is ever served. prune() deletes the rest,
+ * at the same two moments the Node API compacted: hourly (routes/console.php), so an idle instance
+ * honours AUDIT_DAYS too, and amortised on write, so a flood of failed sign-ins cannot grow the
+ * table far past AUDIT_MAX between two hourly runs. Like Node, none of it happens while the log is
+ * off: turning it off freezes the trail, it does not erase it.
  */
 final class Audit
 {
+    /** Column widths, shared by record() and the import so the two cannot truncate differently. */
+    private const WIDTHS = ['uid' => 16, 'name' => 40, 'tgt' => 16, 'tname' => 40, 'msg' => 120, 'ip' => 45, 'ev' => 64];
+
     /**
      * @param  array{ok?: bool, user?: ?User, uid?: ?string, name?: ?string, target?: ?User, msg?: ?string}  $f
      */
@@ -35,20 +41,39 @@ final class Audit
         try {
             $user = $f['user'] ?? null;
             $target = $f['target'] ?? null;
-            DB::table('audit_events')->insert([
+            DB::table('audit_events')->insert(self::row([
                 'ts' => self::now(),
                 'ev' => $ev,
-                'ok' => ($f['ok'] ?? true) !== false,
+                'ok' => $f['ok'] ?? true,
                 'uid' => $user?->id ?? ($f['uid'] ?? null),
-                'name' => self::cut($user?->name ?? ($f['name'] ?? null), 40),
+                'name' => $user?->name ?? ($f['name'] ?? null),
                 'tgt' => $target?->id,
-                'tname' => self::cut($target?->name, 40),
-                'msg' => self::cut($f['msg'] ?? null, 120),
+                'tname' => $target?->name,
+                'msg' => $f['msg'] ?? null,
                 'ip' => ClientIp::for($request, (string) config('fitpal.audit.ip')),
-            ]);
+            ]));
+            self::pruneIfOverflowing();
         } catch (Throwable $e) {
             Log::error('audit write failed', ['ev' => $ev, 'error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * One record as stored: widths applied, '' as null, ok a boolean that only `false` turns off.
+     * Used for live events and for imported audit.log lines alike.
+     */
+    public static function row(array $r): array
+    {
+        $out = ['ts' => (int) ($r['ts'] ?? 0), 'ok' => ($r['ok'] ?? true) !== false];
+        if (isset($r['id'])) {
+            $out['id'] = (int) $r['id'];
+        }
+        foreach (self::WIDTHS as $k => $n) {
+            $v = isset($r[$k]) && $r[$k] !== '' ? mb_substr((string) $r[$k], 0, $n) : null;
+            $out[$k] = $v;
+        }
+
+        return $out;
     }
 
     /** Restricts a query on audit_events to the rows retention keeps. */
@@ -68,6 +93,9 @@ final class Audit
     /** Deletes everything kept() excludes. Scheduled hourly; also safe to run by hand. */
     public static function prune(): int
     {
+        if (! config('fitpal.audit.enabled')) {
+            return 0;
+        }
         $days = (int) config('fitpal.audit.days');
         $deleted = $days > 0 ? DB::table('audit_events')->where('ts', '<', self::cutoff($days))->delete() : 0;
         if (($floor = self::floorId()) !== null) {
@@ -105,8 +133,23 @@ final class Audit
         return (int) floor(microtime(true) * 1000);
     }
 
-    private static function cut(?string $s, int $n): ?string
+    /**
+     * Node compacted once the log passed 1.25 × AUDIT_MAX. Counting the table on every write would
+     * cost a query per sign-in, so a shared counter (the cache, not the ids: an auto_increment step
+     * other than 1 would skip a modulo forever) checks every quarter of AUDIT_MAX writes.
+     */
+    private static function pruneIfOverflowing(): void
     {
-        return $s === null || $s === '' ? null : mb_substr($s, 0, $n);
+        $max = (int) config('fitpal.audit.max');
+        if ($max <= 0) {
+            return;
+        }
+        $every = max(1, intdiv($max, 4));
+        if (Cache::increment('audit:writes') % $every !== 0) {
+            return;
+        }
+        if (DB::table('audit_events')->count() > $max * 1.25) {
+            self::prune();
+        }
     }
 }

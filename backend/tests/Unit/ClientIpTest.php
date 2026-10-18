@@ -27,3 +27,8 @@ it('takes the address from the headers in Node\'s order, then the socket', funct
         ->and(ClientIp::for($req([], '::ffff:192.0.2.9'), 'full'))->toBe('192.0.2.9')
         ->and(ClientIp::for($req(['CF-Connecting-IP' => '198.51.100.1']), 'off'))->toBeNull();
 });
+
+it('refuses an address with a trailing newline, as JavaScript\'s $ would', function () {
+    expect(ClientIp::reduce("1.2.3.4\n", 'full'))->toBeNull()
+        ->and(ClientIp::reduce("1.2.3.4\n", 'net'))->toBeNull();
+});

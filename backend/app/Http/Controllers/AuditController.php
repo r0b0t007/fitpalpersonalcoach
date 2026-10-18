@@ -20,8 +20,11 @@ final class AuditController
         // Query values are strings in Node (searchParams.get). `?cat[]=x` is a different key there,
         // so get('cat') is null: an array here counts as absent, never as a conversion warning.
         $q = fn (string $k): string => is_string($v = $request->query($k)) ? $v : '';
-        $limit = max(1, min(200, (int) $q('limit') ?: 100));
-        $before = (int) $q('before');
+        // Node: Math.max(1, Math.min(200, +limit || 100)), +before || Infinity — numbers, not
+        // integers; 0, NaN and absent mean the default. slice() truncates a fractional limit.
+        $num = fn (string $k): float => is_numeric($q($k)) ? (float) $q($k) : 0.0;
+        $limit = max(1.0, min(200.0, $num('limit') ?: 100.0));
+        $before = $num('before');
         $cat = $q('cat');
 
         $rows = Audit::kept(DB::table('audit_events'));
@@ -37,14 +40,14 @@ final class AuditController
         }
 
         $total = (clone $rows)->count();
-        $page = $rows->when($before > 0, fn ($r) => $r->where('id', '<', $before))
-            ->orderByDesc('id')->limit($limit)->get()
+        $page = $rows->when($before != 0.0, fn ($r) => $r->where('id', '<', $before))
+            ->orderByDesc('id')->limit((int) $limit)->get()
             ->map(fn (object $r) => self::event($r))->all();
 
         return Json::ok([
             'events' => $page,
             'total' => $total,
-            'nextBefore' => count($page) === $limit ? end($page)['id'] : null,
+            'nextBefore' => (float) count($page) === $limit ? end($page)['id'] : null,
             'enabled' => (bool) config('fitpal.audit.enabled'),
             'ip_mode' => (string) config('fitpal.audit.ip'),
             'retention' => ['max' => (int) config('fitpal.audit.max'), 'days' => (int) config('fitpal.audit.days')],
