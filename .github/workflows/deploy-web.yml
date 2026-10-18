@@ -76,6 +76,13 @@ jobs:
       # is the mount, and the build has nothing to put there. Deleting it does not break the
       # deploy; it un-routes the API, and the symptom is a 404 on /api/health that looks like a
       # DNS or app problem rather than a frontend deploy that reached too far.
+      #
+      # It is excluded twice on purpose. `/api/` (trailing slash) matches only a DIRECTORY — the
+      # Passenger mount the Node API lives behind today. At the Laravel cutover `api` becomes a
+      # SYMLINK to backend/public, which that rule does not match, so --delete would remove the
+      # API on the next frontend push. `/api` (no slash) matches a symlink or a file of that name.
+      # Keep both until the Node API is retired; then `/api` alone is enough.
+      # See docs/DEPLOY_COACH_SUBDOMAIN.md, "Laravel backend" → cutover steps.
       - name: Set up SSH
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
@@ -114,7 +121,7 @@ jobs:
         run: |
           rsync -rlptz --delete \
             --exclude='/.htaccess' --exclude='/.well-known/' --exclude='/cgi-bin/' \
-            --exclude='/api/' \
+            --exclude='/api/' --exclude='/api' \
             -e "ssh -i ~/.ssh/id_deploy -p $SSH_PORT -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" \
             frontend/dist/ "$SSH_USER@$SSH_HOST:$TARGET"
 
