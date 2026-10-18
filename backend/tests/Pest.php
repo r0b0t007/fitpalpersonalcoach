@@ -18,7 +18,7 @@ pest()->extend(TestCase::class)->in('Unit');
  */
 function bearer(User $user): array
 {
-    if (strlen((string) config('fitpal.session_secret')) < 32) {
+    if (! SessionToken::configured()) {
         config(['fitpal.session_secret' => str_repeat('ab', 32)]);
     }
 

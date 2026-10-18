@@ -19,8 +19,8 @@ use stdClass;
 final class MemberCard
 {
     /**
-     * At least frontend/src/lib/adherence.js ADHERENCE_WINDOW_DAYS + 1 (MemberCardTest holds the
-     * two together). The client windows on the browser's local date and this runs on UTC, which
+     * At least frontend/src/lib/adherence.js ADHERENCE_WINDOW_DAYS + 1 (the last test in
+     * tests/Feature/CoachRosterTest.php holds the two together). The client windows on the browser's local date and this runs on UTC, which
      * differ by up to a day either way: trimming to exactly the window would silently drop the
      * oldest day for any coach west of UTC between UTC midnight and their own.
      */
@@ -36,7 +36,8 @@ final class MemberCard
     }
 
     /**
-     * One row of the roster.
+     * One row of the roster. $viewerId is the coach whose offers the card shows; null shows every
+     * coach's, as Node's memberCard(u) without a viewer did for the admin's account list (R2).
      *
      * @param  Collection<int, Assignment>  $offers  every coach's assignments for this member, oldest first
      */
@@ -45,15 +46,20 @@ final class MemberCard
         $s = self::state($u->id);
         $workouts = Js::list($s->workouts ?? null);
         $last = $workouts === [] ? null : $workouts[array_key_last($workouts)];
+        $trainable = self::trainable($s);
         // Sending used to be a black hole: a decline looked exactly like "hasn't opened the app".
+        // Node sorted String(decidedAt) descending, so a row with no date ("undefined") came
+        // before every dated one; the same here. Every Node path that decides writes a date, so
+        // only hand-edited data has such a row.
+        $key = fn (Assignment $a) => $a->decided_at ?? 'undefined';
         $lastDecided = $offers->filter(fn (Assignment $a) => $a->status === 'accepted' || $a->status === 'declined')
-            ->sort(fn (Assignment $a, Assignment $b) => strcmp((string) $b->decided_at, (string) $a->decided_at))
+            ->sort(fn (Assignment $a, Assignment $b) => strcmp($key($b), $key($a)))
             ->first();
 
-        return [
+        $card = [
             'id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso(), 'disabled' => (bool) $u->disabled,
             'workouts' => count($workouts),
-            'lastWorkout' => is_object($last) ? ($last->d ?? null) : null,
+            'lastWorkout' => null,   // set below: Node left it out of the JSON when undefined
             'lastSync' => Js::or($s->_ts ?? null, null),
             // The presence object while they train (R3 brings presence); null otherwise, as Node.
             'live' => null,
@@ -62,19 +68,32 @@ final class MemberCard
             'pending' => $offers->filter(fn (Assignment $a) => $a->status === 'pending' && ($viewerId === null || $a->coach_id === $viewerId))
                 ->map(fn (Assignment $a) => ['id' => $a->id, 'created' => $a->created, 'coachId' => $a->coach_id])
                 ->values()->all(),
-            'lastDecision' => $lastDecided ? ['status' => $lastDecided->status, 'at' => $lastDecided->decided_at] : null,
-            'adherence' => self::adherenceParts($s, $u),
+            'lastDecision' => $lastDecided
+                // `at` absent rather than null with no date, as JSON.stringify drops undefined.
+                ? ['status' => $lastDecided->status] + ($lastDecided->decided_at === null ? [] : ['at' => $lastDecided->decided_at])
+                : null,
+            'adherence' => self::adherenceParts($s, $u, $trainable),
             'lastCheckin' => self::lastCheckin($s),
             'checkinDay' => self::checkinDay($s->checkinDay ?? null),
-            'routines' => count(self::trainable($s)),
+            'routines' => count($trainable),
         ];
+        // `last ? last.d : null`: a last workout without a `d` gave undefined, which is no key at all.
+        if (Js::truthy($last)) {
+            if (is_object($last) && property_exists($last, 'd')) {
+                $card['lastWorkout'] = $last->d;
+            } else {
+                unset($card['lastWorkout']);
+            }
+        }
+
+        return $card;
     }
 
     /**
      * What frontend/src/lib/adherence.js scores, trimmed to the window: `dayPlan` holds every date
      * a member ever rescheduled, and nothing outside the window can change the answer.
      */
-    public static function adherenceParts(stdClass $s, User $u): array
+    public static function adherenceParts(stdClass $s, User $u, array $trainable): array
     {
         $since = Js::addDaysIso(gmdate('Y-m-d'), -(self::ADHERENCE_SEND_DAYS - 1));
         $dayPlan = new stdClass;
@@ -98,7 +117,7 @@ final class MemberCard
             'dayPlan' => $dayPlan,
             // Only routines that can be trained: an empty one is skipped by nextTrainingDay and
             // refused by the start button, so a day holding nothing else was not a day to miss.
-            'routineIds' => array_map(fn ($r) => $r->id ?? null, self::trainable($s)),
+            'routineIds' => array_map(fn ($r) => $r->id ?? null, $trainable),
             'trainedDays' => array_values(array_unique($trained)),
             // Clamps the near end of the window: nobody misses sessions from before they joined.
             'created' => $u->createdIso(),

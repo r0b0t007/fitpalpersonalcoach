@@ -69,6 +69,17 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     }
 
     /**
+     * Node's order for account lists (db.users as stored): imported accounts in their db.json
+     * position, then accounts made here by creation date. The id breaks a tie in the same
+     * millisecond, which Node's array order would have broken by signup order.
+     */
+    public function scopeSignupOrder(Builder $query): Builder
+    {
+        return $query->orderByRaw('legacy_order is null')->orderBy('legacy_order')
+            ->orderBy('created_at')->orderBy('id');
+    }
+
+    /**
      * The clients that take a seat: not disabled. This is what the licence cap's `used` counts
      * (spec §6, "a cap on active clients") — a disabled client frees their seat.
      *

@@ -5,6 +5,7 @@
 
 use App\Coaching\MemberCard;
 use App\Models\Assignment;
+use App\Models\User;
 use App\Models\UserState;
 use Tests\Support\Coaching;
 
@@ -134,4 +135,28 @@ it('sends at least one day more than the app\'s adherence window', function () {
     $js = file_get_contents(base_path('../frontend/src/lib/adherence.js'));
     expect(preg_match('/export const ADHERENCE_WINDOW_DAYS = (\d+)/', $js, $m))->toBe(1)
         ->and(MemberCard::ADHERENCE_SEND_DAYS)->toBeGreaterThanOrEqual((int) $m[1] + 1);
+});
+
+it('picks an undated decision first and leaves out what Node left out', function () {
+    $f = $this->f;
+    // Node sorted String(decidedAt) descending: "undefined" before any ISO date. Its `at` was
+    // undefined, so not in the JSON; nor was lastWorkout when the last workout had no `d`.
+    Assignment::query()->whereKey('assignA')->update(['status' => 'accepted', 'decided_at' => null]);
+    Assignment::query()->whereKey('assignBtoA1')->update(['status' => 'declined', 'decided_at' => '2026-05-02T00:00:00.000Z']);
+    stateOf($f->a1->id, ['workouts' => [['d' => '2026-05-01'], ['note' => 'no date']]]);
+
+    $card = collect($this->getJson('/api/coach/members', bearer($f->a))->json('members'))->firstWhere('id', $f->a1->id);
+    expect($card['lastDecision'])->toBe(['status' => 'accepted'])
+        ->and($card)->not->toHaveKey('lastWorkout')
+        ->and($card['workouts'])->toBe(2);
+});
+
+it('lists accounts in Node\'s order: db.json position first, then accounts made here by date', function () {
+    $f = $this->f;
+    // Two undated legacy accounts whose ids sort the other way round from their db.json position.
+    foreach ([['tZold00000000000', 0], ['tAold00000000000', 1]] as [$id, $pos]) {
+        tap((new User)->forceFill(['id' => $id, 'name' => $id, 'coach_id' => $f->a->id, 'created_at' => null, 'legacy_order' => $pos]))->save();
+    }
+    expect(ids($this->getJson('/api/coach/members', bearer($f->a))->json('members')))
+        ->toBe(['tZold00000000000', 'tAold00000000000', $f->a1->id, $f->a2->id]);
 });

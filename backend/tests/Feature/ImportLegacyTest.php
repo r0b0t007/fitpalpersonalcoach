@@ -103,3 +103,17 @@ it('verifies strictly: a changed type, a cut name and a duplicate id all count',
     $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify-only' => true])->assertFailed()
         ->expectsOutputToContain('vstrict000000000: /data differs');
 });
+
+it('keeps db.json\'s order, and reports a creation date that is not one instead of stopping', function () {
+    file_put_contents($this->dir.'/db.json', json_encode(['users' => [
+        ['id' => 'zzEpoch000000000', 'name' => 'Epoch', 'created' => 1715000000000],
+        ['id' => 'aaGarbled0000000', 'name' => 'Garbled', 'created' => 'last tuesday'],
+        ['id' => 'mmFine0000000000', 'name' => 'Fine', 'created' => '2026-01-01T00:00:00.000Z'],
+    ], 'creds' => []]));
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful()
+        ->expectsOutputToContain('users 3')
+        ->expectsOutputToContain('created of zzEpoch000000000 (1715000000000: not an ISO date; kept as none)');
+    expect(User::query()->find('zzEpoch000000000')->createdIso())->toBeNull()
+        ->and(User::query()->find('mmFine0000000000')->createdIso())->toBe('2026-01-01T00:00:00.000Z')
+        ->and(User::query()->signupOrder()->pluck('id')->all())->toBe(['zzEpoch000000000', 'aaGarbled0000000', 'mmFine0000000000']);
+});
