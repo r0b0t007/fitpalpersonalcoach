@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CoachRosterController;
 use App\Http\Controllers\DataController;
+use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PairController;
 use App\Http\Middleware\RequireAdmin;
@@ -35,6 +36,8 @@ $routes = static function (): void {
     Route::post('/logout', [AuthController::class, 'logout']);
     // The phone's side of pairing: no session, the code is the credential (CSRF-exempt).
     Route::post('/pair/redeem', [PairController::class, 'redeem']);
+    // The invite landing screen, before the person has an account.
+    Route::get('/invite', [InviteController::class, 'show']);
 
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/me', [AuthController::class, 'me']);
@@ -42,17 +45,24 @@ $routes = static function (): void {
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);
+        Route::post('/invite/redeem', [InviteController::class, 'redeem']);
 
         // Coach routes act as the coach (CoachContext): every tenant-owned model is scoped to them.
         Route::middleware(RequireCoach::class)->group(function (): void {
             Route::get('/coach/members', [CoachRosterController::class, 'members']);
             Route::get('/coach/member', [CoachRosterController::class, 'member']);
             Route::post('/coach/member/release', [CoachRosterController::class, 'release']);
+            Route::get('/coach/invites', [InviteController::class, 'coachIndex']);
+            Route::post('/coach/invites/new', [InviteController::class, 'coachCreate']);
+            Route::post('/coach/invites/revoke', [InviteController::class, 'coachRevoke']);
         });
 
         Route::middleware(RequireAdmin::class)->group(function (): void {
             Route::get('/admin/audit', [AuditController::class, 'index']);
             Route::post('/admin/audit/clear', [AuditController::class, 'clear']);
+            Route::get('/admin/invites', [InviteController::class, 'adminIndex']);
+            Route::post('/admin/invites/new', [InviteController::class, 'adminCreate']);
+            Route::post('/admin/invites/revoke', [InviteController::class, 'adminRevoke']);
         });
     });
 };

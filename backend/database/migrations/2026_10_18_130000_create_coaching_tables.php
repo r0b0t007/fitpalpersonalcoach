@@ -26,7 +26,10 @@ return new class extends Migration
         // Node's invites could also carry a requestId (an approved access request). Access requests
         // were a gym feature the port drops (spec §2), so the link has nothing left to point at.
         Schema::create('invites', function (Blueprint $table) {
-            $table->string('code', 32)->primary();
+            // Mint order, which Node's lists followed (db.invites as stored) and a timestamp cannot
+            // settle when two codes share a millisecond. The import inserts in db.json order.
+            $table->id('seq');
+            $table->string('code', 32)->unique();
             $table->string('note', 60)->default('');
             $table->string('created_by', 16)->nullable();
             $table->string('coach_id', 16)->nullable();

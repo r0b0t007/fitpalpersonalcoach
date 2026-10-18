@@ -17,4 +17,18 @@ final class Input
 
         return is_string($value) ? $value : '';
     }
+
+    /**
+     * `String(body.key || '')` on the body exactly as sent. Laravel's TrimStrings has already
+     * trimmed the request's JSON bag, and where Node did NOT trim — a note keeps its leading
+     * spaces, a revoke matches the code as typed — the untouched body is the only faithful read.
+     * Numbers and booleans become text as JS would write them; null, false, 0 and '' become ''.
+     */
+    public static function jsString(Request $request, string $key): string
+    {
+        $body = json_decode($request->getContent());
+        $value = is_object($body) && property_exists($body, $key) ? $body->{$key} : null;
+
+        return Js::truthy($value) ? Js::string($value) : '';
+    }
 }

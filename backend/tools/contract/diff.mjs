@@ -93,6 +93,18 @@ const clockless = req => async base => {
 };
 const release = (uid, id) => ({ method: 'POST', path: '/api/coach/member/release', headers: bearer(uid), body: { id } });
 
+// Invites are minted inside the run on each server (Laravel imports Node's with CHW-251), so a
+// case that needs a code mints its own first and then asks about it.
+const mint = async (base, uid, note = 'contract', route = '/api/coach/invites/new') =>
+  (await call(base, { method: 'POST', path: route, headers: bearer(uid), body: { note } })).json?.invite?.code;
+const coachCode = base => mint(base, 'cdCoach000000000');
+const generalCode = base => mint(base, 'cdAdmin000000000', 'general', '/api/admin/invites/new');
+const rowOf = async (base, uid, code, route = '/api/coach/invites') =>
+  ((await call(base, { path: route, headers: bearer(uid) })).json?.invites || []).find(i => i.code === code);
+// A row with its server-made values replaced by their type, so the rest compares exactly.
+const typed = row => row && Object.fromEntries(Object.entries(row).map(([k, v]) =>
+  [k, ['code', 'created', 'usedAt', 'revokedAt'].includes(k) && typeof v === 'string' ? 'a string' : v]));
+
 const fat = JSON.stringify({ state: { pad: 'x'.repeat(17 * 1024 * 1024) } });
 const CASES = [
   { name: 'health', req: { path: '/api/health' }, mode: 'exact' },
@@ -174,6 +186,77 @@ const CASES = [
   { name: 'release, by a member', req: release('cdMember00000000', 'cdMemberB0000000'), mode: 'exact' },
   { name: 'release, by an admin', req: release('cdAdmin000000000', 'cdMemberB0000000'), mode: 'exact' },
   { name: 'members, the other coach after the release', run: clockless({ path: '/api/coach/members', headers: bearer('cdCoachB00000000') }), mode: 'exact' },
+  // R2 — invites (CHW-247).
+  { name: 'invite, no code', req: { path: '/api/invite' }, mode: 'exact' },
+  { name: 'invite, made-up code', req: { path: '/api/invite?code=NOSUCHCODE000000' }, mode: 'exact' },
+  { name: 'invite, a coach’s code (lower-cased, trailing space)', run: async base => {
+    const code = await coachCode(base);
+    return call(base, { path: '/api/invite?code=' + code.toLowerCase() + '%20' });
+  }, mode: 'exact' },
+  { name: 'invite, a general code names nobody', run: async base => call(base, { path: '/api/invite?code=' + await generalCode(base) }), mode: 'exact' },
+  { name: 'coach invites, anonymous', req: { path: '/api/coach/invites' }, mode: 'exact' },
+  { name: 'coach invites, a member', req: { path: '/api/coach/invites', headers: bearer('cdMember00000000') }, mode: 'exact' },
+  { name: 'coach invites new', run: async base => {
+    const r = await call(base, { method: 'POST', path: '/api/coach/invites/new', headers: bearer('cdCoach000000000'), body: { note: 'for Nadia' } });
+    return { ...r, json: { invite: typed(r.json?.invite) } };
+  }, mode: 'exact' },
+  { name: 'coach invites, a fresh code in the list', run: async base => {
+    const code = await coachCode(base);
+    const r = await call(base, { path: '/api/coach/invites', headers: bearer('cdCoach000000000') });
+    return { ...r, json: { max: r.json?.max, row: typed(r.json?.invites?.find(i => i.code === code)) } };
+  }, mode: 'exact' },
+  { name: 'coach invites, not the other coach’s', run: async base => {
+    const code = await coachCode(base);
+    return { status: 200, json: { seen: !!await rowOf(base, 'cdCoachB00000000', code) } };
+  }, mode: 'exact' },
+  { name: 'coach invites revoke, by the other coach', run: async base =>
+    call(base, { method: 'POST', path: '/api/coach/invites/revoke', headers: bearer('cdCoachB00000000'), body: { code: await coachCode(base) } }), mode: 'exact' },
+  { name: 'coach invites revoke, an admin’s general code', run: async base =>
+    call(base, { method: 'POST', path: '/api/coach/invites/revoke', headers: bearer('cdCoach000000000'), body: { code: await generalCode(base) } }), mode: 'exact' },
+  { name: 'coach invites revoke, by the owner (then flagged in the list)', run: async base => {
+    const code = await coachCode(base);
+    const r = await call(base, { method: 'POST', path: '/api/coach/invites/revoke', headers: bearer('cdCoach000000000'), body: { code: code.toLowerCase() } });
+    return { ...r, json: { body: r.json, row: typed(await rowOf(base, 'cdCoach000000000', code)), admin: typed(await rowOf(base, 'cdAdmin000000000', code, '/api/admin/invites')) } };
+  }, mode: 'exact' },
+  { name: 'admin invites new, then as listed', run: async base => {
+    const r = await call(base, { method: 'POST', path: '/api/admin/invites/new', headers: bearer('cdAdmin000000000'), body: { note: 'for Sara' } });
+    return { ...r, json: { invite: typed(r.json?.invite), row: typed(await rowOf(base, 'cdAdmin000000000', r.json?.invite?.code, '/api/admin/invites')) } };
+  }, mode: 'exact' },
+  { name: 'admin invites, invite_only flag', run: async base => {
+    const r = await call(base, { path: '/api/admin/invites', headers: bearer('cdAdmin000000000') });
+    return { ...r, json: { invite_only: r.json?.invite_only } };
+  }, mode: 'exact' },
+  { name: 'admin invites, not an admin', req: { path: '/api/admin/invites', headers: bearer('cdCoach000000000') }, mode: 'exact' },
+  { name: 'admin invites revoke, no such code', req: { method: 'POST', path: '/api/admin/invites/revoke', headers: bearer('cdAdmin000000000'), body: { code: 'NOPE' } }, mode: 'exact' },
+  { name: 'redeem, anonymous', req: { method: 'POST', path: '/api/invite/redeem', body: { code: 'X' } }, mode: 'exact' },
+  { name: 'redeem, someone who has a coach', run: async base =>
+    call(base, { method: 'POST', path: '/api/invite/redeem', headers: bearer('cdMember00000000'), body: { code: await coachCode(base) } }), mode: 'exact' },
+  { name: 'redeem, a general code', run: async base =>
+    call(base, { method: 'POST', path: '/api/invite/redeem', headers: bearer('cdBare0000000000'), body: { code: await generalCode(base) } }), mode: 'exact' },
+  { name: 'redeem, your own link', run: async base =>
+    call(base, { method: 'POST', path: '/api/invite/redeem', headers: bearer('cdCoach000000000'), body: { code: await coachCode(base) } }), mode: 'exact' },
+  { name: 'redeem, joins the coach; the code is spent', run: async base => {
+    const code = await coachCode(base);
+    const r = await call(base, { method: 'POST', path: '/api/invite/redeem', headers: bearer('cdBare0000000000'), body: { code } });
+    const again = await call(base, { method: 'POST', path: '/api/invite/redeem', headers: bearer('cdSync0000000000'), body: { code } });
+    const row = await rowOf(base, 'cdCoach000000000', code);
+    return { ...r, json: { body: r.json, again: [again.status, again.json], usedByName: row?.usedByName } };
+  }, mode: 'exact' },
+  { name: 'coach invites new, a note kept as sent (spaces, a number)', run: async base => {
+    const spaced = await call(base, { method: 'POST', path: '/api/coach/invites/new', headers: bearer('cdCoach000000000'), body: { note: '  for Nadia' } });
+    const number = await call(base, { method: 'POST', path: '/api/coach/invites/new', headers: bearer('cdCoach000000000'), body: { note: 42 } });
+    return { status: spaced.status, json: { spaced: spaced.json?.invite?.note, number: number.json?.invite?.note } };
+  }, mode: 'exact' },
+  { name: 'coach invites revoke, a padded code is no such code', run: async base =>
+    call(base, { method: 'POST', path: '/api/coach/invites/revoke', headers: bearer('cdCoach000000000'), body: { code: ' ' + await coachCode(base) + ' ' } }), mode: 'exact' },
+  { name: 'coach invites, the open-code cap', run: async base => {
+    let r;
+    for (let i = 0; i < 25; i++) {
+      r = await call(base, { method: 'POST', path: '/api/coach/invites/new', headers: bearer('cdCoachB00000000'), body: {} });
+      if (r.status !== 200) break;
+    }
+    return r;
+  }, mode: 'exact' },
   { name: 'logout', req: { method: 'POST', path: '/api/logout', headers: bearer('cdMember00000000') }, mode: 'exact', cookies: true },
   { name: 'logout everywhere', run: async base => {
     const old = token('cdWipe0000000000', 2);
