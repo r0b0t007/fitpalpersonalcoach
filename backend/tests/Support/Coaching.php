@@ -20,7 +20,8 @@ final class Coaching
 {
     public static function twoCoaches(): object
     {
-        $u = fn (string $id, string $name, array $more = []) => User::query()->create(['id' => $id, 'name' => $name] + $more);
+        // forceFill: coach_id is not mass-assignable on User either (a request must never pick its coach).
+        $u = fn (string $id, string $name, array $more = []) => tap((new User)->forceFill(['id' => $id, 'name' => $name] + $more))->save();
         $f = (object) [
             'admin' => $u('tAdmin0000000000', 'Owner', ['admin' => true]),
             'a' => $u('tCoachA000000000', 'Coach A', ['coach' => true]),
@@ -36,7 +37,7 @@ final class Coaching
         $when = '2026-05-01T00:00:00.000Z';
         foreach (['a' => $f->a, 'b' => $f->b, 'admin' => $f->admin] as $k => $coach) {
             self::own(new Invite, $coach, ['code' => strtoupper("INV{$k}0000000000"), 'created_by' => $coach->id, 'created' => $when]);
-            self::own(new CoachProgram, $coach, ['program_id' => "prog-$k", 'name' => "Program $k", 'bundle' => '{"week":{}}', 'created' => $when, 'updated' => $when]);
+            self::own(new CoachProgram, $coach, ['program_id' => "prog-$k", 'name' => "Program $k", 'bundle' => '{"week":{}}', 'created' => 1746057600000, 'updated' => 1746057600000]);
             self::own(new ExerciseMedia, $coach, ['id' => "media$k", 'ex_id' => '0001', 'file' => "0001-$k.mp4", 'bytes' => 10, 'mime' => 'video/mp4', 'status' => 'ready', 'created' => $when]);
         }
         self::own(new Assignment, $f->a, ['id' => 'assignA', 'coach_name' => 'Coach A', 'member_id' => $f->a1->id, 'bundle' => '{}', 'status' => 'pending', 'created' => $when]);

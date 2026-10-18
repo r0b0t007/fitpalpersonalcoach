@@ -16,12 +16,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class RequireCoach
 {
-    public function __construct(private readonly CoachContext $context) {}
-
     public function handle(Request $request, Closure $next): Response
     {
         /** @var User|null $user */
-        $user = $request->user();
+        $user = $request->user('api');
         // Inside auth:api this never happens (the guard answers the 401 first); it stays so the
         // middleware is correct on its own.
         if ($user === null) {
@@ -30,7 +28,8 @@ final class RequireCoach
         if (! $user->isCoach()) {
             return Json::error(403, 'forbidden');
         }
-        $this->context->set($user);
+        // Resolved here, not injected: the context is per request, a middleware instance may not be.
+        app(CoachContext::class)->set($user);
 
         return $next($request);
     }

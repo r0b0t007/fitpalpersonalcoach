@@ -20,10 +20,11 @@ use LogicException;
  *    invite code is unique across all coaches). Every call states why on the same line, as
  *    `// across coaches: …` — tests/Feature/TenantModelsTest.php fails otherwise.
  *
- * With no context (admin routes, scheduler, import) the model is unscoped. Controllers never
- * write where('coach_id', …) by hand, and never insert()/upsert() these models through the query
- * builder, which skips model events — TenantModelsTest checks both, and that every model whose
- * table has a coach_id column uses this trait.
+ * With no context (admin routes, scheduler, import) the model is unscoped. Inside one, builder
+ * writes that skip model events (insert/upsert, an update() setting coach_id) are refused by
+ * TenantBuilder. Code under app/ never writes where('coach_id', …) by hand nor reaches these
+ * tables through DB::table() — TenantModelsTest checks both, and that every model whose table has
+ * a coach_id column uses this trait.
  */
 trait OwnedByCoach
 {
@@ -56,6 +57,18 @@ trait OwnedByCoach
                 throw new LogicException(static::class.' moved to coach '.$model->getAttribute('coach_id')." while acting as coach $coach");
             }
         });
+    }
+
+    /** Every query on the model goes through TenantBuilder, which refuses builder-level writes that skip the events above. */
+    public function newEloquentBuilder($query): TenantBuilder
+    {
+        return new TenantBuilder($query);
+    }
+
+    /** A model's own save is allowed through TenantBuilder's insert guard: `creating` has already checked it. */
+    protected function performInsert(Builder $query)
+    {
+        return parent::performInsert($query instanceof TenantBuilder ? $query->forModelSave() : $query);
     }
 
     /**

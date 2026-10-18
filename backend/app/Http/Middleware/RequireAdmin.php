@@ -19,7 +19,7 @@ final class RequireAdmin
     public function handle(Request $request, Closure $next): Response
     {
         /** @var User|null $user */
-        $user = $request->user();
+        $user = $request->user('api');
         // Inside auth:api (where routes/api.php mounts it) this never happens: the guard answers
         // the same 401 first. It stays so the middleware is correct on its own, not by placement.
         if ($user === null) {

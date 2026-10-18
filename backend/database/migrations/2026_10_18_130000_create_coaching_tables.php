@@ -8,8 +8,9 @@ use Illuminate\Support\Facades\Schema;
 // the OwnedByCoach scope keeps every query inside the acting coach's rows. Their routes arrive
 // with the R2/R3 tickets; the tables come first so the boundary exists before anything reads them.
 //
-// Timestamps are the Node API's ISO strings ("2026-05-01T10:20:30.000Z"), kept as strings: the
-// app reads them back verbatim, and an import must not reformat them. ISO-8601 sorts as text.
+// Timestamps keep the Node API's own types — ISO strings ("2026-05-01T10:20:30.000Z") where Node
+// wrote ISO strings, epoch milliseconds where it wrote Date.now() — because the app reads them
+// back verbatim and an import must not reformat them. ISO-8601 sorts as text.
 //
 // Every coach_id here RESTRICTS deletion of the user. The Node API never deleted an account: losing
 // the coach role or being disabled ran detachCoach, which revoked the coach's open codes (with a
@@ -22,6 +23,8 @@ return new class extends Migration
     {
         // A sign-up code. A coach's carries coach_id, which puts the client who redeems it on that
         // coach's roster; an admin's general code has none (and binds nobody).
+        // Node's invites could also carry a requestId (an approved access request). Access requests
+        // were a gym feature the port drops (spec §2), so the link has nothing left to point at.
         Schema::create('invites', function (Blueprint $table) {
             $table->string('code', 32)->primary();
             $table->string('note', 60)->default('');
@@ -45,8 +48,9 @@ return new class extends Migration
             $table->string('program_id', 64);
             $table->string('name', 60);
             $table->longText('bundle');   // raw JSON, never round-tripped: {} must stay {}
-            $table->string('created', 30);
-            $table->string('updated', 30);
+            // Epoch milliseconds, not ISO strings: Node's upsertProgram stamps Date.now() here.
+            $table->unsignedBigInteger('created');
+            $table->unsignedBigInteger('updated');
             $table->foreign('coach_id')->references('id')->on('users')->restrictOnDelete();
             $table->unique(['coach_id', 'program_id']);
         });
@@ -72,7 +76,7 @@ return new class extends Migration
         // A coach's demo video or image for an exercise. The file lives on the media disk.
         Schema::create('exercise_media', function (Blueprint $table) {
             $table->string('id', 16)->primary();
-            $table->string('ex_id', 32);
+            $table->string('ex_id', 40);   // Node: /^[A-Za-z0-9_-]{1,40}$/
             $table->string('coach_id', 16);
             $table->string('file', 160);
             $table->string('label', 40)->default('');

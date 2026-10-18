@@ -13,4 +13,10 @@ class CoachProgram extends Model
     public $timestamps = false;
 
     protected $fillable = ['program_id', 'name', 'bundle', 'created', 'updated'];
+
+    /** Epoch milliseconds, as Node's Date.now() wrote them: the app reads numbers back. */
+    protected function casts(): array
+    {
+        return ['created' => 'integer', 'updated' => 'integer'];
+    }
 }

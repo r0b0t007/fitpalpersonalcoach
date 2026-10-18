@@ -31,6 +31,11 @@ beforeEach(function () {
         'assignments' => Assignment::query()->pluck('id')->all(),
         'media' => ExerciseMedia::query()->pluck('id')->all(),
     ]));
+    // Route-model binding: {invite} is resolved by SubstituteBindings, which must run AFTER the
+    // coach context is set or the lookup is unscoped.
+    Route::middleware(['api', 'auth:api', RequireCoach::class])->get('/api/coach/_invite/{invite}', fn (Invite $invite) => response()->json(['code' => $invite->code]));
+    // RequireCoach without auth:api in front of it: it must read the bearer itself.
+    Route::middleware(['api', RequireCoach::class])->get('/api/coach/_alone', fn () => response()->json(['context' => app(CoachContext::class)->id()]));
     Route::middleware(['api'])->get('/api/_unscoped', fn () => response()->json([
         'context' => app(CoachContext::class)->id(),
         'invites' => Invite::query()->count(),
@@ -87,14 +92,14 @@ it('finds another coach\'s row by its key as nothing at all — the 404 Node ans
 
 it('writes the acting coach onto a new row, and refuses a row for another coach', function () {
     app(CoachContext::class)->set($this->f->a);
-    $p = CoachProgram::query()->create(['program_id' => 'new', 'name' => 'New', 'bundle' => '{}', 'created' => 'x', 'updated' => 'x']);
+    $p = CoachProgram::query()->create(['program_id' => 'new', 'name' => 'New', 'bundle' => '{}', 'created' => 1, 'updated' => 1]);
     expect($p->coach_id)->toBe($this->f->a->id);
 
     // Not even mass-assignable: a request body can never carry coach_id onto a row.
-    expect(fn () => CoachProgram::query()->create(['coach_id' => $this->f->b->id, 'program_id' => 'sneaky', 'name' => 'S', 'bundle' => '{}', 'created' => 'x', 'updated' => 'x']))
+    expect(fn () => CoachProgram::query()->create(['coach_id' => $this->f->b->id, 'program_id' => 'sneaky', 'name' => 'S', 'bundle' => '{}', 'created' => 1, 'updated' => 1]))
         ->toThrow(MassAssignmentException::class);
     // Set directly, it is refused on create…
-    expect(fn () => (new CoachProgram)->forceFill(['coach_id' => $this->f->b->id, 'program_id' => 'sneaky', 'name' => 'S', 'bundle' => '{}', 'created' => 'x', 'updated' => 'x'])->save())
+    expect(fn () => (new CoachProgram)->forceFill(['coach_id' => $this->f->b->id, 'program_id' => 'sneaky', 'name' => 'S', 'bundle' => '{}', 'created' => 1, 'updated' => 1])->save())
         ->toThrow(LogicException::class);
     // …and on update: a scoped row cannot be handed to another coach.
     $mine = CoachProgram::query()->where('program_id', 'prog-a')->first();
@@ -177,7 +182,39 @@ it('refuses to delete a coach who still has rows: no open code turns general, no
 
 it('leaves a deleted coach\'s clients unassigned, never pointing at an account that is gone', function () {
     $c = User::query()->create(['id' => 'tLoneCoach000000', 'name' => 'Lone', 'coach' => true]);
-    $client = User::query()->create(['id' => 'tLoneClient00000', 'name' => 'Theirs', 'coach_id' => $c->id]);
+    $client = tap((new User)->forceFill(['id' => 'tLoneClient00000', 'name' => 'Theirs', 'coach_id' => $c->id]))->save();
     DB::table('users')->where('id', $c->id)->delete();   // no coaching rows, so allowed
     expect($client->fresh()->coach_id)->toBeNull();
 })->skip(fn () => DB::getDriverName() === 'sqlite' && ! DB::selectOne('PRAGMA foreign_keys')->foreign_keys, 'foreign keys are off on this SQLite connection');
+
+it('resolves a tenant model bound from the URL inside the coach scope', function () {
+    $this->getJson('/api/coach/_invite/INVA0000000000', bearer($this->f->a))->assertOk()->assertExactJson(['code' => 'INVA0000000000']);
+    // Coach B's code, asked for by coach A: not found, exactly as if it did not exist.
+    $this->getJson('/api/coach/_invite/INVB0000000000', bearer($this->f->a))->assertStatus(404)->assertExactJson(['error' => 'not found']);
+});
+
+it('reads the bearer itself when used without auth:api', function () {
+    $this->getJson('/api/coach/_alone', bearer($this->f->a))->assertOk()->assertExactJson(['context' => $this->f->a->id]);
+    $this->getJson('/api/coach/_alone')->assertStatus(401)->assertExactJson(['error' => 'not signed in']);
+});
+
+it('refuses builder-level writes that would skip the ownership checks inside a coach context', function () {
+    app(CoachContext::class)->set($this->f->a);
+    // Moving rows in bulk, however the call is laid out.
+    expect(fn () => Invite::query()
+        ->where('code', 'INVA0000000000')
+        ->update(['coach_id' => $this->f->b->id]))->toThrow(LogicException::class);
+    // Rows that never pass `creating`.
+    $row = ['program_id' => 'bulk', 'name' => 'Bulk', 'bundle' => '{}', 'created' => 1, 'updated' => 1, 'coach_id' => $this->f->b->id];
+    expect(fn () => CoachProgram::query()->insert($row))->toThrow(LogicException::class)
+        ->and(fn () => CoachProgram::query()->insertOrIgnore($row))->toThrow(LogicException::class)
+        ->and(fn () => CoachProgram::query()->upsert([$row], ['coach_id', 'program_id']))->toThrow(LogicException::class);
+    expect(DB::table('coach_programs')->where('program_id', 'bulk')->exists())->toBeFalse()
+        ->and(DB::table('invites')->where('code', 'INVA0000000000')->value('coach_id'))->toBe($this->f->a->id);
+    // An ordinary bulk update that leaves the owner alone is fine.
+    expect(Invite::query()->where('code', 'INVA0000000000')->update(['note' => 'renamed']))->toBe(1);
+});
+
+it('allows builder-level writes with no context — the import and admin paths need them', function () {
+    expect(CoachProgram::query()->insert(['program_id' => 'bulk', 'name' => 'Bulk', 'bundle' => '{}', 'created' => 1, 'updated' => 1, 'coach_id' => $this->f->b->id]))->toBeTrue();
+});

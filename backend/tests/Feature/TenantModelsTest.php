@@ -62,19 +62,22 @@ it('leaves the coach filter to the scope: nothing under app/ filters on coach_id
     $filter = "/(?:where\w*|firstwhere)\s*\(\s*\[?\s*['\"](?:\w+\.)?coach_id['\"]|wherecoachid\s*\(/i";
     $offenders = [];
     foreach (appLines() as [$file, $n, $line]) {
-        if (preg_match($filter, $line)) {
+        // Console commands (the import) run with no coach context, where filtering by hand is the job.
+        if (! str_contains($file, 'Console') && preg_match($filter, $line)) {
             $offenders[] = "$file:$n";
         }
     }
     expect($offenders)->toBe([]);
 });
 
-it('never writes a tenant model through the query builder, which skips the ownership checks', function () {
-    $models = 'Invite|CoachProgram|Assignment|ExerciseMedia';
-    $bulk = "/\b(?:$models)::(?:query\(\)->|acrossCoaches\(\)->)?(?:insert|insertOrIgnore|insertGetId|upsert)\s*\(/";
+it('never reaches a tenant table through DB::table() outside console commands', function () {
+    // DB::table() is not Eloquent: no scope, no ownership checks, no TenantBuilder. Model writes
+    // that skip events are refused at runtime by TenantBuilder; this is the one way round it.
+    // Console commands (the import) run with no coach context and are exempt.
+    $raw = "/DB::table\(\s*['\"](?:invites|coach_programs|assignments|exercise_media)['\"]/";
     $offenders = [];
     foreach (appLines() as [$file, $n, $line]) {
-        if (preg_match($bulk, $line)) {
+        if (! str_contains($file, 'Console') && preg_match($raw, $line)) {
             $offenders[] = "$file:$n";
         }
     }

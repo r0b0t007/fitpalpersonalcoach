@@ -26,7 +26,7 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     public const UPDATED_AT = null;
 
     protected $fillable = [
-        'id', 'name', 'email', 'admin', 'coach', 'self_serve', 'coach_id', 'disabled', 'sv', 'invited_by',
+        'id', 'name', 'email', 'admin', 'coach', 'self_serve', 'disabled', 'sv', 'invited_by',
         'last_reminder', 'last_checkin_reminder', 'created_at',
     ];
 

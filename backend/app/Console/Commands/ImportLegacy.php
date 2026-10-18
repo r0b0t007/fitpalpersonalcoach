@@ -95,17 +95,21 @@ final class ImportLegacy extends Command
         // key, and db.json may list a client before their coach. A coachId naming no account (Node
         // answered coachName null for it) is left empty and reported.
         $skipped = [];
+        $exists = array_flip(User::query()->pluck('id')->all());
+        $current = User::query()->whereNotNull('coach_id')->pluck('coach_id', 'id')->all();
         foreach ($db['users'] ?? [] as $u) {
             if (! is_string($u['id'] ?? null) || ! array_key_exists($u['id'], $seen) || $seen[$u['id']] === 'linked') {
                 continue;
             }
             $seen[$u['id']] = 'linked';
             $coach = is_string($u['coachId'] ?? null) ? $u['coachId'] : null;
-            if ($coach !== null && ! User::query()->whereKey($coach)->exists()) {
+            if ($coach !== null && ! isset($exists[$coach])) {
                 $skipped[] = "coach of {$u['id']} ($coach: no such account)";
                 $coach = null;
             }
-            User::query()->whereKey($u['id'])->update(['coach_id' => $coach]);
+            if (($current[$u['id']] ?? null) !== $coach) {   // a rerun writes only what changed
+                User::query()->whereKey($u['id'])->update(['coach_id' => $coach]);
+            }
         }
 
         $creds = 0;
@@ -206,7 +210,10 @@ final class ImportLegacy extends Command
             $request = Request::create($path, 'GET', server: ['HTTP_AUTHORIZATION' => 'Bearer '.SessionToken::make($user)]);
             $response = $kernel->handle($request);
             $kernel->terminate($request, $response);
+            // Each replayed request starts clean, as a real one would: no signed-in user and no
+            // coach context carried over from the previous coach's request.
             app('auth')->forgetGuards();
+            app()->forgetScopedInstances();
 
             return $response;
         };
