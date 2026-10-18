@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Auth\SessionToken;
 use App\Models\User;
+use App\Support\Input;
 use App\Support\Json;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\JsonResponse;
@@ -30,10 +31,11 @@ final class PairController
     {
         /** @var User $user */
         $user = $request->user();
+        // add() writes only if the key is free, atomically: two people can never be handed the
+        // same live code (has-then-put could, under concurrency).
         do {
             $code = self::newCode();
-        } while ($this->cache->has(self::key($code)));
-        $this->cache->put(self::key($code), $user->id, self::TTL);
+        } while (! $this->cache->add(self::key($code), $user->id, self::TTL));
         Audit::record($request, 'auth.pair.create', ['user' => $user]);
 
         return Json::ok(['code' => $code]);
@@ -41,10 +43,11 @@ final class PairController
 
     public function redeem(Request $request): JsonResponse
     {
-        $raw = $request->input('code');
-        $code = strtoupper(trim(is_string($raw) ? $raw : ''));
-        // Taken on first sight, whatever happens next: a code works once.
-        $uid = $code === '' ? null : $this->cache->pull(self::key($code));
+        $code = strtoupper(trim(Input::str($request, 'code')));
+        // Taken on first sight, whatever happens next: a code works once. pull() is a get then a
+        // forget, so two phones racing the same code could both read it; the lock makes the claim
+        // atomic, and the loser of the race is refused like any spent code.
+        $uid = $code === '' ? null : $this->cache->lock('pair:claim:'.$code, 10)->get(fn () => $this->cache->pull(self::key($code)));
         if (! is_string($uid)) {
             Audit::record($request, 'auth.pair.fail', ['ok' => false, 'msg' => 'code-invalid']);
 

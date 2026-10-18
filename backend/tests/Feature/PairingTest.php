@@ -57,3 +57,15 @@ it('draws codes evenly from the 32-letter alphabet', function () {
     $seen = count_chars(implode('', array_map(fn () => PairController::newCode(), range(1, 400))), 3);
     expect(strlen($seen))->toBe(32);   // every letter shows up in 3,200 draws
 });
+
+it('lets only one of two racing phones claim a code', function () {
+    $code = $this->postJson('/api/pair/create', [], $this->bearer)->json('code');
+    // The other phone is mid-claim: it holds the claim lock. This one is refused, the code survives.
+    $claim = cache()->lock('pair:claim:'.$code, 10);
+    expect($claim->get())->toBeTrue();
+    $this->postJson('/api/pair/redeem', ['code' => $code])->assertStatus(400);
+    $claim->release();
+    // The winner completes its claim; after that the code is spent for everyone.
+    $this->postJson('/api/pair/redeem', ['code' => $code])->assertOk();
+    $this->postJson('/api/pair/redeem', ['code' => $code])->assertStatus(400);
+});

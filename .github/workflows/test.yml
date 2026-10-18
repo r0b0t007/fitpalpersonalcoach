@@ -227,6 +227,10 @@ jobs:
         working-directory: backend
       - run: ./vendor/bin/pest --ci
         working-directory: backend
+        env:
+          # Tests that wait out a real lock or timeout (seconds, not minutes) run here; locally
+          # they are skipped unless asked for.
+          SLOW_TESTS: '1'
       - name: Make the MariaDB service look like the host (MyISAM, latin1)
         run: |
           mysql -h127.0.0.1 -uroot -proot -e "SET GLOBAL default_storage_engine=MyISAM; ALTER DATABASE fitpal CHARACTER SET latin1 COLLATE latin1_swedish_ci;"

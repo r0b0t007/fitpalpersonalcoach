@@ -121,6 +121,12 @@ final class SessionToken
         return rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, (string) self::secret(), true)), '+/', '-_'), '=');
     }
 
+    /** Whether sessions can be signed at all; fitpal:check-config asks this rather than re-deriving it. */
+    public static function configured(): bool
+    {
+        return self::secret() !== null;
+    }
+
     private static function secret(): ?string
     {
         $secret = (string) config('fitpal.session_secret');

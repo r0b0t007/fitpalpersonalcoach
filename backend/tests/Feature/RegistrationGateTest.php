@@ -86,3 +86,35 @@ it('says so when the bootstrap or session configuration will not behave', functi
     config(['fitpal.session_secret' => str_repeat('ab', 32)]);
     $this->artisan('fitpal:check-config')->assertSuccessful()->expectsOutputToContain('configuration ok');
 });
+
+it('counts the bootstrap secret in characters, not bytes', function () {
+    $nine = str_repeat('é', 9);   // 18 bytes, 9 characters: too short
+    expect(Bootstrap::matches($nine, 0, $nine))->toBeFalse();
+    config(['fitpal.bootstrap_code' => $nine, 'fitpal.invite_only' => true, 'fitpal.session_secret' => str_repeat('ab', 32)]);
+    $this->artisan('fitpal:check-config')->assertFailed()->expectsOutputToContain('under 16 characters');
+});
+
+it('only queues a sign-up behind the gate lock when it carries a code', function () {
+    $held = cache()->lock('register:gate', 30);
+    expect($held->get())->toBeTrue();
+
+    // No code: nothing to race over, so it goes straight through even while the lock is held.
+    (new Passkey)->register($this, 'No code')->assertOk();
+
+    // With a code, a sign-up stuck behind the lock gets a sentence the app translates, not a 500.
+    config(['fitpal.invite_only' => true, 'fitpal.bootstrap_code' => BOOT]);
+    DB::table('users')->delete();
+    $r = (new Passkey)->register($this, 'Queued', BOOT);
+    $r->assertStatus(503)->assertExactJson(['error' => 'challenge expired — try again']);
+    expect(DB::table('audit_events')->where('msg', 'busy')->count())->toBe(1);
+    $held->release();
+})->skip(fn () => ! getenv('SLOW_TESTS'), 'waits out the 5 s lock; run with SLOW_TESTS=1');
+
+it('does not serialise an open sign-up without a code behind the gate lock', function () {
+    $held = cache()->lock('register:gate', 30);
+    expect($held->get())->toBeTrue();
+    $t = microtime(true);
+    (new Passkey)->register($this, 'No code')->assertOk();
+    expect(microtime(true) - $t)->toBeLessThan(2.0);
+    $held->release();
+});

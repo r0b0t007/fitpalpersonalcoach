@@ -20,7 +20,7 @@ final class CheckConfig extends Command
     public function handle(): int
     {
         $warnings = Bootstrap::warnings();
-        if (strlen((string) config('fitpal.session_secret')) < SessionToken::MIN_SECRET_LENGTH) {
+        if (! SessionToken::configured()) {
             $warnings[] = 'SESSION_SECRET is unset or shorter than '.SessionToken::MIN_SECRET_LENGTH.' characters — nobody can sign in. In production it is the contents of the old DATA_DIR/secret.';
         }
         foreach ($warnings as $w) {
