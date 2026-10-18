@@ -15,7 +15,7 @@ beforeEach(function () {
     ]);
     $this->coachB = User::query()->create(['id' => 'coachB0000000000', 'name' => 'Coach B', 'coach' => true]);
     $this->mem1 = User::query()->create(['id' => 'mem1000000000000', 'name' => 'Member 1']);
-    $this->mem2 = User::query()->create(['id' => 'mem2000000000000', 'name' => 'Member 2', 'coach_id' => 'coachB0000000000']);
+    $this->mem2 = tap((new User)->forceFill(['id' => 'mem2000000000000', 'name' => 'Member 2', 'coach_id' => 'coachB0000000000']))->save();
 });
 
 it('/api/me exposes the role', function () {

@@ -4,6 +4,7 @@ use App\Http\Controllers\DataController;
 use App\Http\Middleware\CsrfOrigin;
 use App\Http\Middleware\NoStore;
 use App\Http\Middleware\ReflectOrigin;
+use App\Http\Middleware\RequireCoach;
 use App\Support\ClientSafe;
 use App\Support\Json;
 use Illuminate\Auth\AuthenticationException;
@@ -53,6 +54,11 @@ return Application::configure(basePath: dirname(__DIR__))
             CsrfOrigin::class,
             SubstituteBindings::class,
         ]);
+        // The coach context must exist BEFORE route-model binding resolves {invite}, {assignment}…
+        // from the URL, or the lookup runs unscoped and hands coach A coach B's row. The group puts
+        // SubstituteBindings first; this priority moves RequireCoach ahead of it (and it stays
+        // after Authenticate, which the default priority already places before both).
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: RequireCoach::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // This backend is an API; only the Filament panel renders HTML.
