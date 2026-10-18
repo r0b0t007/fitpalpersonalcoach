@@ -46,6 +46,15 @@ use Throwable;
  */
 final class AuthController
 {
+    /**
+     * How long the browser shows the passkey prompt: 60 s, as the Node API sent (the
+     *
+     * @simplewebauthn default). Laragear derives it from the challenge lifetime, which stays at
+     * five minutes (CacheChallengeRepository::TTL, Node's challenge store) — the two are different
+     * things, and the contract diff caught them sharing one number.
+     */
+    public const PROMPT_TIMEOUT_MS = 60_000;
+
     public function __construct(private readonly Cache $cache) {}
 
     public function registerOptions(Request $request): JsonResponse
@@ -72,6 +81,8 @@ final class AuthController
         $creation = app(AttestationCreator::class)
             ->send(new AttestationCreation(user: $user, residentKey: ResidentKey::Required, userVerification: UserVerification::Preferred, uniqueCredentials: false))
             ->thenReturn();
+
+        $creation->json->set('timeout', self::PROMPT_TIMEOUT_MS);
 
         return Json::ok(['cid' => $request->attributes->get(CacheChallengeRepository::CID_ATTRIBUTE), 'options' => $creation->json->toArray()]);
     }
@@ -153,6 +164,8 @@ final class AuthController
     {
         // Discoverable credentials: no user and no allowCredentials, the authenticator picks.
         $creation = $creator->send(new AssertionCreation(userVerification: UserVerification::Preferred))->thenReturn();
+
+        $creation->json->set('timeout', self::PROMPT_TIMEOUT_MS);
 
         return Json::ok(['cid' => $request->attributes->get(CacheChallengeRepository::CID_ATTRIBUTE), 'options' => $creation->json->toArray()]);
     }

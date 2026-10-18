@@ -47,10 +47,14 @@ const SENDERS = [
 // A sender's message argument that is not one readable literal: "…", a variable, a cast, or a
 // literal concatenated with something.
 const OPAQUE = String.raw`(?:"|\$|\(string\)|'(?:\\.|[^'\\])*'\s*\.)`;
+// Matched against the whole file, not line by line, so a call split over several lines is still
+// seen. Say::f's template must be a literal too: it IS the key.
 const SHAPES = [
-  new RegExp(String.raw`\bJson::error\(\s*` + STATUS + String.raw`,\s*` + OPAQUE),
-  new RegExp(String.raw`\bnew ClientSafe\(\s*` + STATUS + String.raw`,\s*` + OPAQUE),
+  new RegExp(String.raw`\bJson::error\(\s*` + STATUS + String.raw`,\s*` + OPAQUE, 'g'),
+  new RegExp(String.raw`\bnew ClientSafe\(\s*` + STATUS + String.raw`,\s*` + OPAQUE, 'g'),
+  new RegExp(String.raw`\bSay::f\(\s*(?!')`, 'g'),
 ];
+// An opt-out sits on the line where the call starts.
 const OPT_OUT = /\/\/ (?:not sent|relayed):/;
 
 const keys = new Map();   // key -> file it was first seen in
@@ -59,10 +63,12 @@ for (const f of files) {
   const rel = relative(backend, f).replaceAll('\\', '/');
   // Comment lines describe, they do not send.
   const lines = readFileSync(f, 'utf8').split('\n').map(l => l.replace(/^\s*(\/\/|\/\*|\*).*$/, ''));
-  for (const re of SENDERS) for (const m of lines.join('\n').matchAll(re)) if (!keys.has(unq(m[1]))) keys.set(unq(m[1]), rel);
-  lines.forEach((line, n) => {
-    if (!OPT_OUT.test(line) && SHAPES.some(re => re.test(line))) bad.push(`${rel}:${n + 1}  ${line.trim()}`);
-  });
+  const text = lines.join('\n');
+  for (const re of SENDERS) for (const m of text.matchAll(re)) if (!keys.has(unq(m[1]))) keys.set(unq(m[1]), rel);
+  for (const re of SHAPES) for (const m of text.matchAll(re)) {
+    const n = text.slice(0, m.index).split('\n').length - 1;
+    if (!OPT_OUT.test(lines[n])) bad.push(`${rel}:${n + 1}  ${lines[n].trim()}`);
+  }
 }
 
 let failed = false;

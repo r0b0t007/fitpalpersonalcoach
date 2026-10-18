@@ -25,6 +25,22 @@ final class Json
         return self::respond(Say::envelope($error, $extra), $status, $headers, []);
     }
 
+    /**
+     * The sentence for a refusal that no route worded itself (abort(), a throttle, maintenance,
+     * validation): always one of the catalogue's, so the app can translate it, never the
+     * framework's own English. Each is also sent as a literal elsewhere, so
+     * scripts/check-error-strings.mjs holds them to the locale packs.
+     */
+    public static function refusal(int $status): string
+    {
+        return match (true) {
+            $status === 401 => 'not signed in',
+            $status === 404, $status === 405 => 'not found',
+            $status >= 500 => 'server error',
+            default => 'forbidden',
+        };
+    }
+
     private static function respond(array $body, int $status, array $headers, array $cookies): JsonResponse
     {
         $response = (new JsonResponse($body, $status, $headers, self::FLAGS))->header('Cache-Control', 'no-store');

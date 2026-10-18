@@ -7,6 +7,7 @@ use App\Auth\SessionToken;
 use App\Http\Request;
 use App\Models\User;
 use App\Models\UserState;
+use App\Support\Json;
 use App\WebAuthn\LegacyCredential;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
@@ -55,10 +56,17 @@ final class ImportLegacy extends Command
         }
 
         $users = 0;
+        $seen = [];
         foreach ($db['users'] ?? [] as $u) {
             if (empty($u['id']) || ! is_string($u['id'])) {
                 continue;
             }
+            // A duplicated id: Node's db.users.find answered with the FIRST row, so that is the
+            // account; a later row with the same id was never reachable there.
+            if (isset($seen[$u['id']])) {
+                continue;
+            }
+            $seen[$u['id']] = true;
             $user = User::query()->firstOrNew(['id' => $u['id']]);
             $user->fill([
                 'name' => mb_substr((string) ($u['name'] ?? ''), 0, 40),
@@ -175,7 +183,8 @@ final class ImportLegacy extends Command
     private function verify(array $db, string $dir): int
     {
         $kernel = app(HttpKernel::class);
-        $byId = collect($db['users'] ?? [])->filter(fn ($u) => is_string($u['id'] ?? null))->keyBy('id');
+        // unique() keeps the FIRST row per id, as Node's db.users.find does; keyBy alone keeps the last.
+        $byId = collect($db['users'] ?? [])->filter(fn ($u) => is_string($u['id'] ?? null))->unique('id')->keyBy('id');
         $adminUids = (array) config('fitpal.admin_uids');
         $problems = [];
         $get = function (User $user, string $path) use ($kernel) {
@@ -206,7 +215,9 @@ final class ImportLegacy extends Command
             $isAdmin = ($u['admin'] ?? null) === true || in_array($id, $adminUids, true);
             $coach = isset($u['coachId']) ? $byId->get($u['coachId']) : null;
             $want = [
-                'id' => $id, 'name' => mb_substr((string) ($u['name'] ?? ''), 0, 40), 'admin' => $isAdmin,
+                // What NODE would answer — publicUser sends the name as stored — not what the
+                // import produces: a name the import had to cut must show up as a difference.
+                'id' => $id, 'name' => $u['name'] ?? null, 'admin' => $isAdmin,
                 'coach' => ($u['coach'] ?? null) === true || $isAdmin,
                 'coachName' => $coach['name'] ?? null,
             ];
@@ -219,8 +230,10 @@ final class ImportLegacy extends Command
             // Node's GET /api/data answers the file exactly as stored, and the import stores it raw.
             $wantState = is_file($file) ? json_decode((string) file_get_contents($file)) : null;
             $gotState = json_decode((string) $get($user, '/api/data')->getContent())->state ?? null;
-            // == on decoded JSON compares objects and arrays deeply, and keeps {} apart from [].
-            if ($gotState != $wantState) {
+            // Compared re-encoded, not with ==, which is loose all the way down ("5" == 5,
+            // null == false): a type the app would see changed must count as a difference.
+            // Decoding to objects keeps {} apart from [].
+            if (json_encode($gotState, Json::FLAGS) !== json_encode($wantState, Json::FLAGS)) {
                 $problems[] = "$id: /data differs from state-$id.json";
             }
         }

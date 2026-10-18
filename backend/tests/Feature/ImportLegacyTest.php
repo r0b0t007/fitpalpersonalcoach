@@ -83,3 +83,23 @@ it('verifies every account through /me and /data, and fails on a mismatch', func
 
     $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify' => true])->assertSuccessful();
 });
+
+it('verifies strictly: a changed type, a cut name and a duplicate id all count', function () {
+    $long = str_repeat('Ü', 45);   // Node would send all 45; the import keeps 40
+    $users = [
+        ['id' => 'vstrict000000000', 'name' => 'Strict'],
+        ['id' => 'vlong00000000000', 'name' => $long],
+        ['id' => 'vdup000000000000', 'name' => 'First'], ['id' => 'vdup000000000000', 'name' => 'Second'],
+    ];
+    file_put_contents($this->dir.'/db.json', json_encode(['users' => $users, 'creds' => []]));
+    file_put_contents($this->dir.'/state-vstrict000000000.json', '{"_ts":5,"unit":null,"n":"1"}');
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify' => true])->assertFailed()
+        ->expectsOutputToContain('vlong00000000000: /me is')       // the import cut the name
+        ->doesntExpectOutputToContain('vdup000000000000');         // both take the first row, as Node's find()
+    expect(User::query()->find('vdup000000000000')->name)->toBe('First');
+
+    // Same values, other types: == would call these equal; the app would not.
+    DB::table('user_states')->where('user_id', 'vstrict000000000')->update(['state' => '{"_ts":"5","unit":false,"n":1}']);
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify-only' => true])->assertFailed()
+        ->expectsOutputToContain('vstrict000000000: /data differs');
+});

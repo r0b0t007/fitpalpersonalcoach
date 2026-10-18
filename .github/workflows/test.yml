@@ -11,6 +11,7 @@ on:
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
       - '.github/workflows/test.yml'
+      - '.github/actions/**'
   push:
     branches: [main, coach]
     paths:
@@ -20,6 +21,7 @@ on:
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
       - '.github/workflows/test.yml'
+      - '.github/actions/**'
   workflow_dispatch:
 
 permissions:
@@ -207,20 +209,7 @@ jobs:
         shell: bash -eo pipefail {0}
     steps:
       - uses: actions/checkout@v7
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: mbstring, intl, sodium, pdo_sqlite, pdo_mysql, gd, fileinfo, bcmath
-          coverage: none
-      - id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-      - name: Cache Composer
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
-      - run: composer install --no-interaction --prefer-dist --no-progress
-        working-directory: backend
+      - uses: ./.github/actions/setup-backend
       - run: cp .env.example .env && php artisan key:generate --quiet
         working-directory: backend
       - run: ./vendor/bin/pint --test
@@ -283,21 +272,9 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: api/package-lock.json
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: mbstring, intl, sodium, pdo_sqlite, gd, fileinfo, bcmath
-          coverage: none
-      - id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+      - uses: ./.github/actions/setup-backend
       - run: npm ci
         working-directory: api
-      - run: composer install --no-interaction --prefer-dist --no-progress
-        working-directory: backend
       - name: Seed one data directory for both servers
         run: node backend/tools/contract/seed.mjs "$DATA"
       - name: Node API on the seed

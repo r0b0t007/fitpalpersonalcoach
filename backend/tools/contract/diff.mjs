@@ -21,7 +21,6 @@ const { values: opt } = parseArgs({ options: { node: { type: 'string' }, laravel
 if (!opt.node || !opt.laravel || !opt.data) { console.error('usage: diff.mjs --node URL --laravel URL --data DIR'); process.exit(2); }
 
 const SECRET = readFileSync(join(opt.data, 'secret'), 'utf8').trim();
-const ORIGIN = 'http://localhost:5173';
 
 // The token both servers accept: `uid:expiryMs:sv` + `.` + base64url HMAC-SHA256 (api/server.js sign).
 const token = (uid, sv = 0) => {
@@ -30,12 +29,16 @@ const token = (uid, sv = 0) => {
 };
 const bearer = (uid, sv) => ({ Authorization: 'Bearer ' + token(uid, sv) });
 
-/** Differences that are meant. Key: case name + ' ' + JSON path. */
+/**
+ * Differences that are meant. Key: case name + ' ' + the whole difference as reported, VALUES
+ * INCLUDED — so an entry excuses exactly the difference it documents, and any other value at the
+ * same path (a cacheable header, a non-empty list) is reported like any other change.
+ */
 const INTENDED = {
-  'config $.self_serve': 'Laravel only: the self-serve coach signup flag for R4 (/#/start); the app ignores unknown keys.',
-  'login options $.options.allowCredentials': 'Node sends [], Laravel (Laragear) omits it. Same meaning in WebAuthn (any discoverable passkey), and the app reads `(o.allowCredentials || [])` (frontend/src/lib/api.js).',
-  'me, admin headers.cache-control': 'Node "no-store", Laravel "no-store, private": Symfony always adds private when neither public nor private is set. no-store already forbids every cache, private changes nothing.',
-  'preflight headers.cache-control': 'Laravel adds "no-cache, private" to the 204; Node sends none. Browsers cache a preflight by Access-Control-Max-Age (86400 on both), never by Cache-Control.',
+  'config $.self_serve: only Laravel has it (false)': 'the self-serve coach signup flag for R4 (/#/start); the app ignores unknown keys.',
+  'login options $.options.allowCredentials: only Node has it ([])': 'Laragear omits an empty list. Same meaning in WebAuthn (any discoverable passkey), and the app reads `(o.allowCredentials || [])` (frontend/src/lib/api.js).',
+  'me, admin headers.cache-control: Node "no-store" vs Laravel "no-store, private"': 'Symfony always adds private when neither public nor private is set. no-store already forbids every cache.',
+  'preflight headers.cache-control: only Laravel has it ("no-cache, private")': 'browsers cache a preflight by Access-Control-Max-Age (86400 on both), never by Cache-Control.',
 };
 
 // --- comparison ---------------------------------------------------------------------------------
@@ -50,7 +53,9 @@ function diffs(a, b, path = '$') {
   }
   if (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b)) {
     const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].sort();
-    return keys.flatMap(k => !(k in a) ? [`${path}.${k}: only Laravel has it`] : !(k in b) ? [`${path}.${k}: only Node has it`] : diffs(a[k], b[k], `${path}.${k}`));
+    return keys.flatMap(k => !(k in a) ? [`${path}.${k}: only Laravel has it (${JSON.stringify(b[k])})`]
+      : !(k in b) ? [`${path}.${k}: only Node has it (${JSON.stringify(a[k])})`]
+      : diffs(a[k], b[k], `${path}.${k}`));
   }
   return JSON.stringify(a) === JSON.stringify(b) ? [] : [`${path}: Node ${JSON.stringify(a)} vs Laravel ${JSON.stringify(b)}`];
 }
@@ -59,8 +64,14 @@ async function call(base, { method = 'GET', path, headers = {}, body, raw }) {
   const init = { method, headers: { ...headers }, redirect: 'manual' };
   if (body !== undefined) { init.body = JSON.stringify(body); init.headers['Content-Type'] = 'application/json'; }
   if (raw !== undefined) { init.body = raw; init.headers['Content-Type'] = 'application/json'; }
-  const res = await fetch(base + path, init);
-  const text = await res.text();
+  let res, text;
+  try {
+    res = await fetch(base + path, init);
+    text = await res.text();
+  } catch (e) {
+    // A dropped connection is a result to report, not a crash that hides every other case.
+    return { status: 0, json: { networkError: String(e.cause?.code || e.message) }, cookies: [], headers: {} };
+  }
   let json; try { json = text ? JSON.parse(text) : null; } catch { json = { __notJson: text.slice(0, 80) }; }
   const cookies = (res.headers.getSetCookie?.() || []).map(c => c.split('=')[0]).sort();
   return {
@@ -95,11 +106,24 @@ const CASES = [
   { name: 'data put', req: { method: 'PUT', path: '/api/data', headers: bearer('cdSync0000000000'), body: { state: { week: {}, list: [], active: { x: 1 }, _ts: 1790000000123 } } }, mode: 'exact' },
   { name: 'data read back ({} kept, active stripped)', req: { path: '/api/data', headers: bearer('cdSync0000000000') }, mode: 'exact' },
   { name: 'data put without state', req: { method: 'PUT', path: '/api/data', headers: bearer('cdSync0000000000'), body: { nope: 1 } }, mode: 'exact' },
-  { name: 'data put past the cap', req: { method: 'PUT', path: '/api/data', headers: bearer('cdSync0000000000'), raw: fat }, mode: 'exact' },
+  // Node answers 413 at 16 MB and then resets the socket while the rest is still uploading; its
+  // own comment warns a client may see the reset instead of the 413. A reset is retried, not
+  // compared: what is being checked is the 413 both servers send when it is read.
+  { name: 'data put past the cap', run: async base => {
+    let r;
+    for (let i = 0; i < 3 && (!r || r.status === 0); i++) r = await call(base, { method: 'PUT', path: '/api/data', headers: bearer('cdSync0000000000'), raw: fat });
+    return r;
+  }, mode: 'exact' },
   { name: 'register options, invite-only without a code', req: { method: 'POST', path: '/api/register/options', body: { name: 'Stranger' } }, mode: 'exact' },
   { name: 'register options, empty name', req: { method: 'POST', path: '/api/register/options', body: { name: '  ' } }, mode: 'exact' },
   { name: 'register verify, unknown challenge', req: { method: 'POST', path: '/api/register/verify', body: { cid: 'nope', credential: {} } }, mode: 'exact' },
-  { name: 'login options', req: { method: 'POST', path: '/api/login/options', body: {} }, mode: 'shape' },
+  // Exact, except the two values that must differ: the challenge and the cid are random. rpId,
+  // userVerification and timeout are compared — a wrong rpId breaks every passkey login.
+  { name: 'login options', run: async base => {
+    const r = await call(base, { method: 'POST', path: '/api/login/options', body: {} });
+    if (r.json?.options) r.json = { cid: typeof r.json.cid, options: { ...r.json.options, challenge: typeof r.json.options.challenge } };
+    return r;
+  }, mode: 'exact' },
   { name: 'login verify, unknown challenge', req: { method: 'POST', path: '/api/login/verify', body: { cid: 'nope', credential: {} } }, mode: 'exact' },
   { name: 'login verify, unknown passkey', run: async base => {
     const { json } = await call(base, { method: 'POST', path: '/api/login/options', body: {} });
@@ -108,9 +132,12 @@ const CASES = [
   { name: 'pair create, anonymous', req: { method: 'POST', path: '/api/pair/create' }, mode: 'exact' },
   { name: 'pair create', req: { method: 'POST', path: '/api/pair/create', headers: bearer('cdCoach000000000') }, mode: 'shape' },
   { name: 'pair redeem', run: async base => {
-    const { json } = await call(base, { method: 'POST', path: '/api/pair/create', headers: bearer('cdMember00000000') });
-    const first = await call(base, { method: 'POST', path: '/api/pair/redeem', body: { code: json.code.toLowerCase() }, headers: { Origin: 'https://localhost', 'Sec-Fetch-Site': 'cross-site' } });
-    const again = await call(base, { method: 'POST', path: '/api/pair/redeem', body: { code: json.code } });
+    const created = await call(base, { method: 'POST', path: '/api/pair/create', headers: bearer('cdMember00000000') });
+    if (typeof created.json?.code !== 'string') return created;   // reported as a difference, not a TypeError
+    const code = created.json.code;
+    const first = await call(base, { method: 'POST', path: '/api/pair/redeem', body: { code: code.toLowerCase() }, headers: { Origin: 'https://localhost', 'Sec-Fetch-Site': 'cross-site' } });
+    if (typeof first.json?.token !== 'string') return first;
+    const again = await call(base, { method: 'POST', path: '/api/pair/redeem', body: { code } });
     const phone = await call(base, { path: '/api/me', headers: { Authorization: 'Bearer ' + first.json.token } });
     return { status: first.status, json: { user: first.json.user, tokenType: typeof first.json.token, again: [again.status, again.json], phone: [phone.status, phone.json] } };
   }, mode: 'exact' },
@@ -141,12 +168,14 @@ for (const c of CASES) {
     if (JSON.stringify(n.json?.[k]) !== JSON.stringify(l.json?.[k])) problems.push(`$.${k}: Node ${JSON.stringify(n.json?.[k])} vs Laravel ${JSON.stringify(l.json?.[k])}`);
   }
   const body = c.mode === 'shape' ? diffs(shape(n.json), shape(l.json)) : diffs(n.json, l.json);
-  problems.push(...body.filter(d => !d.startsWith('$.error') && !d.startsWith('$.msg')));
+  // error and msg were compared exactly above; drop only THOSE keys' body diffs — not `errors`,
+  // `errorCode` or `msgs`, which a prefix test would also have swallowed.
+  problems.push(...body.filter(d => !/^\$\.(error|msg)([.[:]|$)/.test(d)));
   if (c.headers) problems.push(...diffs(n.headers, l.headers, 'headers'));
   if (c.cookies) problems.push(...diffs(n.cookies, l.cookies, 'set-cookie'));
 
-  const unexpected = problems.filter(p => !INTENDED[`${c.name} ${p.split(':')[0]}`]);
-  const intended = problems.filter(p => INTENDED[`${c.name} ${p.split(':')[0]}`]);
+  const unexpected = problems.filter(p => !INTENDED[`${c.name} ${p}`]);
+  const intended = problems.filter(p => INTENDED[`${c.name} ${p}`]);
   results.push({ c, n, unexpected, intended });
   console.log(`${unexpected.length ? 'DIFF' : 'same'}  ${String(n.status).padEnd(3)} ${c.name}${intended.length ? `  (intended: ${intended.map(p => p.split(':')[0]).join(', ')})` : ''}`);
   for (const p of unexpected) console.log('        ' + p);

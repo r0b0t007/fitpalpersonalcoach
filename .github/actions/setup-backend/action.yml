@@ -1,0 +1,25 @@
+# PHP and Composer for the Laravel backend, in one place for every job that runs it (backend,
+# contract): a PHP version or an extension changed here changes it everywhere, so Pest and the
+# contract diff can never run on two different setups.
+name: Set up the Laravel backend
+description: PHP 8.4 with the backend's extensions, the Composer cache, and composer install in backend/
+runs:
+  using: composite
+  steps:
+    - uses: shivammathur/setup-php@v2
+      with:
+        # 8.4 is the floor (composer.json: Laravel 13, Pest 5 and Symfony 8 all need it); the
+        # cPanel host runs 8.5.
+        php-version: '8.4'
+        extensions: mbstring, intl, sodium, pdo_sqlite, pdo_mysql, gd, fileinfo, bcmath
+        coverage: none
+    - id: composer-cache
+      shell: bash
+      run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v4
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+    - shell: bash
+      working-directory: backend
+      run: composer install --no-interaction --prefer-dist --no-progress

@@ -4,7 +4,6 @@
 // read against the Node suite it replaces. Sections that need coaching routes (assigning,
 // rosters, invites…) are ported with those routes in R2.
 
-use App\Auth\SessionToken;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Passkey;
@@ -19,30 +18,25 @@ beforeEach(function () {
     $this->mem2 = User::query()->create(['id' => 'mem2000000000000', 'name' => 'Member 2', 'coach_id' => 'coachB0000000000']);
 });
 
-function smokeAs(User $u): array
-{
-    return ['Authorization' => 'Bearer '.SessionToken::make($u)];
-}
-
 it('/api/me exposes the role', function () {
     // chk "coachB reports coach:true" / "mem2 reports coach:false" / "mem2 is told who their coach is"
-    $this->getJson('/api/me', smokeAs($this->coachB))->assertOk()->assertJsonPath('user.coach', true);
-    $this->getJson('/api/me', smokeAs($this->mem2))->assertOk()
+    $this->getJson('/api/me', bearer($this->coachB))->assertOk()->assertJsonPath('user.coach', true);
+    $this->getJson('/api/me', bearer($this->mem2))->assertOk()
         ->assertJsonPath('user.coach', false)
         ->assertJsonPath('user.coachName', 'Coach B');
-    $this->getJson('/api/me', smokeAs($this->mem1))->assertJsonPath('user.coachName', null);
+    $this->getJson('/api/me', bearer($this->mem1))->assertJsonPath('user.coachName', null);
 });
 
 it('the state sync cap answers in JSON, not by hanging up', function () {
     // chk "a state push past the cap is a 413" / "...and the client can read why"
     $fat = json_encode(['state' => ['pad' => str_repeat('x', 17 * 1024 * 1024)]]);
-    $r = $this->call('PUT', '/api/data', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => smokeAs($this->mem1)['Authorization']], $fat);
+    $r = $this->call('PUT', '/api/data', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => bearer($this->mem1)['Authorization']], $fat);
     $r->assertStatus(413);
     expect($r->json('error'))->toBeString()->toContain('MB');
 
     // chk "a state push above the general limit still saves": 8 MB is a food log, not a ceiling.
     $big = json_encode(['state' => ['_ts' => 1, 'pad' => str_repeat('x', 8 * 1024 * 1024)]]);
-    $this->call('PUT', '/api/data', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => smokeAs($this->mem2)['Authorization']], $big)
+    $this->call('PUT', '/api/data', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => bearer($this->mem2)['Authorization']], $big)
         ->assertOk();
 });
 
@@ -53,11 +47,11 @@ it('the server must NOT have touched member state', function () {
     $uid = $pk->register($this, 'Fresh member')->json('user.id');
     $pk->login($this)->assertOk();
     $member = User::query()->find($uid);
-    $this->getJson('/api/me', smokeAs($member))->assertOk();
-    $code = $this->postJson('/api/pair/create', [], smokeAs($member))->json('code');
+    $this->getJson('/api/me', bearer($member))->assertOk();
+    $code = $this->postJson('/api/pair/create', [], bearer($member))->json('code');
     $this->postJson('/api/pair/redeem', ['code' => $code])->assertOk();
-    $this->getJson('/api/data', smokeAs($member))->assertOk()->assertExactJson(['state' => null]);
-    $this->postJson('/api/logout', [], smokeAs($member))->assertOk();
+    $this->getJson('/api/data', bearer($member))->assertOk()->assertExactJson(['state' => null]);
+    $this->postJson('/api/logout', [], bearer($member))->assertOk();
 
     expect(DB::table('user_states')->where('user_id', $uid)->exists())->toBeFalse();
 });

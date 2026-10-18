@@ -13,8 +13,8 @@ if (!dir) { console.error('usage: seed.mjs <dataDir>'); process.exit(2); }
 mkdirSync(dir, { recursive: true });
 
 // Fixed, not random: the diff is reproducible, and nothing here is a real secret.
-export const SECRET = 'c0ffee'.repeat(10) + 'beef';
-export const USERS = [
+const SECRET = 'c0ffee'.repeat(10) + 'beef';
+const USERS = [
   { id: 'cdAdmin000000000', name: 'Owner', admin: true, created: '2026-01-02T03:04:05.000Z' },
   { id: 'cdCoach000000000', name: 'Coach Amina', coach: true, created: '2026-02-01T00:00:00.000Z' },
   { id: 'cdMember00000000', name: 'Member Karim', coachId: 'cdCoach000000000', created: '2026-03-01T00:00:00.000Z' },
