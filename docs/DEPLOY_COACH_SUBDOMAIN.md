@@ -239,13 +239,26 @@ what the coach subdomain's registration will do; see the cutover steps below.
 
 **PHP**: CLI and web both `8.5.11` (`/opt/alt/php85`, CloudLinux alt-php, LiteSpeed SAPI under
 the web server). Extensions present: pdo_mysql, pdo_sqlite, sodium, intl, gd, mbstring,
-fileinfo, bcmath, openssl, curl, zip, OPcache. The host's web defaults are `post_max_size` 1024M,
-`upload_max_filesize` 1024M, `memory_limit` 1024M, `max_execution_time` 1500 — but the
-requirement is owned by the repo, not by those defaults: `backend/public/.user.ini` sets 100M /
-100M / 256M / 120 s and ships with every deploy. At the origin, raw bodies of 1, 9, 20, 50 and
-95 MB all reached `php://input` byte-exact (SHA-256 matched) in at most 2.5 s, at 4 MB peak
-memory when streamed; a 20 MB `PUT /api/data` reaches the controller (401 unauthenticated, not
-413).
+fileinfo, bcmath, openssl, curl, zip, OPcache, and **pcntl** in the CLI (so the queue worker's
+`--timeout` is enforced). The host's web defaults are `post_max_size` 1024M,
+`upload_max_filesize` 1024M, `memory_limit` 1024M, `max_execution_time` 1500.
+
+**Where the PHP limits come from — measured, not assumed.** This LiteSpeed **ignores
+`.user.ini`**: with one in `public/`, the effective values were still the host's 1024M after the
+300 s `user_ini.cache_ttl`. It **does honour `php_value` in `.htaccess`**: a `<IfModule Litespeed>`
+block in `public/.htaccess` changed `memory_limit`, `post_max_size` and `max_execution_time` on
+the next request. So the repo's limits live in `backend/public/.htaccess` (LiteSpeed, mod_php) and
+`backend/public/.user.ini` (PHP-FPM elsewhere), same values: 100M / 100M / **512M** / 120 s. Both
+files answer 403 to the browser (the host already denied `.user.ini`; `.htaccess` now denies both
+explicitly).
+
+**Bodies.** At the origin, raw bodies of 1, 9, 20, 50 and 95 MB all reached `php://input`
+byte-exact (SHA-256 matched) in at most 2.5 s, at 4 MB peak memory when streamed. A realistic
+**15.9 MB sync** (13,500 workouts, 324,000 sets, through the real `PUT /api/data` with a session):
+200 at `memory_limit` 1024M and 256M, **500 at 128M** — hence 512M. It took **8.2 s** until
+Laravel's global `TrimStrings` and `ConvertEmptyStringsToNull` were told to skip that route
+(`bootstrap/app.php`; they decoded and walked the whole body before the controller read it raw);
+after: **2.2 s**. A 20.8 MB sync gets the translated 413, as it should.
 
 **Not yet measured: the same through Cloudflare.** Every check above went to the origin with
 `--resolve` (no public DNS for `lab` yet). Production traffic goes through the proxied record,
@@ -258,8 +271,9 @@ answers are a lower `MEDIA_MAX_VIDEO_MB` or a DNS-only (grey-cloud) upload hostn
 **Database**: MariaDB `11.4.13`, **default engine MyISAM, default charset latin1**. MyISAM's
 1000-byte key limit refuses the first `utf8mb4` string index, so `config/database.php` pins
 `'engine' => 'InnoDB'` for both the `mysql` and `mariadb` connections (the charset is `utf8mb4`
-per connection). CI now guards it: the `backend-mariadb` job in `test.yml` sets a MariaDB 11.4
-server to MyISAM + latin1, runs the migrations up, down and up, and fails on any non-InnoDB table.
+per connection). CI now guards it: the `backend` job in `test.yml` runs a MariaDB 11.4 service set
+to MyISAM + latin1, migrates up, down and up, and fails on any table that is not InnoDB or not
+`utf8mb4` (the step runs with `pipefail`, so a failing query cannot pass as "no bad tables").
 
 Two databases on the account, each with its own user, passwords only in each app's `.env` (mode
 600): **production** `pawputif_fitpalcoach` / `pawputif_fitpal` — empty, never touched by the lab
@@ -275,6 +289,12 @@ and `schedule:run` prints on every run:
 * * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run >/dev/null 2>&1
 ```
 
+`/usr/local/bin/php` is cPanel's `ea_php_cli` wrapper, which runs the PHP the selector picks for
+the account: verified `8.5.11`, `PHP_BINARY=/opt/alt/php85/usr/bin/php`, the same binary the
+scheduler then hands its background worker. If the account's PHP is ever changed below 8.4,
+every run dies at boot — and with output discarded, only the worker's `onFailure` log line (below)
+and the R5 health check would show it; check `php -v` after any change in the selector.
+
 Over 131 consecutive minutes it fired in **every minute (0 missed)**, but not on the minute: the
 start is spread across the minute (2 s to 51 s, median 23 s) — the host staggers user crons. A job
 "every minute" can therefore run up to ~50 s late; reminders keyed on `hh:mm` are unaffected, and
@@ -283,10 +303,17 @@ rest-timer pushes keep the spec's fallback (a client-side timer with a local not
 **Queue under LVE**: `queue:work database --max-time=55 --sleep=1 --stop-when-empty` from the
 scheduler, `runInBackground()`. Six 20-second jobs: the first worker ran three (55 s budget) and
 exited cleanly, the next minute's worker ran the other three; no LVE kill, no failed job, 26 MB per
-worker. **This schedule is in the repo** (`backend/routes/console.php`), with
-`withoutOverlapping(2)`: the overlap lock is released by the background process's finish callback,
-which never runs if the host kills the worker, and Laravel's default expiry is 24 hours — every
-push and reminder would silently wait until tomorrow.
+worker. **This schedule is in the repo** (`backend/routes/console.php`), hardened after review:
+- `withoutOverlapping(2)`: the overlap lock is released by the background process's finish
+  callback, which never runs if the host kills the worker, and Laravel's default expiry is 24
+  hours — every push and reminder would silently wait until tomorrow.
+- `--timeout=50`: `--max-time` is only checked between jobs, so a worker lives up to 55 + 50 =
+  105 s — under the 2-minute lock (never two workers at once) — and no job runs past the database
+  queue's 90 s `retry_after` (never handed out twice).
+- `--queue=default`, explicit: a job dispatched onto a queue not listed there is never run, so a
+  new queue name is added in the same change that first uses it.
+- `onFailure` writes an error to `storage/logs/laravel.log`: cron output is discarded, so a
+  failing worker must say so somewhere an operator looks.
 
 **One thing that bit**: `php artisan optimize` failed with `View path not found`. The cause was
 `storage/framework/views` missing on the box — the scratch copy skipped `storage/` — and a config

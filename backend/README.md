@@ -42,17 +42,20 @@ read against the Node suite it replaces.
 
 The contract has bodies stock PHP defaults refuse: a sync is up to 16 MB of JSON (`PUT
 /api/data`), an exercise video up to `MEDIA_MAX_VIDEO_MB` (90) raw. The test suite cannot see
-these values, so the repo owns them: **`public/.user.ini`** sets the minimums below and ships with
-every deploy. (The cPanel host's own defaults are higher today — 1024M / 1024M / 1024M / 1500 s,
-measured in CHW-227 — but a requirement that rests on a host default breaks the day the default
-changes.) On a server that ignores `.user.ini` (mod_php), set the same values in its PHP config.
+these values, so the repo sets them and ships them with every deploy, in two places because each
+server reads one: **`public/.htaccess`** (`php_value`, for LiteSpeed and mod_php — the cPanel host
+is LiteSpeed and *ignores* `.user.ini`, measured in CHW-227) and **`public/.user.ini`** (for
+PHP-FPM). Keep them in step. Both are refused to the browser.
 
-| ini | at least | why |
+| ini | value | why |
 |---|---|---|
 | `post_max_size` | `100M` | above the largest raw upload; PHP refuses larger bodies before Laravel runs (the app still gets the 413 sentence, see `bootstrap/app.php`) |
 | `upload_max_filesize` | `100M` | same, for the multipart path should one ever exist |
-| `memory_limit` | `256M` | decoding a 16 MB state blob into objects to strip `active` |
+| `memory_limit` | `512M` | a 15.9 MB sync (324,000 sets) fits in 256M and fails in 128M on the host; 512M covers a worse-shaped state |
 | `max_execution_time` | `120` | a 90 MB upload over a slow link |
+
+`PUT /api/data` is skipped by Laravel's global `TrimStrings` and `ConvertEmptyStringsToNull`
+(`bootstrap/app.php`): walking a 16 MB body made that sync take 8.2 s on the host, 2.2 s without.
 
 ## Where things are
 

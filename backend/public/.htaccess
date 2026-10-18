@@ -1,3 +1,25 @@
+# The PHP limits the API contract needs (see .user.ini beside this file for the why and the
+# numbers). LiteSpeed — the cPanel host — and mod_php read them here; PHP-FPM reads .user.ini.
+<IfModule Litespeed>
+    php_value post_max_size 100M
+    php_value upload_max_filesize 100M
+    php_value memory_limit 512M
+    php_value max_execution_time 120
+    php_value max_input_time 120
+</IfModule>
+<IfModule mod_php.c>
+    php_value post_max_size 100M
+    php_value upload_max_filesize 100M
+    php_value memory_limit 512M
+    php_value max_execution_time 120
+    php_value max_input_time 120
+</IfModule>
+
+# Never serve the PHP config files, whatever the server's own defaults deny.
+<FilesMatch "^\.(user\.ini|htaccess)$">
+    Require all denied
+</FilesMatch>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
