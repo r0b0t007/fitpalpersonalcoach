@@ -40,16 +40,28 @@ read against the Node suite it replaces.
 
 ## PHP settings production needs
 
-The contract has bodies PHP's defaults refuse: a sync is up to 16 MB of JSON (`PUT /api/data`),
-an exercise video up to `MEDIA_MAX_VIDEO_MB` (90) raw. Set these in the cPanel PHP selector (or
-`.user.ini`) for the backend's PHP version; the test suite cannot see them.
+The contract has bodies stock PHP defaults refuse: a sync is up to 16 MB of JSON (`PUT
+/api/data`), an exercise video up to `MEDIA_MAX_VIDEO_MB` (90) raw. The test suite cannot see
+these values, so the repo sets them and ships them with every deploy, in two places because each
+server reads one: **`public/.htaccess`** (`php_value`, for LiteSpeed and mod_php — the cPanel host
+is LiteSpeed and *ignores* `.user.ini`, measured in CHW-227) and **`public/.user.ini`** (for
+PHP-FPM). Keep them in step. Both are refused to the browser.
 
-| ini | at least | why |
+| ini | value | why |
 |---|---|---|
 | `post_max_size` | `100M` | above the largest raw upload; PHP refuses larger bodies before Laravel runs (the app still gets the 413 sentence, see `bootstrap/app.php`) |
 | `upload_max_filesize` | `100M` | same, for the multipart path should one ever exist |
-| `memory_limit` | `256M` | decoding a 16 MB state blob into objects to strip `active` |
+| `memory_limit` | `768M` | a 15.9 MB sync (324,000 sets) peaked at 313–379 MB on the host; twice that |
 | `max_execution_time` | `120` | a 90 MB upload over a slow link |
+| `max_input_time` | `120` | time to receive that body |
+
+`tests/Unit/PhpLimitsTest.php` fails if the three files or this table disagree.
+
+`PUT /api/data` is read raw and decoded once, by DataController. Two things in Laravel would
+otherwise decode it first: the request capture itself (`createFromBase` json-decodes every JSON
+body into arrays — `public/index.php` captures through `App\Http\Request`, which skips that for
+this route only) and the global `TrimStrings` / `ConvertEmptyStringsToNull` middleware, which walk
+every string (skipped for this route in `bootstrap/app.php`).
 
 ## Where things are
 

@@ -38,6 +38,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // A guest is never redirected: there is no login page here, and the app's fetch sends no
         // Accept header, so without this Laravel would look up a `login` route and 500.
         $middleware->redirectGuestsTo(fn () => null);
+        // The sync body is an opaque blob of up to 16 MB that DataController reads raw. Laravel's
+        // global input cleaners would walk every string of it first: on the host that made a
+        // 16 MB sync take 8 s (CHW-227). Nothing on that route reads input(). (The decode Laravel
+        // does at capture is skipped separately, by App\Http\Request in public/index.php.)
+        $skipSync = fn (Request $request) => $request->is('data', 'api/data');
+        $middleware->trimStrings(except: [$skipSync]);
+        $middleware->convertEmptyStringsToNull(except: [$skipSync]);
         // The rest of the JSON API's pipeline: no-store on every answer, then the forgery check.
         // No throttling, no sessions, no cookie encryption: the session is a signed token the app
         // sends itself.

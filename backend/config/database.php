@@ -58,7 +58,9 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            // Pinned: the cPanel MariaDB defaults to MyISAM, whose 1000-byte index limit refuses
+            // the first utf8mb4 string key (CHW-227). InnoDB also gives transactions and FKs.
+            'engine' => 'InnoDB',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
@@ -78,7 +80,9 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            // Pinned: the cPanel MariaDB defaults to MyISAM, whose 1000-byte index limit refuses
+            // the first utf8mb4 string key (CHW-227). InnoDB also gives transactions and FKs.
+            'engine' => 'InnoDB',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

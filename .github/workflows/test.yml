@@ -180,15 +180,37 @@ jobs:
   # The Laravel port (backend/), not yet deployed. PHP 8.4 is the floor (composer.json; Laravel 13,
   # Pest 5 and Symfony 8 all need it) and the cPanel host runs 8.5. Pest runs the feature tests on
   # an in-memory SQLite. pint --test parses every file, so there is no separate syntax step.
+  #
+  # Then the migrations against the database production runs, which SQLite cannot stand in for:
+  # the cPanel MariaDB defaults to MyISAM (1000-byte key limit) and latin1, and failed the first
+  # migration in CHW-227 until config/database.php pinned InnoDB. The service is set to MyISAM +
+  # latin1 on purpose, so dropping that pin, an index too long for it, or a table left in a
+  # non-utf8mb4 charset goes red here instead of during the cutover. One job, so the PHP setup
+  # lives in one place.
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: fitpal
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    defaults:
+      run:
+        # -e fails the step on a failing query (the checks below redirect with `>`, no pipes);
+        # pipefail keeps that true if one is ever piped through tee or grep.
+        shell: bash -eo pipefail {0}
     steps:
       - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, intl, sodium, pdo_sqlite, gd, fileinfo, bcmath
+          extensions: mbstring, intl, sodium, pdo_sqlite, pdo_mysql, gd, fileinfo, bcmath
           coverage: none
       - id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
@@ -205,3 +227,28 @@ jobs:
         working-directory: backend
       - run: ./vendor/bin/pest --ci
         working-directory: backend
+      - name: Make the MariaDB service look like the host (MyISAM, latin1)
+        run: |
+          mysql -h127.0.0.1 -uroot -proot -e "SET GLOBAL default_storage_engine=MyISAM; ALTER DATABASE fitpal CHARACTER SET latin1 COLLATE latin1_swedish_ci;"
+          mysql -h127.0.0.1 -uroot -proot -N -e "SELECT @@default_storage_engine, @@version"
+      - name: Migrate on MariaDB — up, down, up — and require InnoDB + utf8mb4 everywhere
+        working-directory: backend
+        env:
+          DB_CONNECTION: mariadb
+          DB_HOST: 127.0.0.1
+          DB_PORT: '3306'
+          DB_DATABASE: fitpal
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: |
+          php artisan migrate --force
+          php artisan migrate:rollback --force
+          php artisan migrate --force
+          mysql -h127.0.0.1 -uroot -proot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='fitpal'" > /tmp/n-tables
+          mysql -h127.0.0.1 -uroot -proot -N -e "SELECT table_name, engine, table_collation FROM information_schema.tables WHERE table_schema='fitpal' AND (engine <> 'InnoDB' OR table_collation NOT LIKE 'utf8mb4%')" > /tmp/bad-tables
+          # Column level too: a ->charset('latin1') on one column keeps a utf8mb4 table default.
+          mysql -h127.0.0.1 -uroot -proot -N -e "SELECT table_name, column_name, collation_name FROM information_schema.columns WHERE table_schema='fitpal' AND collation_name IS NOT NULL AND collation_name NOT LIKE 'utf8mb4%'" > /tmp/bad-columns
+          echo "tables: $(cat /tmp/n-tables)"; cat /tmp/bad-tables /tmp/bad-columns
+          test "$(cat /tmp/n-tables)" -gt 0
+          test ! -s /tmp/bad-tables
+          test ! -s /tmp/bad-columns

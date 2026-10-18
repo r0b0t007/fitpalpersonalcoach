@@ -219,6 +219,192 @@ holding the pre-fix copy: Caching → Configuration → Custom Purge → **URL**
 serves `fitpal.ma`, `gym.fitpal.ma` and `app.fitpal.ma`. No purge is needed after later
 deploys; that is the whole point of `REVALIDATED`.
 
+## Laravel backend (draft — measured in CHW-227, finalised at cutover in R5)
+
+The Laravel port (`backend/`) replaces the Node API at cutover. Everything below was measured on
+a scratch subdomain of this account, **`lab.fitpal.ma`**, never on `coach.fitpal.ma`.
+
+**Layout on the box** (scratch names; production in brackets):
+
+```
+~/fitpal-coach-lab/backend/       the app: source + vendor/ + .env   [~/fitpal-coach-backend/]
+~/lab.fitpal.ma/api  ->  ~/fitpal-coach-lab/backend/public           [~/coach.fitpal.ma/api]
+```
+
+**The mount works as a plain symlink.** `<docroot>/api` → `backend/public`, with Laravel's own
+`public/.htaccess`: LiteSpeed follows it, rewrites to `index.php`, and the app answers under
+`/api` (`/api/health` 200, `/api/config` 200, unknown route `404 {"error":"not found"}`, preflight
+`204` with the reflected origin). The lab never had a Node app registered, so it does not show
+what the coach subdomain's registration will do; see the cutover steps below.
+
+**PHP**: CLI and web both `8.5.11` (`/opt/alt/php85`, CloudLinux alt-php, LiteSpeed SAPI under
+the web server). Extensions present: pdo_mysql, pdo_sqlite, sodium, intl, gd, mbstring,
+fileinfo, bcmath, openssl, curl, zip, OPcache, and **pcntl** in the CLI (so the queue worker's
+`--timeout` is enforced). The host's web defaults are `post_max_size` 1024M,
+`upload_max_filesize` 1024M, `memory_limit` 1024M, `max_execution_time` 1500.
+
+**Where the PHP limits come from — measured, not assumed.** This LiteSpeed **ignores
+`.user.ini`**: with one in `public/`, the effective values were still the host's 1024M after the
+300 s `user_ini.cache_ttl`. It **does honour `php_value` in `.htaccess`**: a `<IfModule Litespeed>`
+block in `public/.htaccess` changed `memory_limit`, `post_max_size` and `max_execution_time` on
+the next request. So the repo's limits live in `backend/public/.htaccess` (LiteSpeed, mod_php) and
+`backend/public/.user.ini` (PHP-FPM elsewhere), same values: 100M / 100M / **768M** / 120 s,
+kept equal by `tests/Unit/PhpLimitsTest.php`. Both files, and the `error_log` PHP writes beside
+the script, answer 403 to the browser.
+
+**Bodies.** At the origin, raw bodies of 1, 9, 20, 50 and 95 MB all reached `php://input`
+byte-exact (SHA-256 matched) in at most 2.5 s, at 4 MB peak memory when streamed. A realistic
+**15.9 MB sync** (13,500 workouts, 324,000 sets) costs far more, because Laravel decodes it:
+
+| `PUT /api/data`, 15.9 MB, under LiteSpeed at `memory_limit` 512M | peak | result |
+|---|---|---|
+| Laravel's own capture: `createFromBase` json-decodes every JSON body into arrays, then DataController decodes it again into objects | 506 MB | **500, out of memory** |
+| `App\Http\Request` (used by `public/index.php`): skips the capture decode for this route only | 313–379 MB | 200, 0.9–2.2 s |
+
+Peak memory was read at request shutdown under the web SAPI itself; the same request in the CLI
+gave 549 MB and 343 MB. Hence `memory_limit` **768M**, twice the measured peak. Laravel's global
+`TrimStrings` and `ConvertEmptyStringsToNull` also skip the route (`bootstrap/app.php`): they walk
+every string of the decoded body, which took the first measurement to 8.2 s. A 20.8 MB sync gets
+the translated 413, as it should. *Correction:* an earlier pass of this measurement reported
+"200 at 256M, 500 at 128M". That came from swapping `memory_limit` in `.htaccess` between
+requests, which LiteSpeed caches; the values above, logged inside each request, replace it.
+
+If real states ever approach the 16 MB cap, the remaining cost is DataController's own decode
+into objects (needed to strip `active` and read `_ts`); `json_validate()` plus a top-level scan
+would avoid building the tree at all.
+
+**Through Cloudflare (measured once `lab` had its proxied record).** Production traffic goes
+through the proxy, not to the origin directly, so the bodies were sent again through
+`https://lab.fitpal.ma`:
+
+| Request | Result |
+|---|---|
+| 5 MB, 50 MB, 95 MB at full upload speed | **200**, byte-exact (SHA-256 matched), 3 s / 9.4 s / 15.9 s |
+| 101 MB | **413 from Cloudflare** (its HTML page, not the app's JSON): the 100 MB cap is real |
+| 10 MB throttled to 60 KB/s (would take ~170 s) | **`524` after 143 s**: a slow upload hits the 100 s origin timeout |
+
+What that means: **through the proxy a request must be fully sent in about 100 seconds.** The
+origin's own timing cannot show who buffers the body (LiteSpeed reads it all before PHP starts,
+so PHP saw 0.3–0.6 s whatever the upload took); the throttled request is the measurement that
+counts. Consequences for the build:
+
+- **Demo videos (R3)**: 90 MB in 100 s needs ≥ ~0.9 MB/s of uplink. Fine on Wi-Fi, not on a weak
+  mobile signal. R3 uploads videos in **chunks** (each well under 100 s at slow speeds, and
+  resumable), or limits the size the app sends. A grey-cloud (DNS-only) upload hostname would
+  dodge both limits but is a second origin for passkeys and the session cookie, so it is the last
+  resort, not the plan.
+- **Sync (R1)**: 16 MB in 100 s needs ≥ ~160 KB/s. A huge state on a poor connection can 524;
+  compressing the body on the client is the cheap fix if that ever shows up. Today's states are
+  far below 16 MB.
+- **`MEDIA_MAX_VIDEO_MB` must stay below 100**, or Cloudflare refuses with an HTML page the app
+  cannot translate.
+
+**Database**: MariaDB `11.4.13`, **default engine MyISAM, default charset latin1**. MyISAM's
+1000-byte key limit refuses the first `utf8mb4` string index, so `config/database.php` pins
+`'engine' => 'InnoDB'` for both the `mysql` and `mariadb` connections (the charset is `utf8mb4`
+per connection). CI now guards it: the `backend` job in `test.yml` runs a MariaDB 11.4 service set
+to MyISAM + latin1, migrates up, down and up, and fails on any table that is not InnoDB or not
+`utf8mb4` (the step runs with `pipefail`, so a failing query cannot pass as "no bad tables").
+
+Two databases on the account, each with its own user, passwords only in each app's `.env` (mode
+600): **production** `pawputif_fitpalcoach` / `pawputif_fitpal` — empty, never touched by the lab
+(it was briefly used for the first migration and then wiped); **lab** `pawputif_fitlab` /
+`pawputif_fitlab`. The lab runs `APP_ENV=production`, `APP_DEBUG=false`, and has no production
+credential. **Tear the lab down before the cutover** (the app directory, the `lab` symlink, its
+database and user), so nothing scratch is reachable once real data exists.
+
+**Cron**: one line. cPanel mails any cron output to the account contact, so normal runs must print
+nothing — `-q` silences `schedule:run` itself — while anything that still prints (PHP failing to
+boot, a composer platform check, a fatal error) is appended to a log instead of being thrown away:
+
+```
+* * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run -q >> storage/logs/cron.log 2>&1
+```
+
+Verified on the lab: a normal `schedule:run -q` writes zero bytes, so `cron.log` stays empty while
+all is well and only grows when the scheduler itself cannot run — the one failure no Laravel hook
+can report, since Laravel never boots.
+
+`/usr/local/bin/php` is cPanel's `ea_php_cli` wrapper, which runs the PHP the selector picks for
+the account: verified `8.5.11`, `PHP_BINARY=/opt/alt/php85/usr/bin/php`, the same binary the
+scheduler then hands its background worker. If the account's PHP is ever changed below 8.4, every
+run dies at boot; that lands in `storage/logs/cron.log` (above), not in `laravel.log`. Check
+`php -v` after any change in the selector.
+
+Over 131 consecutive minutes it fired in **every minute (0 missed)**, but not on the minute: the
+start is spread across the minute (2 s to 51 s, median 23 s) — the host staggers user crons. A job
+"every minute" can therefore run up to ~50 s late; reminders keyed on `hh:mm` are unaffected, and
+rest-timer pushes keep the spec's fallback (a client-side timer with a local notification).
+
+**Queue under LVE**: `queue:work database --max-time=55 --sleep=1 --stop-when-empty` from the
+scheduler, `runInBackground()`. Six 20-second jobs: the first worker ran three (55 s budget) and
+exited cleanly, the next minute's worker ran the other three; no LVE kill, no failed job, 26 MB per
+worker. **This schedule is in the repo** (`backend/routes/console.php`), hardened over two reviews:
+- `withoutOverlapping(2)`: the overlap lock is released by the background process's finish
+  callback, which never runs if the host kills the worker, and Laravel's default expiry is 24
+  hours — every push and reminder would silently wait until tomorrow.
+- `--timeout=50`: `--max-time` is only checked between jobs, so a worker lives up to 55 + 50 =
+  105 s — under the 2-minute lock (never two workers at once) — and no job runs past the database
+  queue's 90 s `retry_after` (never handed out twice). A job class can override `--timeout` with
+  its own `$timeout`, so `tests/Unit/QueueBoundsTest.php` refuses any job above 50 s and checks
+  the arithmetic against `config/queue.php`.
+- The connection and queue come from `config/queue.php` — the same values `dispatch()` uses — so a
+  changed `QUEUE_CONNECTION` or `DB_QUEUE` cannot leave jobs on a queue nobody drains. A job sent
+  with `onQueue('other')` still needs that name added to the schedule.
+- `--tries=3 --backoff=30`: a push that fails on a network blip is retried, not dropped.
+- Failures are logged where an operator looks, `storage/logs/laravel.log`: each job that fails for
+  good (`Queue::failing` in `AppServiceProvider`, with the job and the error), and a worker that
+  exits non-zero (a job hit `--timeout`, or the worker could not start) as a warning.
+
+**One thing that bit**: `php artisan optimize` failed with `View path not found`. The cause was
+`storage/framework/views` missing on the box — the scratch copy skipped `storage/` — and a config
+cache built while it was missing. Git tracks the `storage/framework/*` skeleton, so a checkout has
+it; but **R5's deploy excludes `storage/` from the rsync**, so the first deploy must create
+`storage/framework/{cache/data,sessions,views}` and `storage/logs` on the server (once, before
+`optimize`).
+
+**Careful with `crontab -`**: replacing the crontab from a pipeline that fails half-way installs
+a crontab missing the other lines. During this measurement the account's existing
+`~/pawpawcare/backend` scheduler line was dropped that way for about one minute and restored by
+hand. Edit crontabs by writing the old one to a file, filtering that file, checking the result
+still contains every expected line, and only then `crontab <file>`.
+
+**TLS and DNS**: `lab.fitpal.ma` is `A 198.54.116.94`, **proxied**, auto TTL — the same as
+`coach` and `app` — created with the Cloudflare CLI (`cf dns records create -z fitpal.ma`), with a
+comment on the record saying to tear it down before the R5 cutover. The zone's SSL mode is
+**`full`** (not strict), so Cloudflare accepts the origin's shared `*.web-hosting.com`
+certificate and `https://lab.fitpal.ma/api/health` answers publicly; AutoSSL was asked to issue
+the vhost its own certificate. On teardown: delete the record, the `lab` subdomain in cPanel, the
+app directory, and the lab database and user.
+
+**PHP's own `error_log`**: on this host PHP writes fatal errors to an `error_log` file beside the
+script — in `public/`, the web root. The host answers 403 for it, and `public/.htaccess` denies it
+as well; it contained only the stack traces from the deliberate out-of-memory tests, and was
+deleted.
+
+### Cutover steps this section adds (R5)
+
+In this order; each one closes a way the old mount could come back or the new one could vanish.
+
+1. **`DEPLOY_API=false`** (repository variable) so a push to `api/**` cannot redeploy Node.
+2. **Exclude `/api` as a symlink in `deploy-web.yml`**: today it has `--exclude='/api/'`, and an
+   rsync rule ending in `/` matches directories only. Once `api` is a symlink the next frontend
+   deploy's `--delete` removes it and the API is gone. Add `--exclude='/api'` beside the existing
+   rule **before** the symlink exists. (Not changed in CHW-227: deploy workflows are edited by the
+   owner.)
+3. **Delete the Node.js app registration** for `coach.fitpal.ma/api` in cPanel → Setup Node.js
+   App (or `cloudlinux-selector destroy --json --interpreter nodejs --app-root
+   fitpal-coach-api`). Left registered, a restart or reconfigure rewrites `<docroot>/api/.htaccess`
+   with its Passenger block — which, through the symlink, is `backend/public/.htaccess`.
+4. **Move the Passenger directory outside the docroot**, not beside it:
+   `mv ~/coach.fitpal.ma/api ~/fitpal-coach-api-mount.bak`. Anything left inside
+   `~/coach.fitpal.ma/` other than the excluded paths is deleted by the next web deploy, and with
+   it the rollback.
+5. `ln -s ~/fitpal-coach-backend/public ~/coach.fitpal.ma/api`, then the checks below.
+
+Rollback: remove the symlink, `mv ~/fitpal-coach-api-mount.bak ~/coach.fitpal.ma/api`,
+re-register the Node app with the same app root and URI, `DEPLOY_API=true`.
+
 ## Checking it worked
 
 ```
