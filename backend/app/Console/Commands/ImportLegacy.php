@@ -6,7 +6,9 @@ use App\Models\User;
 use App\Models\UserState;
 use App\WebAuthn\LegacyCredential;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Laragear\WebAuthn\Models\WebAuthnCredential;
+use SplFileObject;
 use Throwable;
 
 /**
@@ -106,11 +108,52 @@ final class ImportLegacy extends Command
             $states++;
         }
 
-        $this->info("users $users · passkeys $creds · states $states");
+        // The audit log: JSONL, one event per line, ids and timestamps kept so the owner's history
+        // reads on across the cutover (and the id sequence carries on above the last one). A torn
+        // last line is skipped, as the Node reader did.
+        $audit = 0;
+        $auditFile = $dir.DIRECTORY_SEPARATOR.'audit.log';
+        if (is_file($auditFile)) {
+            $batch = [];
+            foreach (new SplFileObject($auditFile) as $line) {
+                $r = json_decode(trim((string) $line), true);
+                if (! is_array($r) || empty($r['id']) || empty($r['ev']) || ! is_numeric($r['id'])) {
+                    continue;
+                }
+                $batch[] = [
+                    'id' => (int) $r['id'], 'ts' => (int) ($r['ts'] ?? 0), 'ev' => mb_substr((string) $r['ev'], 0, 64),
+                    'ok' => ($r['ok'] ?? true) !== false,
+                    'uid' => isset($r['uid']) ? mb_substr((string) $r['uid'], 0, 16) : null,
+                    'name' => isset($r['name']) ? mb_substr((string) $r['name'], 0, 40) : null,
+                    'tgt' => isset($r['tgt']) ? mb_substr((string) $r['tgt'], 0, 16) : null,
+                    'tname' => isset($r['tname']) ? mb_substr((string) $r['tname'], 0, 40) : null,
+                    'msg' => isset($r['msg']) ? mb_substr((string) $r['msg'], 0, 120) : null,
+                    'ip' => isset($r['ip']) ? mb_substr((string) $r['ip'], 0, 45) : null,
+                ];
+                if (count($batch) === 500) {
+                    $audit += self::upsertAudit($batch);
+                    $batch = [];
+                }
+            }
+            $audit += self::upsertAudit($batch);
+        }
+
+        $this->info("users $users · passkeys $creds · states $states · audit $audit");
         foreach ($skipped as $s) {
             $this->warn("skipped $s");
         }
 
         return self::SUCCESS;
+    }
+
+    /** Upsert by id, so a second import of the same log adds nothing. */
+    private static function upsertAudit(array $rows): int
+    {
+        if ($rows === []) {
+            return 0;
+        }
+        DB::table('audit_events')->upsert($rows, ['id'], ['ts', 'ev', 'ok', 'uid', 'name', 'tgt', 'tname', 'msg', 'ip']);
+
+        return count($rows);
     }
 }

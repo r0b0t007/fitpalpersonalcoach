@@ -69,6 +69,9 @@ every string (skipped for this route in `bootstrap/app.php`).
   credentials; preflight 204 for any path), `NoStore`, `CsrfOrigin` (the `csrfOk` rules; no token).
 - `app/Support/` — `Say` (error templates → `msg: {k, v}`), `Json` (every JSON answer), `ClientSafe`
   (a 4xx the caller may read; anything else is `500 {error:'server error'}`).
+- `app/Audit/` — the audit log (`Audit::record`, never throws) and `ClientIp` (`AUDIT_IP`
+  off/net/full). Event names must be labelled in `frontend/src/lib/audit.js`;
+  `api/scripts/check-audit-labels.mjs` reads both APIs and fails on a missing label.
 - `config/fitpal.php` — the environment contract, names kept from the Node API.
 - `routes/api.php` — every route registered under `/api` and bare, because the production mount
   is AT `/api` and strips the prefix before Laravel sees the path.

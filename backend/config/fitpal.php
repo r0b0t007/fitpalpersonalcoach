@@ -54,11 +54,17 @@ return [
         'products' => env('CREEM_PRODUCTS', ''),
     ],
 
+    // Parsed exactly as the Node API parsed them (api/server.js): 0 means "no cap" for MAX and
+    // DAYS, and AUDIT_IP accepts `full`, or `net` and its truthy spellings, else off.
     'audit' => [
-        'enabled' => $flag('AUDIT_LOG', true),
-        'max' => max(100, (int) env('AUDIT_MAX', 5000)),
-        'days' => max(1, (int) env('AUDIT_DAYS', 90)),
+        'enabled' => ! preg_match('/^(0|false|no|off)$/i', (string) env('AUDIT_LOG', '')),
+        'max' => max(0, (int) env('AUDIT_MAX', 5000)),
+        'days' => max(0, (int) env('AUDIT_DAYS', 90)),
         // off | net | full — how much of the caller's address a record keeps.
-        'ip' => in_array(env('AUDIT_IP', 'off'), ['off', 'net', 'full'], true) ? env('AUDIT_IP', 'off') : 'off',
+        'ip' => match (true) {
+            (bool) preg_match('/^full$/i', (string) env('AUDIT_IP', '')) => 'full',
+            (bool) preg_match('/^(1|true|yes|on|net)$/i', (string) env('AUDIT_IP', '')) => 'net',
+            default => 'off',
+        },
     ],
 ];

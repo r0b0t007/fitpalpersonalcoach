@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\MetaController;
+use App\Http\Middleware\RequireAdmin;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -34,6 +36,11 @@ $routes = static function (): void {
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);
+
+        Route::middleware(RequireAdmin::class)->group(function (): void {
+            Route::get('/admin/audit', [AuditController::class, 'index']);
+            Route::post('/admin/audit/clear', [AuditController::class, 'clear']);
+        });
     });
 };
 
