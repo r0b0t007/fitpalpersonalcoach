@@ -57,3 +57,29 @@ it('imports accounts with their dates, their passkeys and their raw state, and c
         ->and(User::query()->find($uid)->created_at->toIso8601ZuluString())->toBe('2025-03-04T10:20:30Z')
         ->and(User::query()->find('oldtimer00000000')->created_at->equalTo($firstRunDate))->toBeTrue();
 });
+
+it('verifies every account through /me and /data, and fails on a mismatch', function () {
+    $users = [
+        ['id' => 'vcoach0000000000', 'name' => 'Coach V', 'coach' => true],
+        ['id' => 'vmember000000000', 'name' => 'Member V', 'coachId' => 'vcoach0000000000'],
+        ['id' => 'vgone00000000000', 'name' => 'Gone', 'disabled' => true],
+        ['id' => 'vfake00000000000', 'name' => 'Not really admin', 'admin' => 'yes'],   // Node: === true only
+    ];
+    file_put_contents($this->dir.'/db.json', json_encode(['users' => $users, 'creds' => []]));
+    file_put_contents($this->dir.'/state-vmember000000000.json', '{"week":{},"history":[{"d":"2026-05-01"}],"_ts":5}');
+
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify' => true])
+        ->assertSuccessful()->expectsOutputToContain('verified 4 account(s)');
+    expect(User::query()->find('vfake00000000000')->admin)->toBeFalse();
+
+    // Something drifts after the import: --verify-only reads the database as it stands, names the
+    // account and fails. (--verify would re-import first and so put it right.)
+    User::query()->whereKey('vcoach0000000000')->update(['name' => 'Renamed']);
+    DB::table('user_states')->where('user_id', 'vmember000000000')->update(['state' => '{"week":[],"_ts":5}']);
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify-only' => true])->assertFailed()
+        ->expectsOutputToContain('vcoach0000000000: /me is')
+        ->expectsOutputToContain('vmember000000000: /data differs');
+    expect(User::query()->find('vcoach0000000000')->name)->toBe('Renamed');   // verify-only wrote nothing
+
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify' => true])->assertSuccessful();
+});

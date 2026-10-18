@@ -59,7 +59,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => ! $request->is('admin-panel*', 'api/admin-panel*'));
 
         // A refusal the caller may read: the English sentence (and its template, if any).
-        $exceptions->render(fn (ClientSafe $e) => Json::error($e->status, $e->getMessage(), $e->extra, $e->headers));
+        $exceptions->render(fn (ClientSafe $e) => Json::error($e->status, $e->getMessage(), $e->extra, $e->headers)); // relayed: checked where each ClientSafe is thrown
         $exceptions->render(fn (AuthenticationException $e) => Json::error(401, 'not signed in'));
         // PHP refused the body (post_max_size) before any controller ran: say what the sync
         // route would have said. README.md names the ini values production needs.
@@ -71,8 +71,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Laravel's own framework-level refusals (abort(), the throttler's 429, maintenance's
         // 503, validation) keep their status in the envelope. Routes refuse through ClientSafe,
         // whose sentences the app translates; this is the net under anything that does not.
-        $exceptions->render(fn (HttpExceptionInterface $e) => Json::error($e->getStatusCode(), $e->getMessage() !== '' ? $e->getMessage() : ($e->getStatusCode() >= 500 ? 'server error' : 'request refused'), [], $e->getHeaders()));
-        $exceptions->render(fn (ValidationException $e) => Json::error(400, (string) collect($e->errors())->flatten()->first()));
+        // Not translated, deliberately: no route of the app's sends these (routes refuse through
+        // ClientSafe or a literal), so they reach a person only through a bug or a misconfigured
+        // host, and an English sentence beats a 500 there.
+        $exceptions->render(fn (HttpExceptionInterface $e) => Json::error($e->getStatusCode(), $e->getMessage() !== '' ? $e->getMessage() : ($e->getStatusCode() >= 500 ? 'server error' : 'request refused'), [], $e->getHeaders())); // not sent: framework refusals, see above
+        $exceptions->render(fn (ValidationException $e) => Json::error(400, (string) collect($e->errors())->flatten()->first())); // not sent: no route validates through Laravel
         $exceptions->render(fn (HttpResponseException $e) => $e->getResponse());
         // Everything else is a bug; its message is for the log, not the browser.
         $exceptions->render(function (Throwable $e, Request $request) {

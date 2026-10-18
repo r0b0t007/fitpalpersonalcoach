@@ -256,3 +256,74 @@ jobs:
           test "$(cat /tmp/n-tables)" -gt 0
           test ! -s /tmp/bad-tables
           test ! -s /tmp/bad-columns
+      # Every message the backend can send must be a key in every locale pack, or the app shows
+      # English to a French or Spanish coach. The PHP side of api/scripts/check-error-strings.mjs.
+      - name: Backend error strings are translated
+        run: node backend/scripts/check-error-strings.mjs
+
+  # Does the Laravel backend answer like the Node API? Both servers run on the same seeded data
+  # (backend/tools/contract/seed.mjs → Node's DATA_DIR as-is, Laravel through
+  # `fitpal:import-legacy --verify`), with the same session secret, and every R1 route is called on
+  # both: status, error strings and envelopes, bodies (exactly, or by shape where values must
+  # differ) and the headers the app relies on. Intended differences are listed, with reasons, in
+  # the tool; anything else fails the build.
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATA: ${{ github.workspace }}/contract-data
+      RP_ID: localhost
+      ORIGIN: http://localhost:5173
+      INVITE_ONLY: '1'
+      ALLOW_GUEST: '0'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, sodium, pdo_sqlite, gd, fileinfo, bcmath
+          coverage: none
+      - id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+      - run: npm ci
+        working-directory: api
+      - run: composer install --no-interaction --prefer-dist --no-progress
+        working-directory: backend
+      - name: Seed one data directory for both servers
+        run: node backend/tools/contract/seed.mjs "$DATA"
+      - name: Node API on the seed
+        run: |
+          DATA_DIR="$DATA" PORT=3101 nohup node server.js > /tmp/node.log 2>&1 &
+        working-directory: api
+      - name: Laravel on the same seed, imported and verified
+        working-directory: backend
+        run: |
+          cp .env.example .env && php artisan key:generate --quiet
+          touch database/contract.sqlite
+          export DB_CONNECTION=sqlite DB_DATABASE="$PWD/database/contract.sqlite" SESSION_SECRET="$(cat "$DATA/secret")" CACHE_STORE=file APP_DEBUG=false
+          php artisan migrate --force
+          php artisan fitpal:import-legacy "$DATA" --verify
+          # php -S, not artisan serve, so the ini limits the contract needs reach the server.
+          nohup php -d post_max_size=100M -d memory_limit=768M -S localhost:3102 -t public \
+            vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php > /tmp/laravel.log 2>&1 &
+      - name: Wait for both
+        run: |
+          for i in $(seq 1 30); do
+            a=$(curl -s -o /dev/null -w '%{http_code}' localhost:3101/api/health); b=$(curl -s -o /dev/null -w '%{http_code}' localhost:3102/api/health)
+            [ "$a$b" = 200200 ] && exit 0; sleep 1
+          done
+          echo "node $a laravel $b"; cat /tmp/node.log /tmp/laravel.log; exit 1
+      - name: Diff every R1 route
+        run: node backend/tools/contract/diff.mjs --node http://localhost:3101 --laravel http://localhost:3102 --data "$DATA"
+      - name: Server logs
+        if: failure()
+        run: cat /tmp/node.log /tmp/laravel.log; tail -50 backend/storage/logs/laravel.log || true

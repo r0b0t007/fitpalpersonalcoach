@@ -3,10 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Audit\Audit;
+use App\Auth\SessionToken;
+use App\Http\Request;
 use App\Models\User;
 use App\Models\UserState;
 use App\WebAuthn\LegacyCredential;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Support\Facades\DB;
 use Laragear\WebAuthn\Models\WebAuthnCredential;
 use SplFileObject;
@@ -22,7 +25,10 @@ use Throwable;
  */
 final class ImportLegacy extends Command
 {
-    protected $signature = 'fitpal:import-legacy {dataDir : The Node API DATA_DIR (holds db.json and state-*.json)}';
+    protected $signature = 'fitpal:import-legacy
+        {dataDir : The Node API DATA_DIR (holds db.json and state-*.json)}
+        {--verify : After importing, read every account back through the API and compare it with the files}
+        {--verify-only : Compare the database with the files without importing (after a cutover, say)}';
 
     protected $description = 'Import users, passkeys, training state and the audit log from a Node API data directory';
 
@@ -41,6 +47,12 @@ final class ImportLegacy extends Command
 
             return self::FAILURE;
         }
+        // Read-only: the import rewrites accounts and states from the files, so verifying right
+        // after one checks the import and the read path, never drift since. This checks the
+        // database as it stands.
+        if ($this->option('verify-only')) {
+            return $this->verify($db, $dir);
+        }
 
         $users = 0;
         foreach ($db['users'] ?? [] as $u) {
@@ -50,8 +62,10 @@ final class ImportLegacy extends Command
             $user = User::query()->firstOrNew(['id' => $u['id']]);
             $user->fill([
                 'name' => mb_substr((string) ($u['name'] ?? ''), 0, 40),
-                'admin' => ! empty($u['admin']),
-                'coach' => ! empty($u['coach']),
+                // `=== true`, as Node's isAdmin/isCoach: a stray "yes" or 1 in db.json granted
+                // nothing there, so it must grant nothing here.
+                'admin' => ($u['admin'] ?? null) === true,
+                'coach' => ($u['coach'] ?? null) === true,
                 'coach_id' => $u['coachId'] ?? null,
                 'disabled' => ! empty($u['disabled']),
                 'sv' => (int) ($u['sv'] ?? 0),
@@ -148,6 +162,76 @@ final class ImportLegacy extends Command
         foreach ($skipped as $s) {
             $this->warn("skipped $s");
         }
+
+        return $this->option('verify') ? $this->verify($db, $dir) : self::SUCCESS;
+    }
+
+    /**
+     * Every account read back the way the app reads it — /me and /data through the HTTP kernel,
+     * with a session minted for it — and compared with what the Node API would have answered from
+     * the same files (api/server.js publicUser, GET /api/data). A mismatch is reported by account
+     * and field; any mismatch fails the command, so a cutover script can stop on it.
+     */
+    private function verify(array $db, string $dir): int
+    {
+        $kernel = app(HttpKernel::class);
+        $byId = collect($db['users'] ?? [])->filter(fn ($u) => is_string($u['id'] ?? null))->keyBy('id');
+        $adminUids = (array) config('fitpal.admin_uids');
+        $problems = [];
+        $get = function (User $user, string $path) use ($kernel) {
+            $request = Request::create($path, 'GET', server: ['HTTP_AUTHORIZATION' => 'Bearer '.SessionToken::make($user)]);
+            $response = $kernel->handle($request);
+            $kernel->terminate($request, $response);
+            app('auth')->forgetGuards();
+
+            return $response;
+        };
+
+        foreach ($byId as $id => $u) {
+            $user = User::query()->find($id);
+            if ($user === null) {
+                $problems[] = "$id: not imported";
+
+                continue;
+            }
+            $me = $get($user, '/api/me');
+            if (! empty($u['disabled'])) {
+                // A disabled account's sessions are refused, by Node and by Laravel alike.
+                if ($me->getStatusCode() !== 401) {
+                    $problems[] = "$id: disabled, but /me answered {$me->getStatusCode()}";
+                }
+
+                continue;
+            }
+            $isAdmin = ($u['admin'] ?? null) === true || in_array($id, $adminUids, true);
+            $coach = isset($u['coachId']) ? $byId->get($u['coachId']) : null;
+            $want = [
+                'id' => $id, 'name' => mb_substr((string) ($u['name'] ?? ''), 0, 40), 'admin' => $isAdmin,
+                'coach' => ($u['coach'] ?? null) === true || $isAdmin,
+                'coachName' => $coach['name'] ?? null,
+            ];
+            $got = json_decode((string) $me->getContent(), true)['user'] ?? null;
+            if ($got !== $want) {
+                $problems[] = "$id: /me is ".json_encode($got).', the files say '.json_encode($want);
+            }
+
+            $file = $dir.DIRECTORY_SEPARATOR.'state-'.$id.'.json';
+            // Node's GET /api/data answers the file exactly as stored, and the import stores it raw.
+            $wantState = is_file($file) ? json_decode((string) file_get_contents($file)) : null;
+            $gotState = json_decode((string) $get($user, '/api/data')->getContent())->state ?? null;
+            // == on decoded JSON compares objects and arrays deeply, and keeps {} apart from [].
+            if ($gotState != $wantState) {
+                $problems[] = "$id: /data differs from state-$id.json";
+            }
+        }
+
+        foreach ($problems as $p) {
+            $this->error('verify  '.$p);
+        }
+        if ($problems !== []) {
+            return self::FAILURE;
+        }
+        $this->info('verified '.$byId->count().' account(s): /me and /data match the files');
 
         return self::SUCCESS;
     }
