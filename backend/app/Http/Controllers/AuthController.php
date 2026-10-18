@@ -40,9 +40,8 @@ use Throwable;
  * a name, verify writes the user and the credential together, so an account can never exist
  * without a way to sign in to it.
  *
- * The sign-up gate is here: INVITE_ONLY and the bootstrap code (R1). Invite codes themselves and
- * coach binding arrive in R2 (InviteGate::redeemable is where that lookup lands); the licence cap
- * in R4.
+ * The sign-up gate is here: INVITE_ONLY, the bootstrap code, and invite codes (InviteGate), whose
+ * coach's code puts the new client on that coach's roster. The licence cap arrives in R4.
  */
 final class AuthController
 {
@@ -118,29 +117,50 @@ final class AuthController
         // Only a sign-up that SUPPLIED a code has anything to race over; one without a code is
         // never admin and never spends an invite, so it does not queue behind the lock.
         $code = (string) ($entry['extra']['code'] ?? '');
-        $gate = function () use ($request, $user, $validation, $code) {
-            $bootstrap = Bootstrap::matches($code, User::query()->count());
-            $invite = $bootstrap ? null : InviteGate::redeemable($code);
-            if (config('fitpal.invite_only') && ! $bootstrap && ! $invite) {
-                Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'invite-invalid']);
+        $spent = null;
+        // One transaction for the check, the account, its passkey and the spent code: an account
+        // without a passkey could never be signed in to, and the invite row is locked so a code
+        // redeemed from an existing account at the same moment cannot be spent twice.
+        // A plain closure, not fn(): an arrow function captures $spent by value, and the code would
+        // never reach the audit line below.
+        $gate = function () use ($request, $user, $validation, $code, &$spent) {
+            return DB::transaction(function () use ($request, $user, $validation, $code, &$spent) {
+                $bootstrap = Bootstrap::matches($code, User::query()->count());
+                $invite = $bootstrap ? null : InviteGate::redeemable($code, lock: true);
+                if (config('fitpal.invite_only') && ! $bootstrap && ! $invite) {
+                    Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'invite-invalid']);
 
-                return Json::error(403, 'invite code is no longer valid — ask for a new one');
-            }
-            // Stored on the row, which isAdmin() honours: the code is inert from here on.
-            if ($bootstrap) {
-                $user->admin = true;
-                // json_encode, not raw: the name is caller-supplied and could forge log lines.
-                Log::notice('[bootstrap] first account '.json_encode($user->name)." ({$user->id}) created via BOOTSTRAP_CODE and granted admin — clear BOOTSTRAP_CODE now.");
-            }
-            // One transaction: an account without a passkey could never be signed in to.
-            DB::transaction(function () use ($user, $validation) {
+                    return Json::error(403, 'invite code is no longer valid — ask for a new one');
+                }
+                // Stored on the row, which isAdmin() honours: the code is inert from here on.
+                if ($bootstrap) {
+                    $user->admin = true;
+                    // json_encode, not raw: the name is caller-supplied and could forge log lines.
+                    Log::notice('[bootstrap] first account '.json_encode($user->name)." ({$user->id}) created via BOOTSTRAP_CODE and granted admin — clear BOOTSTRAP_CODE now.");
+                }
+                $user->created_at = now();
+                // A spent code on an OPEN instance does not fail the signup: the person holds a link
+                // they cannot fix, and the landing screen already declined to name a coach. They
+                // arrive unassigned and can redeem a fresh code later.
+                if ($invite) {
+                    $user->invited_by = $invite->code;
+                    // A coach's code puts this client straight onto that coach's roster, if the coach
+                    // can still coach now (not at mint time). Otherwise the signup still succeeds,
+                    // unassigned: refusing it would punish the client for what only the gym can fix.
+                    $user->coach_id = InviteGate::coachBinding($invite)?->id;
+                }
                 $user->save();
                 $credential = $validation->credential;
                 $credential->authenticatable_id = $user->id;
                 $credential->save();
-            });
+                if ($invite) {
+                    // used_at is the account's own creation instant, as Node wrote user.created.
+                    $invite->forceFill(['used_by' => $user->id, 'used_at' => $user->createdIso()])->save();
+                    $spent = $invite->code;
+                }
 
-            return null;
+                return null;
+            });
         };
         try {
             $refused = $code === '' ? $gate() : $this->cache->lock('register:gate', 10)->block(5, $gate);
@@ -154,8 +174,8 @@ final class AuthController
         if ($refused !== null) {
             return $refused;
         }
-        // Node put the invite code the account came in with in msg; invites arrive in R2.
-        Audit::record($request, 'auth.register.ok', ['user' => $user]);
+        // The invite code the account came in with, as Node recorded it.
+        Audit::record($request, 'auth.register.ok', ['user' => $user, 'msg' => $spent]);
 
         return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user));
     }

@@ -10,6 +10,7 @@
 // across tenants.
 
 use App\Models\Assignment;
+use App\Models\Invite;
 use Tests\Support\Coaching;
 
 beforeEach(function () {
@@ -44,3 +45,21 @@ it('lets an admin reach any member on a coach route', function (string $method, 
     $fill = fn ($v) => is_string($v) ? str_replace('{b1}', $b1, $v) : $v;
     $this->json($method, $fill($path), array_map($fill, $body ?? []), bearer($this->f->admin))->assertOk();
 })->with('coach routes on B\'s client');
+
+// Scoped rows: another coach's row is not found — the same 404 a made-up id gets — and unchanged.
+it('answers coach A on coach B\'s invite code as on a made-up one, and changes nothing', function () {
+    $this->postJson('/api/coach/invites/revoke', ['code' => 'INVB0000000000'], bearer($this->f->a))
+        ->assertStatus(404)->assertExactJson(['error' => 'no such code']);
+    expect(Invite::query()->find('INVB0000000000')->revoked)->toBeFalse();
+});
+
+it('leaves coach B\'s and the admin\'s codes out of coach A\'s list', function () {
+    $codes = array_column($this->getJson('/api/coach/invites', bearer($this->f->a))->json('invites'), 'code');
+    expect($codes)->toBe(['INVA0000000000']);
+});
+
+it('scopes an admin on the coach invite routes to their own codes, as Node did', function () {
+    $codes = array_column($this->getJson('/api/coach/invites', bearer($this->f->admin))->json('invites'), 'code');
+    expect($codes)->toBe(['INVADMIN0000000000']);
+    $this->postJson('/api/coach/invites/revoke', ['code' => 'INVB0000000000'], bearer($this->f->admin))->assertStatus(404);
+});
