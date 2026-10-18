@@ -15,8 +15,9 @@
     php_value max_input_time 120
 </IfModule>
 
-# Never serve the PHP config files, whatever the server's own defaults deny.
-<FilesMatch "^\.(user\.ini|htaccess)$">
+# Never serve the PHP config files, or the error_log PHP writes beside the script on cPanel
+# (it holds stack traces with server paths), whatever the server's own defaults deny.
+<FilesMatch "^(\.user\.ini|\.htaccess|error_log)$">
     Require all denied
 </FilesMatch>
 

@@ -260,13 +260,31 @@ Laravel's global `TrimStrings` and `ConvertEmptyStringsToNull` were told to skip
 (`bootstrap/app.php`; they decoded and walked the whole body before the controller read it raw);
 after: **2.2 s**. A 20.8 MB sync gets the translated 413, as it should.
 
-**Not yet measured: the same through Cloudflare.** Every check above went to the origin with
-`--resolve` (no public DNS for `lab` yet). Production traffic goes through the proxied record,
-and Cloudflare caps request bodies (**100 MB** on Free and Pro) and gives the origin **100 s** to
-answer before a `524`. A 90 MB video is inside the cap but close to it, and a slow mobile upload
-can outlast 100 s. Before R3's upload work is called done: add the `lab` record (below), repeat
-the 50 and 95 MB bodies through the proxy, and time a throttled upload. If either limit bites, the
-answers are a lower `MEDIA_MAX_VIDEO_MB` or a DNS-only (grey-cloud) upload hostname.
+**Through Cloudflare (measured once `lab` had its proxied record).** Production traffic goes
+through the proxy, not to the origin directly, so the bodies were sent again through
+`https://lab.fitpal.ma`:
+
+| Request | Result |
+|---|---|
+| 5 MB, 50 MB, 95 MB at full upload speed | **200**, byte-exact (SHA-256 matched), 3 s / 9.4 s / 15.9 s |
+| 101 MB | **413 from Cloudflare** (its HTML page, not the app's JSON): the 100 MB cap is real |
+| 10 MB throttled to 60 KB/s (would take ~170 s) | **`524` after 143 s**: a slow upload hits the 100 s origin timeout |
+
+What that means: **through the proxy a request must be fully sent in about 100 seconds.** The
+origin's own timing cannot show who buffers the body (LiteSpeed reads it all before PHP starts,
+so PHP saw 0.3–0.6 s whatever the upload took); the throttled request is the measurement that
+counts. Consequences for the build:
+
+- **Demo videos (R3)**: 90 MB in 100 s needs ≥ ~0.9 MB/s of uplink. Fine on Wi-Fi, not on a weak
+  mobile signal. R3 uploads videos in **chunks** (each well under 100 s at slow speeds, and
+  resumable), or limits the size the app sends. A grey-cloud (DNS-only) upload hostname would
+  dodge both limits but is a second origin for passkeys and the session cookie, so it is the last
+  resort, not the plan.
+- **Sync (R1)**: 16 MB in 100 s needs ≥ ~160 KB/s. A huge state on a poor connection can 524;
+  compressing the body on the client is the cheap fix if that ever shows up. Today's states are
+  far below 16 MB.
+- **`MEDIA_MAX_VIDEO_MB` must stay below 100**, or Cloudflare refuses with an HTML page the app
+  cannot translate.
 
 **Database**: MariaDB `11.4.13`, **default engine MyISAM, default charset latin1**. MyISAM's
 1000-byte key limit refuses the first `utf8mb4` string index, so `config/database.php` pins
@@ -328,10 +346,18 @@ a crontab missing the other lines. During this measurement the account's existin
 hand. Edit crontabs by writing the old one to a file, filtering that file, checking the result
 still contains every expected line, and only then `crontab <file>`.
 
-**TLS and DNS**: the vhost serves the server's shared `*.web-hosting.com` certificate until
-AutoSSL issues one, and AutoSSL needs public DNS. `lab.fitpal.ma` has **no DNS record** yet (the
-Cloudflare token available to CI and wrangler can read zones but not edit DNS). For public access
-add in Cloudflare: `A lab 198.54.116.94 (proxied)`, as for `coach`.
+**TLS and DNS**: `lab.fitpal.ma` is `A 198.54.116.94`, **proxied**, auto TTL — the same as
+`coach` and `app` — created with the Cloudflare CLI (`cf dns records create -z fitpal.ma`), with a
+comment on the record saying to tear it down before the R5 cutover. The zone's SSL mode is
+**`full`** (not strict), so Cloudflare accepts the origin's shared `*.web-hosting.com`
+certificate and `https://lab.fitpal.ma/api/health` answers publicly; AutoSSL was asked to issue
+the vhost its own certificate. On teardown: delete the record, the `lab` subdomain in cPanel, the
+app directory, and the lab database and user.
+
+**PHP's own `error_log`**: on this host PHP writes fatal errors to an `error_log` file beside the
+script — in `public/`, the web root. The host answers 403 for it, and `public/.htaccess` denies it
+as well; it contained only the stack trace from the deliberate 128M out-of-memory test, and was
+deleted.
 
 ### Cutover steps this section adds (R5)
 

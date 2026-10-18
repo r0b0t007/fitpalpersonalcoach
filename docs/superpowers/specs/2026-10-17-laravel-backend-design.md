@@ -196,7 +196,13 @@ exercise per coach, 500 photos or 300 MB per member, `MEDIA_MAX_*`); names are c
 with the uploader prefix; refusals carry `Connection: close`. Serving uses Symfony's
 `BinaryFileResponse` (Range, 206/416, HEAD) from a `media` disk rooted at `DATA_DIR/media`; the
 three "malformed range → 200 whole file" behaviours are kept by normalising the header first.
-PHP limits for 90 MB raw bodies are verified on the host in R0.
+PHP limits for 90 MB raw bodies are verified on the host in R0 (CHW-227): the origin takes 95 MB
+byte-exact. **Cloudflare is the binding limit**: it refuses bodies over 100 MB and answers `524`
+when a request is not fully sent and answered within about 100 s (a throttled upload, measured).
+So video uploads are **chunked** in R3 — each chunk small enough to finish well inside 100 s on a
+weak mobile uplink, the server appending and hashing as chunks arrive, the existing sniff and caps
+applied to the assembled file — and `MEDIA_MAX_VIDEO_MB` stays below 100. Details in
+`docs/DEPLOY_COACH_SUBDOMAIN.md` → "Laravel backend".
 
 ### Background work
 One cron line runs the scheduler every minute: `fitpal:remind` (day and check-in reminders;
