@@ -248,17 +248,30 @@ fileinfo, bcmath, openssl, curl, zip, OPcache, and **pcntl** in the CLI (so the 
 300 s `user_ini.cache_ttl`. It **does honour `php_value` in `.htaccess`**: a `<IfModule Litespeed>`
 block in `public/.htaccess` changed `memory_limit`, `post_max_size` and `max_execution_time` on
 the next request. So the repo's limits live in `backend/public/.htaccess` (LiteSpeed, mod_php) and
-`backend/public/.user.ini` (PHP-FPM elsewhere), same values: 100M / 100M / **512M** / 120 s. Both
-files answer 403 to the browser (the host already denied `.user.ini`; `.htaccess` now denies both
-explicitly).
+`backend/public/.user.ini` (PHP-FPM elsewhere), same values: 100M / 100M / **768M** / 120 s,
+kept equal by `tests/Unit/PhpLimitsTest.php`. Both files, and the `error_log` PHP writes beside
+the script, answer 403 to the browser.
 
 **Bodies.** At the origin, raw bodies of 1, 9, 20, 50 and 95 MB all reached `php://input`
 byte-exact (SHA-256 matched) in at most 2.5 s, at 4 MB peak memory when streamed. A realistic
-**15.9 MB sync** (13,500 workouts, 324,000 sets, through the real `PUT /api/data` with a session):
-200 at `memory_limit` 1024M and 256M, **500 at 128M** — hence 512M. It took **8.2 s** until
-Laravel's global `TrimStrings` and `ConvertEmptyStringsToNull` were told to skip that route
-(`bootstrap/app.php`; they decoded and walked the whole body before the controller read it raw);
-after: **2.2 s**. A 20.8 MB sync gets the translated 413, as it should.
+**15.9 MB sync** (13,500 workouts, 324,000 sets) costs far more, because Laravel decodes it:
+
+| `PUT /api/data`, 15.9 MB, under LiteSpeed at `memory_limit` 512M | peak | result |
+|---|---|---|
+| Laravel's own capture: `createFromBase` json-decodes every JSON body into arrays, then DataController decodes it again into objects | 506 MB | **500, out of memory** |
+| `App\Http\Request` (used by `public/index.php`): skips the capture decode for this route only | 313–379 MB | 200, 0.9–2.2 s |
+
+Peak memory was read at request shutdown under the web SAPI itself; the same request in the CLI
+gave 549 MB and 343 MB. Hence `memory_limit` **768M**, twice the measured peak. Laravel's global
+`TrimStrings` and `ConvertEmptyStringsToNull` also skip the route (`bootstrap/app.php`): they walk
+every string of the decoded body, which took the first measurement to 8.2 s. A 20.8 MB sync gets
+the translated 413, as it should. *Correction:* an earlier pass of this measurement reported
+"200 at 256M, 500 at 128M". That came from swapping `memory_limit` in `.htaccess` between
+requests, which LiteSpeed caches; the values above, logged inside each request, replace it.
+
+If real states ever approach the 16 MB cap, the remaining cost is DataController's own decode
+into objects (needed to strip `active` and read `_ts`); `json_validate()` plus a top-level scan
+would avoid building the tree at all.
 
 **Through Cloudflare (measured once `lab` had its proxied record).** Production traffic goes
 through the proxy, not to the origin directly, so the bodies were sent again through
@@ -300,18 +313,23 @@ Two databases on the account, each with its own user, passwords only in each app
 credential. **Tear the lab down before the cutover** (the app directory, the `lab` symlink, its
 database and user), so nothing scratch is reachable once real data exists.
 
-**Cron**: one line, with output discarded — cPanel mails any cron output to the account contact,
-and `schedule:run` prints on every run:
+**Cron**: one line. cPanel mails any cron output to the account contact, so normal runs must print
+nothing — `-q` silences `schedule:run` itself — while anything that still prints (PHP failing to
+boot, a composer platform check, a fatal error) is appended to a log instead of being thrown away:
 
 ```
-* * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run >/dev/null 2>&1
+* * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run -q >> storage/logs/cron.log 2>&1
 ```
+
+Verified on the lab: a normal `schedule:run -q` writes zero bytes, so `cron.log` stays empty while
+all is well and only grows when the scheduler itself cannot run — the one failure no Laravel hook
+can report, since Laravel never boots.
 
 `/usr/local/bin/php` is cPanel's `ea_php_cli` wrapper, which runs the PHP the selector picks for
 the account: verified `8.5.11`, `PHP_BINARY=/opt/alt/php85/usr/bin/php`, the same binary the
-scheduler then hands its background worker. If the account's PHP is ever changed below 8.4,
-every run dies at boot — and with output discarded, only the worker's `onFailure` log line (below)
-and the R5 health check would show it; check `php -v` after any change in the selector.
+scheduler then hands its background worker. If the account's PHP is ever changed below 8.4, every
+run dies at boot; that lands in `storage/logs/cron.log` (above), not in `laravel.log`. Check
+`php -v` after any change in the selector.
 
 Over 131 consecutive minutes it fired in **every minute (0 missed)**, but not on the minute: the
 start is spread across the minute (2 s to 51 s, median 23 s) — the host staggers user crons. A job
@@ -321,17 +339,22 @@ rest-timer pushes keep the spec's fallback (a client-side timer with a local not
 **Queue under LVE**: `queue:work database --max-time=55 --sleep=1 --stop-when-empty` from the
 scheduler, `runInBackground()`. Six 20-second jobs: the first worker ran three (55 s budget) and
 exited cleanly, the next minute's worker ran the other three; no LVE kill, no failed job, 26 MB per
-worker. **This schedule is in the repo** (`backend/routes/console.php`), hardened after review:
+worker. **This schedule is in the repo** (`backend/routes/console.php`), hardened over two reviews:
 - `withoutOverlapping(2)`: the overlap lock is released by the background process's finish
   callback, which never runs if the host kills the worker, and Laravel's default expiry is 24
   hours — every push and reminder would silently wait until tomorrow.
 - `--timeout=50`: `--max-time` is only checked between jobs, so a worker lives up to 55 + 50 =
   105 s — under the 2-minute lock (never two workers at once) — and no job runs past the database
-  queue's 90 s `retry_after` (never handed out twice).
-- `--queue=default`, explicit: a job dispatched onto a queue not listed there is never run, so a
-  new queue name is added in the same change that first uses it.
-- `onFailure` writes an error to `storage/logs/laravel.log`: cron output is discarded, so a
-  failing worker must say so somewhere an operator looks.
+  queue's 90 s `retry_after` (never handed out twice). A job class can override `--timeout` with
+  its own `$timeout`, so `tests/Unit/QueueBoundsTest.php` refuses any job above 50 s and checks
+  the arithmetic against `config/queue.php`.
+- The connection and queue come from `config/queue.php` — the same values `dispatch()` uses — so a
+  changed `QUEUE_CONNECTION` or `DB_QUEUE` cannot leave jobs on a queue nobody drains. A job sent
+  with `onQueue('other')` still needs that name added to the schedule.
+- `--tries=3 --backoff=30`: a push that fails on a network blip is retried, not dropped.
+- Failures are logged where an operator looks, `storage/logs/laravel.log`: each job that fails for
+  good (`Queue::failing` in `AppServiceProvider`, with the job and the error), and a worker that
+  exits non-zero (a job hit `--timeout`, or the worker could not start) as a warning.
 
 **One thing that bit**: `php artisan optimize` failed with `View path not found`. The cause was
 `storage/framework/views` missing on the box — the scratch copy skipped `storage/` — and a config
@@ -356,7 +379,7 @@ app directory, and the lab database and user.
 
 **PHP's own `error_log`**: on this host PHP writes fatal errors to an `error_log` file beside the
 script — in `public/`, the web root. The host answers 403 for it, and `public/.htaccess` denies it
-as well; it contained only the stack trace from the deliberate 128M out-of-memory test, and was
+as well; it contained only the stack traces from the deliberate out-of-memory tests, and was
 deleted.
 
 ### Cutover steps this section adds (R5)

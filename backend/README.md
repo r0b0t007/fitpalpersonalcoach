@@ -51,11 +51,17 @@ PHP-FPM). Keep them in step. Both are refused to the browser.
 |---|---|---|
 | `post_max_size` | `100M` | above the largest raw upload; PHP refuses larger bodies before Laravel runs (the app still gets the 413 sentence, see `bootstrap/app.php`) |
 | `upload_max_filesize` | `100M` | same, for the multipart path should one ever exist |
-| `memory_limit` | `512M` | a 15.9 MB sync (324,000 sets) fits in 256M and fails in 128M on the host; 512M covers a worse-shaped state |
+| `memory_limit` | `768M` | a 15.9 MB sync (324,000 sets) peaked at 313–379 MB on the host; twice that |
 | `max_execution_time` | `120` | a 90 MB upload over a slow link |
+| `max_input_time` | `120` | time to receive that body |
 
-`PUT /api/data` is skipped by Laravel's global `TrimStrings` and `ConvertEmptyStringsToNull`
-(`bootstrap/app.php`): walking a 16 MB body made that sync take 8.2 s on the host, 2.2 s without.
+`tests/Unit/PhpLimitsTest.php` fails if the three files or this table disagree.
+
+`PUT /api/data` is read raw and decoded once, by DataController. Two things in Laravel would
+otherwise decode it first: the request capture itself (`createFromBase` json-decodes every JSON
+body into arrays — `public/index.php` captures through `App\Http\Request`, which skips that for
+this route only) and the global `TrimStrings` / `ConvertEmptyStringsToNull` middleware, which walk
+every string (skipped for this route in `bootstrap/app.php`).
 
 ## Where things are
 

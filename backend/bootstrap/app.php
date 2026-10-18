@@ -39,8 +39,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Accept header, so without this Laravel would look up a `login` route and 500.
         $middleware->redirectGuestsTo(fn () => null);
         // The sync body is an opaque blob of up to 16 MB that DataController reads raw. Laravel's
-        // global input cleaners would decode it into arrays and walk every string first: on the
-        // host that made a 16 MB sync take 8 s (CHW-227). Nothing on that route reads input().
+        // global input cleaners would walk every string of it first: on the host that made a
+        // 16 MB sync take 8 s (CHW-227). Nothing on that route reads input(). (The decode Laravel
+        // does at capture is skipped separately, by App\Http\Request in public/index.php.)
         $skipSync = fn (Request $request) => $request->is('data', 'api/data');
         $middleware->trimStrings(except: [$skipSync]);
         $middleware->convertEmptyStringsToNull(except: [$skipSync]);

@@ -202,7 +202,8 @@ jobs:
           --health-interval=5s --health-timeout=5s --health-retries=20
     defaults:
       run:
-        # pipefail: a mysql query that fails must fail the step, not hand tee an empty file
+        # -e fails the step on a failing query (the checks below redirect with `>`, no pipes);
+        # pipefail keeps that true if one is ever piped through tee or grep.
         shell: bash -eo pipefail {0}
     steps:
       - uses: actions/checkout@v7
@@ -245,6 +246,9 @@ jobs:
           php artisan migrate --force
           mysql -h127.0.0.1 -uroot -proot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='fitpal'" > /tmp/n-tables
           mysql -h127.0.0.1 -uroot -proot -N -e "SELECT table_name, engine, table_collation FROM information_schema.tables WHERE table_schema='fitpal' AND (engine <> 'InnoDB' OR table_collation NOT LIKE 'utf8mb4%')" > /tmp/bad-tables
-          echo "tables: $(cat /tmp/n-tables)"; cat /tmp/bad-tables
+          # Column level too: a ->charset('latin1') on one column keeps a utf8mb4 table default.
+          mysql -h127.0.0.1 -uroot -proot -N -e "SELECT table_name, column_name, collation_name FROM information_schema.columns WHERE table_schema='fitpal' AND collation_name IS NOT NULL AND collation_name NOT LIKE 'utf8mb4%'" > /tmp/bad-columns
+          echo "tables: $(cat /tmp/n-tables)"; cat /tmp/bad-tables /tmp/bad-columns
           test "$(cat /tmp/n-tables)" -gt 0
           test ! -s /tmp/bad-tables
+          test ! -s /tmp/bad-columns
