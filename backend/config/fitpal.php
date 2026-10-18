@@ -10,6 +10,14 @@ $flag = static fn (string $key, bool $default): bool => match (strtolower((strin
     default => $default,
 };
 
+// A count where blank means the default and 0 means "no cap" (env() makes `false` a bool; treat
+// it as blank rather than as 0).
+$count = static function (string $key, int $default): int {
+    $v = env($key);
+
+    return $v === null || $v === '' || is_bool($v) ? $default : max(0, (int) $v);
+};
+
 return [
     // Passkeys are bound to exactly this hostname and origin; both must match the address the app
     // is opened at, or every registration and login fails.
@@ -54,12 +62,16 @@ return [
         'products' => env('CREEM_PRODUCTS', ''),
     ],
 
-    // Parsed exactly as the Node API parsed them (api/server.js): 0 means "no cap" for MAX and
-    // DAYS, and AUDIT_IP accepts `full`, or `net` and its truthy spellings, else off.
+    // Parsed exactly as the Node API parsed them (api/server.js), which env()'s own typing gets in
+    // the way of: env() turns `false` into boolean false, and a blank value into ''. So:
+    //  - AUDIT_LOG is on unless it says 0/false/no/off (blank = on, as `process.env.X || ''`);
+    //  - AUDIT_MAX / AUDIT_DAYS: blank or unset = the default (`process.env.X || 5000`), an explicit
+    //    0 = no cap;
+    //  - AUDIT_IP accepts `full`, or `net` and its truthy spellings, else off.
     'audit' => [
-        'enabled' => ! preg_match('/^(0|false|no|off)$/i', (string) env('AUDIT_LOG', '')),
-        'max' => max(0, (int) env('AUDIT_MAX', 5000)),
-        'days' => max(0, (int) env('AUDIT_DAYS', 90)),
+        'enabled' => ! (env('AUDIT_LOG') === false || preg_match('/^(0|false|no|off)$/i', (string) env('AUDIT_LOG', ''))),
+        'max' => $count('AUDIT_MAX', 5000),
+        'days' => $count('AUDIT_DAYS', 90),
         // off | net | full — how much of the caller's address a record keeps.
         'ip' => match (true) {
             (bool) preg_match('/^full$/i', (string) env('AUDIT_IP', '')) => 'full',

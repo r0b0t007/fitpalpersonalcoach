@@ -161,3 +161,49 @@ it('imports audit.log with its ids, skips torn lines, and carries the sequence o
     array_map('unlink', glob($dir.'/*'));
     rmdir($dir);
 });
+
+it('counts the AUDIT_MAX window among rows inside AUDIT_DAYS, as Node did (age first)', function () {
+    config(['fitpal.audit.max' => 2, 'fitpal.audit.days' => 1]);
+    $old = Audit::now() - 2 * 86_400_000;
+    DB::table('audit_events')->insert([['ts' => $old, 'ev' => 'auth.login.ok', 'ok' => true], ['ts' => $old, 'ev' => 'auth.login.ok', 'ok' => true]]);
+    Audit::record(Request::create('/'), 'auth.login.ok');
+    Audit::record(Request::create('/'), 'auth.logout');
+    Audit::record(Request::create('/'), 'auth.logout.all');
+
+    // 3 recent rows, cap 2: the two newest; the two expired ones never count towards the cap.
+    expect(array_column($this->getJson('/api/admin/audit', bearerFor($this->admin))->json('events'), 'ev'))->toBe(['auth.logout.all', 'auth.logout'])
+        ->and(Audit::prune())->toBe(3)
+        ->and(DB::table('audit_events')->pluck('ev')->all())->toBe(['auth.logout', 'auth.logout.all']);
+});
+
+it('prunes from the scheduler every hour, not on the request path', function () {
+    $this->artisan('schedule:list')->expectsOutputToContain('audit:prune');
+    config(['fitpal.audit.max' => 1]);
+    foreach (range(1, 250) as $i) {
+        Audit::record(Request::create('/'), 'auth.login.ok');
+    }
+    expect(DB::table('audit_events')->count())->toBe(250);   // writing never deletes
+});
+
+it('ignores an array where a string belongs, as Node did, instead of a 500', function () {
+    // For Node `?cat[]=auth` is another key: searchParams.get('cat') is null, so no filter at all.
+    Audit::record(Request::create('/'), 'auth.login.ok');
+    $this->getJson('/api/admin/audit?cat[]=fail&limit[]=1&before[]=9', bearerFor($this->admin))
+        ->assertOk()->assertJsonPath('total', 1)->assertJsonCount(1, 'events');
+});
+
+it('refuses to import an audit log into a table that holds other events', function () {
+    $dir = sys_get_temp_dir().'/fitpal-audit-'.bin2hex(random_bytes(4));
+    mkdir($dir);
+    file_put_contents($dir.'/db.json', json_encode(['users' => [], 'creds' => []]));
+    file_put_contents($dir.'/audit.log', json_encode(['id' => 1, 'ts' => 1790000000000, 'ev' => 'auth.login.ok', 'ok' => true])."\n");
+    Audit::record(Request::create('/'), 'auth.logout');   // Laravel's own event, id 1, different from the log's id 1
+
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $dir])->assertSuccessful()
+        ->expectsOutputToContain('audit 0')
+        ->expectsOutputToContain('not from this log');
+    expect(DB::table('audit_events')->pluck('ev')->all())->toBe(['auth.logout']);   // untouched
+
+    array_map('unlink', glob($dir.'/*'));
+    rmdir($dir);
+});

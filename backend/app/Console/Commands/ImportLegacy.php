@@ -15,14 +15,15 @@ use Throwable;
  * Brings a Node API data directory into the database. Idempotent: rows are upserted by id, so it
  * can be run against a copy today and against the live directory at cutover.
  *
- * R0 scope: accounts, passkeys and training state. Invites, assignments, programs, photos, media
- * rows, push subscriptions and the audit log follow in R1–R3 as their tables land.
+ * Imports today: accounts, passkeys, training state, and the audit log (audit.log, into a table
+ * that holds nothing else — see below). Invites, assignments, programs, photos, media rows and push
+ * subscriptions follow in R2–R3 as their tables land.
  */
 final class ImportLegacy extends Command
 {
     protected $signature = 'fitpal:import-legacy {dataDir : The Node API DATA_DIR (holds db.json and state-*.json)}';
 
-    protected $description = 'Import users, passkeys and training state from a Node API data directory';
+    protected $description = 'Import users, passkeys, training state and the audit log from a Node API data directory';
 
     public function handle(): int
     {
@@ -111,16 +112,21 @@ final class ImportLegacy extends Command
         // The audit log: JSONL, one event per line, ids and timestamps kept so the owner's history
         // reads on across the cutover (and the id sequence carries on above the last one). A torn
         // last line is skipped, as the Node reader did.
+        //
+        // Ids are only meaningful in one sequence: Laravel hands them out too, and retention and
+        // paging both read id order as time order. So the log goes into a table that holds nothing
+        // but (earlier imports of) this same log — R5 runs migrate:fresh before the import — and an
+        // existing row is never overwritten.
         $audit = 0;
         $auditFile = $dir.DIRECTORY_SEPARATOR.'audit.log';
         if (is_file($auditFile)) {
-            $batch = [];
+            $rows = [];
             foreach (new SplFileObject($auditFile) as $line) {
                 $r = json_decode(trim((string) $line), true);
                 if (! is_array($r) || empty($r['id']) || empty($r['ev']) || ! is_numeric($r['id'])) {
                     continue;
                 }
-                $batch[] = [
+                $rows[(int) $r['id']] = [
                     'id' => (int) $r['id'], 'ts' => (int) ($r['ts'] ?? 0), 'ev' => mb_substr((string) $r['ev'], 0, 64),
                     'ok' => ($r['ok'] ?? true) !== false,
                     'uid' => isset($r['uid']) ? mb_substr((string) $r['uid'], 0, 16) : null,
@@ -130,12 +136,17 @@ final class ImportLegacy extends Command
                     'msg' => isset($r['msg']) ? mb_substr((string) $r['msg'], 0, 120) : null,
                     'ip' => isset($r['ip']) ? mb_substr((string) $r['ip'], 0, 45) : null,
                 ];
-                if (count($batch) === 500) {
-                    $audit += self::upsertAudit($batch);
-                    $batch = [];
+            }
+            $foreign = DB::table('audit_events')->get(['id', 'ts', 'ev'])
+                ->filter(fn ($e) => ! isset($rows[$e->id]) || $rows[$e->id]['ts'] !== (int) $e->ts || $rows[$e->id]['ev'] !== $e->ev)
+                ->count();
+            if ($foreign > 0) {
+                $skipped[] = "audit.log ($foreign event(s) already in audit_events are not from this log; import it into an empty table)";
+            } else {
+                foreach (array_chunk(array_values($rows), 500) as $chunk) {
+                    $audit += DB::table('audit_events')->insertOrIgnore($chunk);
                 }
             }
-            $audit += self::upsertAudit($batch);
         }
 
         $this->info("users $users · passkeys $creds · states $states · audit $audit");
@@ -144,16 +155,5 @@ final class ImportLegacy extends Command
         }
 
         return self::SUCCESS;
-    }
-
-    /** Upsert by id, so a second import of the same log adds nothing. */
-    private static function upsertAudit(array $rows): int
-    {
-        if ($rows === []) {
-            return 0;
-        }
-        DB::table('audit_events')->upsert($rows, ['id'], ['ts', 'ev', 'ok', 'uid', 'name', 'tgt', 'tname', 'msg', 'ip']);
-
-        return count($rows);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Audit\Audit;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
@@ -32,5 +33,9 @@ if ($connection !== 'sync') {
         // --timeout and took the worker down; the next minute's worker carries on either way.
         ->onFailure(fn () => Log::warning('queue worker exited non-zero: a job hit --timeout, or the worker could not start'));
 }
+
+// Audit retention (AUDIT_DAYS, AUDIT_MAX), hourly as the Node API compacted it: the read path
+// already hides expired rows, this deletes them — and their IPs — on an idle instance too.
+Schedule::call(fn () => Audit::prune())->hourly()->name('audit:prune')->withoutOverlapping(10);
 
 // fitpal:remind and fitpal:prune join here in R3.

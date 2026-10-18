@@ -5,9 +5,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 // The audit log, one row per event, in the shape the Node API wrote to DATA_DIR/audit.log. The id
-// is never reused, not even after a clear: a wiped log leaves a visible gap (Node's auditSeq), and
-// an autoincrement that a DELETE does not reset gives the same guarantee. ts is milliseconds, as
-// the app reads it.
+// is not reused after a clear: a wiped log leaves a visible gap (Node's auditSeq), because a DELETE
+// does not reset the autoincrement — persistently on InnoDB since MariaDB 10.2.4 / MySQL 8 and on
+// SQLite AUTOINCREMENT. (With AUDIT_LOG off nothing is written at all, Node included.) ts is
+// milliseconds, as the app reads it.
 return new class extends Migration
 {
     public function up(): void

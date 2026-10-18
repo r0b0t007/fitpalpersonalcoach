@@ -11,24 +11,20 @@ use Illuminate\Support\Facades\DB;
 /**
  * The owner's activity log (Business › Audit), as the Node API served it: newest first, paged by
  * id, filtered by category prefix or by failures. Rows outside retention are never shown even if
- * the next prune has not run yet, exactly as Node applied auditKeep on read.
+ * the hourly prune has not run yet (Audit::kept), as Node applied auditKeep on read.
  */
 final class AuditController
 {
     public function index(Request $request): JsonResponse
     {
-        $limit = max(1, min(200, (int) $request->query('limit', 100) ?: 100));
-        $before = (int) $request->query('before', 0);
-        $cat = (string) $request->query('cat', '');
+        // Query values are strings in Node (searchParams.get). `?cat[]=x` is a different key there,
+        // so get('cat') is null: an array here counts as absent, never as a conversion warning.
+        $q = fn (string $k): string => is_string($v = $request->query($k)) ? $v : '';
+        $limit = max(1, min(200, (int) $q('limit') ?: 100));
+        $before = (int) $q('before');
+        $cat = $q('cat');
 
-        $rows = DB::table('audit_events');
-        $days = (int) config('fitpal.audit.days');
-        if ($days > 0) {
-            $rows->where('ts', '>=', Audit::cutoff($days));
-        }
-        if (($floor = Audit::floorId()) !== null) {
-            $rows->where('id', '>=', $floor);
-        }
+        $rows = Audit::kept(DB::table('audit_events'));
         if ($cat === 'fail') {
             $rows->where('ok', false);
         } elseif ($cat !== '') {
@@ -41,7 +37,7 @@ final class AuditController
         }
 
         $total = (clone $rows)->count();
-        $page = $rows->when($before > 0, fn ($q) => $q->where('id', '<', $before))
+        $page = $rows->when($before > 0, fn ($r) => $r->where('id', '<', $before))
             ->orderByDesc('id')->limit($limit)->get()
             ->map(fn (object $r) => self::event($r))->all();
 
@@ -51,14 +47,17 @@ final class AuditController
             'nextBefore' => count($page) === $limit ? end($page)['id'] : null,
             'enabled' => (bool) config('fitpal.audit.enabled'),
             'ip_mode' => (string) config('fitpal.audit.ip'),
-            'retention' => ['max' => (int) config('fitpal.audit.max'), 'days' => $days],
-            'now' => (int) floor(microtime(true) * 1000),
+            'retention' => ['max' => (int) config('fitpal.audit.max'), 'days' => (int) config('fitpal.audit.days')],
+            'now' => Audit::now(),
         ]);
     }
 
     public function clear(Request $request): JsonResponse
     {
-        DB::table('audit_events')->delete();   // DELETE, not TRUNCATE: the id sequence carries on
+        // DELETE, not TRUNCATE: the id sequence carries on, so a wiped log leaves a visible gap
+        // once the next event is written (persistent AUTO_INCREMENT: InnoDB on MariaDB ≥ 10.2.4,
+        // MySQL ≥ 8; SQLite AUTOINCREMENT).
+        DB::table('audit_events')->delete();
         Audit::record($request, 'admin.audit.clear', ['user' => $request->user()]);
 
         return Json::ok(['ok' => true]);
