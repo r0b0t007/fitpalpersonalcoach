@@ -30,6 +30,15 @@ const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => {
 const server = walk(join(root, 'api')).map(f => readFileSync(f, 'utf8')).join('\n')
 const audit = readFileSync(join(root, 'frontend', 'src', 'lib', 'audit.js'), 'utf8')
 
+// The Laravel port (backend/) writes the same log, through Audit::record($request, 'ev', …). Its
+// events must be labelled too, and while both APIs exist an event either one emits counts.
+const walkPhp = dir => readdirSync(dir, { withFileTypes: true }).flatMap(e => {
+  if (e.name.startsWith('.') || e.name === 'vendor') return []
+  const full = join(dir, e.name)
+  return e.isDirectory() ? walkPhp(full) : (e.name.endsWith('.php') ? [full] : [])
+})
+const backend = walkPhp(join(root, 'backend', 'app')).map(f => readFileSync(f, 'utf8')).join('\n')
+
 // Every audit() call site passes a literal — including the one ternary, which is why this pulls
 // ALL dotted literals out of the call rather than just the second argument. Verified at the time
 // of writing that no call site passes a variable; the self-check below is what notices if that
@@ -40,6 +49,10 @@ const emitted = new Set()
 // silently. This still cannot parse JS — the floor below is the backstop, not this regex.
 for (const call of server.matchAll(/\baudit\(\s*[A-Za-z_$][\w$]*\s*,((?:[^()]|\([^()]*\))*)\)/gs))
   for (const lit of call[1].matchAll(/'([a-z][a-z0-9]*(?:\.[a-z0-9]+)+)'/g)) emitted.add(lit[1])
+// PHP: the event is always the second argument, a literal.
+const fromBackend = new Set()
+for (const call of backend.matchAll(/\bAudit::record\(\s*\$\w+\s*,\s*'([a-z][a-z0-9]*(?:\.[a-z0-9]+)+)'/g)) fromBackend.add(call[1])
+for (const ev of fromBackend) emitted.add(ev)
 
 const labelled = new Set()
 const block = audit.match(/const LABELS\s*=\s*\{([\s\S]*?)\n\}/)
@@ -56,6 +69,12 @@ const FLOOR = 22
 if (emitted.size < FLOOR) fail(`found ${emitted.size} audit events across api/, expected at least ${FLOOR} — the extractor is broken, not the code`)
 if (labelled.size < FLOOR) fail(`found ${labelled.size} labels in audit.js, expected at least ${FLOOR} — the extractor is broken, not the code`)
 
+
+// The backend floor, for the same reason as FLOOR: a PHP extractor that silently matches nothing
+// would pass forever. 8 = the auth and admin events the port wrote when this was added (CHW-238);
+// raise it as the port emits more.
+const BACKEND_FLOOR = 8
+if (fromBackend.size < BACKEND_FLOOR) fail(`found ${fromBackend.size} audit events in backend/app, expected at least ${BACKEND_FLOOR} — the extractor is broken, not the code`)
 
 const missing = [...emitted].filter(e => !labelled.has(e)).sort()
 if (missing.length) {

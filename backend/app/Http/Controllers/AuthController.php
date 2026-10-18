@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Audit\Audit;
 use App\Auth\SessionToken;
+use App\Auth\TokenGuard;
 use App\Models\User;
 use App\Support\Json;
 use App\Support\Say;
@@ -63,6 +65,8 @@ final class AuthController
         // Spent now, whatever the body turns out to be: one challenge, one attempt.
         $entry = CacheChallengeRepository::takeFor($this->cache, $request, self::str($request, 'cid'));
         if ($entry === null || empty($entry['extra']['uid'])) {
+            Audit::record($request, 'auth.register.fail', ['ok' => false, 'msg' => 'challenge-expired']);
+
             return Json::error(400, 'challenge expired — try again');
         }
         $user = new User(['id' => $entry['extra']['uid'], 'name' => $entry['extra']['name']]);
@@ -71,8 +75,11 @@ final class AuthController
             $validation = $validator->send(new AttestationValidation($user, self::transport($request, AttestationValidation::REQUEST_KEYS)))->thenReturn();
         } catch (Throwable $e) {
             if ($e instanceof AttestationException && str_contains($e->getMessage(), 'Credential ID already exists')) {
+                Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'credential-exists']);
+
                 return Json::error(409, 'credential already registered');
             }
+            Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'verify-error']);
 
             return Json::error(400, self::verifyError($e));
         }
@@ -84,6 +91,8 @@ final class AuthController
             $credential->authenticatable_id = $user->id;
             $credential->save();
         });
+        // Node put the invite code the account came in with in msg; invites arrive in R2.
+        Audit::record($request, 'auth.register.ok', ['user' => $user]);
 
         return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user));
     }
@@ -100,10 +109,14 @@ final class AuthController
     {
         // Spent now, whatever the body turns out to be: one challenge, one attempt.
         if (CacheChallengeRepository::takeFor($this->cache, $request, self::str($request, 'cid')) === null) {
+            Audit::record($request, 'auth.login.fail', ['ok' => false, 'msg' => 'challenge-expired']);
+
             return Json::error(400, 'challenge expired — try again');
         }
         $credential = WebAuthnCredential::query()->find(self::str($request, 'credential.id'));
         if ($credential === null) {
+            Audit::record($request, 'auth.login.fail', ['ok' => false, 'msg' => 'unknown-credential']);
+
             return Json::error(404, 'unknown passkey — create a profile first');
         }
 
@@ -112,23 +125,36 @@ final class AuthController
                 ->send(new AssertionValidation(self::transport($request, AssertionValidation::REQUEST_KEYS)))
                 ->thenReturn();
         } catch (Throwable $e) {
+            $owner = User::query()->find($credential->authenticatable_id);
+            Audit::record($request, 'auth.login.fail', ['ok' => false, 'user' => $owner, 'uid' => $credential->authenticatable_id, 'msg' => 'verify-error']);
+
             return Json::error(400, self::verifyError($e));
         }
 
         /** @var User|null $user */
         $user = $validation->credential->authenticatable;
         if ($user === null) {
+            Audit::record($request, 'auth.login.fail', ['ok' => false, 'uid' => $credential->authenticatable_id, 'msg' => 'user-missing']);
+
             return Json::error(500, 'user missing');
         }
         if ($user->disabled) {
+            Audit::record($request, 'auth.login.fail', ['ok' => false, 'user' => $user, 'msg' => 'account-disabled']);
+
             return Json::error(403, 'this account has been disabled');
         }
+        Audit::record($request, 'auth.login.ok', ['user' => $user]);
 
         return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user));
     }
 
-    public function logout(): JsonResponse
+    public function logout(Request $request): JsonResponse
     {
+        // Signing out needs no session, but who signed out is worth recording when there is one.
+        if ($user = TokenGuard::resolve($request)) {
+            Audit::record($request, 'auth.logout', ['user' => $user]);
+        }
+
         return Json::ok(['ok' => true], cookies: SessionToken::clearCookies());
     }
 
@@ -138,6 +164,7 @@ final class AuthController
         $user = $request->user();
         $user->sv = (int) $user->sv + 1;
         $user->save();
+        Audit::record($request, 'auth.logout.all', ['user' => $user]);
 
         return Json::ok(['ok' => true], cookies: SessionToken::clearCookies());
     }
