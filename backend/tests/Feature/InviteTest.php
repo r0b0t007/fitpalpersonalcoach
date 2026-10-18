@@ -184,3 +184,23 @@ it('applies a coach\'s code on an open instance too', function () {
     (new Passkey)->register($this, 'Late', $code)->assertOk()->assertJsonPath('user.coachName', null);
     expect(DB::table('users')->where('name', 'Late')->value('coach_id'))->toBeNull();
 });
+
+it('reads the note and the revoked code as Node did: untrimmed, coerced like String(x || \'\')', function () {
+    $f = $this->f;
+    // TrimStrings has trimmed the request by the time a controller runs; Node never trimmed these.
+    expect($this->postJson('/api/coach/invites/new', ['note' => '  for Nadia'], bearer($f->a))->json('invite.note'))->toBe('  for Nadia')
+        ->and($this->postJson('/api/coach/invites/new', ['note' => 42], bearer($f->a))->json('invite.note'))->toBe('42')
+        ->and($this->postJson('/api/coach/invites/new', ['note' => 0], bearer($f->a))->json('invite.note'))->toBe('');
+    $code = mintAs($f->a);
+    $this->postJson('/api/coach/invites/revoke', ['code' => " $code "], bearer($f->a))->assertStatus(404);   // padded: no such code
+    $this->postJson('/api/coach/invites/revoke', ['code' => $code], bearer($f->a))->assertOk();
+});
+
+it('lists codes in mint order, even two minted in the same millisecond', function () {
+    $f = $this->f;
+    foreach (['ZZZZ000000000000', 'AAAA000000000000'] as $code) {
+        Coaching::own(new Invite, $f->a, ['code' => $code, 'created_by' => $f->a->id, 'created' => '2026-06-01T00:00:00.000Z']);
+    }
+    $codes = array_column($this->getJson('/api/coach/invites', bearer($f->a))->json('invites'), 'code');
+    expect($codes)->toBe(['INVA0000000000', 'ZZZZ000000000000', 'AAAA000000000000']);
+});

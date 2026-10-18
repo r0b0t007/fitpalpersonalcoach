@@ -242,6 +242,13 @@ const CASES = [
     const row = await rowOf(base, 'cdCoach000000000', code);
     return { ...r, json: { body: r.json, again: [again.status, again.json], usedByName: row?.usedByName } };
   }, mode: 'exact' },
+  { name: 'coach invites new, a note kept as sent (spaces, a number)', run: async base => {
+    const spaced = await call(base, { method: 'POST', path: '/api/coach/invites/new', headers: bearer('cdCoach000000000'), body: { note: '  for Nadia' } });
+    const number = await call(base, { method: 'POST', path: '/api/coach/invites/new', headers: bearer('cdCoach000000000'), body: { note: 42 } });
+    return { status: spaced.status, json: { spaced: spaced.json?.invite?.note, number: number.json?.invite?.note } };
+  }, mode: 'exact' },
+  { name: 'coach invites revoke, a padded code is no such code', run: async base =>
+    call(base, { method: 'POST', path: '/api/coach/invites/revoke', headers: bearer('cdCoach000000000'), body: { code: ' ' + await coachCode(base) + ' ' } }), mode: 'exact' },
   { name: 'coach invites, the open-code cap', run: async base => {
     let r;
     for (let i = 0; i < 25; i++) {

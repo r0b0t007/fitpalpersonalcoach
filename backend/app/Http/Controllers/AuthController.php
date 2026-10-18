@@ -62,7 +62,7 @@ final class AuthController
         if ($name === '') {
             return Json::error(400, 'name required');
         }
-        $code = strtoupper(trim(Input::str($request, 'code')));
+        $code = InviteGate::normalise(Input::str($request, 'code'));
         // A code is looked up whenever one is SUPPLIED, and REQUIRED only when INVITE_ONLY is on:
         // a coach's invite link works on an open instance too. Who may create an account at all is
         // a separate question from taking a client on.
@@ -138,7 +138,6 @@ final class AuthController
                     // json_encode, not raw: the name is caller-supplied and could forge log lines.
                     Log::notice('[bootstrap] first account '.json_encode($user->name)." ({$user->id}) created via BOOTSTRAP_CODE and granted admin — clear BOOTSTRAP_CODE now.");
                 }
-                $user->created_at = now();
                 // A spent code on an OPEN instance does not fail the signup: the person holds a link
                 // they cannot fix, and the landing screen already declined to name a coach. They
                 // arrive unassigned and can redeem a fresh code later.

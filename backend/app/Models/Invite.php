@@ -52,12 +52,6 @@ class Invite extends Model
         return $invite;
     }
 
-    /** Neither redeemed nor revoked: what the open-code cap counts. */
-    public function isOpen(): bool
-    {
-        return $this->used_by === null && ! $this->revoked;
-    }
-
     /**
      * The row as Node kept it in db.json, for the routes that sent it whole (invites/new and the
      * admin list): a field Node never set on this invite is absent, not null — mintInvite wrote

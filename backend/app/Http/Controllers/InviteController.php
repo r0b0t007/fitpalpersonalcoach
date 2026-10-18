@@ -49,9 +49,10 @@ final class InviteController
     /** POST /api/invite/redeem — joining a coach from an account that already exists. */
     public function redeem(Request $request): JsonResponse
     {
-        $code = Input::str($request, 'code');
+        $code = Input::jsString($request, 'code');
+        $redeemed = null;
 
-        return DB::transaction(function () use ($request, $code): JsonResponse {
+        $response = DB::transaction(function () use ($request, $code, &$redeemed): JsonResponse {
             /** @var User $user */
             $user = User::query()->whereKey($request->user('api')->id)->lockForUpdate()->firstOrFail();
             // Refused before the code is looked at: a client cannot be moved between coaches by
@@ -78,17 +79,24 @@ final class InviteController
             $user->coach_id = $coach->id;
             $user->save();
             $invite->forceFill(['used_by' => $user->id, 'used_at' => Js::isoNow()])->save();
-            Audit::record($request, 'invite.redeem', ['user' => $user, 'msg' => $invite->code]);
+            $redeemed = [$user, $invite->code];
 
             return Json::ok(['user' => $user->toPublic()]);
         });
+        // Recorded after the commit: an audit write (and the prune it may trigger) must not hold
+        // the locks a sign-up spending the same code is waiting on.
+        if ($redeemed) {
+            Audit::record($request, 'invite.redeem', ['user' => $redeemed[0], 'msg' => $redeemed[1]]);
+        }
+
+        return $response;
     }
 
     /** GET /api/coach/invites — the codes minted for this coach. */
     public function coachIndex(Request $request): JsonResponse
     {
         $coach = $request->user('api');
-        $invites = Invite::query()->orderBy('created')->orderBy('code')->get();
+        $invites = Invite::query()->orderBy('seq')->get();
         $users = User::query()->whereKey($invites->pluck('used_by')->filter()->all())->get()->keyBy('id');
 
         return Json::ok([
@@ -107,14 +115,22 @@ final class InviteController
     public function coachCreate(Request $request): JsonResponse
     {
         $coach = $request->user('api');
-        $mine = Invite::query()->get(['code', 'used_by', 'revoked']);
-        if ($mine->filter(fn (Invite $i) => $i->isOpen())->count() >= self::COACH_MAX_OPEN) {
-            return Json::error(429, Say::f('you already have {0} unused codes — revoke one before making another', self::COACH_MAX_OPEN));
+        // The count and the mint as one step, serialised on the coach's own row: two taps at 19
+        // open codes must not both pass the cap (Node had no await between the check and the push).
+        $invite = DB::transaction(function () use ($request, $coach): Invite|JsonResponse {
+            User::query()->whereKey($coach->id)->lockForUpdate()->first();
+            if (Invite::query()->whereNull('used_by')->where('revoked', false)->count() >= self::COACH_MAX_OPEN) {
+                return Json::error(429, Say::f('you already have {0} unused codes — revoke one before making another', self::COACH_MAX_OPEN));
+            }
+            if (Invite::query()->count() >= self::COACH_MAX_LIFETIME) {
+                return Json::error(429, 'too many codes made on this account — ask an admin');
+            }
+
+            return Invite::mint($coach, Input::jsString($request, 'note'), $coach->id);
+        });
+        if ($invite instanceof JsonResponse) {
+            return $invite;
         }
-        if ($mine->count() >= self::COACH_MAX_LIFETIME) {
-            return Json::error(429, 'too many codes made on this account — ask an admin');
-        }
-        $invite = Invite::mint($coach, Input::str($request, 'note'), $coach->id);
         Audit::record($request, 'coach.invite.create', ['user' => $coach, 'msg' => $invite->code]);
 
         return Json::ok(['invite' => $invite->toNode()]);
@@ -129,7 +145,7 @@ final class InviteController
     /** GET /api/admin/invites — every code, as Node stored it, with the redeemer's name. */
     public function adminIndex(): JsonResponse
     {
-        $invites = Invite::query()->orderBy('created')->orderBy('code')->get();
+        $invites = Invite::query()->orderBy('seq')->get();
         $names = User::query()->whereKey($invites->pluck('used_by')->filter()->all())->pluck('name', 'id');
 
         return Json::ok([
@@ -142,7 +158,7 @@ final class InviteController
     public function adminCreate(Request $request): JsonResponse
     {
         $admin = $request->user('api');
-        $invite = Invite::mint($admin, Input::str($request, 'note'));
+        $invite = Invite::mint($admin, Input::jsString($request, 'note'));
         Audit::record($request, 'admin.invite.create', ['user' => $admin, 'msg' => $invite->code]);
 
         return Json::ok(['invite' => $invite->toNode()]);
@@ -155,12 +171,13 @@ final class InviteController
     }
 
     /**
-     * Both revoke routes: the code upper-cased (not trimmed — Node did not), looked up in the
-     * caller's scope (a coach's own codes; everything for an admin route, which has no context).
+     * Both revoke routes: the code as sent, upper-cased and NOT trimmed (Node did not trim, and
+     * TrimStrings has, hence jsString), looked up in the caller's scope — a coach's own codes;
+     * everything on the admin route, which has no context.
      */
     private static function revoke(Request $request, string $event): JsonResponse
     {
-        $invite = Invite::query()->find(strtoupper(Input::str($request, 'code')));
+        $invite = Invite::query()->find(mb_strtoupper(Input::jsString($request, 'code')));
         if (! $invite) {
             return Json::error(404, 'no such code');
         }

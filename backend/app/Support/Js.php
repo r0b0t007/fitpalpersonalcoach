@@ -30,6 +30,21 @@ final class Js
         return is_array($value) ? $value : [];
     }
 
+    /** `String(value)`: what JS writes for a decoded JSON value. */
+    public static function string(mixed $value): string
+    {
+        return match (true) {
+            is_string($value) => $value,
+            $value === null => 'null',
+            is_bool($value) => $value ? 'true' : 'false',
+            is_int($value) => (string) $value,
+            is_float($value) => is_nan($value) ? 'NaN' : (is_infinite($value) ? ($value > 0 ? 'Infinity' : '-Infinity')
+                : (floor($value) === $value && abs($value) < 1e21 ? sprintf('%.0f', $value) : json_encode($value))),
+            is_array($value) => implode(',', array_map(fn ($v) => $v === null ? '' : self::string($v), $value)),
+            default => '[object Object]',
+        };
+    }
+
     /** `new Date().toISOString()`: UTC, milliseconds, a Z. */
     public static function isoNow(): string
     {
