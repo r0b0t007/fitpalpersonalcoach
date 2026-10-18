@@ -312,9 +312,11 @@ jobs:
           export DB_CONNECTION=sqlite DB_DATABASE="$PWD/database/contract.sqlite" SESSION_SECRET="$(cat "$DATA/secret")" CACHE_STORE=file APP_DEBUG=false
           php artisan migrate --force
           php artisan fitpal:import-legacy "$DATA" --verify
-          # php -S, not artisan serve, so the ini limits the contract needs reach the server.
-          nohup php -d post_max_size=100M -d memory_limit=768M -S localhost:3102 -t public \
-            vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php > /tmp/laravel.log 2>&1 &
+          # php -S, not artisan serve, so the ini limits the contract needs reach the server. From
+          # public/: Laravel's router script loads index.php from the current directory.
+          cd public
+          nohup php -d post_max_size=100M -d memory_limit=768M -S localhost:3102 \
+            ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php > /tmp/laravel.log 2>&1 &
       - name: Wait for both
         run: |
           # `|| true`: until a server listens, curl exits 7, and under bash -e that would end the
