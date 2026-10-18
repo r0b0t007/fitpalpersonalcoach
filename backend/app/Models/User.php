@@ -25,6 +25,9 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
 
     public const UPDATED_AT = null;
 
+    /** Milliseconds kept: `created` round-trips to the app exactly as Node wrote it. */
+    protected $dateFormat = 'Y-m-d H:i:s.v';
+
     protected $fillable = [
         'id', 'name', 'email', 'admin', 'coach', 'self_serve', 'disabled', 'sv', 'invited_by',
         'last_reminder', 'last_checkin_reminder', 'created_at',
@@ -85,6 +88,12 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     public function isCoach(): bool
     {
         return $this->coach || $this->isAdmin();
+    }
+
+    /** `created` as Node wrote it ("2026-05-01T10:20:30.123Z"), or null for the oldest accounts. */
+    public function createdIso(): ?string
+    {
+        return $this->created_at?->utc()->format('Y-m-d\TH:i:s.v\Z');
     }
 
     /** The one shape of "who am I" the app sees, from /me and both verify routes. */

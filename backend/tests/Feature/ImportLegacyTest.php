@@ -24,7 +24,7 @@ it('imports accounts with their dates, their passkeys and their raw state, and c
     $pk->userHandle = Passkey::b64u($uid);
     file_put_contents($this->dir.'/db.json', json_encode([
         'users' => [
-            ['id' => $uid, 'name' => 'Imported', 'coach' => true, 'sv' => 2, 'created' => '2025-03-04T10:20:30.000Z', 'lastReminder' => '2026-10-01', 'lastCheckinReminder' => '2026-09-28'],
+            ['id' => $uid, 'name' => 'Imported', 'coach' => true, 'sv' => 2, 'created' => '2025-03-04T10:20:30.123Z', 'lastReminder' => '2026-10-01', 'lastCheckinReminder' => '2026-09-28'],
             // The Node API's oldest accounts have `created: null`.
             ['id' => 'oldtimer00000000', 'name' => 'Old', 'created' => null],
         ],
@@ -36,8 +36,8 @@ it('imports accounts with their dates, their passkeys and their raw state, and c
     $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful()->expectsOutputToContain('users 2 · passkeys 1 · states 1');
 
     $user = User::query()->find($uid);
-    $firstRunDate = User::query()->find('oldtimer00000000')->created_at;
-    expect($user->created_at->toIso8601ZuluString())->toBe('2025-03-04T10:20:30Z')
+    expect($user->createdIso())->toBe('2025-03-04T10:20:30.123Z')   // milliseconds kept
+        ->and(User::query()->find('oldtimer00000000')->createdIso())->toBeNull()
         ->and($user->last_reminder)->toBe('2026-10-01')
         ->and($user->last_checkin_reminder)->toBe('2026-09-28')
         ->and($user->sv)->toBe(2)
@@ -49,13 +49,13 @@ it('imports accounts with their dates, their passkeys and their raw state, and c
     $this->withHeader('Authorization', 'Bearer '.SessionToken::make($user))->get('/api/data')
         ->assertOk()->assertContent('{"state":{"routines":{},"units":"kg","_ts":1700000000000}}');
 
-    // Idempotent: the same directory again changes nothing and fails nothing — including the
-    // creation date of an account that had none, which keeps the FIRST import's.
+    // Idempotent: the same directory again changes nothing and fails nothing — an account with
+    // no creation date still has none.
     $this->travel(3)->days();
     $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful();
     expect(User::query()->count())->toBe(2)
-        ->and(User::query()->find($uid)->created_at->toIso8601ZuluString())->toBe('2025-03-04T10:20:30Z')
-        ->and(User::query()->find('oldtimer00000000')->created_at->equalTo($firstRunDate))->toBeTrue();
+        ->and(User::query()->find($uid)->createdIso())->toBe('2025-03-04T10:20:30.123Z')
+        ->and(User::query()->find('oldtimer00000000')->createdIso())->toBeNull();
 });
 
 it('verifies every account through /me and /data, and fails on a mismatch', function () {

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\UserState;
 use App\Support\Json;
 use App\WebAuthn\LegacyCredential;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Support\Facades\DB;
@@ -80,13 +81,9 @@ final class ImportLegacy extends Command
                 'last_reminder' => $u['lastReminder'] ?? null,
                 'last_checkin_reminder' => $u['lastCheckinReminder'] ?? null,
             ]);
-            // The Node API wrote `created` as null for its oldest accounts. Those get the date of
-            // the FIRST import and keep it: a rerun must not move anyone's creation date.
-            if (! empty($u['created'])) {
-                $user->created_at = $u['created'];
-            } elseif (! $user->exists) {
-                $user->created_at = now();
-            }
+            // Verbatim, milliseconds included. The Node API's oldest accounts have no `created`,
+            // and keep none: the app reads null as "joined before we kept dates".
+            $user->created_at = empty($u['created']) ? null : Carbon::parse($u['created']);
             $user->save();
             $users++;
         }

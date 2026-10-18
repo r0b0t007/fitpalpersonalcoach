@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Does the Laravel backend answer like the Node API? Every R1 route, called on both servers seeded
+// Does the Laravel backend answer like the Node API? Every ported route, called on both servers seeded
 // from the same data directory (seed.mjs), with the same session token, compared:
 //
 //   - the status code, always;
@@ -85,6 +85,14 @@ async function call(base, { method = 'GET', path, headers = {}, body, raw }) {
 // mode: 'exact' compares the JSON body; 'shape' its keys and types (error/msg still exactly).
 // Cases run in order on each server; later ones may depend on earlier side effects (both servers
 // get the same sequence, so they stay in step).
+// The roster's `now` is each server's own clock: compared as a number, not a value.
+const clockless = req => async base => {
+  const r = await call(base, req);
+  if (typeof r.json?.now === 'number') r.json.now = 'a number';
+  return r;
+};
+const release = (uid, id) => ({ method: 'POST', path: '/api/coach/member/release', headers: bearer(uid), body: { id } });
+
 const fat = JSON.stringify({ state: { pad: 'x'.repeat(17 * 1024 * 1024) } });
 const CASES = [
   { name: 'health', req: { path: '/api/health' }, mode: 'exact' },
@@ -148,6 +156,24 @@ const CASES = [
   { name: 'admin audit', req: { path: '/api/admin/audit?limit=5', headers: bearer('cdAdmin000000000') }, mode: 'shape' },
   { name: 'admin audit, failures only', req: { path: '/api/admin/audit?cat=fail&limit=1', headers: bearer('cdAdmin000000000') }, mode: 'shape' },
   { name: 'admin audit clear', req: { method: 'POST', path: '/api/admin/audit/clear', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  // R2 — the coach's clients (CHW-246).
+  { name: 'members, anonymous', req: { path: '/api/coach/members' }, mode: 'exact' },
+  { name: 'members, a member', req: { path: '/api/coach/members', headers: bearer('cdMember00000000') }, mode: 'exact' },
+  { name: 'members, coach', run: clockless({ path: '/api/coach/members', headers: bearer('cdCoach000000000') }), mode: 'exact' },
+  { name: 'members, the other coach', run: clockless({ path: '/api/coach/members', headers: bearer('cdCoachB00000000') }), mode: 'exact' },
+  { name: 'members, admin (everyone but the disabled)', run: clockless({ path: '/api/coach/members', headers: bearer('cdAdmin000000000') }), mode: 'exact' },
+  { name: 'member, own client', req: { path: '/api/coach/member?id=cdMember00000000', headers: bearer('cdCoach000000000') }, mode: 'exact' },
+  { name: 'member, admin reads a client with no state', req: { path: '/api/coach/member?id=cdBare0000000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: "member, admin reads the other coach's client", req: { path: '/api/coach/member?id=cdMemberB0000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: "member, another coach's client", req: { path: '/api/coach/member?id=cdMemberB0000000', headers: bearer('cdCoach000000000') }, mode: 'exact' },
+  { name: 'member, nobody', req: { path: '/api/coach/member?id=nope', headers: bearer('cdCoach000000000') }, mode: 'exact' },
+  { name: 'member, disabled', req: { path: '/api/coach/member?id=cdGone0000000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'member, no id', req: { path: '/api/coach/member', headers: bearer('cdCoach000000000') }, mode: 'exact' },
+  { name: "release, another coach's client", req: release('cdCoach000000000', 'cdMemberB0000000'), mode: 'exact' },
+  { name: 'release, nobody', req: release('cdCoach000000000', 'nobody'), mode: 'exact' },
+  { name: 'release, by a member', req: release('cdMember00000000', 'cdMemberB0000000'), mode: 'exact' },
+  { name: 'release, by an admin', req: release('cdAdmin000000000', 'cdMemberB0000000'), mode: 'exact' },
+  { name: 'members, the other coach after the release', run: clockless({ path: '/api/coach/members', headers: bearer('cdCoachB00000000') }), mode: 'exact' },
   { name: 'logout', req: { method: 'POST', path: '/api/logout', headers: bearer('cdMember00000000') }, mode: 'exact', cookies: true },
   { name: 'logout everywhere', run: async base => {
     const old = token('cdWipe0000000000', 2);
