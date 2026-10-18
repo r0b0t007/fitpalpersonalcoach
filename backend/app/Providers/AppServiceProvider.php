@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Auth\TokenGuard;
+use App\Tenancy\CoachContext;
 use App\WebAuthn\CacheChallengeRepository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -17,6 +18,9 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // The coach a request acts as (RequireCoach sets it): one per request, never shared.
+        $this->app->scoped(CoachContext::class);
+
         // Challenges live in the cache under a `cid` the app carries, not in a session.
         $this->app->bind(WebAuthnChallengeRepository::class, fn ($app) => new CacheChallengeRepository($app['cache.store'], $app['request']));
     }

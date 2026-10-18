@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -49,6 +50,19 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     public static function newId(): string
     {
         return rtrim(strtr(base64_encode(random_bytes(12)), '+/', '-_'), '=');
+    }
+
+    /**
+     * A coach's clients. The coach is passed EXPLICITLY, never read from the request's coach
+     * context: the licence cap counts these where there is no context at all (invite redeem,
+     * sign-up, the billing webhook, the admin panel, the scheduler). User itself is deliberately
+     * not scoped — coaches and admins are users too, and /me must always find its own row.
+     *
+     * @return Builder<User>
+     */
+    public static function clientsOf(User|string $coach): Builder
+    {
+        return static::query()->where('coach_id', $coach instanceof User ? $coach->id : $coach);
     }
 
     public function isAdmin(): bool
