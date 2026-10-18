@@ -317,8 +317,11 @@ jobs:
             vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php > /tmp/laravel.log 2>&1 &
       - name: Wait for both
         run: |
+          # `|| true`: until a server listens, curl exits 7, and under bash -e that would end the
+          # step on the first try instead of retrying.
           for i in $(seq 1 30); do
-            a=$(curl -s -o /dev/null -w '%{http_code}' localhost:3101/api/health); b=$(curl -s -o /dev/null -w '%{http_code}' localhost:3102/api/health)
+            a=$(curl -s -o /dev/null -w '%{http_code}' localhost:3101/api/health || true)
+            b=$(curl -s -o /dev/null -w '%{http_code}' localhost:3102/api/health || true)
             [ "$a$b" = 200200 ] && exit 0; sleep 1
           done
           echo "node $a laravel $b"; cat /tmp/node.log /tmp/laravel.log; exit 1
