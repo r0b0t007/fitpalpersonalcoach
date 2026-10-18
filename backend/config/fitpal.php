@@ -31,6 +31,9 @@ return [
     // Account ids that are admins whatever their row says: how the first operator bootstraps.
     'admin_uids' => array_values(array_filter(array_map('trim', explode(',', (string) env('ADMIN_UIDS', ''))))),
     'invite_only' => $flag('INVITE_ONLY', false),
+    // How the very first account gets in on an INVITE_ONLY instance, and becomes the admin: a long
+    // random string, valid only while there are no users at all (App\Auth\Bootstrap).
+    'bootstrap_code' => trim((string) env('BOOTSTRAP_CODE', '')),
     'allow_guest' => $flag('ALLOW_GUEST', true),
     'self_serve_coach' => $flag('SELF_SERVE_COACH', false),
 

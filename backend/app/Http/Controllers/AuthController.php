@@ -3,19 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Audit\Audit;
+use App\Auth\Bootstrap;
+use App\Auth\InviteGate;
 use App\Auth\SessionToken;
 use App\Auth\TokenGuard;
 use App\Models\User;
+use App\Support\Input;
 use App\Support\Json;
 use App\Support\Say;
 use App\WebAuthn\AssertionValidator;
 use App\WebAuthn\AttestationCreator;
 use App\WebAuthn\AttestationValidator;
 use App\WebAuthn\CacheChallengeRepository;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreation;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreator;
 use Laragear\WebAuthn\Assertion\Validator\AssertionValidation;
@@ -35,7 +40,9 @@ use Throwable;
  * a name, verify writes the user and the credential together, so an account can never exist
  * without a way to sign in to it.
  *
- * Invite codes, INVITE_ONLY and coach binding land here in R2; the licence cap in R4.
+ * The sign-up gate is here: INVITE_ONLY and the bootstrap code (R1). Invite codes themselves and
+ * coach binding arrive in R2 (InviteGate::redeemable is where that lookup lands); the licence cap
+ * in R4.
  */
 final class AuthController
 {
@@ -47,7 +54,16 @@ final class AuthController
         if ($name === '') {
             return Json::error(400, 'name required');
         }
-        $code = strtoupper(trim((string) $request->input('code', '')));
+        $code = strtoupper(trim(Input::str($request, 'code')));
+        // A code is looked up whenever one is SUPPLIED, and REQUIRED only when INVITE_ONLY is on:
+        // a coach's invite link works on an open instance too. Who may create an account at all is
+        // a separate question from taking a client on.
+        if (config('fitpal.invite_only') && ! Bootstrap::matches($code, User::query()->count()) && ! InviteGate::redeemable($code)) {
+            // The rejected code itself is never recorded: a near-miss guess in the log is a liability.
+            Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'invite-rejected']);
+
+            return Json::error(403, 'a valid invite code is required');
+        }
 
         // An unsaved account, so the ceremony has a user to describe and a handle to issue.
         $user = new User(['id' => User::newId(), 'name' => $name]);
@@ -63,7 +79,7 @@ final class AuthController
     public function registerVerify(Request $request, AttestationValidator $validator): JsonResponse
     {
         // Spent now, whatever the body turns out to be: one challenge, one attempt.
-        $entry = CacheChallengeRepository::takeFor($this->cache, $request, self::str($request, 'cid'));
+        $entry = CacheChallengeRepository::takeFor($this->cache, $request, Input::str($request, 'cid'));
         if ($entry === null || empty($entry['extra']['uid'])) {
             Audit::record($request, 'auth.register.fail', ['ok' => false, 'msg' => 'challenge-expired']);
 
@@ -84,13 +100,49 @@ final class AuthController
             return Json::error(400, self::verifyError($e));
         }
 
-        // One transaction: an account without a passkey could never be signed in to.
-        DB::transaction(function () use ($user, $validation) {
-            $user->save();
-            $credential = $validation->credential;
-            $credential->authenticatable_id = $user->id;
-            $credential->save();
-        });
+        // The code is re-checked now rather than trusted from options: an invite may have been used
+        // or revoked since, and the bootstrap code dies the moment any account exists. The check
+        // and the insert are one critical section, so two people finishing at once cannot both
+        // pass "no users yet" and both become admin (Node relied on having no await in between).
+        // Only a sign-up that SUPPLIED a code has anything to race over; one without a code is
+        // never admin and never spends an invite, so it does not queue behind the lock.
+        $code = (string) ($entry['extra']['code'] ?? '');
+        $gate = function () use ($request, $user, $validation, $code) {
+            $bootstrap = Bootstrap::matches($code, User::query()->count());
+            $invite = $bootstrap ? null : InviteGate::redeemable($code);
+            if (config('fitpal.invite_only') && ! $bootstrap && ! $invite) {
+                Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'invite-invalid']);
+
+                return Json::error(403, 'invite code is no longer valid — ask for a new one');
+            }
+            // Stored on the row, which isAdmin() honours: the code is inert from here on.
+            if ($bootstrap) {
+                $user->admin = true;
+                // json_encode, not raw: the name is caller-supplied and could forge log lines.
+                Log::notice('[bootstrap] first account '.json_encode($user->name)." ({$user->id}) created via BOOTSTRAP_CODE and granted admin — clear BOOTSTRAP_CODE now.");
+            }
+            // One transaction: an account without a passkey could never be signed in to.
+            DB::transaction(function () use ($user, $validation) {
+                $user->save();
+                $credential = $validation->credential;
+                $credential->authenticatable_id = $user->id;
+                $credential->save();
+            });
+
+            return null;
+        };
+        try {
+            $refused = $code === '' ? $gate() : $this->cache->lock('register:gate', 10)->block(5, $gate);
+        } catch (LockTimeoutException) {
+            // Five seconds behind other sign-ups. The challenge is spent, so starting over is
+            // exactly what the person has to do — and this is a sentence the app already translates.
+            Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'busy']);
+
+            return Json::error(503, 'challenge expired — try again');
+        }
+        if ($refused !== null) {
+            return $refused;
+        }
         // Node put the invite code the account came in with in msg; invites arrive in R2.
         Audit::record($request, 'auth.register.ok', ['user' => $user]);
 
@@ -108,12 +160,12 @@ final class AuthController
     public function loginVerify(Request $request): JsonResponse
     {
         // Spent now, whatever the body turns out to be: one challenge, one attempt.
-        if (CacheChallengeRepository::takeFor($this->cache, $request, self::str($request, 'cid')) === null) {
+        if (CacheChallengeRepository::takeFor($this->cache, $request, Input::str($request, 'cid')) === null) {
             Audit::record($request, 'auth.login.fail', ['ok' => false, 'msg' => 'challenge-expired']);
 
             return Json::error(400, 'challenge expired — try again');
         }
-        $credential = WebAuthnCredential::query()->find(self::str($request, 'credential.id'));
+        $credential = WebAuthnCredential::query()->find(Input::str($request, 'credential.id'));
         if ($credential === null) {
             Audit::record($request, 'auth.login.fail', ['ok' => false, 'msg' => 'unknown-credential']);
 
@@ -172,14 +224,6 @@ final class AuthController
     public function me(Request $request): JsonResponse
     {
         return Json::ok(['user' => $request->user()->toPublic()]);
-    }
-
-    /** A string input, or '' — an array where a string belongs is a refusal, not a warning. */
-    private static function str(Request $request, string $key): string
-    {
-        $value = $request->input($key);
-
-        return is_string($value) ? $value : '';
     }
 
     /**

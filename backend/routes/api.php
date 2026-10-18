@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\MetaController;
+use App\Http\Controllers\PairController;
 use App\Http\Middleware\RequireAdmin;
 use Illuminate\Support\Facades\Route;
 
@@ -30,9 +31,12 @@ $routes = static function (): void {
     Route::post('/login/options', [AuthController::class, 'loginOptions']);
     Route::post('/login/verify', [AuthController::class, 'loginVerify']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    // The phone's side of pairing: no session, the code is the credential (CSRF-exempt).
+    Route::post('/pair/redeem', [PairController::class, 'redeem']);
 
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/pair/create', [PairController::class, 'create']);
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);
