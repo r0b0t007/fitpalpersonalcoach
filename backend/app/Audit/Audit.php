@@ -3,6 +3,7 @@
 namespace App\Audit;
 
 use App\Models\User;
+use App\Support\Js;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -130,7 +131,7 @@ final class Audit
 
     public static function now(): int
     {
-        return (int) floor(microtime(true) * 1000);
+        return Js::nowMs();
     }
 
     /**

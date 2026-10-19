@@ -84,3 +84,38 @@ it('caps the library at 50, but never a re-save of a program already in it', fun
     ]);
     saveRaw($f->a, str_replace('p-smoke', 'p1', PROG))->assertOk();
 });
+
+it('reads the body as Node\'s readBody did: bad JSON is 400, over 5 MB is 413, after the sign-in check', function () {
+    $f = $this->f;
+    saveRaw($f->a, '{"id":')->assertStatus(400)->assertExactJson(['error' => 'bad json']);
+    saveRaw($f->a, str_repeat(' ', 5 * 1024 * 1024 + 1))->assertStatus(413)->assertExactJson([
+        'error' => 'request body is larger than the 5 MB limit',
+        'msg' => ['k' => 'request body is larger than the {0} MB limit', 'v' => [5]],
+    ]);
+    // Anonymous: the sign-in check answers first, as in Node.
+    $this->call('POST', '/api/coach/programs/save', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'], '{"id":')
+        ->assertStatus(401);
+    // The other routes that read a body answer the same.
+    $bad = fn (string $path) => $this->call('POST', $path, [], [], [], $this->transformHeadersToServerVars(bearer($f->a) + ['Content-Type' => 'application/json']), '{nope')
+        ->assertStatus(400)->assertExactJson(['error' => 'bad json']);
+    foreach (['/api/coach/programs/delete', '/api/coach/member/release', '/api/coach/invites/new', '/api/coach/invites/revoke'] as $path) {
+        $bad($path);
+    }
+});
+
+it('refuses an id with a trailing newline, as JS\'s $ does', function () {
+    saveRaw($this->f->a, '{"id":"abc\n","name":"N","bundle":{"opengym_plan":1,"routines":[{"id":"r","ex":[]}]}}')
+        ->assertStatus(400)->assertExactJson(['error' => 'program id required']);
+});
+
+it('stores a bundle as Node wrote it: integer keys first and ascending, line separators raw', function () {
+    saveRaw($this->f->a, '{"id":"ord","name":"N","bundle":{"opengym_plan":1,"week":{"3":["r"],"b":1,"1":["r"],"a":2},"routines":[{"id":"r","note":"x\u2028y","ex":[]}]}}')->assertOk();
+    $stored = DB::table('coach_programs')->where('program_id', 'ord')->value('bundle');
+    expect($stored)->toContain('"week":{"1":["r"],"3":["r"],"b":1,"a":2}')
+        ->toContain("\"note\":\"x\u{2028}y\"");
+});
+
+it('compares ids and codes byte for byte on MySQL and MariaDB, as JS === did', function () {
+    expect(config('database.connections.mysql.collation'))->toBe('utf8mb4_bin')
+        ->and(config('database.connections.mariadb.collation'))->toBe('utf8mb4_bin');
+});

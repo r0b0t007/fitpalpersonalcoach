@@ -54,7 +54,11 @@ return [
             'password' => env('DB_PASSWORD', ''),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => env('DB_CHARSET', 'utf8mb4'),
-            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            // Binary: every id and code here was compared with JS's === in the Node API, so 'abc'
+            // and 'ABC', or 'abc' and 'abc ', are different keys. A _ci collation would match
+            // them (a re-save overwriting another program, a padded code revoking a real one) and
+            // refuse to import two ids that differ only in case. SQLite already compares bytes.
+            'collation' => env('DB_COLLATION', 'utf8mb4_bin'),
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
@@ -76,7 +80,11 @@ return [
             'password' => env('DB_PASSWORD', ''),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => env('DB_CHARSET', 'utf8mb4'),
-            'collation' => env('DB_COLLATION', 'utf8mb4_unicode_ci'),
+            // Binary: every id and code here was compared with JS's === in the Node API, so 'abc'
+            // and 'ABC', or 'abc' and 'abc ', are different keys. A _ci collation would match
+            // them (a re-save overwriting another program, a padded code revoking a real one) and
+            // refuse to import two ids that differ only in case. SQLite already compares bytes.
+            'collation' => env('DB_COLLATION', 'utf8mb4_bin'),
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,

@@ -107,33 +107,56 @@ final class Js
     }
 
     /**
-     * `JSON.stringify(value)` for a decoded JSON value: no escaped slashes or unicode, and a float
-     * with no fraction written as JS writes it (1, not 1.0). Its byte length is what Node's size
-     * caps measured, and it is what a stored bundle should read back as.
+     * `JSON.stringify(JSON.parse(text))` for a decoded JSON value: what Node wrote to its files,
+     * byte for byte, and what its size caps measured. Slashes, unicode and U+2028/U+2029 unescaped;
+     * object keys in JS's order — integer-like keys ascending first, then the rest as they came;
+     * -0 written as 0. (json_encode already writes 1.0 as 1.) One difference is left: an integral
+     * float past PHP's int range but under 1e21 is written with an exponent where JS writes digits,
+     * which no bundle field is.
      */
     public static function stringify(mixed $value): string
     {
-        return json_encode(self::integralFloats($value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        return json_encode(self::jsOrder($value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_LINE_TERMINATORS | JSON_THROW_ON_ERROR);
     }
 
-    private static function integralFloats(mixed $v): mixed
+    private static function jsOrder(mixed $v): mixed
     {
         if (is_float($v)) {
-            return is_finite($v) && floor($v) === $v && abs($v) < 2 ** 53 ? (int) $v : $v;
+            return $v === 0.0 ? 0 : $v;   // -0.0 === 0.0 in PHP, and JSON.stringify(-0) is "0"
         }
         if (is_array($v)) {
-            return array_map(self::integralFloats(...), $v);
+            return array_map(self::jsOrder(...), $v);
         }
-        if ($v instanceof \stdClass) {
-            $o = new \stdClass;
-            foreach (get_object_vars($v) as $k => $x) {
-                $o->{$k} = self::integralFloats($x);
+        if (! $v instanceof \stdClass) {
+            return $v;
+        }
+        $index = [];
+        $rest = [];
+        foreach (get_object_vars($v) as $k => $x) {
+            // An array index to JS: a canonical non-negative integer below 2^32 - 1.
+            $k = (string) $k;
+            if (preg_match('/^(0|[1-9]\d{0,9})$/D', $k) && (int) $k < 4294967295) {
+                $index[(int) $k] = $x;
+            } else {
+                $rest[$k] = $x;
             }
-
-            return $o;
+        }
+        ksort($index);
+        $o = new \stdClass;
+        foreach ($index as $k => $x) {
+            $o->{(string) $k} = self::jsOrder($x);
+        }
+        foreach ($rest as $k => $x) {
+            $o->{$k} = self::jsOrder($x);
         }
 
-        return $v;
+        return $o;
+    }
+
+    /** `Date.now()`, through Laravel's clock so tests can move it. */
+    public static function nowMs(): int
+    {
+        return (int) now()->getTimestampMs();
     }
 
     /** `new Date().toISOString()`: UTC, milliseconds, a Z. */

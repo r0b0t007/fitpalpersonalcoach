@@ -115,9 +115,11 @@ final class InviteController
     public function coachCreate(Request $request): JsonResponse
     {
         $coach = $request->user('api');
+        // Read first, as Node read the body before its caps: a bad body is a 400 even at the cap.
+        $note = Input::jsString($request, 'note');
         // The count and the mint as one step, serialised on the coach's own row: two taps at 19
         // open codes must not both pass the cap (Node had no await between the check and the push).
-        $invite = DB::transaction(function () use ($request, $coach): Invite|JsonResponse {
+        $invite = DB::transaction(function () use ($coach, $note): Invite|JsonResponse {
             User::query()->whereKey($coach->id)->lockForUpdate()->first();
             if (Invite::query()->whereNull('used_by')->where('revoked', false)->count() >= self::COACH_MAX_OPEN) {
                 return Json::error(429, Say::f('you already have {0} unused codes — revoke one before making another', self::COACH_MAX_OPEN));
@@ -126,7 +128,7 @@ final class InviteController
                 return Json::error(429, 'too many codes made on this account — ask an admin');
             }
 
-            return Invite::mint($coach, Input::jsString($request, 'note'), $coach->id);
+            return Invite::mint($coach, $note, $coach->id);
         });
         if ($invite instanceof JsonResponse) {
             return $invite;

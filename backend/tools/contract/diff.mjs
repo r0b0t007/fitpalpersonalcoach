@@ -293,6 +293,12 @@ const CASES = [
   { name: 'programs save, a check-in day that is no weekday', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ checkinDay: [] }) }), mode: 'exact' },
   { name: 'programs save, too large', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ name: 'é'.repeat(70000) }) }), mode: 'exact' },
   { name: 'programs save, an id that is not a plain string', req: progReq('cdCoach000000000', { id: { a: 1 }, name: 'N', bundle: PLAN() }), mode: 'exact' },
+  { name: 'programs save, bad json', req: { method: 'POST', path: '/api/coach/programs/save', headers: bearer('cdCoach000000000'), raw: '{"id":' }, mode: 'exact' },
+  { name: 'programs save, bad json, anonymous', req: { method: 'POST', path: '/api/coach/programs/save', raw: '{"id":' }, mode: 'exact' },
+  { name: 'programs save, a body over 5 MB', req: { method: 'POST', path: '/api/coach/programs/save', headers: bearer('cdCoach000000000'), raw: ' '.repeat(5 * 1024 * 1024 + 1) }, mode: 'exact' },
+  { name: 'programs save, an id ending in a newline', req: progReq('cdCoach000000000', { id: 'abc\n', name: 'N', bundle: PLAN() }), mode: 'exact' },
+  { name: 'release, bad json', req: { method: 'POST', path: '/api/coach/member/release', headers: bearer('cdCoach000000000'), raw: '{nope' }, mode: 'exact' },
+  { name: 'coach invites new, bad json', req: { method: 'POST', path: '/api/coach/invites/new', headers: bearer('cdCoach000000000'), raw: '{nope' }, mode: 'exact' },
   { name: 'programs delete, no such program', req: { method: 'POST', path: '/api/coach/programs/delete', headers: bearer('cdCoach000000000'), body: { id: 'nope' } }, mode: 'exact' },
   { name: 'programs delete, by the other coach', req: { method: 'POST', path: '/api/coach/programs/delete', headers: bearer('cdCoachB00000000'), body: { id: 'p-contract' } }, mode: 'exact' },
   { name: 'programs delete', run: async base => {

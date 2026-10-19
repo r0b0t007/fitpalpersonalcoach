@@ -53,7 +53,8 @@ final class CoachRosterController
 
     public function release(Request $request): JsonResponse
     {
-        $id = Input::str($request, 'id');
+        // String(body.id || ''), on the body as sent (bad JSON is a 400 here, as readBody made it).
+        $id = Input::jsString($request, 'id');
         // Check and write as one step, on a locked row. Node's handler ran without an await between
         // the check and the write; here two requests can interleave, and a release checked against
         // a stale row would drop a client an admin had just moved to another coach.

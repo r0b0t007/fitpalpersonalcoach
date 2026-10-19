@@ -34,7 +34,7 @@ final class AuditController
             // Node matched ev.startsWith(cat + '.'). Event names are dotted lowercase words, so a
             // category that is not one matches nothing — and needs no LIKE escaping, which SQLite
             // and MariaDB spell differently.
-            preg_match('/^[a-z0-9]+(\.[a-z0-9]+)*$/', $cat)
+            preg_match('/^[a-z0-9]+(\.[a-z0-9]+)*$/D', $cat)
                 ? $rows->where('ev', 'like', $cat.'.%')
                 : $rows->whereRaw('1 = 0');
         }
