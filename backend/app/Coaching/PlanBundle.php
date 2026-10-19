@@ -37,6 +37,9 @@ final class PlanBundle
 
     public const PROGRAM_NAME_MAX = 60;
 
+    /** Nesting levels a bundle may have; see validate(). No real plan comes within 10. */
+    public const MAX_DEPTH = 400;
+
     /**
      * The bundle, rebuilt so a caller cannot smuggle extra top-level keys into storage.
      *
@@ -79,7 +82,14 @@ final class PlanBundle
         }
         $nutrition = self::nutrition($raw->nutrition ?? null);
         $checkinDay = self::checkinDay($raw->checkinDay ?? null);
-        // Size last: cheap checks first, and this one serialises the whole thing.
+        // Size last: cheap checks first, and this one serialises the whole thing. Node caught the
+        // serialiser failing (V8 overflows its stack a few thousand levels down) as "not
+        // serialisable"; the limit here is MAX_DEPTH, low enough that every response wrapping a
+        // bundle stays inside json_encode's 512 levels — a deeper one would save and then make
+        // the coach's whole library unreadable.
+        if (Js::deeperThan($raw, self::MAX_DEPTH)) {
+            throw new ClientSafe(400, 'plan is not serialisable');
+        }
         if (strlen(Js::stringify($raw)) > self::MAX_BYTES) {
             throw new ClientSafe(400, 'plan is too large');
         }

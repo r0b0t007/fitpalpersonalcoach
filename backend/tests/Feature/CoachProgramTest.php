@@ -116,6 +116,25 @@ it('stores a bundle as Node wrote it: integer keys first and ascending, line sep
 });
 
 it('compares ids and codes byte for byte on MySQL and MariaDB, as JS === did', function () {
-    expect(config('database.connections.mysql.collation'))->toBe('utf8mb4_bin')
-        ->and(config('database.connections.mariadb.collation'))->toBe('utf8mb4_bin');
+    // NO PAD as well as binary: utf8mb4_bin still treats 'abc' and 'abc ' as equal. The real
+    // comparison is proven on MariaDB by the CI backend job.
+    expect(config('database.connections.mysql.collation'))->toBe('utf8mb4_0900_bin')
+        ->and(config('database.connections.mariadb.collation'))->toBe('utf8mb4_nopad_bin');
+});
+
+it('parses what JSON.parse parsed: a lone surrogate from a sliced emoji, invalid UTF-8', function () {
+    // A JS slice() through an emoji leaves "\ud83d"; PHP's decoder refuses it unless helped.
+    saveRaw($this->f->a, '{"id":"emoji","name":"Push \ud83d","bundle":{"opengym_plan":1,"routines":[{"id":"r","ex":[]}]}}')
+        ->assertOk()->assertJsonPath('program.name', "Push \u{FFFD}");
+    // An escaped backslash before a u is not an escape.
+    saveRaw($this->f->a, '{"id":"slash","name":"a\\\\ud83d","bundle":{"opengym_plan":1,"routines":[{"id":"r","ex":[]}]}}')
+        ->assertOk()->assertJsonPath('program.name', 'a\ud83d');
+    // Invalid UTF-8 bytes become U+FFFD, as Buffer#toString made them.
+    saveRaw($this->f->a, "{\"id\":\"bytes\",\"name\":\"x\xC3\",\"bundle\":{\"opengym_plan\":1,\"routines\":[{\"id\":\"r\",\"ex\":[]}]}}")
+        ->assertOk()->assertJsonPath('program.name', "x\u{FFFD}");
+});
+
+it('answers a malformed sync body with bad json, as Node did', function () {
+    $this->call('PUT', '/api/data', [], [], [], $this->transformHeadersToServerVars(bearer($this->f->a1) + ['Content-Type' => 'application/json']), '{"state":')
+        ->assertStatus(400)->assertExactJson(['error' => 'bad json']);
 });

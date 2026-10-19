@@ -75,11 +75,19 @@ final class CoachProgramController
     {
         // `p.id === body.id`: the id as sent, and only a string can match.
         $id = Input::raw($request, 'id');
-        $gone = is_string($id) ? CoachProgram::query()->where('program_id', $id)->first() : null;
+        $coach = $request->user('api');
+        // Under the same lock as save: a delete landing between a save's read and its write would
+        // let the save report a row that no longer exists.
+        $gone = DB::transaction(function () use ($coach, $id): ?CoachProgram {
+            User::query()->whereKey($coach->id)->lockForUpdate()->first();
+            $gone = is_string($id) ? CoachProgram::query()->where('program_id', $id)->first() : null;
+            $gone?->delete();
+
+            return $gone;
+        });
         if (! $gone) {
             return Json::error(404, 'no such program');
         }
-        $gone->delete();
         Audit::record($request, 'coach.program.delete', ['user' => $request->user('api'), 'msg' => $gone->name]);
 
         return Json::ok(['programs' => CoachProgram::library()]);

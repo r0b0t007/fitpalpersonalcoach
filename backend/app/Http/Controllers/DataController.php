@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\UserState;
+use App\Support\Input;
 use App\Support\Json;
 use App\Support\Say;
 use Illuminate\Http\JsonResponse;
@@ -43,7 +44,8 @@ final class DataController
         if (strlen($raw) > self::MAX_BYTES) {
             return self::tooLarge();
         }
-        $body = json_decode($raw);
+        // Node's readBody: text that is not JSON is `bad json`, not a missing state.
+        $body = Input::parse($raw);
         if (! is_object($body) || ! isset($body->state) || ! (is_object($body->state) || is_array($body->state))) {
             return Json::error(400, 'state required');
         }
@@ -56,7 +58,8 @@ final class DataController
 
         UserState::query()->updateOrCreate(
             ['user_id' => $request->user()->id],
-            ['state' => json_encode($state, Json::FLAGS), 'ts' => $ts],
+            // Encoded as deep as it was parsed: json_encode's default 512 would 500 on a state Node took.
+            ['state' => json_encode($state, Json::FLAGS, 100_000), 'ts' => $ts],
         );
 
         return Json::ok(['ok' => true, 'ts' => $ts]);

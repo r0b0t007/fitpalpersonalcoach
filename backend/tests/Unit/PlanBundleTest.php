@@ -5,6 +5,7 @@
 
 use App\Coaching\PlanBundle;
 use App\Support\ClientSafe;
+use App\Support\Js;
 
 function plan(array $over = []): stdClass
 {
@@ -114,4 +115,11 @@ it('needs a program name, trims and caps it, and writes it over the bundle\'s', 
     expect($n)->toBe('Block A')->and($bundle->name)->toBe('Block A')
         ->and(mb_strlen($name(str_repeat('x', 100))[0]))->toBe(60)
         ->and($name(0)[0])->toBe('0');   // String(0), not "no name"
+});
+
+it('takes Infinity as Node did (stored as null), and refuses a bundle too deep to send back', function () {
+    $out = PlanBundle::validate(json_decode('{"opengym_plan":1,"routines":[{"id":"r","ex":[{"id":"e","sets":1e400}]}]}'));
+    expect(Js::stringify($out))->toContain('"sets":null');
+    $deep = str_repeat('[', 450).str_repeat(']', 450);
+    expect(refusal(json_decode('{"opengym_plan":1,"routines":[{"id":"r","ex":[]}],"x":'.$deep.'}', false, 100_000)))->toBe('plan is not serialisable');
 });
