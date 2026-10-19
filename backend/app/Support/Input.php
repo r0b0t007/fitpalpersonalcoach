@@ -26,9 +26,19 @@ final class Input
      */
     public static function jsString(Request $request, string $key): string
     {
-        $body = json_decode($request->getContent());
-        $value = is_object($body) && property_exists($body, $key) ? $body->{$key} : null;
+        $value = self::raw($request, $key);
 
         return Js::truthy($value) ? Js::string($value) : '';
+    }
+
+    /**
+     * `body.key` exactly as sent: untrimmed, objects as stdClass (so `{}` stays an object and is
+     * stored as `{}`), null when absent or when the body is not a JSON object.
+     */
+    public static function raw(Request $request, string $key): mixed
+    {
+        $body = json_decode($request->getContent());
+
+        return $body instanceof \stdClass && property_exists($body, $key) ? $body->{$key} : null;
     }
 }
