@@ -10,6 +10,7 @@
 // across tenants.
 
 use App\Models\Assignment;
+use App\Models\CoachProgram;
 use App\Models\Invite;
 use Tests\Support\Coaching;
 
@@ -62,4 +63,14 @@ it('scopes an admin on the coach invite routes to their own codes, as Node did',
     $codes = array_column($this->getJson('/api/coach/invites', bearer($this->f->admin))->json('invites'), 'code');
     expect($codes)->toBe(['INVADMIN0000000000']);
     $this->postJson('/api/coach/invites/revoke', ['code' => 'INVB0000000000'], bearer($this->f->admin))->assertStatus(404);
+});
+
+it('answers coach A on coach B\'s program as on a made-up one, and changes nothing', function () {
+    $this->postJson('/api/coach/programs/delete', ['id' => 'prog-b'], bearer($this->f->a))
+        ->assertStatus(404)->assertExactJson(['error' => 'no such program']);
+    // Saving under B's program id gives A a program of their own (ids are unique per coach).
+    $this->postJson('/api/coach/programs/save', ['id' => 'prog-b', 'name' => 'Mine', 'bundle' => ['opengym_plan' => 1, 'routines' => [['id' => 'r', 'ex' => []]]]], bearer($this->f->a))->assertOk();
+    expect(CoachProgram::query()->where('program_id', 'prog-b')->pluck('name')->sort()->values()->all())->toBe(['Mine', 'Program b'])
+        ->and(array_column($this->getJson('/api/coach/programs', bearer($this->f->a))->json('programs'), 'id'))->toBe(['prog-a', 'prog-b'])
+        ->and(array_column($this->getJson('/api/coach/programs', bearer($this->f->b))->json('programs'), 'name'))->toBe(['Program b']);
 });

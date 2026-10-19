@@ -39,6 +39,8 @@ const INTENDED = {
   'login options $.options.allowCredentials: only Node has it ([])': 'Laragear omits an empty list. Same meaning in WebAuthn (any discoverable passkey), and the app reads `(o.allowCredentials || [])` (frontend/src/lib/api.js).',
   'me, admin headers.cache-control: Node "no-store" vs Laravel "no-store, private"': 'Symfony always adds private when neither public nor private is set. no-store already forbids every cache.',
   'preflight headers.cache-control: only Laravel has it ("no-cache, private")': 'browsers cache a preflight by Access-Control-Max-Age (86400 on both), never by Cache-Control.',
+  'programs save, a name cut through an emoji (lone surrogate) $.program.name: Node "Push \\ud83d" vs Laravel "Push �"': 'half a UTF-16 character cannot be held in UTF-8, nor stored in utf8mb4; Laravel keeps it as U+FFFD (Input::parse) where Node kept the escape in its JSON file. What matters is kept: Node accepted such a name, and so does Laravel, instead of refusing it as bad json.',
+  'programs save, a name cut through an emoji (lone surrogate) $.program.bundle.name: Node "Push \\ud83d" vs Laravel "Push �"': 'the same name, copied into the bundle by cleanProgram.',
 };
 
 // --- comparison ---------------------------------------------------------------------------------
@@ -104,6 +106,20 @@ const rowOf = async (base, uid, code, route = '/api/coach/invites') =>
 // A row with its server-made values replaced by their type, so the rest compares exactly.
 const typed = row => row && Object.fromEntries(Object.entries(row).map(([k, v]) =>
   [k, ['code', 'created', 'usedAt', 'revokedAt'].includes(k) && typeof v === 'string' ? 'a string' : v]));
+
+// A saved program's clock fields as types; everything else, the stored bundle above all, exactly.
+const clockFree = prog => prog && { ...prog, created: typeof prog.created, updated: typeof prog.updated };
+const progReq = (uid, body) => ({ method: 'POST', path: '/api/coach/programs/save', headers: bearer(uid), body });
+const PLAN = (over = {}) => ({ opengym_plan: 1, name: 'x', week: { 1: ['r1'] }, routines: [{ id: 'r1', name: '  Push  ', ex: [{ id: '0025', sets: 3 }] }], customEx: [], ...over });
+// Just the saved row: for cases run after a program with a made-up id is in the library.
+const savedOne = req => async base => {
+  const r = await call(base, req);
+  return { ...r, json: r.json?.error ? r.json : { program: clockFree(r.json?.program) } };
+};
+const saved = req => async base => {
+  const r = await call(base, req);
+  return { ...r, json: r.json?.error ? r.json : { program: clockFree(r.json?.program), programs: (r.json?.programs || []).map(clockFree) } };
+};
 
 const fat = JSON.stringify({ state: { pad: 'x'.repeat(17 * 1024 * 1024) } });
 const CASES = [
@@ -253,6 +269,59 @@ const CASES = [
     let r;
     for (let i = 0; i < 25; i++) {
       r = await call(base, { method: 'POST', path: '/api/coach/invites/new', headers: bearer('cdCoachB00000000'), body: {} });
+      if (r.status !== 200) break;
+    }
+    return r;
+  }, mode: 'exact' },
+  // R2 — the program library (CHW-248).
+  { name: 'programs, a member', req: { path: '/api/coach/programs', headers: bearer('cdMember00000000') }, mode: 'exact' },
+  { name: 'programs, empty library', req: { path: '/api/coach/programs', headers: bearer('cdCoach000000000') }, mode: 'exact' },
+  { name: 'programs save', run: saved(progReq('cdCoach000000000', { id: 'p-contract', name: '  Block A  ', bundle: PLAN({ evil: 'x', week: {}, nutrition: { kcal: '2200.6', p: 170, c: 0, note: '  rest days  ' }, checkinDay: '3' }) })), mode: 'exact' },
+  { name: 'programs save, the same id again (in place)', run: saved(progReq('cdCoach000000000', { id: 'p-contract', name: 'Block A v2', bundle: PLAN() })), mode: 'exact' },
+  { name: 'programs save, no id (one is made)', run: async base => {
+    const r = await call(base, progReq('cdCoach000000000', { name: 'Fresh', bundle: PLAN() }));
+    return { status: r.status, json: { uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(r.json?.program?.id), count: r.json?.programs?.length } };
+  }, mode: 'exact' },
+  { name: 'programs, the other coach’s library', req: { path: '/api/coach/programs', headers: bearer('cdCoachB00000000') }, mode: 'exact' },
+  { name: 'programs save, no name', req: progReq('cdCoach000000000', { id: 'x', name: '   ', bundle: PLAN() }), mode: 'exact' },
+  { name: 'programs save, no bundle', req: progReq('cdCoach000000000', { id: 'x', name: 'N' }), mode: 'exact' },
+  { name: 'programs save, not a plan', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: {} }), mode: 'exact' },
+  { name: 'programs save, no routines', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ routines: [] }) }), mode: 'exact' },
+  { name: 'programs save, too many routines', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ routines: Array.from({ length: 21 }, (_, i) => ({ id: 'r' + i, ex: [] })) }) }), mode: 'exact' },
+  { name: 'programs save, a malformed routine', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ routines: [[]] }) }), mode: 'exact' },
+  { name: 'programs save, a malformed exercise', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ routines: [{ id: 'r', ex: [{}] }] }) }), mode: 'exact' },
+  { name: 'programs save, too many exercises', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ routines: [{ id: 'r', ex: Array.from({ length: 61 }, () => ({ id: '0025' })) }] }) }), mode: 'exact' },
+  { name: 'programs save, too many custom exercises', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ customEx: Array.from({ length: 101 }, () => ({ id: 'c' })) }) }), mode: 'exact' },
+  { name: 'programs save, malformed nutrition', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ nutrition: [] }) }), mode: 'exact' },
+  { name: 'programs save, calories out of range', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ nutrition: { kcal: 'lots' } }) }), mode: 'exact' },
+  { name: 'programs save, protein out of range', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ nutrition: { p: 2001 } }) }), mode: 'exact' },
+  { name: 'programs save, carbs out of range', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ nutrition: { c: -1 } }) }), mode: 'exact' },
+  { name: 'programs save, fat out of range', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ nutrition: { f: '0x7D1' } }) }), mode: 'exact' },
+  { name: 'programs save, a check-in day that is no weekday', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ checkinDay: [] }) }), mode: 'exact' },
+  { name: 'programs save, too large', req: progReq('cdCoach000000000', { id: 'x', name: 'N', bundle: PLAN({ name: 'é'.repeat(70000) }) }), mode: 'exact' },
+  { name: 'programs save, an id that is not a plain string', req: progReq('cdCoach000000000', { id: { a: 1 }, name: 'N', bundle: PLAN() }), mode: 'exact' },
+  { name: 'programs save, bad json', req: { method: 'POST', path: '/api/coach/programs/save', headers: bearer('cdCoach000000000'), raw: '{"id":' }, mode: 'exact' },
+  { name: 'programs save, bad json, anonymous', req: { method: 'POST', path: '/api/coach/programs/save', raw: '{"id":' }, mode: 'exact' },
+  { name: 'programs save, a body over 5 MB', req: { method: 'POST', path: '/api/coach/programs/save', headers: bearer('cdCoach000000000'), raw: ' '.repeat(5 * 1024 * 1024 + 1) }, mode: 'exact' },
+  { name: 'programs save, an id ending in a newline', req: progReq('cdCoach000000000', { id: 'abc\n', name: 'N', bundle: PLAN() }), mode: 'exact' },
+  { name: 'release, bad json', req: { method: 'POST', path: '/api/coach/member/release', headers: bearer('cdCoach000000000'), raw: '{nope' }, mode: 'exact' },
+  { name: 'coach invites new, bad json', req: { method: 'POST', path: '/api/coach/invites/new', headers: bearer('cdCoach000000000'), raw: '{nope' }, mode: 'exact' },
+  { name: 'programs save, a name cut through an emoji (lone surrogate)', run: savedOne(progReq('cdCoachB00000000', { id: 'p-emoji', name: 'Push \ud83d', bundle: PLAN() })), mode: 'exact' },
+  { name: 'programs save, invalid UTF-8 bytes', run: savedOne({ method: 'POST', path: '/api/coach/programs/save', headers: bearer('cdCoach000000000'),
+    raw: Buffer.concat([Buffer.from('{"id":"p-bytes","name":"x'), Buffer.from([0xc3]), Buffer.from('","bundle":{\"opengym_plan\":1,\"routines\":[{\"id\":\"r\",\"ex\":[{\"id\":\"e\",\"sets\":1e400,\"rest\":0.00001}]}]}}')]) }), mode: 'exact' },
+  { name: 'programs save, Infinity in a bundle', run: savedOne({ method: 'POST', path: '/api/coach/programs/save', headers: bearer('cdCoach000000000'),
+    raw: '{"id":"p-inf","name":"Inf","bundle":{\"opengym_plan\":1,\"routines\":[{\"id\":\"r\",\"ex\":[{\"id\":\"e\",\"sets\":1e400,\"rest\":0.00001}]}]}}' }), mode: 'exact' },
+  { name: 'data put, bad json', req: { method: 'PUT', path: '/api/data', headers: bearer('cdSync0000000000'), raw: '{"state":' }, mode: 'exact' },
+  { name: 'programs delete, no such program', req: { method: 'POST', path: '/api/coach/programs/delete', headers: bearer('cdCoach000000000'), body: { id: 'nope' } }, mode: 'exact' },
+  { name: 'programs delete, by the other coach', req: { method: 'POST', path: '/api/coach/programs/delete', headers: bearer('cdCoachB00000000'), body: { id: 'p-contract' } }, mode: 'exact' },
+  { name: 'programs delete', run: async base => {
+    const r = await call(base, { method: 'POST', path: '/api/coach/programs/delete', headers: bearer('cdCoach000000000'), body: { id: 'p-contract' } });
+    return { ...r, json: { programs: (r.json?.programs || []).map(p => p.name) } };
+  }, mode: 'exact' },
+  { name: 'programs, the library cap', run: async base => {
+    let r;
+    for (let i = 0; i < 52; i++) {
+      r = await call(base, progReq('cdCoachB00000000', { id: 'cap' + i, name: 'P' + i, bundle: PLAN() }));
       if (r.status !== 200) break;
     }
     return r;

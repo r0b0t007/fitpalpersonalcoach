@@ -286,7 +286,7 @@ final class ImportLegacy extends Command
         if ($created === null || $created === '') {
             return null;
         }
-        if (is_string($created) && preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/', $created)) {
+        if (is_string($created) && preg_match('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/D', $created)) {
             try {
                 return Carbon::parse($created);
             } catch (Throwable) {

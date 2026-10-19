@@ -3,6 +3,7 @@
 namespace App\Auth;
 
 use App\Models\User;
+use App\Support\Js;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Cookie;
 
@@ -35,7 +36,7 @@ final class SessionToken
         if (self::secret() === null) {
             throw new RuntimeException('SESSION_SECRET is unset or shorter than '.self::MIN_SECRET_LENGTH.' characters; refusing to sign a session');
         }
-        $expiry = (int) floor(microtime(true) * 1000) + (int) config('fitpal.session_days') * 86400000;
+        $expiry = Js::nowMs() + (int) config('fitpal.session_days') * 86400000;
         $payload = $user->id.':'.$expiry.':'.(int) ($user->sv ?? 0);
 
         return $payload.'.'.self::sign($payload);
@@ -77,7 +78,7 @@ final class SessionToken
     public static function user(?string $token): ?User
     {
         $parsed = self::parse($token);
-        if ($parsed === null || $parsed['exp'] < (int) floor(microtime(true) * 1000)) {
+        if ($parsed === null || $parsed['exp'] < Js::nowMs()) {
             return null;
         }
         $user = User::query()->find($parsed['uid']);

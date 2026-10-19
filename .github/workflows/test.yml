@@ -245,6 +245,16 @@ jobs:
           test "$(cat /tmp/n-tables)" -gt 0
           test ! -s /tmp/bad-tables
           test ! -s /tmp/bad-columns
+          # Ids and codes compare as JS's === did: binary AND no-pad. utf8mb4_bin is PAD SPACE, so
+          # 'CODE ' would still find 'CODE' (a padded revoke hitting the real code). Proven on a
+          # real row, not only read from the schema.
+          # JSON columns are exempt by rule, not by name: MariaDB stores them as LONGTEXT with a
+          # json_valid() check and forces utf8mb4_bin on them, and nothing compares them as keys.
+          mysql -h127.0.0.1 -uroot -proot -N -e "SELECT c.table_name, c.column_name, c.collation_name FROM information_schema.columns c WHERE c.table_schema='fitpal' AND c.collation_name IS NOT NULL AND c.collation_name <> 'utf8mb4_nopad_bin' AND NOT EXISTS (SELECT 1 FROM information_schema.check_constraints k WHERE k.constraint_schema = c.table_schema AND k.table_name = c.table_name AND k.check_clause LIKE CONCAT('%json_valid(\`', c.column_name, '\`)%'))" > /tmp/padded-columns
+          mysql -h127.0.0.1 -uroot -proot -N fitpal -e "INSERT INTO invites (code, created) VALUES ('PADCHECK', 'x'); SELECT (SELECT COUNT(*) FROM invites WHERE code = 'PADCHECK '), (SELECT COUNT(*) FROM invites WHERE code = 'padcheck'); DELETE FROM invites WHERE code = 'PADCHECK';" > /tmp/pad-match
+          cat /tmp/padded-columns; echo "padded and lower-cased matches: $(cat /tmp/pad-match)"
+          test ! -s /tmp/padded-columns
+          test "$(tr -s '[:space:]' ' ' < /tmp/pad-match | xargs)" = "0 0"
       # Every message the backend can send must be a key in every locale pack, or the app shows
       # English to a French or Spanish coach. The PHP side of api/scripts/check-error-strings.mjs.
       - name: Backend error strings are translated

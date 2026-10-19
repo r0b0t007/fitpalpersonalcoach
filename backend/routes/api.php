@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRosterController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\InviteController;
@@ -55,6 +56,9 @@ $routes = static function (): void {
             Route::get('/coach/invites', [InviteController::class, 'coachIndex']);
             Route::post('/coach/invites/new', [InviteController::class, 'coachCreate']);
             Route::post('/coach/invites/revoke', [InviteController::class, 'coachRevoke']);
+            Route::get('/coach/programs', [CoachProgramController::class, 'index']);
+            Route::post('/coach/programs/save', [CoachProgramController::class, 'save']);
+            Route::post('/coach/programs/delete', [CoachProgramController::class, 'delete']);
         });
 
         Route::middleware(RequireAdmin::class)->group(function (): void {
