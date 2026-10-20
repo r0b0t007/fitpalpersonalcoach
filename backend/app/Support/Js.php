@@ -203,6 +203,15 @@ final class Js
         return $o;
     }
 
+    /**
+     * `crypto.randomBytes(12).toString('base64url')`: 16 characters, the one id format the Node
+     * API made for users, assignments, media and the rest.
+     */
+    public static function randomId(): string
+    {
+        return strtr(base64_encode(random_bytes(12)), '+/', '-_');
+    }
+
     /** `Date.now()`, through Laravel's clock so tests can move it. */
     public static function nowMs(): int
     {
@@ -213,6 +222,39 @@ final class Js
     public static function isoNow(): string
     {
         return now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+    }
+
+    /**
+     * `Date.parse(s)` for the timestamps the Node API wrote: ISO 8601 as toISOString() makes it,
+     * and its shorter forms (a date alone, no seconds, an offset instead of Z). Null where JS has
+     * NaN — and like V8, which checks a day only against 1–31: 2026-02-30 is March 2, not NaN.
+     * A string without an offset is read as UTC — V8 reads a date-time without one as the
+     * server's local time, and the server ran in UTC. V8's legacy fallback ("May 1 2026") is not
+     * ported: no row the API wrote is in that shape, and such a row reads as NaN, which every
+     * caller already treats as "very old".
+     */
+    public static function dateParse(mixed $s): ?int
+    {
+        if (! is_string($s) || ! preg_match('/^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})?)?$/D', $s, $m)) {
+            return null;
+        }
+        [$y, $mo, $d] = [(int) $m[1], (int) ($m[2] ?? '' ?: 1), (int) ($m[3] ?? '' ?: 1)];
+        [$h, $mi, $sec] = [(int) ($m[4] ?? 0), (int) ($m[5] ?? 0), (int) ($m[6] ?? 0)];
+        if ($mo < 1 || $mo > 12 || $d < 1 || $d > 31 || $mi > 59 || $sec > 59
+            || $h > 24 || ($h === 24 && ($mi || $sec || (int) ($m[7] ?? 0)))) {
+            return null;
+        }
+        $ms = gmmktime($h, $mi, $sec, $mo, $d, $y) * 1000 + (int) substr(str_pad($m[7] ?? '', 3, '0'), 0, 3);
+        $zone = $m[8] ?? '';
+        if ($zone !== '' && $zone !== 'Z') {
+            [$zh, $zm] = [(int) substr($zone, 1, 2), (int) substr($zone, 4, 2)];
+            if ($zh > 23 || $zm > 59) {
+                return null;
+            }
+            $ms -= ($zone[0] === '-' ? -1 : 1) * ($zh * 60 + $zm) * 60000;
+        }
+
+        return $ms;
     }
 
     /** api/domain.mjs addDaysISO: a calendar date moved by whole days, '' for anything else. */

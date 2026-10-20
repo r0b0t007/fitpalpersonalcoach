@@ -1,6 +1,7 @@
 <?php
 
 use App\Audit\Audit;
+use App\Models\Assignment;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
@@ -38,4 +39,9 @@ if ($connection !== 'sync') {
 // already hides expired rows, this deletes them — and their IPs — on an idle instance too.
 Schedule::call(fn () => Audit::prune())->hourly()->name('audit:prune')->withoutOverlapping(10);
 
-// fitpal:remind and fitpal:prune join here in R3.
+// Assignment retention (api/domain.mjs pruneAssignments: 30 days pending or answered, never the
+// program a member is on). Node pruned on every send; hourly here, so housekeeping holds no
+// recipient's lock and cannot fail a send.
+Schedule::call(fn () => Assignment::prune())->hourly()->name('assignments:prune')->withoutOverlapping(10);
+
+// fitpal:remind and the rest of fitpal:prune join here in R3.
