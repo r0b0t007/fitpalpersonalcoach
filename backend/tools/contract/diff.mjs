@@ -460,6 +460,11 @@ const CASES = [
     const r = await call(base, adminReq('coach', { id: 'cdAdmin000000000', coach: false }));
     return { ...r, json: { body: r.json, user: (await call(base, { path: '/api/admin/user?id=cdAdmin000000000', headers: bearer('cdAdmin000000000') })).json?.user } };
   }, mode: 'exact' },
+  // Query values as searchParams.get read them: untrimmed, the first of repeated names.
+  { name: 'admin user, a padded id', req: { path: '/api/admin/user?id=%20cdSync0000000000%20', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'admin user, a repeated id (the first counts)', req: { path: '/api/admin/user?id=nope&id=cdSync0000000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'admin user, a repeated id (the first is real)', req: { path: '/api/admin/user?id=cdSync0000000000&id=nope', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'member, a padded id', req: { path: '/api/coach/member?id=%20cdSync0000000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
   { name: 'admin users, after it all', run: clockless({ path: '/api/admin/users', headers: bearer('cdAdmin000000000') }), mode: 'exact' },
   { name: 'logout', req: { method: 'POST', path: '/api/logout', headers: bearer('cdMember00000000') }, mode: 'exact', cookies: true },
   { name: 'logout everywhere', run: async base => {

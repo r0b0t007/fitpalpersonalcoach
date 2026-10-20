@@ -46,7 +46,7 @@ final class CoachRosterController
 
     public function member(Request $request): JsonResponse
     {
-        $member = self::reachable($request, $request->query('id'));
+        $member = self::reachable($request, Input::searchParam($request, 'id'));
 
         return $member ? Json::ok(MemberCard::detail($member)) : Json::error(403, 'forbidden');
     }

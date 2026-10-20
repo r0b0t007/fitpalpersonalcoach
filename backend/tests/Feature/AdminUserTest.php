@@ -182,3 +182,15 @@ it('reads the body as Node\'s readBody did on every admin write', function () {
             ->assertStatus(400)->assertExactJson(['error' => 'bad json']);
     }
 });
+
+it('reads ?id= as Node\'s searchParams.get did: untrimmed, the first of repeated names', function () {
+    $f = $this->f;
+    $id = $f->a1->id;
+    foreach (['/api/admin/user' => $f->admin, '/api/coach/member' => $f->a] as $path => $who) {
+        $miss = $path === '/api/admin/user' ? 404 : 403;
+        $this->getJson("$path?id=%20$id%20", bearer($who))->assertStatus($miss);
+        $this->getJson("$path?id=nope&id=$id", bearer($who))->assertStatus($miss);
+        $this->getJson("$path?id=$id&id=nope", bearer($who))->assertOk();
+        $this->getJson("$path?id[]=$id", bearer($who))->assertStatus($miss);
+    }
+});

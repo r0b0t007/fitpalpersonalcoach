@@ -34,7 +34,7 @@ final class InviteController
     /** GET /api/invite?code= — whose invite this is, before the person has an account. */
     public function show(Request $request): JsonResponse
     {
-        $invite = InviteGate::redeemable(is_string($request->query('code')) ? $request->query('code') : null);
+        $invite = InviteGate::redeemable(Input::searchParam($request, 'code'));
         // One 404 for "no such code", "used" and "revoked": telling them apart would make this a
         // scanner for codes that ever existed, and the holder needs a new link either way.
         if (! $invite) {
@@ -64,7 +64,7 @@ final class InviteController
             if (! $invite) {
                 return Json::error(404, 'this invite link is not valid any more');
             }
-            $coach = InviteGate::coachBinding($invite);
+            $coach = InviteGate::coachBinding($invite, lock: true);
             // A general code binds nobody: burning it here would spend a signup code for nothing.
             if (! $coach) {
                 return Json::error(400, 'this code does not belong to a coach');
@@ -120,7 +120,16 @@ final class InviteController
         // The count and the mint as one step, serialised on the coach's own row: two taps at 19
         // open codes must not both pass the cap (Node had no await between the check and the push).
         $invite = DB::transaction(function () use ($coach, $note): Invite|JsonResponse {
-            User::query()->whereKey($coach->id)->lockForUpdate()->first();
+            $me = User::query()->whereKey($coach->id)->lockForUpdate()->first();
+            // Judged again on the locked row: a detach (role revoked, account disabled) holds this
+            // lock while it revokes the coach's open codes, and a mint that waited behind it must
+            // not then hand out a fresh one. Refused as RequireCoach would refuse the next request.
+            if (! $me || $me->disabled) {
+                return Json::error(401, 'not signed in');
+            }
+            if (! $me->isCoach()) {
+                return Json::error(403, 'forbidden');
+            }
             if (Invite::query()->whereNull('used_by')->where('revoked', false)->count() >= self::COACH_MAX_OPEN) {
                 return Json::error(429, Say::f('you already have {0} unused codes — revoke one before making another', self::COACH_MAX_OPEN));
             }

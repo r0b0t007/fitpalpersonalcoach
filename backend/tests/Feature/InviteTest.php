@@ -204,3 +204,37 @@ it('lists codes in mint order, even two minted in the same millisecond', functio
     $codes = array_column($this->getJson('/api/coach/invites', bearer($f->a))->json('invites'), 'code');
     expect($codes)->toBe(['INVA0000000000', 'ZZZZ000000000000', 'AAAA000000000000']);
 });
+
+it('refuses a mint that waited behind a detach: the coach is judged on the locked row', function (array $change, int $status) {
+    $f = $this->f;
+    // The request is past RequireCoach; then, while it waits for the coach's row, an admin's
+    // detach commits. Simulated by changing the row just before the mint's first locked read.
+    $done = false;
+    DB::connection()->beforeExecuting(function (string $sql) use (&$done, $f, $change) {
+        if (! $done && DB::transactionLevel() >= 2 && str_contains($sql, 'from "users"')) {
+            $done = true;
+            DB::table('users')->where('id', $f->a->id)->update($change);
+        }
+    });
+    $this->postJson('/api/coach/invites/new', ['note' => 'late'], bearer($f->a))->assertStatus($status);
+    expect($done)->toBeTrue()
+        ->and(Invite::acrossCoaches()->where('note', 'late')->exists())->toBeFalse(); // across coaches: the test reads every row
+})->with([
+    'role revoked' => [['coach' => false], 403],
+    'disabled' => [['disabled' => true], 401],
+]);
+
+it('locks the binding coach before the invite, the order a detach takes them in', function () {
+    $f = $this->f;
+    $code = $this->postJson('/api/coach/invites/new', ['note' => 'x'], bearer($f->a))->json('invite.code');
+    $reads = [];
+    DB::listen(function ($q) use (&$reads, $f, $code) {
+        if (str_starts_with($q->sql, 'select') && in_array($f->a->id, $q->bindings, true)) {
+            $reads[] = 'coach';
+        } elseif (str_starts_with($q->sql, 'select *') && in_array($code, $q->bindings, true)) {
+            $reads[] = 'invite';
+        }
+    });
+    $this->postJson('/api/invite/redeem', ['code' => $code], bearer($f->u1))->assertOk();
+    expect(array_slice($reads, 0, 2))->toBe(['coach', 'invite']);
+});

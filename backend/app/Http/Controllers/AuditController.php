@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Audit\Audit;
+use App\Support\Input;
 use App\Support\Json;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,9 +18,9 @@ final class AuditController
 {
     public function index(Request $request): JsonResponse
     {
-        // Query values are strings in Node (searchParams.get). `?cat[]=x` is a different key there,
-        // so get('cat') is null: an array here counts as absent, never as a conversion warning.
-        $q = fn (string $k): string => is_string($v = $request->query($k)) ? $v : '';
+        // Query values are read as Node's searchParams.get read them (Input::searchParam): untrimmed,
+        // the first of repeated names, and `?cat[]=x` a different key, so get('cat') is null.
+        $q = fn (string $k): string => Input::searchParam($request, $k) ?? '';
         // Node: Math.max(1, Math.min(200, +limit || 100)), +before || Infinity — numbers, not
         // integers; 0, NaN and absent mean the default. slice() truncates a fractional limit.
         $num = fn (string $k): float => is_numeric($q($k)) ? (float) $q($k) : 0.0;

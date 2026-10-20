@@ -82,6 +82,40 @@ final class Input
             fn (array $m) => strlen($m[1]) === 5 ? '\\ufffd' : $m[0], $raw) ?? $raw;
     }
 
+    /**
+     * `new URL(req.url).searchParams.get(key)`: the FIRST value of that name, decoded as
+     * URLSearchParams decodes (`+` is a space, %XX bytes read as UTF-8, a bad byte as U+FFFD), and
+     * untouched otherwise. Laravel's query bag is not that: TrimStrings and ConvertEmptyStrings
+     * have been through it, and PHP keeps the LAST of repeated names — so `?id=%20x%20` and
+     * `?id=nope&id=x` would find an account Node answered "no such user" for.
+     */
+    public static function searchParam(Request $request, string $key): ?string
+    {
+        foreach (explode('&', (string) $request->server->get('QUERY_STRING', '')) as $pair) {
+            if ($pair === '') {
+                continue;
+            }
+            [$name, $value] = array_pad(explode('=', $pair, 2), 2, '');
+            if (self::formDecode($name) === $key) {
+                return self::formDecode($value);
+            }
+        }
+
+        return null;
+    }
+
+    private static function formDecode(string $s): string
+    {
+        // mb_scrub substitutes '?' unless told otherwise; URLSearchParams writes U+FFFD.
+        $was = mb_substitute_character();
+        mb_substitute_character(0xFFFD);
+        try {
+            return mb_scrub(rawurldecode(str_replace('+', ' ', $s)), 'UTF-8');
+        } finally {
+            mb_substitute_character($was);
+        }
+    }
+
     /** `body.key` exactly as sent, or null when absent (Node's undefined). */
     public static function raw(Request $request, string $key): mixed
     {

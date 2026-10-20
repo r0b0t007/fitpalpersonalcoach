@@ -55,7 +55,7 @@ final class AdminUserController
     /** Drill-down: one account's workouts, newest first, and body-weight log. */
     public function show(Request $request): JsonResponse
     {
-        $id = $request->query('id');
+        $id = Input::searchParam($request, 'id');
         $u = is_string($id) ? User::query()->find($id) : null;
         if (! $u) {
             return Json::error(404, 'no such user');
@@ -68,10 +68,7 @@ final class AdminUserController
                 'admin' => $u->isAdmin(), 'invitedBy' => Js::or($u->invited_by, null),
                 'coach' => $u->isCoach(), 'ownCoachFlag' => (bool) $u->coach, 'coachId' => Js::or($u->coach_id, null),
             ],
-            'unit' => Js::or($s->unit ?? null, 'kg'),
-            'lastSync' => Js::or($s->_ts ?? null, null),
-            'routines' => MemberCard::routineSummaries($s),
-            'bodyweight' => Js::or($s->bodyweight ?? null, []),
+        ] + MemberCard::drillDown($s) + [
             'workouts' => array_reverse(Js::list($s->workouts ?? null)),
         ]);
     }

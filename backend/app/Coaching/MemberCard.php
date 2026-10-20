@@ -81,6 +81,20 @@ final class MemberCard
     }
 
     /**
+     * What both drill-downs into one account open with — the coach's (GET /api/coach/member) and
+     * the admin's (GET /api/admin/user) — read from the state the same way in both.
+     */
+    public static function drillDown(stdClass $s): array
+    {
+        return [
+            'unit' => Js::or($s->unit ?? null, 'kg'),
+            'lastSync' => Js::or($s->_ts ?? null, null),
+            'routines' => self::routineSummaries($s),
+            'bodyweight' => Js::or($s->bodyweight ?? null, []),
+        ];
+    }
+
+    /**
      * `lastWorkout: last ? last.d : null`, as a field to splice in: a last workout without a `d`
      * gave undefined, which JSON.stringify leaves out — no key at all.
      *
@@ -161,10 +175,7 @@ final class MemberCard
 
         return [
             'user' => ['id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso()],
-            'unit' => Js::or($s->unit ?? null, 'kg'),
-            'lastSync' => Js::or($s->_ts ?? null, null),
-            'routines' => self::routineSummaries($s),
-            'bodyweight' => Js::or($s->bodyweight ?? null, []),
+        ] + self::drillDown($s) + [
             'measurements' => Js::or($s->measurements ?? null, []),
             // Authored by the client and read-only here: the server never writes their state.
             'checkins' => Js::or($s->checkins ?? null, []),

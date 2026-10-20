@@ -11,9 +11,15 @@ use App\Models\User;
  * their roster, their unanswered offers, their open invite codes. Losing the role and being
  * disabled both mean exactly this, so both run the one function and neither remembers half of it.
  *
- * It is also the only way a coach's rows are let go of: the coach_id foreign keys restrict
- * deletion, so a coach account is detached, never deleted with its tenant rows still pointing at
- * it. Call it inside the caller's transaction, with the coach's row locked.
+ * It is not a step towards deleting the coach. Their invites, assignments, programs and media keep
+ * their coach_id — the record of who issued and sent what — and those foreign keys restrict
+ * deletion, so a coach account is detached and kept, never deleted. (users.coach_id alone is
+ * nullOnDelete; this clears it by hand anyway, because the account stays.)
+ *
+ * Call it inside the caller's transaction with the coach's row locked. Everything that attaches to
+ * a coach takes that lock first and judges the coach on the locked row — a send
+ * (AssignmentController::assign), a mint (InviteController::coachCreate), a redemption or a signup
+ * (InviteGate) — so none of them can land half-way through a detach.
  *
  * Node's classes kept their coachId on purpose (disabling is often temporary); the timetable is
  * not ported, so there is nothing of it here.
