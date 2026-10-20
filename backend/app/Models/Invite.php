@@ -77,6 +77,17 @@ class Invite extends Model
         return $row;
     }
 
+    /**
+     * Every open code one coach handed out, revoked together (api/server.js detachCoach): only
+     * unredeemed, unrevoked ones — a used code is history, not a key — and flagged, never deleted.
+     */
+    public static function revokeOpenOf(string $coachId, string $reason): int
+    {
+        return static::acrossCoaches()->where('coach_id', $coachId) // across coaches: an admin route acts on the detached coach's codes
+            ->whereNull('used_by')->where('revoked', false)
+            ->update(['revoked' => true, 'revoked_at' => Js::isoNow(), 'revoked_reason' => $reason]);
+    }
+
     /** Flagged, never deleted: the row is the record that the code was issued, and to whom. */
     public function revoke(?string $reason = null): void
     {

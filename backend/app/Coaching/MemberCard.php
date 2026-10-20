@@ -45,7 +45,6 @@ final class MemberCard
     {
         $s = self::state($u->id);
         $workouts = Js::list($s->workouts ?? null);
-        $last = $workouts === [] ? null : $workouts[array_key_last($workouts)];
         $trainable = self::trainable($s);
         // Sending used to be a black hole: a decline looked exactly like "hasn't opened the app".
         // Node sorted String(decidedAt) descending, so a row with no date ("undefined") came
@@ -59,7 +58,7 @@ final class MemberCard
         $card = [
             'id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso(), 'disabled' => (bool) $u->disabled,
             'workouts' => count($workouts),
-            'lastWorkout' => null,   // set below: Node left it out of the JSON when undefined
+        ] + self::lastWorkout($workouts) + [
             'lastSync' => Js::or($s->_ts ?? null, null),
             // The presence object while they train (R3 brings presence); null otherwise, as Node.
             'live' => null,
@@ -77,16 +76,47 @@ final class MemberCard
             'checkinDay' => self::checkinDay($s->checkinDay ?? null),
             'routines' => count($trainable),
         ];
-        // `last ? last.d : null`: a last workout without a `d` gave undefined, which is no key at all.
-        if (Js::truthy($last)) {
-            if (is_object($last) && property_exists($last, 'd')) {
-                $card['lastWorkout'] = $last->d;
-            } else {
-                unset($card['lastWorkout']);
-            }
-        }
 
         return $card;
+    }
+
+    /**
+     * `lastWorkout: last ? last.d : null`, as a field to splice in: a last workout without a `d`
+     * gave undefined, which JSON.stringify leaves out — no key at all.
+     *
+     * @param  list<mixed>  $workouts
+     */
+    public static function lastWorkout(array $workouts): array
+    {
+        $last = $workouts === [] ? null : $workouts[array_key_last($workouts)];
+        if (! Js::truthy($last)) {
+            return ['lastWorkout' => null];
+        }
+
+        return is_object($last) && property_exists($last, 'd') ? ['lastWorkout' => $last->d] : [];
+    }
+
+    /**
+     * `(S.routines || []).map(r => ({ id: r.id, name: r.name, emoji: r.emoji, count: (r.ex || []).length }))`:
+     * an absent field is absent from the JSON, a null one is null.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function routineSummaries(stdClass $s): array
+    {
+        $routines = [];
+        foreach (Js::list($s->routines ?? null) as $r) {
+            $row = [];
+            foreach (['id', 'name', 'emoji'] as $k) {
+                if (is_object($r) && property_exists($r, $k)) {
+                    $row[$k] = $r->{$k};
+                }
+            }
+            $row['count'] = count(Js::list(is_object($r) ? ($r->ex ?? null) : null));
+            $routines[] = $row;
+        }
+
+        return $routines;
     }
 
     /**
@@ -128,25 +158,12 @@ final class MemberCard
     public static function detail(User $u): array
     {
         $s = self::state($u->id);
-        $routines = [];
-        foreach (Js::list($s->routines ?? null) as $r) {
-            $row = [];
-            // Node mapped { id: r.id, name: r.name, emoji: r.emoji }: an absent field is absent
-            // from the JSON, a null one is null.
-            foreach (['id', 'name', 'emoji'] as $k) {
-                if (is_object($r) && property_exists($r, $k)) {
-                    $row[$k] = $r->{$k};
-                }
-            }
-            $row['count'] = count(Js::list(is_object($r) ? ($r->ex ?? null) : null));
-            $routines[] = $row;
-        }
 
         return [
             'user' => ['id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso()],
             'unit' => Js::or($s->unit ?? null, 'kg'),
             'lastSync' => Js::or($s->_ts ?? null, null),
-            'routines' => $routines,
+            'routines' => self::routineSummaries($s),
             'bodyweight' => Js::or($s->bodyweight ?? null, []),
             'measurements' => Js::or($s->measurements ?? null, []),
             // Authored by the client and read-only here: the server never writes their state.
