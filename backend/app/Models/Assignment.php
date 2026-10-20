@@ -66,10 +66,18 @@ class Assignment extends Model
         return static::forMember($memberId)->where('status', 'pending')->orderBy('created')->orderBy('id');
     }
 
-    /** A fresh id, as crypto.randomBytes(12).toString('base64url') made it: 16 characters. */
-    public static function newId(): string
+    /**
+     * How many offers each of these members has waiting, from every coach: one query for a whole
+     * send, not one per recipient.
+     *
+     * @param  list<string>  $memberIds
+     * @return Collection<string, int>
+     */
+    public static function pendingCounts(array $memberIds): Collection
     {
-        return strtr(base64_encode(random_bytes(12)), '+/', '-_');
+        return static::acrossCoaches()->whereIn('member_id', $memberIds) // across coaches: the cap counts every coach's offers
+            ->where('status', 'pending')->groupBy('member_id')->selectRaw('member_id, count(*) as n')
+            ->pluck('n', 'member_id')->map(fn ($n) => (int) $n);
     }
 
     /** The bundle as the app sent it (objects as stdClass, so `{}` goes back out as `{}`). */
@@ -101,8 +109,12 @@ class Assignment extends Model
     /**
      * api/domain.mjs pruneAssignments, across every coach as it ran: an offer nobody answered goes
      * after PENDING_DAYS, an answered one DECIDED_DAYS after it was answered — except each member's
-     * newest accepted row, which is the program they are on, not history. Runs on every send, as in
-     * Node, and is what keeps GET /api/assignments/history bounded with no limit of its own.
+     * newest accepted row, which is the program they are on, not history. It is what keeps GET
+     * /api/assignments/history bounded with no limit of its own.
+     *
+     * Node ran it on every send; here it is the scheduler's, hourly (routes/console.php, spec
+     * "Background work"), so housekeeping neither holds the recipients' locks nor fails a send.
+     * An offer can sit up to an hour past its 30 days before it goes.
      */
     public static function prune(?int $nowMs = null): int
     {
@@ -130,9 +142,21 @@ class Assignment extends Model
             $t = Js::dateParse($a->status === 'pending' ? $a->created : Js::or($a->decided_at, $a->created)) ?? 0;
 
             return $nowMs - $t < $days * 86_400_000;
-        })->pluck('id')->all();
+        });
 
-        return $gone ? static::acrossCoaches()->whereKey($gone)->delete() : 0; // across coaches: Node pruned db.assignments whole
+        // Deleted by id AND by the status that made the row stale: the read above locks nothing,
+        // and a pending offer answered since (decide locks and commits it) may now be the program
+        // its member is on. A DELETE re-reads each row's committed status, so that one survives.
+        // Answered rows never change status again, so they need no further guard.
+        $n = 0;
+        foreach ($gone->partition(fn (self $a) => $a->status === 'pending') as $i => $rows) {
+            foreach (array_chunk($rows->pluck('id')->all(), 500) as $ids) {
+                $q = static::acrossCoaches()->whereKey($ids); // across coaches: Node pruned db.assignments whole
+                $n += ($i === 0 ? $q->where('status', 'pending') : $q->where('status', '!=', 'pending'))->delete();
+            }
+        }
+
+        return $n;
     }
 
     /**

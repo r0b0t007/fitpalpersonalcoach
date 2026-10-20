@@ -77,7 +77,6 @@ it('answers coach A on coach B\'s program as on a made-up one, and changes nothi
 
 it('refuses coach A a send to coach B\'s client, and lets the admin make it', function () {
     $plan = ['opengym_plan' => 1, 'routines' => [['id' => 'r', 'ex' => [['id' => '0025']]]]];
-    $this->travelTo('2026-05-02T00:00:00Z');   // the day after the fixture's offers, inside the prune window
     $this->postJson('/api/coach/assign', ['memberIds' => [$this->f->b1->id], 'bundle' => $plan], bearer($this->f->a))
         ->assertStatus(403)->assertExactJson(['error' => 'forbidden']);
     expect(Assignment::forMember($this->f->b1->id)->count())->toBe(1);

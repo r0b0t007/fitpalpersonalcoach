@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Js;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -52,7 +53,7 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     /** 16 base64url characters, as the Node API made them. */
     public static function newId(): string
     {
-        return rtrim(strtr(base64_encode(random_bytes(12)), '+/', '-_'), '=');
+        return Js::randomId();
     }
 
     /**

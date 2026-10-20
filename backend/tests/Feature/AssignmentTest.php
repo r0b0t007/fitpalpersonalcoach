@@ -9,6 +9,7 @@ use App\Coaching\AssignmentSent;
 use App\Models\Assignment;
 use App\Models\User;
 use App\Support\Js;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
@@ -101,8 +102,7 @@ it('== the server must NOT have touched member state ==', function () {
 
 it('caps a member\'s inbox at 5, counting every coach\'s offers', function () {
     $f = $this->f;
-    // a1 already holds one offer from A and one from B, sent the day before (older ones are pruned).
-    $this->travelTo('2026-05-02T00:00:00Z');
+    // a1 already holds one offer from A and one from B.
     send($f->a, [$f->a1->id])->assertOk();
     send($f->a, [$f->a1->id])->assertOk();
     send($f->a, [$f->a1->id])->assertOk();
@@ -205,7 +205,16 @@ it('leaves a seam for the push: one event per send, after the rows are written',
     Event::assertDispatchedTimes(AssignmentSent::class, 1);
 });
 
-it('prunes as Node did on every send: 30 days pending or answered, but never the program a member is on', function () {
+it('never announces a send its caller rolled back', function () {
+    Event::fake([AssignmentSent::class]);
+    DB::beginTransaction();
+    send($this->f->a, [$this->f->a2->id])->assertOk();
+    DB::rollBack();
+    Event::assertNotDispatched(AssignmentSent::class);
+    expect(inbox($this->f->a2))->toBe([]);
+});
+
+it('prunes hourly as pruneAssignments did: 30 days pending or answered, but never the program a member is on', function () {
     $f = $this->f;
     $row = fn (string $id, User $m, string $status, string $created, ?string $decided = null) => Coaching::own(new Assignment, $f->a,
         ['id' => $id, 'coach_name' => 'Coach A', 'member_id' => $m->id, 'bundle' => '{}', 'status' => $status, 'created' => $created, 'decided_at' => $decided]);
@@ -217,18 +226,45 @@ it('prunes as Node did on every send: 30 days pending or answered, but never the
     $row('onIt', $f->a2, 'accepted', '2026-01-01T00:00:00.000Z', '2026-03-01T00:00:00.000Z');
     $row('olderAccept', $f->a2, 'accepted', '2026-01-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z');
     $row('garbage', $f->a2, 'declined', 'not a date', 'nor this');
-    send($f->b, [$f->b1->id])->assertOk();   // any coach's send prunes everyone's
+    // V8 rolls a day past the month's end over: 2026-06-31 is July 1, so this one is fresh.
+    $row('rolledOver', $f->a2, 'declined', '2026-01-01T00:00:00.000Z', '2026-06-31T00:00:00.000Z');
+    expect(Assignment::prune())->toBe(7);
     expect(Assignment::acrossCoaches()->where('member_id', $f->a2->id)->orderBy('id')->pluck('id')->all()) // across coaches: test reads every row
-        ->toBe(['freshPending', 'lateDecided', 'onIt'])
-        // The fixture's offers are dated 2026-05-01, past the window too.
+        ->toBe(['freshPending', 'lateDecided', 'onIt', 'rolledOver'])
+        // The fixture's offers are dated 2026-05-01, past the window too, whichever coach sent them.
         ->and(Assignment::acrossCoaches()->whereKey(['assignA', 'assignB', 'assignBtoA1'])->count())->toBe(0); // across coaches: test reads every row
+    $task = collect(app(Schedule::class)->events())->firstWhere('description', 'assignments:prune');
+    expect($task?->expression)->toBe('0 * * * *');
+});
+
+it('does not prune an offer that was accepted while the prune was deciding', function () {
+    $this->travelTo('2026-07-01T00:00:00Z');
+    // assignA is a pending offer from 2026-05-01: stale when prune reads it. Before its DELETE
+    // runs, a1 accepts it (as decide would, from another request) — it is their program now.
+    $raced = false;
+    DB::connection()->beforeExecuting(function (string $sql) use (&$raced) {
+        if (! $raced && str_starts_with(strtolower($sql), 'delete')) {
+            $raced = true;
+            DB::table('assignments')->where('id', 'assignA')->update(['status' => 'accepted', 'decided_at' => '2026-07-01T00:00:00.000Z']);
+        }
+    });
+    Assignment::prune();
+    expect($raced)->toBeTrue()
+        ->and(Assignment::acrossCoaches()->find('assignA')?->status)->toBe('accepted'); // across coaches: test reads every row
 });
 
 it('parses timestamps as Date.parse did', function () {
     expect(Js::dateParse('2026-06-01T10:00:00.123Z'))->toBe(1780308000123)
         ->and(Js::dateParse('2026-06-01'))->toBe(1780272000000)
         ->and(Js::dateParse('2026-06-01T12:00+02:00'))->toBe(1780308000000)
-        ->and(Js::dateParse('2026-02-30'))->toBeNull()
+        // V8 checks a day against 1-31 only and rolls the rest over: these are March 2 and May 1.
+        ->and(Js::dateParse('2026-02-30'))->toBe(1772409600000)
+        ->and(Js::dateParse('2026-04-31'))->toBe(1777593600000)
+        ->and(Js::dateParse('2026-02-28T24:00:00Z'))->toBe(1772323200000)
+        ->and(Js::dateParse('2026-02-32'))->toBeNull()
+        ->and(Js::dateParse('2026-02-00'))->toBeNull()
+        ->and(Js::dateParse('2026-13-01'))->toBeNull()
+        ->and(Js::dateParse('2026-02-28T24:00:01Z'))->toBeNull()
         ->and(Js::dateParse(''))->toBeNull()
         ->and(Js::dateParse(null))->toBeNull();
 });

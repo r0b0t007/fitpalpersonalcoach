@@ -203,6 +203,15 @@ final class Js
         return $o;
     }
 
+    /**
+     * `crypto.randomBytes(12).toString('base64url')`: 16 characters, the one id format the Node
+     * API made for users, assignments, media and the rest.
+     */
+    public static function randomId(): string
+    {
+        return strtr(base64_encode(random_bytes(12)), '+/', '-_');
+    }
+
     /** `Date.now()`, through Laravel's clock so tests can move it. */
     public static function nowMs(): int
     {
@@ -218,7 +227,8 @@ final class Js
     /**
      * `Date.parse(s)` for the timestamps the Node API wrote: ISO 8601 as toISOString() makes it,
      * and its shorter forms (a date alone, no seconds, an offset instead of Z). Null where JS has
-     * NaN. A string without an offset is read as UTC — V8 reads a date-time without one as the
+     * NaN — and like V8, which checks a day only against 1–31: 2026-02-30 is March 2, not NaN.
+     * A string without an offset is read as UTC — V8 reads a date-time without one as the
      * server's local time, and the server ran in UTC. V8's legacy fallback ("May 1 2026") is not
      * ported: no row the API wrote is in that shape, and such a row reads as NaN, which every
      * caller already treats as "very old".
@@ -230,7 +240,7 @@ final class Js
         }
         [$y, $mo, $d] = [(int) $m[1], (int) ($m[2] ?? '' ?: 1), (int) ($m[3] ?? '' ?: 1)];
         [$h, $mi, $sec] = [(int) ($m[4] ?? 0), (int) ($m[5] ?? 0), (int) ($m[6] ?? 0)];
-        if (! checkdate($mo, $d, $y) || $mi > 59 || $sec > 59
+        if ($mo < 1 || $mo > 12 || $d < 1 || $d > 31 || $mi > 59 || $sec > 59
             || $h > 24 || ($h === 24 && ($mi || $sec || (int) ($m[7] ?? 0)))) {
             return null;
         }

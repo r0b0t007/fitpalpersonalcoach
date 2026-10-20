@@ -43,30 +43,34 @@ final class AssignmentController
         $schedule = Js::truthy(Input::raw($request, 'schedule'));
         $stored = Js::stringify($bundle);
 
-        DB::transaction(function () use ($coach, $ids, $note, $schedule, $stored): void {
-            // The members' rows, locked: the pending cap is counted and the offers written as one
-            // step, and a release or a move landing in between waits rather than being missed.
-            $members = User::query()->whereKey($ids)->lockForUpdate()->get()->keyBy('id');
+        $coach = DB::transaction(function () use ($coach, $ids, $note, $schedule, $stored): User {
+            // The members' rows and the coach's, locked in one statement: the pending cap is
+            // counted and the offers written as one step, and a release, a move or the coach being
+            // disabled lands either before this reads them or after it is done — never in between.
+            $locked = User::query()->whereKey([...$ids, $coach->id])->lockForUpdate()->get()->keyBy('id');
+            $coach = $locked->get($coach->id) ?? throw new ClientSafe(403, 'forbidden');
+            $pending = Assignment::pendingCounts($ids);
             // In the order sent, and all or nothing: one member that is not the caller's refuses
-            // the whole batch, as in Node.
+            // the whole batch, and the first one over the cap is the one named, as in Node.
             foreach ($ids as $id) {
-                $u = $members->get($id);
+                $u = $locked->get($id);
                 if (! Access::canCoachMember($coach, $u)) {
                     throw new ClientSafe(403, 'forbidden');
                 }
-                if (Assignment::pendingFor($u->id)->count() >= Assignment::MAX_PENDING) {
+                if ($pending->get($u->id, 0) >= Assignment::MAX_PENDING) {
                     throw new ClientSafe(429, Say::f('{0} already has {1} programs waiting', $u->name, Assignment::MAX_PENDING));
                 }
             }
-            Assignment::prune();
             $created = Js::isoNow();
             foreach ($ids as $id) {
                 // coach_id comes from the CoachContext (OwnedByCoach), as every tenant row's does.
                 (new Assignment)->forceFill([
-                    'id' => Assignment::newId(), 'coach_name' => $coach->name, 'member_id' => $members->get($id)->id,
+                    'id' => Js::randomId(), 'coach_name' => $coach->name, 'member_id' => $locked->get($id)->id,
                     'bundle' => $stored, 'note' => $note, 'schedule' => $schedule, 'created' => $created, 'status' => 'pending',
                 ])->save();
             }
+
+            return $coach;
         });
         AssignmentSent::dispatch($coach, $ids);
 
@@ -110,11 +114,11 @@ final class AssignmentController
      */
     public function history(Request $request): JsonResponse
     {
-        $key = fn (Assignment $a): string => (string) Js::or($a->decided_at, Js::or($a->created, ''));
+        // `String(b.decidedAt || b.created || '').localeCompare(…)`, descending: the binary
+        // collation orders the ISO strings Node wrote as localeCompare does. Ties fall back to the
+        // order sent, as JS's stable sort kept them.
         $mine = Assignment::forMember($request->user('api')->id)->whereIn('status', ['accepted', 'declined'])
-            ->orderBy('created')->orderBy('id')->get()
-            // localeCompare, descending, stable — strcmp orders the ISO strings Node wrote the same.
-            ->sort(fn (Assignment $x, Assignment $y) => strcmp($key($y), $key($x)))->values();
+            ->orderByRaw("COALESCE(NULLIF(decided_at, ''), created) DESC")->orderBy('created')->orderBy('id')->get();
 
         return Json::ok(['assignments' => $mine->map(fn (Assignment $a) => $a->toHistory())->all()]);
     }
@@ -138,8 +142,9 @@ final class AssignmentController
             // Re-checked at the answer, not only at the send: the client may have been moved to
             // another coach, or the coach disabled, since. The offer is retired, and that sticks —
             // returned rather than thrown, so the expiry is committed along with its 409.
-            $sender = $a->status === 'pending' && $accept ? User::query()->find($a->coach_id) : null;
-            if ($a->status === 'pending' && $accept && (! $sender || ! Access::canCoachMember($sender, $me))) {
+            $accepting = $a->status === 'pending' && $accept;
+            $sender = $accepting ? User::query()->find($a->coach_id) : null;
+            if ($accepting && (! $sender || ! Access::canCoachMember($sender, $me))) {
                 $a->forceFill(['status' => 'expired', 'decided_at' => Js::isoNow()])->save();
 
                 return Json::error(409, 'that program is no longer available');
