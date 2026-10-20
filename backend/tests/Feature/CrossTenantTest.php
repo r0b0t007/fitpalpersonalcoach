@@ -74,3 +74,29 @@ it('answers coach A on coach B\'s program as on a made-up one, and changes nothi
         ->and(array_column($this->getJson('/api/coach/programs', bearer($this->f->a))->json('programs'), 'id'))->toBe(['prog-a', 'prog-b'])
         ->and(array_column($this->getJson('/api/coach/programs', bearer($this->f->b))->json('programs'), 'name'))->toBe(['Program b']);
 });
+
+it('refuses coach A a send to coach B\'s client, and lets the admin make it', function () {
+    $plan = ['opengym_plan' => 1, 'routines' => [['id' => 'r', 'ex' => [['id' => '0025']]]]];
+    $this->travelTo('2026-05-02T00:00:00Z');   // the day after the fixture's offers, inside the prune window
+    $this->postJson('/api/coach/assign', ['memberIds' => [$this->f->b1->id], 'bundle' => $plan], bearer($this->f->a))
+        ->assertStatus(403)->assertExactJson(['error' => 'forbidden']);
+    expect(Assignment::forMember($this->f->b1->id)->count())->toBe(1);
+    $this->postJson('/api/coach/assign', ['memberIds' => [$this->f->b1->id], 'bundle' => $plan], bearer($this->f->admin))->assertOk();
+    // The admin's offer is the admin's own row, as Node stamped coachId with whoever sent it.
+    expect(Assignment::forMember($this->f->b1->id)->pluck('coach_id')->sort()->values()->all())->toBe([$this->f->admin->id, $this->f->b->id]);
+});
+
+it('answers coach A, and the admin, on coach B\'s offer as on a made-up one, and changes nothing', function () {
+    foreach ([$this->f->a, $this->f->admin] as $who) {
+        $this->postJson('/api/coach/assignments/withdraw', ['id' => 'assignB'], bearer($who))
+            ->assertStatus(404)->assertExactJson(['error' => 'no such assignment']);
+    }
+    expect(Assignment::forMember($this->f->b1->id)->first()->status)->toBe('pending');
+});
+
+it('keeps one client\'s offers from another client', function () {
+    $this->postJson('/api/assignments/decide', ['id' => 'assignB', 'accept' => true], bearer($this->f->a1))
+        ->assertStatus(404)->assertExactJson(['error' => 'no such assignment']);
+    expect(array_column($this->getJson('/api/assignments', bearer($this->f->a1))->json('assignments'), 'id'))->not->toContain('assignB')
+        ->and(Assignment::forMember($this->f->b1->id)->first()->status)->toBe('pending');
+});

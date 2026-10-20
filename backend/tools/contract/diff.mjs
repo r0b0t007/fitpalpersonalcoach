@@ -121,6 +121,22 @@ const saved = req => async base => {
   return { ...r, json: r.json?.error ? r.json : { program: clockFree(r.json?.program), programs: (r.json?.programs || []).map(clockFree) } };
 };
 
+// Assignments: ids and timestamps are each server's own, so they compare as a check of their form.
+const assignReq = (uid, body) => ({ method: 'POST', path: '/api/coach/assign', headers: bearer(uid), body });
+const offers = rows => Array.isArray(rows) ? rows.map(a => ({
+  ...a, id: /^[A-Za-z0-9_-]{16}$/.test(a.id) ? 'an id' : a.id, created: typeof a.created,
+  ...('decidedAt' in a ? { decidedAt: typeof a.decidedAt } : {}),
+})) : rows;
+const listOf = path => uid => async base => {
+  const r = await call(base, { path, headers: bearer(uid) });
+  return { ...r, json: r.json?.error ? r.json : { assignments: offers(r.json?.assignments) } };
+};
+const inboxOf = listOf('/api/assignments');
+const historyOf = listOf('/api/assignments/history');
+const firstOffer = async (base, uid) => ((await call(base, { path: '/api/assignments', headers: bearer(uid) })).json?.assignments || [])[0]?.id;
+const withdrawReq = (uid, id) => ({ method: 'POST', path: '/api/coach/assignments/withdraw', headers: bearer(uid), body: { id } });
+const decideReq = (uid, id, accept) => ({ method: 'POST', path: '/api/assignments/decide', headers: bearer(uid), body: { id, accept } });
+
 const fat = JSON.stringify({ state: { pad: 'x'.repeat(17 * 1024 * 1024) } });
 const CASES = [
   { name: 'health', req: { path: '/api/health' }, mode: 'exact' },
@@ -325,6 +341,68 @@ const CASES = [
       if (r.status !== 200) break;
     }
     return r;
+  }, mode: 'exact' },
+  // R2 — assignments (CHW-249). Every offer is sent inside the run (CHW-251 imports Node's).
+  { name: 'assign, anonymous', req: { method: 'POST', path: '/api/coach/assign', body: {} }, mode: 'exact' },
+  { name: 'assign, a member', req: assignReq('cdMember00000000', { memberIds: ['cdMember00000000'], bundle: PLAN() }), mode: 'exact' },
+  { name: 'assign, bad json', req: { method: 'POST', path: '/api/coach/assign', headers: bearer('cdCoach000000000'), raw: '{"memberIds":' }, mode: 'exact' },
+  { name: 'assign, not a plan (checked before the members)', req: assignReq('cdCoach000000000', { memberIds: [], bundle: { nope: 1 } }), mode: 'exact' },
+  { name: 'assign, no members', req: assignReq('cdCoach000000000', { memberIds: [], bundle: PLAN() }), mode: 'exact' },
+  { name: 'assign, members not a list', req: assignReq('cdCoach000000000', { memberIds: 'cdMember00000000', bundle: PLAN() }), mode: 'exact' },
+  { name: 'assign, another coach’s client', req: assignReq('cdCoachB00000000', { memberIds: ['cdMember00000000'], bundle: PLAN() }), mode: 'exact' },
+  { name: 'assign, a batch with one stranger is refused whole', req: assignReq('cdCoach000000000', { memberIds: ['cdMember00000000', 'cdSync0000000000'], bundle: PLAN() }), mode: 'exact' },
+  { name: 'assign, admin to a disabled member', req: assignReq('cdAdmin000000000', { memberIds: ['cdGone0000000000'], bundle: PLAN() }), mode: 'exact' },
+  { name: 'inbox, still empty after refusals', run: inboxOf('cdMember00000000'), mode: 'exact' },
+  { name: 'assign, own client (twice in the list)', req: assignReq('cdCoach000000000', { memberIds: ['cdMember00000000', 'cdMember00000000'], note: '  go  ', schedule: 1,
+    bundle: PLAN({ evil: 'x', week: {}, nutrition: { kcal: '2200.6', p: 170, note: '  rest days  ' }, checkinDay: 0 }) }), mode: 'exact' },
+  { name: 'inbox, anonymous', req: { path: '/api/assignments' }, mode: 'exact' },
+  { name: 'inbox, the member', run: inboxOf('cdMember00000000'), mode: 'exact' },
+  { name: 'inbox, another member', run: inboxOf('cdSync0000000000'), mode: 'exact' },
+  { name: 'history, anonymous', req: { path: '/api/assignments/history' }, mode: 'exact' },
+  { name: 'history, nothing answered yet', run: historyOf('cdMember00000000'), mode: 'exact' },
+  { name: 'withdraw, by the other coach', run: async base => call(base, withdrawReq('cdCoachB00000000', await firstOffer(base, 'cdMember00000000'))), mode: 'exact' },
+  { name: 'withdraw, by a member', run: async base => call(base, withdrawReq('cdMember00000000', await firstOffer(base, 'cdMember00000000'))), mode: 'exact' },
+  { name: 'withdraw, a made-up id', req: withdrawReq('cdCoach000000000', 'nope'), mode: 'exact' },
+  { name: 'withdraw, an id that is not a string', req: withdrawReq('cdCoach000000000', ['x']), mode: 'exact' },
+  { name: 'decide, anonymous', req: { method: 'POST', path: '/api/assignments/decide', body: {} }, mode: 'exact' },
+  { name: 'decide, by the coach', run: async base => call(base, decideReq('cdCoach000000000', await firstOffer(base, 'cdMember00000000'), true)), mode: 'exact' },
+  { name: 'decide, by another member', run: async base => call(base, decideReq('cdSync0000000000', await firstOffer(base, 'cdMember00000000'), true)), mode: 'exact' },
+  { name: 'decide, bad json', req: { method: 'POST', path: '/api/assignments/decide', headers: bearer('cdMember00000000'), raw: '{nope' }, mode: 'exact' },
+  { name: 'decide, accept', run: async base => call(base, decideReq('cdMember00000000', await firstOffer(base, 'cdMember00000000'), 'yes')), mode: 'exact' },
+  { name: 'history, after accepting', run: historyOf('cdMember00000000'), mode: 'exact' },
+  { name: 'withdraw, an answered offer', run: async base => {
+    const id = ((await call(base, { path: '/api/assignments/history', headers: bearer('cdMember00000000') })).json?.assignments || [])[0]?.id;
+    const w = await call(base, withdrawReq('cdCoach000000000', id));
+    const d = await call(base, decideReq('cdMember00000000', id, false));
+    return { status: w.status, json: { withdraw: w.json, decideAgain: [d.status, d.json] } };
+  }, mode: 'exact' },
+  { name: 'withdraw, a pending offer', run: async base => {
+    await call(base, assignReq('cdCoach000000000', { memberIds: ['cdMember00000000'], bundle: PLAN({ name: 'Oops' }) }));
+    const id = await firstOffer(base, 'cdMember00000000');
+    const w = await call(base, withdrawReq('cdCoach000000000', id));
+    const again = await call(base, withdrawReq('cdCoach000000000', id));
+    const hist = await historyOf('cdMember00000000')(base);
+    return { status: w.status, json: { withdraw: w.json, again: [again.status, again.json], history: hist.json } };
+  }, mode: 'exact' },
+  { name: 'decide, decline', run: async base => {
+    await call(base, assignReq('cdAdmin000000000', { memberIds: ['cdMember00000000'], bundle: PLAN({ name: 'From the owner' }), note: 'n' }));
+    const d = await call(base, decideReq('cdMember00000000', await firstOffer(base, 'cdMember00000000'), 0));
+    return { status: d.status, json: { decide: d.json, history: (await historyOf('cdMember00000000')(base)).json } };
+  }, mode: 'exact' },
+  { name: 'assign, the pending cap', run: async base => {
+    let r;
+    for (let i = 0; i < 7; i++) {
+      r = await call(base, assignReq('cdCoach000000000', { memberIds: ['cdMember00000000'], bundle: PLAN({ name: 'Cap ' + i }) }));
+      if (r.status !== 200) break;
+    }
+    return r;
+  }, mode: 'exact' },
+  { name: 'inbox, full', run: inboxOf('cdMember00000000'), mode: 'exact' },
+  { name: 'members, coach, with offers out', run: async base => {
+    const r = await clockless({ path: '/api/coach/members', headers: bearer('cdCoach000000000') })(base);
+    const members = (r.json?.members || []).map(m => ({ ...m, pending: offers(m.pending),
+      lastDecision: m.lastDecision && { ...m.lastDecision, at: typeof m.lastDecision.at } }));
+    return { ...r, json: { ...r.json, members } };
   }, mode: 'exact' },
   { name: 'logout', req: { method: 'POST', path: '/api/logout', headers: bearer('cdMember00000000') }, mode: 'exact', cookies: true },
   { name: 'logout everywhere', run: async base => {

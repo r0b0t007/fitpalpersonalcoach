@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CoachProgramController;
@@ -47,6 +48,10 @@ $routes = static function (): void {
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);
         Route::post('/invite/redeem', [InviteController::class, 'redeem']);
+        // A client's offers, from whichever coach sent them.
+        Route::get('/assignments', [AssignmentController::class, 'inbox']);
+        Route::get('/assignments/history', [AssignmentController::class, 'history']);
+        Route::post('/assignments/decide', [AssignmentController::class, 'decide']);
 
         // Coach routes act as the coach (CoachContext): every tenant-owned model is scoped to them.
         Route::middleware(RequireCoach::class)->group(function (): void {
@@ -59,6 +64,8 @@ $routes = static function (): void {
             Route::get('/coach/programs', [CoachProgramController::class, 'index']);
             Route::post('/coach/programs/save', [CoachProgramController::class, 'save']);
             Route::post('/coach/programs/delete', [CoachProgramController::class, 'delete']);
+            Route::post('/coach/assign', [AssignmentController::class, 'assign']);
+            Route::post('/coach/assignments/withdraw', [AssignmentController::class, 'withdraw']);
         });
 
         Route::middleware(RequireAdmin::class)->group(function (): void {
