@@ -45,7 +45,7 @@ final class PairController
     public function redeem(Request $request): JsonResponse
     {
         // `String(body.code || '').trim().toUpperCase()`, on the body as sent.
-        $code = mb_strtoupper(Js::trim(Input::jsString($request, 'code')));
+        $code = Js::code(Input::jsString($request, 'code'));
         // Taken on first sight, whatever happens next: a code works once. pull() is a get then a
         // forget, so two phones racing the same code could both read it; the lock makes the claim
         // atomic, and the loser of the race is refused like any spent code.

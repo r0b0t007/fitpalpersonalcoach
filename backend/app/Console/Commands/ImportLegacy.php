@@ -58,7 +58,7 @@ final class ImportLegacy extends Command
         try {
             $dbo = trim($raw) === '' ? null : Input::parse($raw);
             $db = $dbo instanceof \stdClass && is_array($dbo->users ?? null)
-                ? json_decode(json_encode(['users' => $dbo->users, 'creds' => Js::list($dbo->creds ?? null)], JSON_THROW_ON_ERROR, 100_000), true, 100_000, JSON_THROW_ON_ERROR)
+                ? Js::toAssoc(['users' => $dbo->users, 'creds' => Js::list($dbo->creds ?? null)], 100_000)
                 : null;
         } catch (Throwable) {
             $db = null;

@@ -6,6 +6,7 @@
 
 use App\Auth\SessionToken;
 use App\Models\User;
+use App\Support\Js;
 use Illuminate\Testing\TestResponse;
 
 beforeEach(function () {
@@ -37,6 +38,23 @@ it('reads the name as String(name).trim().slice(0, 40): JS whitespace, UTF-16 un
         ->and($name(str_repeat('💪', 21)))->toBe(str_repeat('💪', 20));
     $this->postJson('/api/register/options', ['name' => "\u{00A0}\u{FEFF}"])->assertStatus(400)->assertExactJson(['error' => 'name required']);
     $this->postJson('/api/register/options', ['name' => ['x']])->assertOk();   // String(['x']) is "x"
+});
+
+it('keeps what JS\'s trim keeps: U+0085 is not whitespace to JS', function () {
+    $this->postJson('/api/register/options', ['name' => "Bob\u{0085}"])->assertOk()->assertJsonPath('options.user.name', "Bob\u{0085}");
+    expect(Js::trim("\u{0085}\u{180E}\u{200B}x"))->toBe("\u{0085}\u{180E}\u{200B}x")
+        ->and(Js::trim("\t\v\f\r\n \u{00A0}\u{1680}\u{2000}\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}x\u{FEFF}"))->toBe('x');
+});
+
+it('refuses a body with a key starting with NUL: a PHP object cannot hold one (documented)', function () {
+    rawPost('/api/register/options', '{"name":"Bob","\u0000x":1}')->assertStatus(400)->assertExactJson(['error' => 'bad json']);
+});
+
+it('does not re-encode a credential nested past 64 levels: it is not a credential', function () {
+    $cid = $this->postJson('/api/login/options')->json('cid');
+    $deep = str_repeat('[', 1000).str_repeat(']', 1000);   // parses (PHP's limit is ~5,000), past the 64 cap
+    rawPost('/api/login/verify', '{"cid":"'.$cid.'","credential":{"id":"x","response":'.$deep.'}}')
+        ->assertStatus(404)->assertExactJson(['error' => 'unknown passkey — create a profile first']);
 });
 
 it('takes a pairing code padded as a chat app pads it', function () {

@@ -101,7 +101,7 @@ final class AuthController
         $user = new User(['id' => $entry['extra']['uid'], 'name' => $entry['extra']['name']]);
 
         try {
-            $validation = $validator->send(new AttestationValidation($user, self::transport($request, AttestationValidation::REQUEST_KEYS)))->thenReturn();
+            $validation = $validator->send(new AttestationValidation($user, self::transport(Input::assoc($request, 'credential'), AttestationValidation::REQUEST_KEYS)))->thenReturn();
         } catch (Throwable $e) {
             if ($e instanceof AttestationException && str_contains($e->getMessage(), 'Credential ID already exists')) {
                 Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'credential-exists']);
@@ -200,7 +200,8 @@ final class AuthController
 
             return Json::error(400, 'challenge expired — try again');
         }
-        $id = Input::assoc($request, 'credential')['id'] ?? null;
+        $sent = Input::assoc($request, 'credential');
+        $id = $sent['id'] ?? null;
         $credential = is_string($id) ? WebAuthnCredential::query()->find($id) : null;
         if ($credential === null) {
             Audit::record($request, 'auth.login.fail', ['ok' => false, 'msg' => 'unknown-credential']);
@@ -210,7 +211,7 @@ final class AuthController
 
         try {
             $validation = app(AssertionValidator::class)
-                ->send(new AssertionValidation(self::transport($request, AssertionValidation::REQUEST_KEYS)))
+                ->send(new AssertionValidation(self::transport($sent, AssertionValidation::REQUEST_KEYS)))
                 ->thenReturn();
         } catch (Throwable $e) {
             $owner = User::query()->find($credential->authenticatable_id);
@@ -266,10 +267,8 @@ final class AuthController
      * The credential the app nests under `credential`, as the transport the package's
      * validations read (fromRequest would look at the request's top level).
      */
-    private static function transport(Request $request, array $keys): JsonTransport
+    private static function transport(?array $credential, array $keys): JsonTransport
     {
-        $credential = Input::assoc($request, 'credential');
-
         return new JsonTransport($credential === null ? [] : array_intersect_key($credential, array_flip($keys)));
     }
 

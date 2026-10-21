@@ -2,7 +2,6 @@
 
 namespace App\WebAuthn;
 
-use App\Support\Input;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Request;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreation;
@@ -45,12 +44,12 @@ final class CacheChallengeRepository implements WebAuthnChallengeRepository
 
     public function pull(AttestationValidation|AssertionValidation $ceremony): ?Challenge
     {
-        // The controller took the entry before starting the pipeline (takeFor); this is it.
+        // The controller took the entry before starting the pipeline (takeFor), reading the cid
+        // where Node read the body. Nothing is read here: without that entry there is no
+        // challenge, and the request body is not this pipe's to parse (a ClientSafe thrown inside
+        // the package would surface as a malformed credential, not as `bad json`).
         $entry = $this->request->attributes->get(self::TAKEN_ATTRIBUTE);
         if (! is_array($entry)) {
-            $entry = self::take($this->cache, Input::str($this->request, 'cid'));
-        }
-        if ($entry === null) {
             return null;
         }
         $challenge = Challenge::fromArray($entry['challenge']);

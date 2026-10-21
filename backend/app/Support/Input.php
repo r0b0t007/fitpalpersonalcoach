@@ -21,6 +21,10 @@ final class Input
      */
     public static function str(Request $request, string $key): string
     {
+        // A top-level field of the body, never a path: Laravel's input('a.b') walked one, this does not.
+        if (str_contains($key, '.')) {
+            throw new \LogicException("Input::str reads a top-level body field, not a path: $key");
+        }
         $value = self::raw($request, $key);
 
         return is_string($value) ? $value : '';
@@ -28,13 +32,20 @@ final class Input
 
     /**
      * `body.key` as nested arrays — for the WebAuthn credential, which the package reads as an
-     * array — or null when it is not a JSON object.
+     * array — or null when it is not a JSON object, or nests past 64 levels (a real credential has
+     * four): an anonymous caller does not get a deep structure re-encoded on their behalf.
      */
     public static function assoc(Request $request, string $key): ?array
     {
         $value = self::raw($request, $key);
-
-        return $value instanceof stdClass ? json_decode(json_encode($value, JSON_THROW_ON_ERROR, 100_000), true, 100_000) : null;
+        if (! $value instanceof stdClass || Js::deeperThan($value, 64)) {
+            return null;
+        }
+        try {
+            return Js::toAssoc($value, 66);
+        } catch (\JsonException) {
+            return null;
+        }
     }
 
     /**
@@ -68,6 +79,10 @@ final class Input
      * it; a lone UTF-16 surrogate escape — what a JS slice() through an emoji leaves — parses, as
      * JSON.parse let it, written as U+FFFD (UTF-8 cannot hold half a character); anything else that
      * is not JSON is 400 `bad json`.
+     *
+     * Two bodies JSON.parse took that PHP cannot, both refused as `bad json` and neither one the
+     * app ever sends: an object key that starts with NUL (`"\u0000x"`, which no PHP object can
+     * hold as a property), and nesting past PHP's parser — about 2,500 objects or 5,000 arrays deep.
      *
      * @throws ClientSafe
      */
