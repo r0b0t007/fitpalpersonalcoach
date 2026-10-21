@@ -352,7 +352,14 @@ copy. It imports users (with `sv` and reminder markers), credentials (COSE → P
 `legacy_cose`), push subscriptions, invites, assignments, media rows, `state-*.json` raw,
 `coach-*.json` programs raw, `media-*.json` photos, `audit.log` rows, `vapid.json` and `secret`
 into `.env` values. Media files are not moved: the `media` disk points at `DATA_DIR/media`. A
-`--verify` mode re-reads every user through the HTTP layer and diffs against the files.
+`--verify` mode re-reads every user through the HTTP layer and diffs against the files — `/me`,
+`/data`, and (since CHW-251) the coaching routes: each coach's invites and library, an admin's
+invite list, everyone's inbox and answered offers, as Node answered them from the same files.
+
+Invites, programs and assignments are **mirrored**, not only upserted: a rerun also removes the rows
+the files no longer hold, because Node itself deletes programs and prunes answered offers. So the
+import is run only while Node is the live API; after the cutover, `--verify-only` checks without
+writing. An invite's `requestId` is not kept (access requests are not ported) and is reported.
 
 ## 10. Testing
 Pest unit tests for the ported pure classes (the `domain.test.mjs` cases); feature tests named

@@ -4,9 +4,12 @@ namespace App\Console\Commands;
 
 use App\Audit\Audit;
 use App\Auth\SessionToken;
+use App\Console\LegacyCoaching;
 use App\Http\Request;
 use App\Models\User;
 use App\Models\UserState;
+use App\Support\Input;
+use App\Support\Js;
 use App\Support\Json;
 use App\WebAuthn\LegacyCredential;
 use Carbon\Carbon;
@@ -21,9 +24,10 @@ use Throwable;
  * Brings a Node API data directory into the database. Idempotent: rows are upserted by id, so it
  * can be run against a copy today and against the live directory at cutover.
  *
- * Imports today: accounts, passkeys, training state, and the audit log (audit.log, into a table
- * that holds nothing else — see below). Invites, assignments, programs, photos, media rows and push
- * subscriptions follow in R2–R3 as their tables land.
+ * Imports today: accounts, passkeys, training state, the audit log (audit.log, into a table that
+ * holds nothing else — see below), and the coaching data: invites, program libraries and
+ * assignments (App\Console\LegacyCoaching, which mirrors the files: rows they no longer hold are
+ * removed). Photos, media rows and push subscriptions follow in R3 as their tables land.
  */
 final class ImportLegacy extends Command
 {
@@ -32,7 +36,7 @@ final class ImportLegacy extends Command
         {--verify : After importing, read every account back through the API and compare it with the files}
         {--verify-only : Compare the database with the files without importing (after a cutover, say)}';
 
-    protected $description = 'Import users, passkeys, training state and the audit log from a Node API data directory';
+    protected $description = 'Import accounts, passkeys, training state, the audit log, invites, programs and assignments from a Node API data directory';
 
     public function handle(): int
     {
@@ -43,17 +47,25 @@ final class ImportLegacy extends Command
 
             return self::FAILURE;
         }
-        $db = json_decode((string) file_get_contents($dbFile), true);
-        if (! is_array($db)) {
+        // Parsed as Node's JSON.parse parsed it (Input::parse): a lone surrogate or a stray invalid
+        // byte does not refuse the whole file. Objects are kept for the coaching data, where a
+        // bundle's {} must stay {}; the account code reads the same document as arrays.
+        try {
+            $dbo = Input::parse((string) file_get_contents($dbFile));
+        } catch (Throwable) {
+            $dbo = null;
+        }
+        if (! $dbo instanceof \stdClass) {
             $this->error('db.json is not valid JSON');
 
             return self::FAILURE;
         }
+        $db = json_decode(json_encode($dbo, JSON_THROW_ON_ERROR), true);
         // Read-only: the import rewrites accounts and states from the files, so verifying right
         // after one checks the import and the read path, never drift since. This checks the
         // database as it stands.
         if ($this->option('verify-only')) {
-            return $this->verify($db, $dir);
+            return $this->verify($db, $dbo, $dir);
         }
 
         $users = 0;
@@ -187,22 +199,36 @@ final class ImportLegacy extends Command
             }
         }
 
-        $this->info("users $users · passkeys $creds · states $states · audit $audit");
+        $coaching = LegacyCoaching::import($dbo, $dir, $skipped);
+
+        $this->info("users $users · passkeys $creds · states $states · audit $audit · invites {$coaching['invites']} · programs {$coaching['programs']} · assignments {$coaching['assignments']}");
+        if ($coaching['removed'] > 0) {
+            $this->warn("removed {$coaching['removed']} invite/program/assignment row(s) the files no longer hold");
+        }
         foreach ($skipped as $s) {
             $this->warn("skipped $s");
         }
 
-        return $this->option('verify') ? $this->verify($db, $dir) : self::SUCCESS;
+        return $this->option('verify') ? $this->verify($db, $dbo, $dir) : self::SUCCESS;
     }
 
     /**
      * Every account read back the way the app reads it — /me and /data through the HTTP kernel,
      * with a session minted for it — and compared with what the Node API would have answered from
-     * the same files (api/server.js publicUser, GET /api/data). A mismatch is reported by account
-     * and field; any mismatch fails the command, so a cutover script can stop on it.
+     * the same files (api/server.js publicUser, GET /api/data). Then the coaching routes, replayed
+     * for each account as Node answered them from the same files: a coach's invites and program
+     * library, an admin's invite list, and everyone's inbox and answered offers
+     * (LegacyCoaching::nodeAnswers). A mismatch is reported by account and route; any mismatch
+     * fails the command, so a cutover script can stop on it.
      */
-    private function verify(array $db, string $dir): int
+    private function verify(array $db, \stdClass $dbo, string $dir): int
     {
+        $objects = [];
+        foreach (Js::list($dbo->users ?? null) as $u) {
+            if ($u instanceof \stdClass && is_string($u->id ?? null)) {
+                $objects[$u->id] ??= $u;
+            }
+        }
         $kernel = app(HttpKernel::class);
         // unique() keeps the FIRST row per id, as Node's db.users.find does; keyBy alone keeps the last.
         $byId = collect($db['users'] ?? [])->filter(fn ($u) => is_string($u['id'] ?? null))->unique('id')->keyBy('id');
@@ -250,6 +276,14 @@ final class ImportLegacy extends Command
                 $problems[] = "$id: /me is ".json_encode($got).', the files say '.json_encode($want);
             }
 
+            foreach (LegacyCoaching::nodeAnswers($dbo, $dir, $objects[$id], $objects, $adminUids) as $route => $node) {
+                $answer = json_decode((string) $get($user, substr($route, 4))->getContent());
+                $laravel = $answer->{LegacyCoaching::FIELD[$route]} ?? null;
+                if (json_encode(LegacyCoaching::canonical($laravel), Json::FLAGS) !== json_encode(LegacyCoaching::canonical($node), Json::FLAGS)) {
+                    $problems[] = "$id: $route differs from the files";
+                }
+            }
+
             $file = $dir.DIRECTORY_SEPARATOR.'state-'.$id.'.json';
             // Node's GET /api/data answers the file exactly as stored, and the import stores it raw.
             $wantState = is_file($file) ? json_decode((string) file_get_contents($file)) : null;
@@ -268,18 +302,11 @@ final class ImportLegacy extends Command
         if ($problems !== []) {
             return self::FAILURE;
         }
-        $this->info('verified '.$byId->count().' account(s): /me and /data match the files');
+        $this->info('verified '.$byId->count().' account(s): /me, /data and the coaching routes match the files');
 
         return self::SUCCESS;
     }
 
-    /**
-     * Why the table cannot take this log, or null when it can. Asked of the database in chunks,
-     * never by loading the table: rows above the log, rows inside its id range that it does not
-     * contain, and rows it does contain but with another time or event.
-     *
-     * @param  array<int, array>  $rows  the log, keyed by id
-     */
     /** An account's `created` as Node wrote it (an ISO string), or null — reported when it was something else. */
     private static function createdAt(mixed $created, string $id, array &$skipped): ?Carbon
     {
@@ -298,6 +325,13 @@ final class ImportLegacy extends Command
         return null;
     }
 
+    /**
+     * Why the table cannot take this log, or null when it can. Asked of the database in chunks,
+     * never by loading the table: rows above the log, rows inside its id range that it does not
+     * contain, and rows it does contain but with another time or event.
+     *
+     * @param  array<int, array>  $rows  the log, keyed by id
+     */
     private static function auditConflicts(array $rows): ?string
     {
         $min = min(array_keys($rows));
