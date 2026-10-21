@@ -49,18 +49,25 @@ final class ImportLegacy extends Command
         }
         // Parsed as Node's JSON.parse parsed it (Input::parse): a lone surrogate or a stray invalid
         // byte does not refuse the whole file. Objects are kept for the coaching data, where a
-        // bundle's {} must stay {}; the account code reads the same document as arrays.
+        // bundle's {} must stay {}; the account code reads its two lists as arrays.
+        //
+        // A file that is empty, or holds no users list, is refused before anything is written: the
+        // import mirrors invites, programs and assignments, so a truncated copy read as `{}` would
+        // otherwise delete every one of them and report success.
+        $raw = (string) file_get_contents($dbFile);
         try {
-            $dbo = Input::parse((string) file_get_contents($dbFile));
+            $dbo = trim($raw) === '' ? null : Input::parse($raw);
+            $db = $dbo instanceof \stdClass && is_array($dbo->users ?? null)
+                ? json_decode(json_encode(['users' => $dbo->users, 'creds' => Js::list($dbo->creds ?? null)], JSON_THROW_ON_ERROR, 100_000), true, 100_000, JSON_THROW_ON_ERROR)
+                : null;
         } catch (Throwable) {
-            $dbo = null;
+            $db = null;
         }
-        if (! $dbo instanceof \stdClass) {
-            $this->error('db.json is not valid JSON');
+        if ($db === null) {
+            $this->error('db.json is not a Node API database (empty, not JSON, or no users list)');
 
             return self::FAILURE;
         }
-        $db = json_decode(json_encode($dbo, JSON_THROW_ON_ERROR), true);
         // Read-only: the import rewrites accounts and states from the files, so verifying right
         // after one checks the import and the read path, never drift since. This checks the
         // database as it stands.
@@ -199,7 +206,7 @@ final class ImportLegacy extends Command
             }
         }
 
-        $coaching = LegacyCoaching::import($dbo, $dir, $skipped);
+        $coaching = LegacyCoaching::import($dbo, $dir, array_flip(User::query()->pluck('id')->all()), $skipped);
 
         $this->info("users $users · passkeys $creds · states $states · audit $audit · invites {$coaching['invites']} · programs {$coaching['programs']} · assignments {$coaching['assignments']}");
         if ($coaching['removed'] > 0) {
@@ -233,6 +240,7 @@ final class ImportLegacy extends Command
         // unique() keeps the FIRST row per id, as Node's db.users.find does; keyBy alone keeps the last.
         $byId = collect($db['users'] ?? [])->filter(fn ($u) => is_string($u['id'] ?? null))->unique('id')->keyBy('id');
         $adminUids = (array) config('fitpal.admin_uids');
+        $coaching = LegacyCoaching::verifyContext($dbo, $dir, array_flip(User::query()->pluck('id')->all()));
         $problems = [];
         $get = function (User $user, string $path) use ($kernel) {
             $request = Request::create($path, 'GET', server: ['HTTP_AUTHORIZATION' => 'Bearer '.SessionToken::make($user)]);
@@ -276,7 +284,7 @@ final class ImportLegacy extends Command
                 $problems[] = "$id: /me is ".json_encode($got).', the files say '.json_encode($want);
             }
 
-            foreach (LegacyCoaching::nodeAnswers($dbo, $dir, $objects[$id], $objects, $adminUids) as $route => $node) {
+            foreach (LegacyCoaching::nodeAnswers($coaching, $objects[$id], $objects, $adminUids) as $route => $node) {
                 $answer = json_decode((string) $get($user, substr($route, 4))->getContent());
                 $laravel = $answer->{LegacyCoaching::FIELD[$route]} ?? null;
                 if (json_encode(LegacyCoaching::canonical($laravel), Json::FLAGS) !== json_encode(LegacyCoaching::canonical($node), Json::FLAGS)) {

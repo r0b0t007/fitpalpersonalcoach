@@ -121,6 +121,57 @@ it('reports what it cannot import instead of stopping', function () {
         ->expectsOutputToContain('skipped coach-nobody0000000000.json (no such account)');
 });
 
+it('verifies against what it imported: a reported, deliberate change is not a failure for ever', function () {
+    $this->db['invites'][] = ['code' => 'ORPHAN0000000000', 'note' => '', 'createdBy' => 'x', 'created' => '2026-02-07T00:00:00.000Z', 'coachId' => 'nobody', 'requestId' => 'r1'];
+    $this->db['invites'][] = $this->db['invites'][0];
+    $this->db['assignments'][] = ['id' => 'ghost00000000000', 'coachId' => 'nobody', 'memberId' => 'mem0000000000000', 'status' => 'pending', 'created' => '2026-03-02T00:00:00.000Z'];
+    ($this->write)();
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify' => true])->assertSuccessful()
+        ->expectsOutputToContain('the coaching routes match the files');
+});
+
+it('refuses an empty db.json, or one with no users list, before writing anything', function () {
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful();
+    foreach (['', "  \n", '{}', '{"users":{}}', '[]'] as $broken) {
+        file_put_contents($this->dir.'/db.json', $broken);
+        $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertFailed()
+            ->expectsOutputToContain('db.json is not a Node API database');
+    }
+    expect(Invite::acrossCoaches()->count())->toBe(4)->and(Assignment::acrossCoaches()->count())->toBe(3); // across coaches: the test reads every row
+});
+
+it('leaves a library alone when its file cannot be read, and says so', function () {
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful();
+    file_put_contents($this->dir.'/coach-cch0000000000000.json', '{"programs":[{"id":"p1"');   // a torn write
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful()
+        ->expectsOutputToContain('skipped coach-cch0000000000000.json (cannot be read; this library is left as it was)')
+        ->doesntExpectOutputToContain('removed');
+    expect(CoachProgram::acrossCoaches()->orderBy('id')->pluck('program_id')->all())->toBe(['p1', 'p2']); // across coaches: the test reads every row
+});
+
+it('skips a row whose text is not text, or would not fit its column, instead of dying on it', function () {
+    $this->db['invites'][1]['note'] = str_repeat('é', 61);
+    $this->db['assignments'][1]['note'] = ['an' => 'object'];
+    ($this->write)();
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful()
+        ->expectsOutputToContain('invites 3 · programs 2 · assignments 2')
+        ->expectsOutputToContain('skipped invite USED000000000000 (note is longer than 60 characters)')
+        ->expectsOutputToContain('skipped assignment acc0000000000000 (note is not text)');
+});
+
+it('writes the coaching data in one transaction: a failure halfway removes nothing', function () {
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful();
+    array_pop($this->db['invites']);   // the mirror would remove GENERAL…
+    ($this->write)();
+    DB::connection()->beforeExecuting(function (string $sql) {
+        if (str_contains($sql, '"assignments"') && str_starts_with(strtolower($sql), 'insert')) {
+            throw new RuntimeException('disk full');   // …but the offers fail to write
+        }
+    });
+    expect(fn () => $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->run())->toThrow(RuntimeException::class);
+    expect(Invite::acrossCoaches()->find('GENERAL000000000'))->not->toBeNull(); // across coaches: the test reads every row
+});
+
 it('reads db.json as JSON.parse did: a lone surrogate does not refuse the file', function () {
     $json = json_encode($this->db, JSON_UNESCAPED_SLASHES);
     file_put_contents($this->dir.'/db.json', str_replace('"note":"go"', '"note":"go \\ud83d"', $json));
