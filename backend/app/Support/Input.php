@@ -38,11 +38,11 @@ final class Input
     public static function assoc(Request $request, string $key): ?array
     {
         $value = self::raw($request, $key);
-        if (! $value instanceof stdClass || Js::deeperThan($value, 64)) {
+        if (! $value instanceof stdClass) {
             return null;
         }
         try {
-            return Js::toAssoc($value, 66);
+            return Js::toAssoc($value, 64);   // throws past 64 levels, before it has walked them all
         } catch (\JsonException) {
             return null;
         }
@@ -61,8 +61,17 @@ final class Input
     {
         if (! $request->attributes->has('fitpal.body')) {
             $raw = $request->getContent();
-            if (strlen($raw) > self::MAX_BODY) {
+            // PHP keeps a multipart/form-data body for itself ($_POST, $_FILES): php://input reads
+            // empty. Node read those bytes like any other and JSON.parse refused them, so a
+            // non-empty one is measured by its Content-Length and refused here too — never read
+            // as an empty body that then fails on a missing field.
+            $sent = $raw === '' && str_starts_with(strtolower((string) $request->headers->get('Content-Type')), 'multipart/')
+                ? (int) $request->server('CONTENT_LENGTH', 0) : strlen($raw);
+            if ($sent > self::MAX_BODY) {
                 throw new ClientSafe(413, Say::f('request body is larger than the {0} MB limit', 5));
+            }
+            if ($sent > 0 && $raw === '') {
+                throw new ClientSafe(400, 'bad json');
             }
             $parsed = self::parse($raw);
             // JSON that is not an object (an array, a number) parses in Node too, and then has no

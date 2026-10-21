@@ -4,10 +4,10 @@
 // not JSON is 400 `bad json` and a body over 5 MB is 413 — at the point Node read it, before any
 // field is looked at — and what is read is the body as sent, not Laravel's trimmed input.
 
-use App\Auth\SessionToken;
 use App\Models\User;
 use App\Support\Js;
 use Illuminate\Testing\TestResponse;
+use Tests\Support\Passkey;
 
 beforeEach(function () {
     config(['fitpal.rp_id' => 'localhost', 'fitpal.origin' => 'http://localhost:5173', 'fitpal.session_secret' => str_repeat('ab', 32)]);
@@ -57,8 +57,27 @@ it('does not re-encode a credential nested past 64 levels: it is not a credentia
         ->assertStatus(404)->assertExactJson(['error' => 'unknown passkey — create a profile first']);
 });
 
+it('fails a malformed credential for a passkey it knows as a verification of that account, as Node did', function () {
+    $pk = new Passkey;
+    $pk->register($this, 'Nadia')->assertOk();
+    $cid = $this->postJson('/api/login/options')->json('cid');
+    // Too deep for the package (or an Infinity in it), but it names a real passkey.
+    rawPost('/api/login/verify', '{"cid":"'.$cid.'","credential":{"id":"'.$pk->credentialId.'","response":{"x":1e400}}}')
+        // A 400 verification failure with the library's reason (as Node's carried @simplewebauthn's),
+        // not 404 "unknown passkey".
+        ->assertStatus(400)->assertJsonPath('msg.k', 'verification failed: {0}');
+    $this->assertDatabaseHas('audit_events', ['ev' => 'auth.login.fail', 'msg' => 'verify-error', 'name' => 'Nadia']);
+});
+
+it('refuses a multipart body as bad json: PHP keeps it from php://input, Node parsed its bytes', function () {
+    $this->call('POST', '/api/register/options', ['name' => 'Bob'], [], [], ['CONTENT_TYPE' => 'multipart/form-data; boundary=x', 'CONTENT_LENGTH' => '40', 'HTTP_ACCEPT' => 'application/json'], '')
+        ->assertStatus(400)->assertExactJson(['error' => 'bad json']);
+    $this->call('POST', '/api/register/options', [], [], [], ['CONTENT_TYPE' => 'multipart/form-data; boundary=x', 'CONTENT_LENGTH' => (string) (6 * 1024 * 1024), 'HTTP_ACCEPT' => 'application/json'], '')
+        ->assertStatus(413);
+});
+
 it('takes a pairing code padded as a chat app pads it', function () {
     $user = User::query()->create(['id' => 'pairbody00000000', 'name' => 'Karim']);
-    $code = $this->postJson('/api/pair/create', [], ['Authorization' => 'Bearer '.SessionToken::make($user)])->json('code');
+    $code = $this->postJson('/api/pair/create', [], bearer($user))->json('code');
     $this->postJson('/api/pair/redeem', ['code' => "\u{00A0}".strtolower($code)."\u{FEFF}"])->assertOk();
 });

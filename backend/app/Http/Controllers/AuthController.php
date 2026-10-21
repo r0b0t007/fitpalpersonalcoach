@@ -200,9 +200,13 @@ final class AuthController
 
             return Json::error(400, 'challenge expired — try again');
         }
-        $sent = Input::assoc($request, 'credential');
-        $id = $sent['id'] ?? null;
+        // `body.credential?.id`, read from the body as sent: a credential the package cannot take
+        // (too deep, an Infinity in it) still names its passkey, and fails verification as Node's
+        // did — a 400 against that account — rather than reading as an unknown passkey.
+        $raw = Input::raw($request, 'credential');
+        $id = $raw instanceof \stdClass ? ($raw->id ?? null) : null;
         $credential = is_string($id) ? WebAuthnCredential::query()->find($id) : null;
+        $sent = Input::assoc($request, 'credential');
         if ($credential === null) {
             Audit::record($request, 'auth.login.fail', ['ok' => false, 'msg' => 'unknown-credential']);
 

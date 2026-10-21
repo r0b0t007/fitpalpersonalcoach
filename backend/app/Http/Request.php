@@ -6,21 +6,24 @@ use Illuminate\Http\Request as BaseRequest;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 /**
- * Laravel's request, except that the state sync body is not decoded at capture.
+ * Laravel's request, except that the JSON API's bodies are not decoded at capture.
  *
  * Illuminate's createFromBase() json-decodes every JSON request into PHP arrays the moment it is
- * captured, before any middleware or route runs. For `PUT /api/data` that is up to 16 MB decoded
- * into arrays nobody reads: DataController takes the raw body and decodes it once, into objects,
- * so `{}` stays `{}`. On the host that extra decode is what ran a 15.9 MB sync out of memory at
- * 128M (CHW-227). The app's request is unchanged; it still says application/json.
+ * captured, before any middleware or route runs. The API never reads them: every route reads the
+ * body as sent, once, through App\Support\Input (as Node's readBody did), and its query through
+ * Input::searchParam. So the eager decode is pure cost — and for the state sync, up to 16 MB of
+ * it, which ran a 15.9 MB sync out of memory at 128M on the host (CHW-227); on an anonymous
+ * sign-in route it decoded a body of any size before Input::body could answer 413.
  *
- * Anything that calls input() on this route still gets the decoded body: json() decodes lazily.
+ * The admin panel (Filament and its Livewire endpoint, R4) is the exception: it reads input() and
+ * keeps Laravel's request as it is. Anything that does call input() on an API route still gets
+ * the decoded body: json() decodes lazily.
  */
 final class Request extends BaseRequest
 {
     public static function createFromBase(SymfonyRequest $request): static
     {
-        if (! self::isStateSync($request)) {
+        if (! self::isJsonApi($request)) {
             return parent::createFromBase($request);
         }
 
@@ -35,9 +38,17 @@ final class Request extends BaseRequest
         return $new;
     }
 
-    private static function isStateSync(SymfonyRequest $request): bool
+    /**
+     * Whether a request is the app's JSON API — everything but the admin panel. Laravel's global
+     * input cleaners (TrimStrings, ConvertEmptyStringsToNull) skip the same requests, by this test
+     * (bootstrap/app.php): they would decode and walk every body only to change nothing anyone reads.
+     */
+    public static function isJsonApi(SymfonyRequest $request): bool
     {
-        // Both mounts: /api/data, and /data when a proxy strips the prefix (routes/api.php).
-        return $request->getMethod() === 'PUT' && in_array(rtrim($request->getPathInfo(), '/'), ['/api/data', '/data'], true);
+        // Both mounts: /…, and /api/… when the front controller is not mounted at /api.
+        $path = ltrim($request->getPathInfo(), '/');
+        $path = str_starts_with($path, 'api/') ? substr($path, 4) : $path;
+
+        return ! preg_match('#^(admin-panel|livewire)(/|$)#', $path);
     }
 }

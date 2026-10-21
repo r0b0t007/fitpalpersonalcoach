@@ -96,6 +96,12 @@ final class Js
         return preg_replace('/^['.self::JS_SPACE.']+|['.self::JS_SPACE.']+$/u', '', $s) ?? $s;
     }
 
+    /** `s.length`: UTF-16 code units, as JS counts them — a character outside the BMP is two. */
+    public static function length(string $s): int
+    {
+        return mb_strlen($s) + preg_match_all('/[\x{10000}-\x{10FFFF}]/u', $s);
+    }
+
     /** `String(code).trim().toUpperCase()`: how Node read every code a person types or pastes. */
     public static function code(string $s): string
     {
