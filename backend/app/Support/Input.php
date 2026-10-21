@@ -15,11 +15,37 @@ final class Input
     /** Node's MAX_BODY: every JSON route but the state sync, which has its own 16 MB. */
     public const MAX_BODY = 5 * 1024 * 1024;
 
+    /**
+     * `body.key` when it is a string, else '' — the body as sent (Input::body), so a malformed one
+     * is a 400 `bad json` here as it was at Node's readBody, and nothing has been trimmed.
+     */
     public static function str(Request $request, string $key): string
     {
-        $value = $request->input($key);
+        // A top-level field of the body, never a path: Laravel's input('a.b') walked one, this does not.
+        if (str_contains($key, '.')) {
+            throw new \LogicException("Input::str reads a top-level body field, not a path: $key");
+        }
+        $value = self::raw($request, $key);
 
         return is_string($value) ? $value : '';
+    }
+
+    /**
+     * `body.key` as nested arrays — for the WebAuthn credential, which the package reads as an
+     * array — or null when it is not a JSON object, or nests past 64 levels (a real credential has
+     * four): an anonymous caller does not get a deep structure re-encoded on their behalf.
+     */
+    public static function assoc(Request $request, string $key): ?array
+    {
+        $value = self::raw($request, $key);
+        if (! $value instanceof stdClass) {
+            return null;
+        }
+        try {
+            return Js::toAssoc($value, 64);   // throws past 64 levels, before it has walked them all
+        } catch (\JsonException) {
+            return null;
+        }
     }
 
     /**
@@ -35,8 +61,17 @@ final class Input
     {
         if (! $request->attributes->has('fitpal.body')) {
             $raw = $request->getContent();
-            if (strlen($raw) > self::MAX_BODY) {
+            // PHP keeps a multipart/form-data body for itself ($_POST, $_FILES): php://input reads
+            // empty. Node read those bytes like any other and JSON.parse refused them, so a
+            // non-empty one is measured by its Content-Length and refused here too — never read
+            // as an empty body that then fails on a missing field.
+            $sent = $raw === '' && str_starts_with(strtolower((string) $request->headers->get('Content-Type')), 'multipart/')
+                ? (int) $request->server('CONTENT_LENGTH', 0) : strlen($raw);
+            if ($sent > self::MAX_BODY) {
                 throw new ClientSafe(413, Say::f('request body is larger than the {0} MB limit', 5));
+            }
+            if ($sent > 0 && $raw === '') {
+                throw new ClientSafe(400, 'bad json');
             }
             $parsed = self::parse($raw);
             // JSON that is not an object (an array, a number) parses in Node too, and then has no
@@ -53,6 +88,10 @@ final class Input
      * it; a lone UTF-16 surrogate escape — what a JS slice() through an emoji leaves — parses, as
      * JSON.parse let it, written as U+FFFD (UTF-8 cannot hold half a character); anything else that
      * is not JSON is 400 `bad json`.
+     *
+     * Two bodies JSON.parse took that PHP cannot, both refused as `bad json` and neither one the
+     * app ever sends: an object key that starts with NUL (`"\u0000x"`, which no PHP object can
+     * hold as a property), and nesting past PHP's parser — about 2,500 objects or 5,000 arrays deep.
      *
      * @throws ClientSafe
      */

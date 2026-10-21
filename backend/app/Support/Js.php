@@ -82,10 +82,41 @@ final class Js
         return preg_match('/^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i', $s) ? (float) $s : NAN;
     }
 
+    /**
+     * The characters `String.prototype.trim` strips, exactly: ECMAScript's WhiteSpace (tab, VT,
+     * FF, space, NBSP, BOM and the Zs separators) and LineTerminator (LF, CR, U+2028, U+2029).
+     * Spelled out rather than `\s`: under /u PCRE's `\s` is Unicode White_Space, which also takes
+     * U+0085 (NEL) — a character JS keeps.
+     */
+    private const JS_SPACE = '\x{0009}-\x{000D}\x{0020}\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}';
+
     /** `String.prototype.trim`: JS whitespace and line terminators, not only PHP's six bytes. */
     public static function trim(string $s): string
     {
-        return preg_replace('/^[\s\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+|[\s\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+$/u', '', $s) ?? $s;
+        return preg_replace('/^['.self::JS_SPACE.']+|['.self::JS_SPACE.']+$/u', '', $s) ?? $s;
+    }
+
+    /** `s.length`: UTF-16 code units, as JS counts them — a character outside the BMP is two. */
+    public static function length(string $s): int
+    {
+        return mb_strlen($s) + preg_match_all('/[\x{10000}-\x{10FFFF}]/u', $s);
+    }
+
+    /** `String(code).trim().toUpperCase()`: how Node read every code a person types or pastes. */
+    public static function code(string $s): string
+    {
+        return mb_strtoupper(self::trim($s));
+    }
+
+    /**
+     * A decoded JSON value with its objects turned into arrays — for code that wants arrays (the
+     * WebAuthn package, the account import). Refuses past $depth levels, by throwing.
+     *
+     * @throws \JsonException
+     */
+    public static function toAssoc(mixed $value, int $depth = 512): mixed
+    {
+        return json_decode(json_encode($value, JSON_THROW_ON_ERROR, $depth), true, $depth, JSON_THROW_ON_ERROR);
     }
 
     /**

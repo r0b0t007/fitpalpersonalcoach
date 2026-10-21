@@ -65,7 +65,7 @@ final class InviteGate
 
     public static function normalise(?string $code): string
     {
-        // `String(code).trim().toUpperCase()`: JS's trim strips a pasted NBSP or BOM, PHP's does not.
-        return mb_strtoupper(Js::trim((string) $code));
+        // JS's trim strips a pasted NBSP or BOM, PHP's does not.
+        return Js::code((string) $code);
     }
 }

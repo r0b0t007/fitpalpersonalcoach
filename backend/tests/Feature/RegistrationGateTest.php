@@ -94,6 +94,13 @@ it('counts the bootstrap secret in characters, not bytes', function () {
     $this->artisan('fitpal:check-config')->assertFailed()->expectsOutputToContain('under 16 characters');
 });
 
+it('reads the bootstrap secret as Node did: toUpperCase on both sides, JS trim, UTF-16 length', function () {
+    expect(Bootstrap::matches('ABCDEFGHIJKLMNOÉ', 0, 'abcdefghijklmnoé'))->toBeTrue()          // é upper-cased like any letter
+        ->and(Bootstrap::matches(str_repeat('x', 16), 0, "\u{00A0}".str_repeat('x', 16)."\u{FEFF}"))->toBeTrue()
+        ->and(Bootstrap::matches(str_repeat('💪', 8), 0, str_repeat('💪', 8)))->toBeTrue()  // 16 UTF-16 units: long enough
+        ->and(Bootstrap::matches(str_repeat('💪', 7), 0, str_repeat('💪', 7)))->toBeFalse();
+});
+
 it('only queues a sign-up behind the gate lock when it carries a code', function () {
     $held = cache()->lock('register:gate', 30);
     expect($held->get())->toBeTrue();

@@ -41,6 +41,7 @@ const INTENDED = {
   'preflight headers.cache-control: only Laravel has it ("no-cache, private")': 'browsers cache a preflight by Access-Control-Max-Age (86400 on both), never by Cache-Control.',
   'programs save, a name cut through an emoji (lone surrogate) $.program.name: Node "Push \\ud83d" vs Laravel "Push �"': 'half a UTF-16 character cannot be held in UTF-8, nor stored in utf8mb4; Laravel keeps it as U+FFFD (Input::parse) where Node kept the escape in its JSON file. What matters is kept: Node accepted such a name, and so does Laravel, instead of refusing it as bad json.',
   'programs save, a name cut through an emoji (lone surrogate) $.program.bundle.name: Node "Push \\ud83d" vs Laravel "Push �"': 'the same name, copied into the bundle by cleanProgram.',
+  'register options, a key that starts with NUL status: Node 200 vs Laravel 400': 'no PHP object can hold a property name that starts with NUL, so Input::parse refuses such a body as bad json (documented there). The app never sends one; the fields the route reads are unaffected either way.',
 };
 
 // --- comparison ---------------------------------------------------------------------------------
@@ -199,6 +200,26 @@ const CASES = [
     const phone = await call(base, { path: '/api/me', headers: { Authorization: 'Bearer ' + first.json.token } });
     return { status: first.status, json: { user: first.json.user, tokenType: typeof first.json.token, again: [again.status, again.json], phone: [phone.status, phone.json] } };
   }, mode: 'exact' },
+  // The body as Node's readBody read it (CHW-252): not JSON is 400, past 5 MB is 413, and
+  // login/options, which never read one, does not care.
+  { name: 'register options, bad json', req: { method: 'POST', path: '/api/register/options', raw: '{"name":' }, mode: 'exact' },
+  { name: 'register options, a body over 5 MB', req: { method: 'POST', path: '/api/register/options', raw: ' '.repeat(5 * 1024 * 1024 + 1) }, mode: 'exact' },
+  { name: 'register options, a name of JS whitespace only', req: { method: 'POST', path: '/api/register/options', body: { name: '\u00a0\ufeff\u2028' } }, mode: 'exact' },
+  { name: 'register options, a name ending in U+0085 (not whitespace to JS)', run: async base => {
+    const r = await call(base, { method: 'POST', path: '/api/register/options', body: { name: 'Bob\u0085', code: 'SEEDGENERAL00000' } });
+    return { status: r.status, json: { name: r.json?.options?.user?.name ?? r.json } };
+  }, mode: 'exact' },
+  { name: 'register options, a key that starts with NUL', run: async base => {
+    const r = await call(base, { method: 'POST', path: '/api/register/options', raw: '{"name":"Bob","code":"SEEDGENERAL00000","\\u0000x":1}' });
+    return { status: r.status, json: {} };
+  }, mode: 'exact' },
+  { name: 'register verify, bad json', req: { method: 'POST', path: '/api/register/verify', raw: '{"cid":' }, mode: 'exact' },
+  { name: 'login verify, bad json', req: { method: 'POST', path: '/api/login/verify', raw: '{"cid":' }, mode: 'exact' },
+  { name: 'login options, a malformed body is never read', run: async base => {
+    const r = await call(base, { method: 'POST', path: '/api/login/options', raw: '{nope' });
+    return { status: r.status, json: { hasCid: typeof r.json?.cid === 'string' } };
+  }, mode: 'exact' },
+  { name: 'pair redeem, bad json', req: { method: 'POST', path: '/api/pair/redeem', raw: '{"code":' }, mode: 'exact' },
   { name: 'pair redeem, bad code', req: { method: 'POST', path: '/api/pair/redeem', body: { code: 'ZZZZZZZZ' } }, mode: 'exact' },
   { name: 'csrf: a hostile page posting with the cookie', req: { method: 'POST', path: '/api/logout/all', headers: { Cookie: 'gymsid=' + token('cdCoach000000000'), Origin: 'https://evil.example', 'Sec-Fetch-Site': 'cross-site' } }, mode: 'exact' },
   { name: 'admin audit, anonymous', req: { path: '/api/admin/audit' }, mode: 'exact' },
