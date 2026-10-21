@@ -9,6 +9,7 @@ use App\Auth\SessionToken;
 use App\Auth\TokenGuard;
 use App\Models\User;
 use App\Support\Input;
+use App\Support\Js;
 use App\Support\Json;
 use App\Support\Say;
 use App\WebAuthn\AssertionValidator;
@@ -58,11 +59,13 @@ final class AuthController
 
     public function registerOptions(Request $request): JsonResponse
     {
-        $name = mb_substr(trim((string) $request->input('name', '')), 0, 40);
+        // `String(body.name || '').trim().slice(0, 40)`, on the body as sent: a malformed one is a
+        // 400 `bad json` here, as Node's readBody answered it, never an empty name.
+        $name = Js::slice(Js::trim(Input::jsString($request, 'name')), 40);
         if ($name === '') {
             return Json::error(400, 'name required');
         }
-        $code = InviteGate::normalise(Input::str($request, 'code'));
+        $code = InviteGate::normalise(Input::jsString($request, 'code'));
         // A code is looked up whenever one is SUPPLIED, and REQUIRED only when INVITE_ONLY is on:
         // a coach's invite link works on an open instance too. Who may create an account at all is
         // a separate question from taking a client on.
@@ -197,7 +200,8 @@ final class AuthController
 
             return Json::error(400, 'challenge expired — try again');
         }
-        $credential = WebAuthnCredential::query()->find(Input::str($request, 'credential.id'));
+        $id = Input::assoc($request, 'credential')['id'] ?? null;
+        $credential = is_string($id) ? WebAuthnCredential::query()->find($id) : null;
         if ($credential === null) {
             Audit::record($request, 'auth.login.fail', ['ok' => false, 'msg' => 'unknown-credential']);
 
@@ -264,9 +268,9 @@ final class AuthController
      */
     private static function transport(Request $request, array $keys): JsonTransport
     {
-        $credential = $request->input('credential');
+        $credential = Input::assoc($request, 'credential');
 
-        return new JsonTransport(is_array($credential) ? array_intersect_key($credential, array_flip($keys)) : []);
+        return new JsonTransport($credential === null ? [] : array_intersect_key($credential, array_flip($keys)));
     }
 
     /**

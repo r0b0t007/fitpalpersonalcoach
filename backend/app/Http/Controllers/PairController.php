@@ -6,6 +6,7 @@ use App\Audit\Audit;
 use App\Auth\SessionToken;
 use App\Models\User;
 use App\Support\Input;
+use App\Support\Js;
 use App\Support\Json;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\JsonResponse;
@@ -43,7 +44,8 @@ final class PairController
 
     public function redeem(Request $request): JsonResponse
     {
-        $code = strtoupper(trim(Input::str($request, 'code')));
+        // `String(body.code || '').trim().toUpperCase()`, on the body as sent.
+        $code = mb_strtoupper(Js::trim(Input::jsString($request, 'code')));
         // Taken on first sight, whatever happens next: a code works once. pull() is a get then a
         // forget, so two phones racing the same code could both read it; the lock makes the claim
         // atomic, and the loser of the race is refused like any spent code.

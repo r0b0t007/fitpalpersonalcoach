@@ -2,6 +2,7 @@
 
 namespace App\WebAuthn;
 
+use App\Support\Input;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Request;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreation;
@@ -47,8 +48,7 @@ final class CacheChallengeRepository implements WebAuthnChallengeRepository
         // The controller took the entry before starting the pipeline (takeFor); this is it.
         $entry = $this->request->attributes->get(self::TAKEN_ATTRIBUTE);
         if (! is_array($entry)) {
-            $cid = $this->request->input('cid');
-            $entry = self::take($this->cache, is_string($cid) ? $cid : '');
+            $entry = self::take($this->cache, Input::str($this->request, 'cid'));
         }
         if ($entry === null) {
             return null;

@@ -15,11 +15,26 @@ final class Input
     /** Node's MAX_BODY: every JSON route but the state sync, which has its own 16 MB. */
     public const MAX_BODY = 5 * 1024 * 1024;
 
+    /**
+     * `body.key` when it is a string, else '' — the body as sent (Input::body), so a malformed one
+     * is a 400 `bad json` here as it was at Node's readBody, and nothing has been trimmed.
+     */
     public static function str(Request $request, string $key): string
     {
-        $value = $request->input($key);
+        $value = self::raw($request, $key);
 
         return is_string($value) ? $value : '';
+    }
+
+    /**
+     * `body.key` as nested arrays — for the WebAuthn credential, which the package reads as an
+     * array — or null when it is not a JSON object.
+     */
+    public static function assoc(Request $request, string $key): ?array
+    {
+        $value = self::raw($request, $key);
+
+        return $value instanceof stdClass ? json_decode(json_encode($value, JSON_THROW_ON_ERROR, 100_000), true, 100_000) : null;
     }
 
     /**
