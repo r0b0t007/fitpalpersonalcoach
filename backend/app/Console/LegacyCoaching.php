@@ -17,27 +17,35 @@ use Throwable;
  * files on the routes that read them.
  *
  * One cleaning step (rows()) decides what is imported, and both the import and the verify read
- * from it. Whatever it drops or changes is reported in $skipped, and verify compares against the
- * cleaned rows — so a reported, deliberate change (an orphan coach's code kept as general, a
- * repeated id, an offer whose member is not an account) is not also a verify failure for ever.
+ * from it. A row it cannot store as Node served it — a field missing, of the wrong type, too wide
+ * for its column, an orphan coach or member, a repeated id — is skipped and reported, never
+ * half-written; the few changes it makes on purpose (an orphan coach's code kept as general, an
+ * invite's requestId dropped) are reported too. Verify compares against the same cleaned rows, so
+ * none of that is also a verify failure for ever.
  *
  * The files are the truth. A rerun updates rows in place (invites keep their mint order, programs
  * their library position) and REMOVES rows the files no longer hold: Node itself deletes programs
  * and prunes answered offers, so a row that survived would be one Node no longer serves. Run it
  * only while Node is the live API — after a cutover, check with --verify-only instead. A library
- * file that cannot be read removes nothing: it is reported, and that coach's rows are left alone.
+ * file that cannot be read or parsed (a torn copy) removes nothing: it is reported, and that
+ * coach's rows are left alone.
  *
  * Runs with no CoachContext (a console command): every model is unscoped, coach_id is written as
  * the file has it, and bulk upserts are allowed (TenantBuilder refuses them only inside a context).
  */
 final class LegacyCoaching
 {
-    /** Column widths the cleaning step enforces — strict MariaDB refuses a longer value. */
-    private const INVITE = ['code' => 32, 'note' => 60, 'createdBy' => 16, 'created' => 30, 'usedBy' => 16, 'usedAt' => 30, 'revokedAt' => 30, 'revokedReason' => 60];
+    /** Text fields and their column widths; `true` marks the ones every Node writer always set. */
+    private const INVITE = ['code' => [32, true], 'note' => [60, true], 'createdBy' => [16, false], 'created' => [30, true],
+        'usedBy' => [16, false], 'usedAt' => [30, false], 'revokedAt' => [30, false], 'revokedReason' => [60, false]];
 
-    private const OFFER = ['id' => 16, 'coachName' => 40, 'note' => 280, 'status' => 16, 'created' => 30, 'decidedAt' => 30];
+    private const OFFER = ['id' => [16, true], 'coachName' => [40, true], 'note' => [280, true], 'status' => [16, true],
+        'created' => [30, true], 'decidedAt' => [30, false]];
 
-    private const PROGRAM = ['id' => 64, 'name' => 60];
+    private const PROGRAM = ['id' => [64, true], 'name' => [60, true]];
+
+    /** Nesting a stored bundle may have: Js::stringify's 512 levels with room to spare. */
+    private const BUNDLE_DEPTH = 500;
 
     /** The field each route's answer carries the list in. */
     public const FIELD = [
@@ -48,7 +56,7 @@ final class LegacyCoaching
 
     /**
      * What is imported, cleaned and in file order: invites and offers as Node-shaped objects, and
-     * each readable library by coach id (null for a file that could not be read).
+     * each library by coach id (null for a file that could not be read or parsed).
      *
      * @param  array<string, true>  $accounts  the account ids that exist
      * @param  list<string>  $skipped
@@ -57,19 +65,23 @@ final class LegacyCoaching
     public static function rows(stdClass $db, string $dir, array $accounts, array &$skipped): array
     {
         $invites = [];
+        $seen = [];
         foreach (Js::list($db->invites ?? null) as $i) {
             $code = $i instanceof stdClass ? ($i->code ?? null) : null;
-            if (! is_string($code) || $code === '' || ! self::fits($i, self::INVITE, "invite $code", $skipped)) {
-                if (! is_string($code) || $code === '') {
-                    $skipped[] = 'invite '.json_encode($code).' (no usable code)';
-                }
+            if (! is_string($code) || $code === '') {
+                $skipped[] = 'invite '.json_encode($code).' (no usable code)';
 
                 continue;
             }
-            // A repeated code: Node's find() answered with the first, so that is the invite.
-            if (isset($invites[$code])) {
+            // A repeated code: Node's find() answered with the FIRST row, kept or not, so a later
+            // row with the same code was never served.
+            if (isset($seen[$code])) {
                 $skipped[] = "invite $code (a second row with the same code)";
 
+                continue;
+            }
+            $seen[$code] = true;
+            if (! self::fits($i, self::INVITE, "invite $code", $skipped)) {
                 continue;
             }
             $row = clone $i;
@@ -84,10 +96,11 @@ final class LegacyCoaching
                 $skipped[] = "requestId of invite $code (access requests are not ported; the code is kept)";
                 unset($row->requestId);
             }
-            $invites[$code] = $row;
+            $invites[] = $row;
         }
 
         $offers = [];
+        $seen = [];
         foreach (Js::list($db->assignments ?? null) as $a) {
             $id = $a instanceof stdClass ? ($a->id ?? null) : null;
             if (! is_string($id) || $id === '') {
@@ -95,18 +108,19 @@ final class LegacyCoaching
 
                 continue;
             }
-            if (isset($offers[$id])) {
+            if (isset($seen[$id])) {
                 $skipped[] = "assignment $id (a second row with the same id)";
 
                 continue;
             }
+            $seen[$id] = true;
             if (! is_string($a->coachId ?? null) || ! isset($accounts[$a->coachId]) || ! is_string($a->memberId ?? null) || ! isset($accounts[$a->memberId])) {
                 $skipped[] = "assignment $id (its coach or member is not an account)";
 
                 continue;
             }
-            if (self::fits($a, self::OFFER, "assignment $id", $skipped)) {
-                $offers[$id] = $a;
+            if (self::fits($a, self::OFFER, "assignment $id", $skipped) && self::storable($a->bundle ?? null, "assignment $id", $skipped)) {
+                $offers[] = $a;
             }
         }
 
@@ -115,8 +129,8 @@ final class LegacyCoaching
             $bySafe[self::safeUid((string) $id)] ??= (string) $id;
         }
         $libraries = [];
-        foreach (glob($dir.DIRECTORY_SEPARATOR.'coach-*.json') ?: [] as $file) {
-            $coachId = $bySafe[substr(basename($file, '.json'), 6)] ?? null;
+        foreach (self::files($dir, 'coach-') as $uid => $file) {
+            $coachId = $bySafe[$uid] ?? null;
             if ($coachId === null) {
                 $skipped[] = basename($file).' (no such account)';
 
@@ -130,20 +144,39 @@ final class LegacyCoaching
                 continue;
             }
             $kept = [];
+            $seen = [];
             foreach ($programs as $p) {
                 $pid = $p instanceof stdClass ? ($p->id ?? null) : null;
+                $label = basename($file).' program '.(is_string($pid) ? $pid : json_encode($pid));
                 if (! is_string($pid) || $pid === '') {
-                    $skipped[] = basename($file).' program '.json_encode($pid).' (no usable id)';
-                } elseif (isset($kept[$pid])) {
-                    $skipped[] = basename($file)." program $pid (a second row with the same id)";
-                } elseif (self::fits($p, self::PROGRAM, basename($file)." program $pid", $skipped)) {
-                    $kept[$pid] = $p;
+                    $skipped[] = "$label (no usable id)";
+
+                    continue;
+                }
+                if (isset($seen[$pid])) {
+                    $skipped[] = "$label (a second row with the same id)";
+
+                    continue;
+                }
+                $seen[$pid] = true;
+                // created/updated are Date.now() values: stored as unsigned integers, so anything
+                // else could not come back as Node served it.
+                foreach (['created', 'updated'] as $k) {
+                    $v = $p->{$k} ?? null;
+                    if (! is_int($v) || $v < 0) {
+                        $skipped[] = "$label ($k is not a timestamp in milliseconds)";
+
+                        continue 2;
+                    }
+                }
+                if (self::fits($p, self::PROGRAM, $label, $skipped) && self::storable($p->bundle ?? null, $label, $skipped)) {
+                    $kept[] = $p;
                 }
             }
-            $libraries[$coachId] = array_values($kept);
+            $libraries[$coachId] = $kept;
         }
 
-        return ['invites' => array_values($invites), 'offers' => array_values($offers), 'libraries' => $libraries];
+        return ['invites' => $invites, 'offers' => $offers, 'libraries' => $libraries];
     }
 
     /**
@@ -162,8 +195,8 @@ final class LegacyCoaching
             // Invites, in db.json order: mint order, which seq keeps. An upsert keeps an existing
             // code's seq and appends new codes in the order given.
             $invites = array_map(fn (stdClass $i) => [
-                'code' => $i->code, 'note' => self::text($i->note ?? null) ?? '', 'created_by' => self::text($i->createdBy ?? null),
-                'coach_id' => self::text($i->coachId ?? null), 'created' => self::text($i->created ?? null) ?? '',
+                'code' => $i->code, 'note' => $i->note, 'created_by' => self::text($i->createdBy ?? null),
+                'coach_id' => self::text($i->coachId ?? null), 'created' => $i->created,
                 'used_by' => self::text($i->usedBy ?? null), 'used_at' => self::text($i->usedAt ?? null),
                 // `!!i.revoked`, as every Node reader tested it.
                 'revoked' => Js::truthy($i->revoked ?? null),
@@ -172,55 +205,51 @@ final class LegacyCoaching
             foreach (array_chunk($invites, 200) as $chunk) {
                 Invite::acrossCoaches()->upsert($chunk, ['code'], array_keys(array_diff_key($chunk[0], ['code' => 0]))); // across coaches: the import writes every coach's codes
             }
-            $removed += self::removeAbsent(Invite::acrossCoaches()->pluck('code')->all(), array_column($invites, 'code'), // across coaches: the import mirrors every coach's codes
-                fn (array $gone) => Invite::acrossCoaches()->whereKey($gone)->delete()); // across coaches: the import mirrors every coach's codes
+            $keep = array_flip(array_column($invites, 'code'));
+            $removed += self::delete(Invite::class, array_filter(Invite::acrossCoaches()->pluck('code')->all(), fn ($c) => ! isset($keep[$c]))); // across coaches: the import mirrors every coach's codes
 
             // Libraries. A coach whose file could not be read keeps every row it had.
             $programs = [];
             foreach ($rows['libraries'] as $coachId => $list) {
                 foreach ($list ?? [] as $p) {
-                    $programs[] = [
-                        'coach_id' => (string) $coachId, 'program_id' => $p->id, 'name' => self::text($p->name ?? null) ?? '',
-                        'bundle' => Js::stringify($p->bundle ?? null),
-                        'created' => (int) Js::toNumber($p->created ?? 0), 'updated' => (int) Js::toNumber($p->updated ?? 0),
-                    ];
+                    $programs[] = ['coach_id' => (string) $coachId, 'program_id' => $p->id, 'name' => $p->name,
+                        'bundle' => Js::stringify($p->bundle), 'created' => $p->created, 'updated' => $p->updated];
                 }
             }
             foreach (array_chunk($programs, 200) as $chunk) {
                 CoachProgram::acrossCoaches()->upsert($chunk, ['coach_id', 'program_id'], ['name', 'bundle', 'created', 'updated']); // across coaches: the import writes every library
             }
             $unread = array_keys(array_filter($rows['libraries'], fn ($l) => $l === null));
-            $present = CoachProgram::acrossCoaches()->whereNotIn('coach_id', $unread)->get(['id', 'coach_id', 'program_id']) // across coaches: the import mirrors every library
-                ->mapWithKeys(fn (CoachProgram $p) => [$p->id => "{$p->coach_id}\n{$p->program_id}"])->all();
             $keep = array_flip(array_map(fn (array $p) => "{$p['coach_id']}\n{$p['program_id']}", $programs));
-            $removed += self::removeAbsent(array_keys(array_filter($present, fn ($k) => ! isset($keep[$k]))), [],
-                fn (array $gone) => CoachProgram::acrossCoaches()->whereKey($gone)->delete()); // across coaches: the import mirrors every library
+            $gone = CoachProgram::acrossCoaches()->whereNotIn('coach_id', $unread)->get(['id', 'coach_id', 'program_id']) // across coaches: the import mirrors every library
+                ->reject(fn (CoachProgram $p) => isset($keep["{$p->coach_id}\n{$p->program_id}"]))->pluck('id')->all();
+            $removed += self::delete(CoachProgram::class, $gone);
 
             $offers = array_map(fn (stdClass $a) => [
-                'id' => $a->id, 'coach_id' => $a->coachId, 'coach_name' => self::text($a->coachName ?? null) ?? '', 'member_id' => $a->memberId,
-                'bundle' => Js::stringify($a->bundle ?? null), 'note' => self::text($a->note ?? null) ?? '',
-                'schedule' => Js::truthy($a->schedule ?? null), 'status' => self::text($a->status ?? null) ?? '',
-                'created' => self::text($a->created ?? null) ?? '', 'decided_at' => self::text($a->decidedAt ?? null),
+                'id' => $a->id, 'coach_id' => $a->coachId, 'coach_name' => $a->coachName, 'member_id' => $a->memberId,
+                'bundle' => Js::stringify($a->bundle), 'note' => $a->note,
+                'schedule' => Js::truthy($a->schedule ?? null), 'status' => $a->status,
+                'created' => $a->created, 'decided_at' => self::text($a->decidedAt ?? null),
             ], $rows['offers']);
             foreach (array_chunk($offers, 200) as $chunk) {
                 Assignment::acrossCoaches()->upsert($chunk, ['id'], array_keys(array_diff_key($chunk[0], ['id' => 0]))); // across coaches: the import writes every coach's offers
             }
-            $removed += self::removeAbsent(Assignment::acrossCoaches()->pluck('id')->all(), array_column($offers, 'id'), // across coaches: the import mirrors every offer
-                fn (array $gone) => Assignment::acrossCoaches()->whereKey($gone)->delete()); // across coaches: the import mirrors every offer
+            $keep = array_flip(array_column($offers, 'id'));
+            $removed += self::delete(Assignment::class, array_filter(Assignment::acrossCoaches()->pluck('id')->all(), fn ($id) => ! isset($keep[$id]))); // across coaches: the import mirrors every offer
 
             return ['invites' => count($invites), 'programs' => count($programs), 'assignments' => count($offers), 'removed' => $removed];
         });
     }
 
     /**
-     * For --verify: the cleaned rows grouped once, so each account's answers are computed from its
-     * own slice rather than by rescanning every invite and offer per account.
+     * For --verify: the cleaned rows, read once and grouped once, so each account's answers are
+     * computed from its own slice rather than by rescanning every row per account.
      */
     public static function verifyContext(stdClass $db, string $dir, array $accounts): array
     {
         $ignored = [];
         $rows = self::rows($db, $dir, $accounts, $ignored);
-        $ctx = ['invites' => $rows['invites'], 'byCoach' => [], 'byMember' => [], 'dir' => $dir];
+        $ctx = ['invites' => $rows['invites'], 'byCoach' => [], 'byMember' => [], 'libraries' => $rows['libraries']];
         foreach ($rows['invites'] as $i) {
             if (is_string($i->coachId ?? null)) {
                 $ctx['byCoach'][$i->coachId][] = $i;
@@ -234,8 +263,8 @@ final class LegacyCoaching
     }
 
     /**
-     * What the Node API answered on each route the coaching tables serve, computed from the files
-     * as api/server.js computed it. Keyed by route; each value is the field the app reads.
+     * What the Node API answered on each route the coaching tables serve, computed from the cleaned
+     * rows as api/server.js computed it. Keyed by route; each value is the field the app reads.
      *
      * @param  array<string, stdClass>  $users  db.users by id (first row per id)
      * @return array<string, mixed>
@@ -255,13 +284,14 @@ final class LegacyCoaching
                 $by = Js::truthy($i->usedBy ?? null) ? $account($i->usedBy) : null;
 
                 return [
-                    'code' => $i->code, 'note' => $i->note ?? null, 'created' => $i->created ?? null,
+                    'code' => $i->code, 'note' => $i->note, 'created' => $i->created,
                     'revoked' => Js::truthy($i->revoked ?? null), 'usedAt' => Js::or($i->usedAt ?? null, null),
                     // `u && canCoachMember(...) ? u.name : null`
                     'usedByName' => $by && $canCoach($u, $by) ? ($by->name ?? null) : null,
                 ];
             }, $ctx['byCoach'][$u->id] ?? []);
-            $want['GET /api/coach/programs'] = self::programsIn($ctx['dir'].DIRECTORY_SEPARATOR.'coach-'.self::safeUid($u->id).'.json');
+            // readCoachData serves [] for a file it cannot parse, as for none at all.
+            $want['GET /api/coach/programs'] = $ctx['libraries'][$u->id] ?? [];
         }
         if ($isAdmin($u)) {
             $want['GET /api/admin/invites'] = array_map(function (stdClass $i) use ($account) {
@@ -274,26 +304,40 @@ final class LegacyCoaching
         }
         $mine = $ctx['byMember'][$u->id] ?? [];
         $want['GET /api/assignments'] = array_map(fn (stdClass $a) => [
-            'id' => $a->id, 'coachName' => $a->coachName ?? null, 'note' => $a->note ?? null, 'created' => $a->created ?? null,
-            'schedule' => Js::truthy($a->schedule ?? null), 'bundle' => $a->bundle ?? null,
-        ], array_values(array_filter($mine, fn ($a) => ($a->status ?? null) === 'pending')));
-        $decided = array_values(array_filter($mine, fn ($a) => in_array($a->status ?? null, ['accepted', 'declined'], true)));
-        $key = fn (stdClass $a) => Js::string(Js::or($a->decidedAt ?? null, Js::or($a->created ?? null, '')));
+            'id' => $a->id, 'coachName' => $a->coachName, 'note' => $a->note, 'created' => $a->created,
+            'schedule' => Js::truthy($a->schedule ?? null), 'bundle' => $a->bundle,
+        ], array_values(array_filter($mine, fn ($a) => $a->status === 'pending')));
+        $decided = array_values(array_filter($mine, fn ($a) => in_array($a->status, ['accepted', 'declined'], true)));
+        $key = fn (stdClass $a) => Js::string(Js::or($a->decidedAt ?? null, Js::or($a->created, '')));
         usort($decided, fn ($x, $y) => strcmp($key($y), $key($x)));   // stable, as JS's sort
         $want['GET /api/assignments/history'] = array_map(fn (stdClass $a) => [
-            'id' => $a->id, 'coachName' => $a->coachName ?? null, 'note' => $a->note ?? null,
-            'created' => $a->created ?? null, 'decidedAt' => Js::or($a->decidedAt ?? null, null), 'status' => $a->status,
-            'name' => Js::or(($a->bundle ?? null) instanceof stdClass ? ($a->bundle->name ?? null) : null, ''),
-            'routines' => ($a->bundle ?? null) instanceof stdClass && is_array($a->bundle->routines ?? null) ? count($a->bundle->routines) : 0,
+            'id' => $a->id, 'coachName' => $a->coachName, 'note' => $a->note,
+            'created' => $a->created, 'decidedAt' => Js::or($a->decidedAt ?? null, null), 'status' => $a->status,
+            'name' => Js::or($a->bundle->name ?? null, ''),
+            'routines' => is_array($a->bundle->routines ?? null) ? count($a->bundle->routines) : 0,
         ], $decided);
 
         return $want;
     }
 
-    /** `readCoachData(uid).programs` as Node served it: the list, or nothing for a missing or unreadable file. */
-    public static function programsIn(string $file): array
+    /**
+     * The `<prefix><uid>.json` files of a data directory, keyed by uid. Listed, not globbed: a
+     * directory whose path holds `[`, `*` or `?` would make glob() find nothing — and an import
+     * that finds no libraries would mirror every program away.
+     *
+     * @return array<string, string>
+     */
+    public static function files(string $dir, string $prefix): array
     {
-        return self::readPrograms($file) ?? [];
+        $out = [];
+        foreach (scandir($dir) ?: [] as $name) {
+            if (str_starts_with($name, $prefix) && str_ends_with($name, '.json') && strlen($name) > strlen($prefix) + 5) {
+                $out[substr($name, strlen($prefix), -5)] = $dir.DIRECTORY_SEPARATOR.$name;
+            }
+        }
+        ksort($out, SORT_STRING);
+
+        return $out;
     }
 
     /**
@@ -321,33 +365,42 @@ final class LegacyCoaching
         return (string) preg_replace('/[^a-zA-Z0-9_-]/', '', $id);
     }
 
-    /** The programs in a library file, [] when it has none, null when it cannot be read or parsed. */
+    /**
+     * readCoachData's programs: `Array.isArray(d && d.programs) ? d.programs : []` for any JSON —
+     * null, [] or an object without the list included. Null only where Node's JSON.parse would
+     * have thrown, or the file is empty: a torn copy, whose library this import must not erase.
+     */
     private static function readPrograms(string $file): ?array
     {
-        if (! is_file($file)) {
-            return [];
+        $raw = @file_get_contents($file);
+        if (! is_string($raw) || trim($raw) === '') {
+            return null;
         }
         try {
-            $raw = file_get_contents($file);
-            $d = is_string($raw) && $raw !== '' ? Input::parse($raw) : null;
+            $d = Input::parse($raw);
         } catch (Throwable) {
             return null;
         }
 
-        return $d instanceof stdClass ? Js::list($d->programs ?? null) : null;
+        return $d instanceof stdClass ? Js::list($d->programs ?? null) : [];
     }
 
     /**
-     * Whether every text field of a row is text (or absent) and fits its column; a row that does
-     * not is reported and skipped, never written half-way. Widths are counted in characters, as
-     * MariaDB counts a utf8mb4 VARCHAR.
+     * Whether every text field of a row is text, present where Node always wrote it, and fits
+     * its column; a row that is not is reported and skipped, never written half-way. Widths are
+     * counted in characters, as MariaDB counts a utf8mb4 VARCHAR.
      *
-     * @param  array<string, int>  $widths
+     * @param  array<string, array{int, bool}>  $fields
      */
-    private static function fits(stdClass $row, array $widths, string $label, array &$skipped): bool
+    private static function fits(stdClass $row, array $fields, string $label, array &$skipped): bool
     {
-        foreach ($widths as $field => $max) {
+        foreach ($fields as $field => [$max, $required]) {
             $v = $row->{$field} ?? null;
+            if ($v === null && $required) {
+                $skipped[] = "$label ($field is missing)";
+
+                return false;
+            }
             if ($v !== null && ! is_string($v)) {
                 $skipped[] = "$label ($field is not text)";
 
@@ -363,19 +416,38 @@ final class LegacyCoaching
         return true;
     }
 
+    /** A bundle that can be stored and served back as it was: an object, of sane depth. */
+    private static function storable(mixed $bundle, string $label, array &$skipped): bool
+    {
+        if (! $bundle instanceof stdClass) {
+            $skipped[] = "$label (bundle is not a plan)";
+
+            return false;
+        }
+        if (Js::deeperThan($bundle, self::BUNDLE_DEPTH)) {
+            $skipped[] = "$label (bundle is nested deeper than ".self::BUNDLE_DEPTH.' levels)';
+
+            return false;
+        }
+
+        return true;
+    }
+
     private static function text(mixed $v): ?string
     {
         return is_string($v) && $v !== '' ? $v : null;
     }
 
-    /** Deletes the keys in $present that are not in $keep, in chunks; returns how many went. */
-    private static function removeAbsent(array $present, array $keep, callable $delete): int
+    /**
+     * Deletes these keys of a coaching model, in chunks; returns how many went.
+     *
+     * @param  class-string<Invite|CoachProgram|Assignment>  $model
+     */
+    private static function delete(string $model, array $keys): int
     {
-        $keep = array_flip($keep);
-        $gone = array_values(array_filter($present, fn ($k) => ! isset($keep[$k])));
         $n = 0;
-        foreach (array_chunk($gone, 500) as $chunk) {
-            $n += $delete($chunk);
+        foreach (array_chunk(array_values($keys), 500) as $chunk) {
+            $n += $model::acrossCoaches()->whereKey($chunk)->delete(); // across coaches: the import mirrors every coach's rows
         }
 
         return $n;

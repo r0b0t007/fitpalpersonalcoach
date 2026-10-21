@@ -172,6 +172,63 @@ it('writes the coaching data in one transaction: a failure halfway removes nothi
     expect(Invite::acrossCoaches()->find('GENERAL000000000'))->not->toBeNull(); // across coaches: the test reads every row
 });
 
+it('verifies programs against what it imported too, skipping what it cannot serve back as Node did', function () {
+    file_put_contents($this->dir.'/coach-cch0000000000000.json', json_encode(['programs' => [
+        ['id' => 'p1', 'name' => 'First', 'created' => 1770000000000, 'updated' => 1770000001000, 'bundle' => ['opengym_plan' => 1]],
+        ['id' => 'p1', 'name' => 'Again', 'created' => 1, 'updated' => 1, 'bundle' => ['opengym_plan' => 1]],
+        ['id' => 'p2', 'name' => 'Stringly', 'created' => '1770000000000', 'updated' => 1, 'bundle' => ['opengym_plan' => 1]],
+        ['id' => 'p3', 'name' => 'Negative', 'created' => -1, 'updated' => 1, 'bundle' => ['opengym_plan' => 1]],
+        ['id' => 'p4', 'name' => 'No plan', 'created' => 1, 'updated' => 1],
+        ['id' => 'p5', 'name' => str_repeat('x', 61), 'created' => 1, 'updated' => 1, 'bundle' => ['opengym_plan' => 1]],
+    ]]));
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify' => true])->assertSuccessful()
+        ->expectsOutputToContain('programs 1')
+        ->expectsOutputToContain('program p1 (a second row with the same id)')
+        ->expectsOutputToContain('program p2 (created is not a timestamp in milliseconds)')
+        ->expectsOutputToContain('program p3 (created is not a timestamp in milliseconds)')
+        ->expectsOutputToContain('program p4 (bundle is not a plan)')
+        ->expectsOutputToContain('program p5 (name is longer than 60 characters)')
+        ->expectsOutputToContain('the coaching routes match the files');
+});
+
+it('skips a later row with a repeated id even when the first one was refused, as Node served the first', function () {
+    $ghost = ['id' => 'pend000000000000', 'coachId' => 'nobody', 'memberId' => 'mem0000000000000', 'bundle' => ['opengym_plan' => 1], 'note' => '', 'coachName' => 'X', 'status' => 'pending', 'created' => '2026-01-01T00:00:00.000Z'];
+    array_unshift($this->db['assignments'], $ghost);
+    unset($this->db['invites'][0]['created']);
+    $this->db['invites'][] = ['code' => 'OPEN000000000000', 'note' => 'later', 'createdBy' => 'cch0000000000000', 'created' => '2026-05-01T00:00:00.000Z'];
+    ($this->write)();
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify' => true])->assertSuccessful()
+        ->expectsOutputToContain('skipped assignment pend000000000000 (its coach or member is not an account)')
+        ->expectsOutputToContain('skipped assignment pend000000000000 (a second row with the same id)')
+        ->expectsOutputToContain('skipped invite OPEN000000000000 (created is missing)')
+        ->expectsOutputToContain('skipped invite OPEN000000000000 (a second row with the same code)');
+    expect(Assignment::acrossCoaches()->find('pend000000000000'))->toBeNull() // across coaches: the test reads every row
+        ->and(Invite::acrossCoaches()->find('OPEN000000000000'))->toBeNull(); // across coaches: the test reads every row
+});
+
+it('empties a library whose file holds valid JSON without a list, as readCoachData served it', function () {
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful();
+    file_put_contents($this->dir.'/coach-cch0000000000000.json', 'null');
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--verify' => true])->assertSuccessful()
+        ->expectsOutputToContain('removed 2 invite/program/assignment row(s)');
+    expect(CoachProgram::acrossCoaches()->count())->toBe(0); // across coaches: the test reads every row
+});
+
+it('finds the files in a data directory whose path holds glob characters', function () {
+    $odd = sys_get_temp_dir().'/fitpal-[coaching]-'.bin2hex(random_bytes(4));
+    mkdir($odd);
+    foreach (glob($this->dir.'/*') as $f) {
+        copy($f, $odd.'/'.basename($f));
+    }
+    try {
+        $this->artisan('fitpal:import-legacy', ['dataDir' => $odd])->assertSuccessful()
+            ->expectsOutputToContain('invites 4 · programs 2 · assignments 3');
+    } finally {
+        array_map('unlink', array_map(fn ($n) => $odd.'/'.$n, array_diff(scandir($odd), ['.', '..'])));
+        rmdir($odd);
+    }
+});
+
 it('reads db.json as JSON.parse did: a lone surrogate does not refuse the file', function () {
     $json = json_encode($this->db, JSON_UNESCAPED_SLASHES);
     file_put_contents($this->dir.'/db.json', str_replace('"note":"go"', '"note":"go \\ud83d"', $json));

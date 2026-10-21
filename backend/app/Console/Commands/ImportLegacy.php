@@ -155,8 +155,9 @@ final class ImportLegacy extends Command
         }
 
         $states = 0;
-        foreach (glob($dir.DIRECTORY_SEPARATOR.'state-*.json') ?: [] as $file) {
-            $uid = substr(basename($file, '.json'), 6);
+        // Listed, not globbed: a data directory whose path holds `[` or `*` must still be read.
+        foreach (LegacyCoaching::files($dir, 'state-') as $uid => $file) {
+            $uid = (string) $uid;
             if (! User::query()->whereKey($uid)->exists()) {
                 continue;
             }
