@@ -35,7 +35,36 @@ const USERS = [
 const day = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 
 writeFileSync(join(dir, 'secret'), SECRET, { mode: 0o600 });
-writeFileSync(join(dir, 'db.json'), JSON.stringify({ users: USERS, creds: [], subs: [], invites: [] }, null, 2));
+// R2 coaching data, so the routes answer from IMPORTED rows too (fitpal:import-legacy, CHW-251), on
+// the second coach and their client: a code of each kind, offers in every state, a library. Offer
+// dates are recent: Node prunes past 30 days on every send and Laravel hourly, so an old seeded
+// offer would part the two servers for a reason that is not a bug.
+const iso = n => new Date(Date.now() - n * 86400000).toISOString();
+const PLAN = name => ({ opengym_plan: 1, name, week: { 1: ['r1'], 3: ['r1'] }, routines: [{ id: 'r1', name: 'Push', ex: [{ id: '0025', sets: 3 }] }], customEx: [], nutrition: { kcal: 2200 }, checkinDay: 0 });
+const INVITES = [
+  { code: 'SEEDOPENB0000000', note: '  for a friend ', createdBy: 'cdCoachB00000000', created: '2026-03-07T00:00:00.000Z', coachId: 'cdCoachB00000000' },
+  { code: 'SEEDUSEDB0000000', note: 'Salma', createdBy: 'cdCoachB00000000', created: '2026-03-08T00:00:00.000Z', coachId: 'cdCoachB00000000', usedBy: 'cdMemberB0000000', usedAt: '2026-03-09T00:00:00.000Z' },
+  { code: 'SEEDREVOKED00000', note: 'mistyped', createdBy: 'cdAdmin000000000', created: '2026-03-10T00:00:00.000Z', revoked: true, revokedAt: '2026-03-11T00:00:00.000Z', revokedReason: 'coach detached' },
+  { code: 'SEEDGENERAL00000', note: 'general', createdBy: 'cdAdmin000000000', created: '2026-03-12T00:00:00.000Z' },
+];
+const offer = (id, status, created, decided, name) => ({
+  id, coachId: 'cdCoachB00000000', coachName: 'Coach Youssef', memberId: 'cdMemberB0000000', bundle: PLAN(name),
+  note: 'from the seed', schedule: status === 'pending', created: iso(created), status, ...(decided ? { decidedAt: iso(decided) } : {}),
+});
+const ASSIGNMENTS = [
+  offer('seedAccepted0000', 'accepted', 10, 9, 'Block A'),
+  offer('seedDeclined0000', 'declined', 8, 7, 'Block B'),
+  offer('seedWithdrawn000', 'withdrawn', 6, 5, 'Oops'),
+  offer('seedPending00000', 'pending', 3, null, 'Block C'),
+];
+writeFileSync(join(dir, 'db.json'), JSON.stringify({ users: USERS, creds: [], subs: [], invites: INVITES, assignments: ASSIGNMENTS }, null, 2));
+writeFileSync(join(dir, 'coach-cdCoachB00000000.json'), JSON.stringify({
+  programs: [
+    { id: 'seed-prog-1', name: 'Seeded block', created: 1772000000000, updated: 1772000005000, bundle: { ...PLAN('Seeded block'), week: {} } },
+    { id: 'seed-prog-2', name: 'Seeded deload', created: 1772000010000, updated: 1772000010000, bundle: PLAN('Seeded deload') },
+  ],
+  notes: { cdMemberB0000000: 'read by no route' },
+}));
 // {} and [] kept apart, unicode, nesting: the shapes a raw-blob store must hand back untouched.
 writeFileSync(join(dir, 'state-cdMember00000000.json'), JSON.stringify({
   unit: 'kg', lang: 'fr', week: { 1: 'rA', 4: 'rB' }, dayPlan: { [day(40)]: 'rest', [day(2)]: 'rA' }, mealDays: {},

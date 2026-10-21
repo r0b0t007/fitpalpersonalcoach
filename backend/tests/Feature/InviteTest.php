@@ -244,3 +244,11 @@ it('trims a code as JS did: a pasted NBSP or BOM is whitespace too', function ()
     $this->getJson('/api/invite?code=%C2%A0'.strtolower($code).'%EF%BB%BF')->assertOk()->assertJsonPath('coachName', 'Coach A');
     $this->postJson('/api/invite/redeem', ['code' => "\u{00A0}$code\u{2028}"], bearer($this->f->u1))->assertOk();
 });
+
+it('names a redeemer with no name as nobody on the admin list, as Node\'s `|| null` did', function () {
+    $f = $this->f;
+    $f->a1->forceFill(['name' => ''])->save();
+    Invite::acrossCoaches()->whereKey('INVA0000000000')->update(['used_by' => $f->a1->id, 'used_at' => '2026-05-02T00:00:00.000Z']); // across coaches: the test writes a fixture row
+    $row = collect($this->getJson('/api/admin/invites', bearer($f->admin))->json('invites'))->firstWhere('code', 'INVA0000000000');
+    expect($row['usedByName'])->toBeNull();
+});

@@ -161,7 +161,7 @@ final class InviteController
         $names = User::query()->whereKey($invites->pluck('used_by')->filter()->all())->pluck('name', 'id');
 
         return Json::ok([
-            'invites' => $invites->map(fn (Invite $i) => $i->toNode() + ['usedByName' => $i->used_by ? ($names[$i->used_by] ?? null) : null])->all(),
+            'invites' => $invites->map(fn (Invite $i) => $i->toNode() + ['usedByName' => $i->used_by ? Js::or($names[$i->used_by] ?? null, null) : null])->all(),
             'invite_only' => (bool) config('fitpal.invite_only'),
         ]);
     }

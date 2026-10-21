@@ -59,8 +59,8 @@ class Invite extends Model
      */
     public function toNode(): array
     {
-        $row = ['code' => $this->code, 'note' => $this->note, 'createdBy' => $this->created_by, 'created' => $this->created];
-        foreach (['coachId' => $this->coach_id, 'usedBy' => $this->used_by, 'usedAt' => $this->used_at] as $k => $v) {
+        $row = ['code' => $this->code, 'note' => $this->note];
+        foreach (['createdBy' => $this->created_by, 'created' => $this->created, 'coachId' => $this->coach_id, 'usedBy' => $this->used_by, 'usedAt' => $this->used_at] as $k => $v) {
             if ($v !== null) {
                 $row[$k] = $v;
             }
