@@ -159,6 +159,13 @@ class Assignment extends Model
         return $n;
     }
 
+    /** expireAssignmentsWhere(a => a.coachId === coach): every unanswered offer one coach made. */
+    public static function expireAllFrom(string $coachId): int
+    {
+        return static::acrossCoaches()->where('coach_id', $coachId)->where('status', 'pending') // across coaches: an admin route acts on the detached coach's offers
+            ->update(['status' => 'expired', 'decided_at' => Js::isoNow()]);
+    }
+
     /**
      * api/server.js expireAssignmentsWhere(a => a.memberId === member && a.coachId === coach): the
      * pending offers one coach made to one member, retired when the relationship ends. The coach

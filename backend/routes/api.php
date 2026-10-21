@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
@@ -74,6 +75,11 @@ $routes = static function (): void {
             Route::get('/admin/invites', [InviteController::class, 'adminIndex']);
             Route::post('/admin/invites/new', [InviteController::class, 'adminCreate']);
             Route::post('/admin/invites/revoke', [InviteController::class, 'adminRevoke']);
+            Route::get('/admin/users', [AdminUserController::class, 'index']);
+            Route::get('/admin/user', [AdminUserController::class, 'show']);
+            Route::post('/admin/user/disable', [AdminUserController::class, 'disable']);
+            Route::post('/admin/user/coach', [AdminUserController::class, 'coach']);
+            Route::post('/admin/user/assign-coach', [AdminUserController::class, 'assignCoach']);
         });
     });
 };

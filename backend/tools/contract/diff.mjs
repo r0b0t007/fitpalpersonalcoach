@@ -137,6 +137,12 @@ const firstOffer = async (base, uid) => ((await call(base, { path: '/api/assignm
 const withdrawReq = (uid, id) => ({ method: 'POST', path: '/api/coach/assignments/withdraw', headers: bearer(uid), body: { id } });
 const decideReq = (uid, id, accept) => ({ method: 'POST', path: '/api/assignments/decide', headers: bearer(uid), body: { id, accept } });
 
+// Admin account controls: one request, then whatever it changed, read back.
+const adminReq = (path, body) => ({ method: 'POST', path: '/api/admin/user/' + path, headers: bearer('cdAdmin000000000'), body });
+const usersOf = async (base, pred) => ((await call(base, { path: '/api/admin/users', headers: bearer('cdAdmin000000000') })).json?.users || []).filter(pred).map(u => u.id);
+const codesOf = async (base, coachId) => ((await call(base, { path: '/api/admin/invites', headers: bearer('cdAdmin000000000') })).json?.invites || [])
+  .filter(i => i.coachId === coachId).map(typed);
+
 const fat = JSON.stringify({ state: { pad: 'x'.repeat(17 * 1024 * 1024) } });
 const CASES = [
   { name: 'health', req: { path: '/api/health' }, mode: 'exact' },
@@ -404,6 +410,63 @@ const CASES = [
       lastDecision: m.lastDecision && { ...m.lastDecision, at: typeof m.lastDecision.at } }));
     return { ...r, json: { ...r.json, members } };
   }, mode: 'exact' },
+  // R2 — the owner's account controls and detachCoach (CHW-250).
+  { name: 'admin users, anonymous', req: { path: '/api/admin/users' }, mode: 'exact' },
+  { name: 'admin users, a coach', req: { path: '/api/admin/users', headers: bearer('cdCoach000000000') }, mode: 'exact' },
+  { name: 'admin users', run: clockless({ path: '/api/admin/users', headers: bearer('cdAdmin000000000') }), mode: 'exact' },
+  { name: 'admin user, a client', req: { path: '/api/admin/user?id=cdMember00000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'admin user, the admin', req: { path: '/api/admin/user?id=cdAdmin000000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'admin user, nobody', req: { path: '/api/admin/user?id=nope', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'admin user, no id', req: { path: '/api/admin/user', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'admin disable, nobody', req: adminReq('disable', { id: 'nope', disabled: true }), mode: 'exact' },
+  { name: 'admin disable, an id that is not a string', req: adminReq('disable', { id: ['cdSync0000000000'], disabled: true }), mode: 'exact' },
+  { name: 'admin disable, an admin', req: adminReq('disable', { id: 'cdAdmin000000000', disabled: true }), mode: 'exact' },
+  { name: 'admin disable, bad json', req: { method: 'POST', path: '/api/admin/user/disable', headers: bearer('cdAdmin000000000'), raw: '{nope' }, mode: 'exact' },
+  { name: 'admin disable, by a coach', req: { method: 'POST', path: '/api/admin/user/disable', headers: bearer('cdCoach000000000'), body: { id: 'cdSync0000000000', disabled: true } }, mode: 'exact' },
+  { name: 'admin coach, nobody', req: adminReq('coach', { id: 'nope', coach: true }), mode: 'exact' },
+  { name: 'admin assign-coach, nobody', req: adminReq('assign-coach', { id: 'nope', coachId: 'cdCoachB00000000' }), mode: 'exact' },
+  { name: 'admin assign-coach, not a coach', req: adminReq('assign-coach', { id: 'cdSync0000000000', coachId: 'cdBare0000000000' }), mode: 'exact' },
+  { name: 'admin assign-coach, a coach that does not exist', req: adminReq('assign-coach', { id: 'cdSync0000000000', coachId: 'nope' }), mode: 'exact' },
+  { name: 'admin assign-coach, their own coach', req: adminReq('assign-coach', { id: 'cdCoachB00000000', coachId: ' cdCoachB00000000 ' }), mode: 'exact' },
+  { name: 'admin assign-coach, onto the other coach', run: async base => {
+    const r = await call(base, adminReq('assign-coach', { id: 'cdSync0000000000', coachId: 'cdCoachB00000000' }));
+    return { ...r, json: { body: r.json, roster: (await clockless({ path: '/api/coach/members', headers: bearer('cdCoachB00000000') })(base)).json } };
+  }, mode: 'exact' },
+  { name: 'admin assign-coach, a move retires the old coach’s offers', run: async base => {
+    const r = await call(base, adminReq('assign-coach', { id: 'cdMember00000000', coachId: 'cdCoachB00000000' }));
+    return { ...r, json: { body: r.json, inbox: (await inboxOf('cdMember00000000')(base)).json } };
+  }, mode: 'exact' },
+  { name: 'admin assign-coach, blank unassigns', req: adminReq('assign-coach', { id: 'cdSync0000000000', coachId: '   ' }), mode: 'exact' },
+  { name: 'admin coach, revoking the role detaches', run: async base => {
+    const r = await call(base, adminReq('coach', { id: 'cdCoachB00000000', coach: false }));
+    const members = await call(base, { path: '/api/coach/members', headers: bearer('cdCoachB00000000') });
+    return { ...r, json: { body: r.json, theirs: await usersOf(base, u => u.coachId === 'cdCoachB00000000'), members: [members.status, members.json] } };
+  }, mode: 'exact' },
+  { name: 'admin coach, granted again, nothing comes back', run: async base => {
+    const r = await call(base, adminReq('coach', { id: 'cdCoachB00000000', coach: 'yes' }));
+    return { ...r, json: { body: r.json, roster: (await clockless({ path: '/api/coach/members', headers: bearer('cdCoachB00000000') })(base)).json } };
+  }, mode: 'exact' },
+  { name: 'admin disable, a coach detaches', run: async base => {
+    const r = await call(base, adminReq('disable', { id: 'cdCoach000000000', disabled: true }));
+    const members = await call(base, { path: '/api/coach/members', headers: bearer('cdCoach000000000') });
+    return { ...r, json: { body: r.json, theirs: await usersOf(base, u => u.coachId === 'cdCoach000000000'), codes: await codesOf(base, 'cdCoach000000000'), members: [members.status, members.json] } };
+  }, mode: 'exact' },
+  { name: 'admin assign-coach, a disabled coach', req: adminReq('assign-coach', { id: 'cdSync0000000000', coachId: 'cdCoach000000000' }), mode: 'exact' },
+  { name: 'admin disable, enabled again, the roster stays empty', run: async base => {
+    const r = await call(base, adminReq('disable', { id: 'cdCoach000000000', disabled: 0 }));
+    return { ...r, json: { body: r.json, roster: (await clockless({ path: '/api/coach/members', headers: bearer('cdCoach000000000') })(base)).json } };
+  }, mode: 'exact' },
+  { name: 'admin coach, an admin keeps coaching with the flag off', run: async base => {
+    const r = await call(base, adminReq('coach', { id: 'cdAdmin000000000', coach: false }));
+    return { ...r, json: { body: r.json, user: (await call(base, { path: '/api/admin/user?id=cdAdmin000000000', headers: bearer('cdAdmin000000000') })).json?.user } };
+  }, mode: 'exact' },
+  // Query values as searchParams.get read them: untrimmed, the first of repeated names.
+  { name: 'admin user, a padded id', req: { path: '/api/admin/user?id=%20cdSync0000000000%20', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'admin user, a repeated id (the first counts)', req: { path: '/api/admin/user?id=nope&id=cdSync0000000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'admin user, a repeated id (the first is real)', req: { path: '/api/admin/user?id=cdSync0000000000&id=nope', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'member, a padded id', req: { path: '/api/coach/member?id=%20cdSync0000000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'invite, a code padded with an NBSP and a BOM', run: async base => call(base, { path: '/api/invite?code=%C2%A0' + await coachCode(base) + '%EF%BB%BF' }), mode: 'exact' },
+  { name: 'admin users, after it all', run: clockless({ path: '/api/admin/users', headers: bearer('cdAdmin000000000') }), mode: 'exact' },
   { name: 'logout', req: { method: 'POST', path: '/api/logout', headers: bearer('cdMember00000000') }, mode: 'exact', cookies: true },
   { name: 'logout everywhere', run: async base => {
     const old = token('cdWipe0000000000', 2);

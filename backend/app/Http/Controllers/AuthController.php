@@ -146,7 +146,7 @@ final class AuthController
                     // A coach's code puts this client straight onto that coach's roster, if the coach
                     // can still coach now (not at mint time). Otherwise the signup still succeeds,
                     // unassigned: refusing it would punish the client for what only the gym can fix.
-                    $user->coach_id = InviteGate::coachBinding($invite)?->id;
+                    $user->coach_id = InviteGate::coachBinding($invite, lock: true)?->id;
                 }
                 $user->save();
                 $credential = $validation->credential;

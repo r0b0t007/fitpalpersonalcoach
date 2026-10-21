@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Coaching\PlanBundle;
 use App\Models\CoachProgram;
-use App\Models\User;
 use App\Support\ClientSafe;
 use App\Support\Input;
 use App\Support\Js;
 use App\Support\Json;
 use App\Support\Say;
+use App\Tenancy\CoachLock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +53,7 @@ final class CoachProgramController
 
         $program = DB::transaction(function () use ($coach, $id, $name, $stored): CoachProgram {
             // Serialised on the coach's row: the cap is counted and the row written as one step.
-            User::query()->whereKey($coach->id)->lockForUpdate()->first();
+            CoachLock::take($coach->id);
             $row = CoachProgram::query()->where('program_id', $id)->first();
             // Refused past the cap only when the write would ADD a row: renaming or re-saving an
             // existing program never hits the wall. 429, a state the coach can fix.
@@ -79,7 +79,7 @@ final class CoachProgramController
         // Under the same lock as save: a delete landing between a save's read and its write would
         // let the save report a row that no longer exists.
         $gone = DB::transaction(function () use ($coach, $id): ?CoachProgram {
-            User::query()->whereKey($coach->id)->lockForUpdate()->first();
+            CoachLock::take($coach->id);
             $gone = is_string($id) ? CoachProgram::query()->where('program_id', $id)->first() : null;
             $gone?->delete();
 
