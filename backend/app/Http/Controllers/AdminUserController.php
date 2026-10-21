@@ -10,6 +10,7 @@ use App\Support\ClientSafe;
 use App\Support\Input;
 use App\Support\Js;
 use App\Support\Json;
+use App\Tenancy\CoachLock;
 use App\Tenancy\Detach;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,21 +33,8 @@ final class AdminUserController
     public function index(): JsonResponse
     {
         $users = User::query()->signupOrder()->get()->map(function (User $u): array {
-            $s = MemberCard::state($u->id);
-            $workouts = Js::list($s->workouts ?? null);
-
-            return [
-                'id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso(),
-                'disabled' => (bool) $u->disabled, 'admin' => $u->isAdmin(), 'invitedBy' => Js::or($u->invited_by, null),
-                'coach' => $u->isCoach(), 'coachId' => Js::or($u->coach_id, null),
-                'workouts' => count($workouts),
-            ] + MemberCard::lastWorkout($workouts) + [
-                'lastSync' => Js::or($s->_ts ?? null, null),
-                // Push subscriptions arrive with R3; until then nobody has one.
-                'hasPush' => false,
-                // The presence object while they train (R3 brings presence); null otherwise.
-                'live' => null,
-            ];
+            // Push subscriptions arrive with R3; until then nobody has one.
+            return self::identity($u) + MemberCard::activity(MemberCard::state($u->id)) + ['hasPush' => false];
         });
 
         return Json::ok(['users' => $users->all(), 'invite_only' => (bool) config('fitpal.invite_only'), 'now' => Audit::now()]);
@@ -63,11 +51,7 @@ final class AdminUserController
         $s = MemberCard::state($u->id);
 
         return Json::ok([
-            'user' => [
-                'id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso(), 'disabled' => (bool) $u->disabled,
-                'admin' => $u->isAdmin(), 'invitedBy' => Js::or($u->invited_by, null),
-                'coach' => $u->isCoach(), 'ownCoachFlag' => (bool) $u->coach, 'coachId' => Js::or($u->coach_id, null),
-            ],
+            'user' => self::identity($u) + ['ownCoachFlag' => (bool) $u->coach],
         ] + MemberCard::drillDown($s) + [
             'workouts' => array_reverse(Js::list($s->workouts ?? null)),
         ]);
@@ -123,13 +107,10 @@ final class AdminUserController
         $coachId = Js::trim(Input::jsString($request, 'coachId'));
 
         return DB::transaction(function () use ($id, $coachId): JsonResponse {
-            // Member and coach locked in one statement: a coach disabled in the meantime is seen
-            // as disabled, and a send to this member waits until the move is done.
-            if (! is_string($id)) {
-                throw new ClientSafe(404, 'no such user');
-            }
-            $rows = User::query()->whereKey(array_filter([$id, $coachId], 'strlen'))->lockForUpdate()->get()->keyBy('id');
-            $u = $rows->get($id) ?? throw new ClientSafe(404, 'no such user');
+            // The coach's row first (CoachLock), then the member's: a coach disabled in the meantime
+            // is seen as disabled, and a send to this member waits until the move is done.
+            $c = $coachId === '' ? null : CoachLock::take($coachId);
+            $u = self::locked($id);
             $previous = $u->coach_id;
             if ($coachId === '') {
                 $u->forceFill(['coach_id' => null])->save();
@@ -137,7 +118,6 @@ final class AdminUserController
 
                 return Json::ok(['ok' => true, 'id' => $u->id, 'coachId' => null]);
             }
-            $c = $rows->get($coachId);
             if (! $c || ! $c->isCoach()) {
                 throw new ClientSafe(400, 'that user is not a coach');
             }
@@ -157,6 +137,16 @@ final class AdminUserController
 
             return Json::ok(['ok' => true, 'id' => $u->id, 'coachId' => $c->id]);
         }, self::ATTEMPTS);
+    }
+
+    /** Who an account is, as both the list and the drill-down show it. */
+    private static function identity(User $u): array
+    {
+        return [
+            'id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso(), 'disabled' => (bool) $u->disabled,
+            'admin' => $u->isAdmin(), 'invitedBy' => Js::or($u->invited_by, null),
+            'coach' => $u->isCoach(), 'coachId' => Js::or($u->coach_id, null),
+        ];
     }
 
     /** `db.users.find(x => x.id === body.id)`, locked: only a string can match. */

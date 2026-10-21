@@ -4,6 +4,8 @@ namespace App\Auth;
 
 use App\Models\Invite;
 use App\Models\User;
+use App\Support\Js;
+use App\Tenancy\CoachLock;
 
 /**
  * The two questions every use of an invite code asks (api/domain.mjs redeemableInvite and
@@ -33,7 +35,7 @@ final class InviteGate
         $query = Invite::acrossCoaches()->whereKey($c); // across coaches: a code is a global key
         if ($lock && ($coachId = (clone $query)->value('coach_id')) !== null) {
             // An invite's coach_id is set at mint and never changes, so the peek cannot go stale.
-            User::query()->whereKey($coachId)->lockForUpdate()->first();
+            CoachLock::take($coachId);
         }
         $invite = ($lock ? $query->lockForUpdate() : $query)->first();
 
@@ -63,6 +65,7 @@ final class InviteGate
 
     public static function normalise(?string $code): string
     {
-        return strtoupper(trim((string) $code));
+        // `String(code).trim().toUpperCase()`: JS's trim strips a pasted NBSP or BOM, PHP's does not.
+        return mb_strtoupper(Js::trim((string) $code));
     }
 }

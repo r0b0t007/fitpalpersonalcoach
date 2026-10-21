@@ -91,26 +91,30 @@ final class Input
      */
     public static function searchParam(Request $request, string $key): ?string
     {
-        foreach (explode('&', (string) $request->server->get('QUERY_STRING', '')) as $pair) {
-            if ($pair === '') {
-                continue;
-            }
-            [$name, $value] = array_pad(explode('=', $pair, 2), 2, '');
-            if (self::formDecode($name) === $key) {
-                return self::formDecode($value);
-            }
+        if (! $request->attributes->has('fitpal.query')) {
+            $request->attributes->set('fitpal.query', self::parseQuery((string) $request->server->get('QUERY_STRING', '')));
         }
 
-        return null;
+        return $request->attributes->get('fitpal.query')[$key] ?? null;
     }
 
-    private static function formDecode(string $s): string
+    /** @return array<string, string> each name's first value, decoded; parsed once per request */
+    private static function parseQuery(string $query): array
     {
         // mb_scrub substitutes '?' unless told otherwise; URLSearchParams writes U+FFFD.
         $was = mb_substitute_character();
         mb_substitute_character(0xFFFD);
         try {
-            return mb_scrub(rawurldecode(str_replace('+', ' ', $s)), 'UTF-8');
+            $decode = fn (string $s): string => mb_scrub(rawurldecode(str_replace('+', ' ', $s)), 'UTF-8');
+            $params = [];
+            foreach (explode('&', $query) as $pair) {
+                if ($pair !== '') {
+                    [$name, $value] = array_pad(explode('=', $pair, 2), 2, '');
+                    $params[$decode($name)] ??= $decode($value);
+                }
+            }
+
+            return $params;
         } finally {
             mb_substitute_character($was);
         }

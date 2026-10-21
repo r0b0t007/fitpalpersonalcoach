@@ -238,3 +238,9 @@ it('locks the binding coach before the invite, the order a detach takes them in'
     $this->postJson('/api/invite/redeem', ['code' => $code], bearer($f->u1))->assertOk();
     expect(array_slice($reads, 0, 2))->toBe(['coach', 'invite']);
 });
+
+it('trims a code as JS did: a pasted NBSP or BOM is whitespace too', function () {
+    $code = $this->postJson('/api/coach/invites/new', ['note' => 'x'], bearer($this->f->a))->json('invite.code');
+    $this->getJson('/api/invite?code=%C2%A0'.strtolower($code).'%EF%BB%BF')->assertOk()->assertJsonPath('coachName', 'Coach A');
+    $this->postJson('/api/invite/redeem', ['code' => "\u{00A0}$code\u{2028}"], bearer($this->f->u1))->assertOk();
+});

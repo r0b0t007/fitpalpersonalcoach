@@ -44,7 +44,6 @@ final class MemberCard
     public static function card(User $u, ?string $viewerId, Collection $offers): array
     {
         $s = self::state($u->id);
-        $workouts = Js::list($s->workouts ?? null);
         $trainable = self::trainable($s);
         // Sending used to be a black hole: a decline looked exactly like "hasn't opened the app".
         // Node sorted String(decidedAt) descending, so a row with no date ("undefined") came
@@ -57,11 +56,7 @@ final class MemberCard
 
         $card = [
             'id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso(), 'disabled' => (bool) $u->disabled,
-            'workouts' => count($workouts),
-        ] + self::lastWorkout($workouts) + [
-            'lastSync' => Js::or($s->_ts ?? null, null),
-            // The presence object while they train (R3 brings presence); null otherwise, as Node.
-            'live' => null,
+        ] + self::activity($s) + [
             // Only the viewer's own offers: withdraw is theirs to press, and another coach's
             // pending program is not their business to see or cancel.
             'pending' => $offers->filter(fn (Assignment $a) => $a->status === 'pending' && ($viewerId === null || $a->coach_id === $viewerId))
@@ -78,6 +73,21 @@ final class MemberCard
         ];
 
         return $card;
+    }
+
+    /**
+     * The activity fields every account list shows — the coach's roster and the admin's — read
+     * from the state the same way in both.
+     */
+    public static function activity(stdClass $s): array
+    {
+        $workouts = Js::list($s->workouts ?? null);
+
+        return ['workouts' => count($workouts)] + self::lastWorkout($workouts) + [
+            'lastSync' => Js::or($s->_ts ?? null, null),
+            // The presence object while they train (R3 brings presence); null otherwise, as Node.
+            'live' => null,
+        ];
     }
 
     /**

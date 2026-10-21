@@ -11,6 +11,7 @@ use App\Support\Js;
 use App\Support\Json;
 use App\Support\Say;
 use App\Tenancy\Access;
+use App\Tenancy\CoachLock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -120,7 +121,7 @@ final class InviteController
         // The count and the mint as one step, serialised on the coach's own row: two taps at 19
         // open codes must not both pass the cap (Node had no await between the check and the push).
         $invite = DB::transaction(function () use ($coach, $note): Invite|JsonResponse {
-            $me = User::query()->whereKey($coach->id)->lockForUpdate()->first();
+            $me = CoachLock::take($coach->id);
             // Judged again on the locked row: a detach (role revoked, account disabled) holds this
             // lock while it revokes the coach's open codes, and a mint that waited behind it must
             // not then hand out a fresh one. Refused as RequireCoach would refuse the next request.

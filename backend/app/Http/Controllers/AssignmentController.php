@@ -12,6 +12,7 @@ use App\Support\Js;
 use App\Support\Json;
 use App\Support\Say;
 use App\Tenancy\Access;
+use App\Tenancy\CoachLock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,11 +45,11 @@ final class AssignmentController
         $stored = Js::stringify($bundle);
 
         $coach = DB::transaction(function () use ($coach, $ids, $note, $schedule, $stored): User {
-            // The members' rows and the coach's, locked in one statement: the pending cap is
-            // counted and the offers written as one step, and a release, a move or the coach being
-            // disabled lands either before this reads them or after it is done — never in between.
-            $locked = User::query()->whereKey([...$ids, $coach->id])->lockForUpdate()->get()->keyBy('id');
-            $coach = $locked->get($coach->id) ?? throw new ClientSafe(403, 'forbidden');
+            // The coach's row first (CoachLock), then the members': the pending cap is counted and
+            // the offers written as one step, and a release, a move or the coach being disabled
+            // lands either before this reads them or after it is done — never in between.
+            $coach = CoachLock::take($coach->id) ?? throw new ClientSafe(403, 'forbidden');
+            $locked = User::query()->whereKey($ids)->lockForUpdate()->get()->keyBy('id');
             $pending = Assignment::pendingCounts($ids);
             // In the order sent, and all or nothing: one member that is not the caller's refuses
             // the whole batch, and the first one over the cap is the one named, as in Node.

@@ -17,9 +17,8 @@ use App\Models\User;
  * nullOnDelete; this clears it by hand anyway, because the account stays.)
  *
  * Call it inside the caller's transaction with the coach's row locked. Everything that attaches to
- * a coach takes that lock first and judges the coach on the locked row — a send
- * (AssignmentController::assign), a mint (InviteController::coachCreate), a redemption or a signup
- * (InviteGate) — so none of them can land half-way through a detach.
+ * a coach takes that same lock first, through CoachLock, and judges the coach on the locked row,
+ * so nothing can land half-way through a detach and no lock order can deadlock against it.
  *
  * Node's classes kept their coachId on purpose (disabling is often temporary); the timetable is
  * not ported, so there is nothing of it here.

@@ -465,6 +465,7 @@ const CASES = [
   { name: 'admin user, a repeated id (the first counts)', req: { path: '/api/admin/user?id=nope&id=cdSync0000000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
   { name: 'admin user, a repeated id (the first is real)', req: { path: '/api/admin/user?id=cdSync0000000000&id=nope', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
   { name: 'member, a padded id', req: { path: '/api/coach/member?id=%20cdSync0000000000', headers: bearer('cdAdmin000000000') }, mode: 'exact' },
+  { name: 'invite, a code padded with an NBSP and a BOM', run: async base => call(base, { path: '/api/invite?code=%C2%A0' + await coachCode(base) + '%EF%BB%BF' }), mode: 'exact' },
   { name: 'admin users, after it all', run: clockless({ path: '/api/admin/users', headers: bearer('cdAdmin000000000') }), mode: 'exact' },
   { name: 'logout', req: { method: 'POST', path: '/api/logout', headers: bearer('cdMember00000000') }, mode: 'exact', cookies: true },
   { name: 'logout everywhere', run: async base => {

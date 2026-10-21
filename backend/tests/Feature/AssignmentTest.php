@@ -268,3 +268,15 @@ it('parses timestamps as Date.parse did', function () {
         ->and(Js::dateParse(''))->toBeNull()
         ->and(Js::dateParse(null))->toBeNull();
 });
+
+it('locks the coach before the members, the order a detach takes them in', function () {
+    $f = $this->f;
+    $reads = [];
+    DB::listen(function ($q) use (&$reads, $f) {
+        if (str_starts_with($q->sql, 'select * from "users"') && DB::transactionLevel() >= 2) {
+            $reads[] = in_array($f->a->id, $q->bindings, true) ? 'coach' : 'members';
+        }
+    });
+    send($f->a, [$f->a1->id, $f->a2->id])->assertOk();
+    expect(array_slice($reads, 0, 2))->toBe(['coach', 'members']);
+});

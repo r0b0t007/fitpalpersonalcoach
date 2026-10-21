@@ -148,7 +148,7 @@ it('lists every account in Node\'s order and shape', function () {
         ->and($res->json('now'))->toBeInt()
         ->and($res->json('invite_only'))->toBeBool();
     $a1 = collect($res->json('users'))->firstWhere('id', $f->a1->id);
-    expect($a1)->toBe([
+    expect($a1)->toEqual([   // every field, any order (the app reads them by name)
         'id' => $f->a1->id, 'name' => 'Client A1', 'created' => $f->a1->createdIso(), 'disabled' => false, 'admin' => false,
         'invitedBy' => null, 'coach' => false, 'coachId' => $f->a->id, 'workouts' => 2, 'lastWorkout' => '2026-05-03',
         'lastSync' => 1790000000000, 'hasPush' => false, 'live' => null,
