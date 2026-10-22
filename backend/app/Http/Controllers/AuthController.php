@@ -3,12 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Audit\Audit;
+use App\Audit\ClientIp;
 use App\Auth\Bootstrap;
 use App\Auth\CoachSeat;
 use App\Auth\InviteGate;
 use App\Auth\SessionToken;
 use App\Auth\TokenGuard;
+use App\Domain\Plans;
+use App\Mail\AccountMail;
+use App\Mail\SendAfterResponse;
+use App\Models\LoginLink;
 use App\Models\User;
+use App\Support\ClientLimit;
 use App\Support\Input;
 use App\Support\Js;
 use App\Support\Json;
@@ -36,6 +42,8 @@ use Laragear\WebAuthn\JsonTransport;
 use Laragear\WebAuthn\Models\WebAuthnCredential;
 use Throwable;
 
+use function Illuminate\Support\defer;
+
 /**
  * Passkeys and the session, on the four routes the React app calls with the shapes it sends
  * (frontend/src/lib/api.js). Registration creates the account inside the ceremony: options takes
@@ -44,6 +52,7 @@ use Throwable;
  *
  * The sign-up gate is here: INVITE_ONLY, the bootstrap code, and invite codes (InviteGate), whose
  * coach's code puts the new client on that coach's roster — if that coach has a seat (CoachSeat).
+ * And the coach's own sign-up (R4, `coach: true` with an email), behind SELF_SERVE_COACH.
  */
 final class AuthController
 {
@@ -66,12 +75,15 @@ final class AuthController
         if ($name === '') {
             return Json::error(400, 'name required');
         }
+        if (in_array(Input::raw($request, 'coach'), [true, 1, 'true', '1'], true)) {
+            return $this->coachOptions($request, $name);
+        }
         $code = InviteGate::normalise(Input::jsString($request, 'code'));
         // A code is looked up whenever one is SUPPLIED, and REQUIRED only when INVITE_ONLY is on:
         // a coach's invite link works on an open instance too. Who may create an account at all is
         // a separate question from taking a client on.
         $invite = InviteGate::redeemable($code);
-        if (config('fitpal.invite_only') && ! Bootstrap::matches($code, User::query()->count()) && ! $invite) {
+        if (config('fitpal.invite_only') && ! Bootstrap::matches($code, self::bootstrapCount()) && ! $invite) {
             // The rejected code itself is never recorded: a near-miss guess in the log is a liability.
             Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'invite-rejected']);
 
@@ -86,17 +98,39 @@ final class AuthController
             return $full;
         }
 
-        // An unsaved account, so the ceremony has a user to describe and a handle to issue.
+        return $this->newAccountOptions($request, $name, ['code' => $code]);
+    }
+
+    /**
+     * The registration ceremony's options for an account not yet written: an unsaved user, so the
+     * ceremony has someone to describe and a handle to issue; $extra rides with the challenge.
+     */
+    private function newAccountOptions(Request $request, string $name, array $extra): JsonResponse
+    {
         $user = new User(['id' => User::newId(), 'name' => $name]);
-        $request->attributes->set(CacheChallengeRepository::EXTRA_ATTRIBUTE, ['uid' => $user->id, 'name' => $name, 'code' => $code]);
 
+        return $this->attestationOptions($request, $user, ['uid' => $user->id, 'name' => $name] + $extra, unique: false);
+    }
+
+    /** The one place the ceremony's settings live: a sign-up's, a coach's, an added passkey's. */
+    private function attestationOptions(Request $request, User $user, array $extra, bool $unique): JsonResponse
+    {
+        $request->attributes->set(CacheChallengeRepository::EXTRA_ATTRIBUTE, $extra);
         $creation = app(AttestationCreator::class)
-            ->send(new AttestationCreation(user: $user, residentKey: ResidentKey::Required, userVerification: UserVerification::Preferred, uniqueCredentials: false))
+            ->send(new AttestationCreation(user: $user, residentKey: ResidentKey::Required, userVerification: UserVerification::Preferred, uniqueCredentials: $unique))
             ->thenReturn();
-
         $creation->json->set('timeout', self::PROMPT_TIMEOUT_MS);
 
         return Json::ok(['cid' => $request->attributes->get(CacheChallengeRepository::CID_ATTRIBUTE), 'options' => $creation->json->toArray()]);
+    }
+
+    /**
+     * The accounts the bootstrap code counts: it works while there are none. Self-serve coach
+     * accounts are not counted — a stranger signing up first must not kill the owner's way in.
+     */
+    private static function bootstrapCount(): int
+    {
+        return User::query()->where('self_serve', false)->count();
     }
 
     public function registerVerify(Request $request, AttestationValidator $validator): JsonResponse
@@ -124,6 +158,11 @@ final class AuthController
             return Json::error(400, self::verifyError($e));
         }
 
+        // A coach's own sign-up has no code, takes no lock and is never admin: its own path.
+        if (! empty($entry['extra']['coach'])) {
+            return $this->coachVerify($request, $user, $validation, $entry['extra']);
+        }
+
         // The code is re-checked now rather than trusted from options: an invite may have been used
         // or revoked since, and the bootstrap code dies the moment any account exists. The check
         // and the insert are one critical section, so two people finishing at once cannot both
@@ -141,7 +180,7 @@ final class AuthController
         $failed = null;
         $gate = function () use ($user, $validation, $code, &$spent, &$failed) {
             return DB::transaction(function () use ($user, $validation, $code, &$spent, &$failed) {
-                $bootstrap = Bootstrap::matches($code, User::query()->count());
+                $bootstrap = Bootstrap::matches($code, self::bootstrapCount());
                 $invite = $bootstrap ? null : InviteGate::redeemable($code, lock: true);
                 if (config('fitpal.invite_only') && ! $bootstrap && ! $invite) {
                     $failed = 'invite-invalid';
@@ -220,13 +259,8 @@ final class AuthController
     {
         /** @var User $user */
         $user = $request->user('api');
-        $request->attributes->set(CacheChallengeRepository::EXTRA_ATTRIBUTE, ['uid' => $user->id, 'add' => true]);
-        $creation = app(AttestationCreator::class)
-            ->send(new AttestationCreation(user: $user, residentKey: ResidentKey::Required, userVerification: UserVerification::Preferred, uniqueCredentials: true))
-            ->thenReturn();
-        $creation->json->set('timeout', self::PROMPT_TIMEOUT_MS);
 
-        return Json::ok(['cid' => $request->attributes->get(CacheChallengeRepository::CID_ATTRIBUTE), 'options' => $creation->json->toArray()]);
+        return $this->attestationOptions($request, $user, ['uid' => $user->id, 'add' => true], unique: true);
     }
 
     /** POST /api/passkeys/verify (signed in) — the new passkey, attached to the signed-in account. */
@@ -254,6 +288,80 @@ final class AuthController
         Audit::record($request, 'auth.passkey.add', ['user' => $user]);
 
         return Json::ok(['ok' => true]);
+    }
+
+    /**
+     * A coach signing up on their own (spec §2 flow, §4): name, email and a passkey, then the
+     * checkout. Behind SELF_SERVE_COACH, which opens this WITHOUT an invite even when INVITE_ONLY
+     * — and only while billing is on: the self-serve coach is meant to pay, and with no Creem
+     * every coach is unlicensed, writable and unlimited, which would make an invite-only instance
+     * open to anyone.
+     *
+     * The address is not taken from the request as the account's: it waits in `pending_email`,
+     * and the first mail is the link that confirms it (spec §4a) — as changing it does. Nothing
+     * unconfirmed blocks anyone: the real owner of an address someone else typed can still sign
+     * up, and whoever confirms first has it. So sign-up never says an address is taken (that
+     * would look it up for anyone); opening the link, which only its inbox can, says so.
+     */
+    private function coachOptions(Request $request, string $name): JsonResponse
+    {
+        if (! config('fitpal.self_serve_coach') || ! Plans::billingOn()) {
+            Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'self-serve-closed']);
+
+            return Json::error(403, 'coach sign-up is not open on this server');
+        }
+        $email = LoginLink::normaliseEmail(Input::jsString($request, 'email'));
+        if (! LoginLink::validEmail($email)) {
+            Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'bad-email']);
+
+            return Json::error(400, 'that is not an email address');
+        }
+        // Counted only once the request is a real sign-up: typos do not spend a shared office's hour.
+        if (ClientLimit::over($request, 'register-coach', 10, 100, 3600)) {
+            Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'self-serve-throttled']);
+
+            return Json::error(429, 'too many sign-ups from here — try again later');
+        }
+
+        return $this->newAccountOptions($request, $name, ['code' => '', 'coach' => true, 'email' => $email, 'lang' => Input::jsString($request, 'lang')]);
+    }
+
+    /**
+     * The coach's account, written with its passkey: coach and self_serve set, the address pending,
+     * no licence — read-only until the checkout's webhook (Entitlement). The mail is the link that
+     * confirms the address, in the language the app is in (the account has no saved one yet), sent
+     * after the response and never blocking the sign-up.
+     */
+    private function coachVerify(Request $request, User $user, $validation, array $extra): JsonResponse
+    {
+        if (! config('fitpal.self_serve_coach') || ! Plans::billingOn()) {
+            Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'self-serve-closed']);
+
+            return Json::error(403, 'coach sign-up is not open on this server');
+        }
+        $email = (string) $extra['email'];
+        DB::transaction(function () use ($user, $validation, $email) {
+            $user->forceFill(['coach' => true, 'self_serve' => true, 'pending_email' => $email])->save();
+            $credential = $validation->credential;
+            $credential->authenticatable_id = $user->id;
+            $credential->save();
+        });
+        Audit::record($request, 'auth.register.ok', ['user' => $user, 'msg' => 'self-serve']);
+        $lang = is_string($extra['lang'] ?? null) ? $extra['lang'] : null;
+        $ip = ClientIp::for($request, (string) config('fitpal.audit.ip'));
+        defer(function () use ($user, $email, $lang, $ip) {
+            try {
+                [$token] = LoginLink::issue($user, 'email', $email, $ip);
+            } catch (Throwable $e) {
+                // The account stands; without this mail its address stays unconfirmed, so say so.
+                Log::error('self-serve confirmation link failed', ['user' => $user->id, 'error' => $e->getMessage()]);
+
+                return;
+            }
+            SendAfterResponse::send($email, new AccountMail('confirm', $user, LoginLink::url($token), $email, $lang));
+        });
+
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
     }
 
     public function loginOptions(Request $request, AssertionCreator $creator): JsonResponse

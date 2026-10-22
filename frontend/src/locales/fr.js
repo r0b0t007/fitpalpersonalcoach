@@ -1471,6 +1471,8 @@ export default {
   'too many emails asked for — try again in a few minutes': 'trop d’e-mails demandés — réessayez dans quelques minutes',
   'that email address is already used by another account': 'cette adresse e-mail est déjà utilisée par un autre compte',
   'sign in again to do this — it needs a recent sign-in': 'reconnectez-vous pour faire cela — il faut une connexion récente',
+  'coach sign-up is not open on this server': 'l’inscription des coachs n’est pas ouverte sur ce serveur',
+  'too many sign-ups from here — try again later': 'trop d’inscriptions depuis cet endroit — réessayez plus tard',
   'Signed in with an email link': 'Connecté avec un lien par e-mail',
   'Too many sign-in links asked for': 'Trop de liens de connexion demandés',
   'Changed the sign-in email': 'A changé son adresse de connexion',

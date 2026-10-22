@@ -125,9 +125,19 @@ group also answers the prefix-stripped `/health` in case a proxy strips it.
   its counter advancing; a fresh registration and login work with the exact JSON the React app
   posts. Registration creates the account inside the ceremony: the options call takes a name and
   answers with a handle for an unsaved user; verify writes the user and the credential together.
-- Coach signup: `POST /api/register/options {name, email, coach: true}`, gated by
-  `SELF_SERVE_COACH`. The email is stored; verification is a signed link sent through the mail
-  API and is not blocking (Creem's receipt goes to the checkout email anyway).
+- Coach signup: `POST /api/register/options {name, email, coach: true, lang?}`, gated by
+  `SELF_SERVE_COACH` **and billing on** (403 `coach sign-up is not open on this server`; with no
+  Creem every coach is unlicensed and unlimited, which would open an invite-only instance to
+  anyone — `check-config` warns). It opens sign-up without an invite even when `INVITE_ONLY`. The
+  address is normalised, refused only when malformed (400), and **not** written to `email`: it
+  waits in `pending_email`, and the account's first mail is the link that confirms it (§4a), as
+  changing it does — so nothing unconfirmed blocks the address's real owner (whoever confirms
+  first has it), and sign-up never says an address is taken (opening the link, which only its
+  inbox can, refuses it with the email-change 409). 10 coach sign-ups an hour per client, 100 per
+  connection (the forwarded address can be forged), counted after validation. Verify writes
+  `coach` and `self_serve`, no licence (read-only until the checkout), never admin; self-serve
+  accounts do not count against the bootstrap code (a stranger signing up first must not kill
+  it). The mail is in `lang` (no saved language yet), sent after the response, never blocking.
 - Filament uses its own `web` guard with email + password; the owner account is created with
   `make:filament-user`; the panel lives under the `/api` mount at `/admin-panel`, restricted to
   `admin = true`.

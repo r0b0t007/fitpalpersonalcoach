@@ -32,6 +32,23 @@ class LoginLink extends Model
         return ['created_at' => 'datetime', 'expires_at' => 'datetime', 'used_at' => 'datetime'];
     }
 
+    /** How every address is kept and compared: trimmed, lower-cased (users.email is unique). */
+    public static function normaliseEmail(string $email): string
+    {
+        return mb_strtolower(trim($email));
+    }
+
+    public static function validEmail(string $email): bool
+    {
+        return $email !== '' && strlen($email) <= 254 && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    /** The app's link-landing screen (S6): the token in the hash, never sent to a server log. */
+    public static function url(string $token): string
+    {
+        return config('fitpal.origin').'/#/link?t='.$token;
+    }
+
     public static function hash(string $token): string
     {
         return hash('sha256', $token);

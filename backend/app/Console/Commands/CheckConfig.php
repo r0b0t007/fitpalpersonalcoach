@@ -38,6 +38,9 @@ final class CheckConfig extends Command
         // Creem: a partial set leaves billing off (every coach entitled) — say so, and name any
         // CREEM_PRODUCTS entry that is ignored.
         array_push($warnings, ...Plans::problems(), ...Creem::problems());
+        if (config('fitpal.self_serve_coach') && ! Plans::billingOn()) {
+            $warnings[] = 'SELF_SERVE_COACH is on but billing is off: coach sign-up stays closed until CREEM_API_KEY, CREEM_WEBHOOK_SECRET and CREEM_PRODUCTS are set (a self-serve coach is meant to pay).';
+        }
         foreach ($warnings as $w) {
             $this->warn($w);
         }
