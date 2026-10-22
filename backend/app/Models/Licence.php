@@ -22,6 +22,9 @@ class Licence extends Model
      */
     public const CREEM_LIVE = ['trialing', 'active', 'past_due', 'unpaid', 'paused'];
 
+    /** How long past its period a Creem licence counts as in force with no news from Creem (isStale). */
+    public const GRACE_DAYS = 14;
+
     public $incrementing = false;
 
     protected $keyType = 'string';
@@ -30,6 +33,27 @@ class Licence extends Model
 
     // Every write names its columns (forceFill): what a licence says is never a request's to set.
     protected $fillable = [];
+
+    /**
+     * A Creem licence whose paid period ended more than GRACE_DAYS ago without a word from Creem:
+     * a renewal moves period_end on (CHW-270), so this is a webhook lost for good. It neither
+     * writes (Entitlement) nor counts as a subscription that can still bill — else the coach could
+     * neither work, nor pay again, nor be granted a plan. A manual licence has no period.
+     */
+    public function isStale(): bool
+    {
+        return $this->source === 'creem' && $this->period_end !== null
+            && $this->period_end->lt(now()->subDays(self::GRACE_DAYS));
+    }
+
+    /**
+     * A Creem subscription that can still charge the coach (CREEM_LIVE, and not stale): nobody sells
+     * them a second plan over it, and a grant by hand does not take it over.
+     */
+    public function canStillBill(): bool
+    {
+        return $this->source === 'creem' && in_array($this->status, self::CREEM_LIVE, true) && ! $this->isStale();
+    }
 
     protected function casts(): array
     {

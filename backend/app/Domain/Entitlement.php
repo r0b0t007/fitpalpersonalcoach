@@ -32,8 +32,8 @@ use Carbon\CarbonInterface;
  */
 final readonly class Entitlement
 {
-    /** How long past its period a Creem licence stays writable with no news from Creem (stale()). */
-    public const GRACE_DAYS = 14;
+    /** How long past its period a Creem licence stays writable with no news from Creem (Licence::isStale). */
+    public const GRACE_DAYS = Licence::GRACE_DAYS;
 
     public function __construct(
         public string $status,
@@ -142,24 +142,12 @@ final readonly class Entitlement
         return $licence !== null && $licence->user_id === $user->id ? $licence : null;
     }
 
-    /** Rule 4, the stale net, and only on a plan this instance sells. */
-    private static function writable(Licence $licence): bool
+    /** Rule 4, the stale net, and only on a plan this instance sells — for a licence already in hand. */
+    public static function writable(Licence $licence): bool
     {
         return Plans::cap($licence->plan) !== null
-            && ((in_array($licence->status, Licence::WRITABLE, true) && ! self::stale($licence))
+            && ((in_array($licence->status, Licence::WRITABLE, true) && ! $licence->isStale())
                 || ($licence->status === 'canceled' && $licence->period_end !== null && $licence->period_end->isFuture()));
-    }
-
-    /**
-     * A Creem licence whose paid period ended more than GRACE_DAYS ago without a word from Creem:
-     * a renewal moves period_end on (CHW-270), so this is a webhook lost for good — stop writing
-     * rather than stay licensed for ever. Creem's own retries (past_due) end well inside the grace.
-     * A manual licence has no period.
-     */
-    private static function stale(Licence $licence): bool
-    {
-        return $licence->source === 'creem' && $licence->period_end !== null
-            && $licence->period_end->lt(now()->subDays(self::GRACE_DAYS));
     }
 
     /** As the app reads it (`billing/me`, the banners): dates as ISO strings, the cap null when unlimited. */

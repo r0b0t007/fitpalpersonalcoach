@@ -5,6 +5,7 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ChunkUploadController;
 use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRosterController;
@@ -109,6 +110,10 @@ $routes = static function (): void {
             Route::post('/coach/programs/delete', [CoachProgramController::class, 'delete']);
             Route::post('/coach/assign', [AssignmentController::class, 'assign'])->middleware(RequireWriter::class);
             Route::post('/coach/assignments/withdraw', [AssignmentController::class, 'withdraw']);
+            // Paying for the plan (R4, Laravel only). Not RequireWriter: a lapsed coach must pay.
+            Route::post('/billing/checkout', [BillingController::class, 'checkout']);
+            Route::get('/billing/me', [BillingController::class, 'me']);
+            Route::post('/billing/portal', [BillingController::class, 'portal']);
         });
 
         Route::middleware(RequireAdmin::class)->group(function (): void {

@@ -293,10 +293,15 @@ their coach's demo media.
   `period_end` is in the future · `canTakeClient = canWrite && used < cap` · `overCap = used > cap`
   (after a downgrade: still writable, cannot add).
 - `POST /api/billing/checkout {plan, period}`: coach, non-admin (400), billing on (404), valid plan
-  and period with a product (400), no writable licence already (409), a pending checkout under
-  30 minutes old is reused; otherwise Creem `POST /v1/checkouts` with `request_id`,
-  `metadata{userId, plan, period}` and `success_url = ORIGIN + '/'`; the pending row and
-  `users.licence_id` are written; returns `{url}`. Provider failure → 502.
+  and period with a product (400), no writable licence and no Creem subscription that can still
+  bill (paused, unpaid: the card is fixed in the portal) already (409), a pending checkout under
+  30 minutes old for the same plan, period and product is reused, one checkout at a time per
+  coach (a double tap waits and gets the same one); otherwise a new pending row, and Creem `POST /v1/checkouts`
+  with `request_id`, `metadata{userId, plan, period}`, `success_url = ORIGIN + '/'` and the
+  coach's email; the call is made outside the coach's lock and the licence judged again before
+  the pending row and `users.licence_id` are written; returns `{url}`. Provider failure → 502,
+  nothing written. The API host follows the key (`creem_test_…` → test-api.creem.io) unless
+  `CREEM_API_BASE` is set.
 - `POST /api/billing/webhook`: raw body; HMAC-SHA256 with `CREEM_WEBHOOK_SECRET` compared with
   `hash_equals`, else 401; duplicate event id → `200 {duplicate: true}`; the user is resolved by
   `metadata.userId`, then subscription id, customer id, `request_id`; none → `200` plus audit
@@ -306,7 +311,10 @@ their coach's demo media.
   `last_event_at` are recorded but not applied. An event for a licence row that is not the coach's
   `licence_id` (one a grant took over: a checkout finished late, a canceled subscription's
   `expired`) updates that row only and never moves `licence_id` off a `manual` grant; a payment
-  landing on a coach who holds a grant is audited for the owner to reconcile.
+  landing on a coach who holds a grant is audited for the owner to reconcile. A coach can have
+  several pending rows (one per checkout opened for a different plan, period or product); when one
+  of them is paid while `licence_id` points at another row that does not write, `licence_id` moves
+  to the paid one.
 - `GET /api/billing/me` → `{entitlement, licence (public fields), plans}`. `POST /api/billing/
   portal` → Creem's customer portal link. Plan changes and cancellation happen in the portal in
   v1. `POST /api/admin/licence/grant {id, plan}` gives a coach a `manual` licence (or changes the
