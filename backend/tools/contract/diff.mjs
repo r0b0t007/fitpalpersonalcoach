@@ -66,11 +66,11 @@ const INTENDED = {
   [`media upload, a coach $.media.file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'stored names carry the uploading coach, so one coach\'s library can never overwrite another\'s (spec §5).',
   [`media upload, an iPhone .mov is kept and flagged raw $.media.file: Node "0026-${MOV_SHA}.mov" vs Laravel "0026-cdCoach000000000-${MOV_SHA}.mov"`]: 'names carry the uploader.',
   [`media upload, the same bytes again $.media.file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'the same: names carry the uploader.',
-  [`media list, the coach $.media[0].file: Node "0026-${MOV_SHA}.mov" vs Laravel "0026-cdCoach000000000-${MOV_SHA}.mov"`]: 'names carry the uploader.',
-  [`media list, the coach $.media[1].file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'names carry the uploader.',
-  [`media list, their client $.media[0].file: Node "0026-${MOV_SHA}.mov" vs Laravel "0026-cdCoach000000000-${MOV_SHA}.mov"`]: 'names carry the uploader.',
-  [`media list, their client $.media[1].file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'names carry the uploader.',
-  'media list, someone with no coach $.media: 2 items vs 0': 'a client sees their own coach\'s demos, and someone with no coach sees none; Node listed every row to every signed-in account (spec §5, Access::canSeeMedia).',
+  [`media list, the coach $.media[1].file: Node "0026-${MOV_SHA}.mov" vs Laravel "0026-cdCoach000000000-${MOV_SHA}.mov"`]: 'names carry the uploader.',
+  [`media list, the coach $.media[2].file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'names carry the uploader.',
+  [`media list, their client $.media[1].file: Node "0026-${MOV_SHA}.mov" vs Laravel "0026-cdCoach000000000-${MOV_SHA}.mov"`]: 'names carry the uploader.',
+  [`media list, their client $.media[2].file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'names carry the uploader.',
+  'media list, someone with no coach $.media: 3 items vs 0': 'a client sees their own coach\'s demos, and someone with no coach sees none; Node listed every row to every signed-in account (spec §5, Access::canSeeMedia).',
 };
 
 // --- comparison ---------------------------------------------------------------------------------
@@ -623,6 +623,13 @@ const CASES = [
   { name: 'members, coach, started now', run: liveOf('cdCoach000000000', 'cdMember00000000'), mode: 'exact' },
   { name: 'activity, left', req: { method: 'POST', path: '/api/activity', headers: bearer('cdMember00000000'), body: { active: false } }, mode: 'exact' },
   { name: 'members, coach, nobody training', run: liveOf('cdCoach000000000', 'cdMember00000000'), mode: 'exact' },
+  // R3 — what the import brought over (CHW-264): the seeded demo, photo and subscription.
+  { name: 'imported demo, its coach', req: { path: '/api/media/ex?id=seedMedia0000001', headers: bearer('cdCoach000000000') }, mode: 'exact' },
+  { name: 'imported demo, HEAD', req: { method: 'HEAD', path: '/api/media/ex?id=seedMedia0000001', headers: bearer('cdCoach000000000') }, mode: 'exact' },
+  { name: 'imported photos, their client', req: { path: '/api/media/photos', headers: bearer('cdMemberB0000000') }, mode: 'exact' },
+  { name: 'imported photo bytes, their client', req: { path: '/api/media/photo?id=seedPhoto0000001', headers: bearer('cdMemberB0000000') }, mode: 'exact' },
+  { name: 'imported photo bytes, their coach', req: { path: '/api/media/photo?id=seedPhoto0000001&u=cdMemberB0000000', headers: bearer('cdCoachB00000000') }, mode: 'exact' },
+  { name: 'imported photo bytes, another coach', req: { path: '/api/media/photo?id=seedPhoto0000001&u=cdMemberB0000000', headers: bearer('cdCoach000000000') }, mode: 'exact' },
   // R2 — the owner's account controls and detachCoach (CHW-250).
   { name: 'admin users, anonymous', req: { path: '/api/admin/users' }, mode: 'exact' },
   { name: 'admin users, a coach', req: { path: '/api/admin/users', headers: bearer('cdCoach000000000') }, mode: 'exact' },
