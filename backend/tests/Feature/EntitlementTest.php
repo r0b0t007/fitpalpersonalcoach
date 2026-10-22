@@ -8,22 +8,17 @@ use App\Domain\Plans;
 use App\Models\BillingEvent;
 use App\Models\Licence;
 use App\Models\User;
+use Tests\Support\Billing;
 use Tests\Support\Coaching;
 
-const PRODUCTS = 'solo:month=prod_sm,solo:year=prod_sy,pro:month=prod_pm,pro:year=prod_py,studio:month=prod_tm,studio:year=prod_ty';
-
-function billingOn(string $products = PRODUCTS): void
+function billingOn(string $products = Billing::PRODUCTS): void
 {
-    config(['fitpal.creem.api_key' => 'creem_test_key', 'fitpal.creem.webhook_secret' => 'whsec_test', 'fitpal.creem.products' => $products]);
+    Billing::on($products);
 }
 
-/** A licence for $coach, put in force. */
 function licence(User $coach, array $fields): Licence
 {
-    $l = tap((new Licence)->forceFill(['id' => Licence::newId(), 'user_id' => $coach->id, 'source' => 'creem'] + $fields))->save();
-    $coach->forceFill(['licence_id' => $l->id])->save();
-
-    return $l;
+    return Billing::licence($coach, $fields);
 }
 
 beforeEach(function () {

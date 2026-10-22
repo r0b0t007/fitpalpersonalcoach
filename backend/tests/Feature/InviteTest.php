@@ -43,7 +43,7 @@ it('== taking a client on: minting ==', function () {
 it('== an admin\'s own code must NOT bind anyone ==', function () {
     $code = mintAs($this->f->admin, 'general', '/api/admin/invites/new');
     expect(adminInvite($code))->not->toHaveKey('coachId');
-    $this->getJson('/api/invite?code='.$code)->assertOk()->assertExactJson(['coachName' => null]);
+    $this->getJson('/api/invite?code='.$code)->assertOk()->assertExactJson(['coachName' => null, 'full' => false]);
 });
 
 it('== listing is scoped to the coach, not the gym ==', function () {
@@ -81,7 +81,7 @@ it('== a used code names the redeemer only while they are still yours ==', funct
 
 it('== an invite link, before you have an account ==', function () {
     $code = mintAs($this->f->a);
-    $this->getJson('/api/invite?code='.$code)->assertOk()->assertExactJson(['coachName' => 'Coach A']);
+    $this->getJson('/api/invite?code='.$code)->assertOk()->assertExactJson(['coachName' => 'Coach A', 'full' => false]);
     $this->getJson('/api/invite?code='.strtolower($code).'%20')->assertOk();   // lower-cased, trailing space
     Invite::query()->whereKey('INVB0000000000')->update(['used_by' => $this->f->b1->id]);
     foreach (['INVB0000000000', 'NOSUCHCODE000000', ''] as $c) {
@@ -90,7 +90,7 @@ it('== an invite link, before you have an account ==', function () {
     $this->getJson('/api/invite')->assertStatus(404);
     // A coach demoted since minting: the screen does not promise them.
     $this->f->a->forceFill(['coach' => false])->save();
-    $this->getJson('/api/invite?code='.$code)->assertOk()->assertExactJson(['coachName' => null]);
+    $this->getJson('/api/invite?code='.$code)->assertOk()->assertExactJson(['coachName' => null, 'full' => false]);
 });
 
 it('== redeeming one from an account you already have ==', function () {

@@ -309,10 +309,14 @@ their coach's demo media.
   v1. `POST /api/admin/licence/grant {id, plan}` and `revoke {id}` create and remove `manual`
   rows; the existing coach account receives one at cutover.
 - Enforcement: `RequireWriter` (402 `your plan is read-only until billing is sorted out — see
-  Account › Plan & billing`) on assign, programs/save, media/exercise and invites/new. Cap checks
-  at register/options (before the passkey ceremony), register/verify, invite/redeem (409
-  `this coach's client list is full ({0}) — ask them to upgrade`) and invites/new (402 `your plan
-  allows {0} clients — upgrade to invite more`). Reads stay open. Audit events `billing.*`.
+  Account › Plan & billing`) on assign, programs/save, media/exercise, the chunked upload's start,
+  chunk and finish (R3), and invites/new. Cap checks at register/options (before the passkey
+  ceremony), register/verify (again, under the coach's lock), invite/redeem (409
+  `this coach's client list is full ({0}) — ask them to upgrade`; a coach whose plan is read-only
+  turns clients away with 409 `this coach cannot take new clients right now — ask them to check
+  their plan`) and invites/new (402 `your plan allows {0} clients — upgrade to invite more`).
+  `GET /api/invite` adds `full`; `GET /api/coach/invites` adds `cap, used, canInvite, reason`
+  (`read_only` | `at_cap` | null). Reads stay open. Audit events `billing.*`.
 - Environment: `CREEM_API_KEY`, `CREEM_WEBHOOK_SECRET`, `CREEM_API_BASE`, `CREEM_PRODUCTS`
   (`solo:month=prod_…,solo:year=…,pro:month=…,pro:year=…,studio:month=…,studio:year=…`),
   `SELF_SERVE_COACH`.

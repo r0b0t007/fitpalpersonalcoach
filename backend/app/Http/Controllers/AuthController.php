@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Audit\Audit;
 use App\Auth\Bootstrap;
+use App\Auth\CoachSeat;
 use App\Auth\InviteGate;
 use App\Auth\SessionToken;
 use App\Auth\TokenGuard;
@@ -42,7 +43,7 @@ use Throwable;
  * without a way to sign in to it.
  *
  * The sign-up gate is here: INVITE_ONLY, the bootstrap code, and invite codes (InviteGate), whose
- * coach's code puts the new client on that coach's roster. The licence cap arrives in R4.
+ * coach's code puts the new client on that coach's roster — if that coach has a seat (CoachSeat).
  */
 final class AuthController
 {
@@ -74,6 +75,14 @@ final class AuthController
             Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'invite-rejected']);
 
             return Json::error(403, 'a valid invite code is required');
+        }
+        // A coach's code for a coach with no seat left: said now, before the passkey prompt, rather
+        // than after the person has made a passkey for an account that cannot be written. Judged
+        // again under the lock at verify.
+        if ($code !== '' && ($invite = InviteGate::redeemable($code)) && ($full = CoachSeat::refusal(InviteGate::coachBinding($invite)))) {
+            Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'coach-full']);
+
+            return $full;
         }
 
         // An unsaved account, so the ceremony has a user to describe and a handle to issue.
@@ -145,11 +154,20 @@ final class AuthController
                 // they cannot fix, and the landing screen already declined to name a coach. They
                 // arrive unassigned and can redeem a fresh code later.
                 if ($invite) {
-                    $user->invited_by = $invite->code;
                     // A coach's code puts this client straight onto that coach's roster, if the coach
                     // can still coach now (not at mint time). Otherwise the signup still succeeds,
                     // unassigned: refusing it would punish the client for what only the gym can fix.
-                    $user->coach_id = InviteGate::coachBinding($invite, lock: true)?->id;
+                    $coach = InviteGate::coachBinding($invite, lock: true);
+                    // A full roster is refused instead (spec §6): the client came for this coach,
+                    // and an account on no roster is not what the link promised. Counted with the
+                    // coach's row locked, so two sign-ups cannot both take the last seat.
+                    if ($full = CoachSeat::refusal($coach)) {
+                        Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'coach-full']);
+
+                        return $full;
+                    }
+                    $user->invited_by = $invite->code;
+                    $user->coach_id = $coach?->id;
                 }
                 $user->save();
                 $credential = $validation->credential;
