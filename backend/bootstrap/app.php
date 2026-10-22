@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DataController;
+use App\Http\Middleware\CloseOnRefusal;
 use App\Http\Middleware\CsrfOrigin;
 use App\Http\Middleware\NoStore;
 use App\Http\Middleware\ReflectOrigin;
@@ -10,6 +11,7 @@ use App\Media\Upload;
 use App\Support\ClientSafe;
 use App\Support\Json;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -62,6 +64,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // SubstituteBindings first; this priority moves RequireCoach ahead of it (and it stays
         // after Authenticate, which the default priority already places before both).
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: RequireCoach::class);
+        // An upload route's CloseOnRefusal must wrap its sign-in check, or the 401 escapes without
+        // `Connection: close`: the priority sort would otherwise lift Authenticate out past it.
+        $middleware->prependToPriorityList(before: AuthenticatesRequests::class, prepend: CloseOnRefusal::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // This backend is an API; only the Filament panel renders HTML.

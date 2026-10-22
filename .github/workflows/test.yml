@@ -275,6 +275,8 @@ jobs:
       ORIGIN: http://localhost:5173
       INVITE_ONLY: '1'
       ALLOW_GUEST: '0'
+      # Small enough for the media cases' fixtures to cross it, as api/coach-smoke.sh runs.
+      MEDIA_MAX_VIDEO_MB: '1'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -296,7 +298,9 @@ jobs:
         run: |
           cp .env.example .env && php artisan key:generate --quiet
           touch database/contract.sqlite
-          export DB_CONNECTION=sqlite DB_DATABASE="$PWD/database/contract.sqlite" SESSION_SECRET="$(cat "$DATA/secret")" CACHE_STORE=file APP_DEBUG=false
+          # DATA_DIR as in production: Laravel's media root is Node's DATA_DIR/media. Both servers write
+          # uploads there; the names cannot collide (Laravel's carry the uploading coach).
+          export DB_CONNECTION=sqlite DB_DATABASE="$PWD/database/contract.sqlite" SESSION_SECRET="$(cat "$DATA/secret")" CACHE_STORE=file APP_DEBUG=false DATA_DIR="$DATA"
           php artisan migrate --force
           php artisan fitpal:import-legacy "$DATA" --verify
           # php -S, not artisan serve, so the ini limits the contract needs reach the server. From

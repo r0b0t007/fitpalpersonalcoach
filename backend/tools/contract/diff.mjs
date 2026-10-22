@@ -12,7 +12,7 @@
 // A difference that is intended is listed in INTENDED with its reason; anything else fails.
 //
 //   node diff.mjs --node http://localhost:3101 --laravel http://localhost:3102 --data <seeded dir>
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -34,6 +34,22 @@ const bearer = (uid, sv) => ({ Authorization: 'Bearer ' + token(uid, sv) });
  * INCLUDED — so an entry excuses exactly the difference it documents, and any other value at the
  * same path (a cacheable header, a non-empty list) is reported like any other change.
  */
+// Media fixtures (CHW-257), here because INTENDED names their content-addressed file names.
+// coach-smoke's mkfix: an ISO header with one brand and one compatible brand, a marker at 2048 so
+// each fixture's bytes (and so its stored name) differ.
+const mkfix = (brand, compat = '', marker = 'pad', size = 4096) => {
+  const b = Buffer.alloc(size);
+  b.writeUInt32BE(32, 0); b.write('ftyp', 4, 'latin1'); b.write(brand, 8, 'latin1'); b.writeUInt32BE(0, 12);
+  if (compat) b.write(compat, 16, 'latin1');
+  b.write(marker, 2048, 'latin1');
+  return b;
+};
+const sha16 = buf => createHash('sha256').update(buf).digest('hex').slice(0, 16);
+const DEMO = mkfix('isom', 'avc1', 'contract');
+const MOV = mkfix('qt  ');
+const DEMO_SHA = sha16(DEMO);
+const MOV_SHA = sha16(MOV);
+
 const INTENDED = {
   'config $.self_serve: only Laravel has it (false)': 'the self-serve coach signup flag for R4 (/#/start); the app ignores unknown keys.',
   'login options $.options.allowCredentials: only Node has it ([])': 'Laragear omits an empty list. Same meaning in WebAuthn (any discoverable passkey), and the app reads `(o.allowCredentials || [])` (frontend/src/lib/api.js).',
@@ -42,6 +58,15 @@ const INTENDED = {
   'programs save, a name cut through an emoji (lone surrogate) $.program.name: Node "Push \\ud83d" vs Laravel "Push �"': 'half a UTF-16 character cannot be held in UTF-8, nor stored in utf8mb4; Laravel keeps it as U+FFFD (Input::parse) where Node kept the escape in its JSON file. What matters is kept: Node accepted such a name, and so does Laravel, instead of refusing it as bad json.',
   'programs save, a name cut through an emoji (lone surrogate) $.program.bundle.name: Node "Push \\ud83d" vs Laravel "Push �"': 'the same name, copied into the bundle by cleanProgram.',
   'register options, a key that starts with NUL status: Node 200 vs Laravel 400': 'no PHP object can hold a property name that starts with NUL, so Input::parse refuses such a body as bad json (documented there). The app never sends one; the fields the route reads are unaffected either way.',
+  // CHW-257: the spec's deliberate changes to demo media (spec §5).
+  [`media upload, a coach $.media.file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'stored names carry the uploading coach, so one coach\'s library can never overwrite another\'s (spec §5).',
+  [`media upload, an iPhone .mov is kept and flagged raw $.media.file: Node "0026-${MOV_SHA}.mov" vs Laravel "0026-cdCoach000000000-${MOV_SHA}.mov"`]: 'names carry the uploader.',
+  [`media upload, the same bytes again $.media.file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'the same: names carry the uploader.',
+  [`media list, the coach $.media[0].file: Node "0026-${MOV_SHA}.mov" vs Laravel "0026-cdCoach000000000-${MOV_SHA}.mov"`]: 'names carry the uploader.',
+  [`media list, the coach $.media[1].file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'names carry the uploader.',
+  [`media list, their client $.media[0].file: Node "0026-${MOV_SHA}.mov" vs Laravel "0026-cdCoach000000000-${MOV_SHA}.mov"`]: 'names carry the uploader.',
+  [`media list, their client $.media[1].file: Node "0025-${DEMO_SHA}.mp4" vs Laravel "0025-cdCoach000000000-${DEMO_SHA}.mp4"`]: 'names carry the uploader.',
+  'media list, someone with no coach $.media: 2 items vs 0': 'a client sees their own coach\'s demos, and someone with no coach sees none; Node listed every row to every signed-in account (spec §5, Access::canSeeMedia).',
 };
 
 // --- comparison ---------------------------------------------------------------------------------
@@ -143,6 +168,33 @@ const adminReq = (path, body) => ({ method: 'POST', path: '/api/admin/user/' + p
 const usersOf = async (base, pred) => ((await call(base, { path: '/api/admin/users', headers: bearer('cdAdmin000000000') })).json?.users || []).filter(pred).map(u => u.id);
 const codesOf = async (base, coachId) => ((await call(base, { path: '/api/admin/invites', headers: bearer('cdAdmin000000000') })).json?.invites || [])
   .filter(i => i.coachId === coachId).map(typed);
+
+// Media (CHW-257).
+const upload = (uid, ex, body, label = 'front') => ({ method: 'POST', path: `/api/media/exercise?ex=${encodeURIComponent(ex)}&label=${encodeURIComponent(label)}`,
+  headers: uid ? bearer(uid) : {}, raw: body });
+// A row with its server-made values replaced by their form: the id and the date are each server's own.
+const mediaRow = m => m && { ...m, id: /^[A-Za-z0-9_-]{16}$/.test(m.id) ? 'an id' : m.id, created: typeof m.created };
+const uploaded = req => async base => {
+  const r = await call(base, req);
+  return { ...r, json: r.json?.media ? { ...r.json, media: mediaRow(r.json.media) } : r.json };
+};
+const mediaList = uid => async base => {
+  const r = await call(base, { path: '/api/media/exercises', headers: bearer(uid) });
+  return { ...r, json: r.json?.media ? { media: r.json.media.map(mediaRow) } : r.json };
+};
+// The bytes, as the facts a player reads: status, length, range, type, and whether they are the file.
+const bytesOf = (uid, extra = {}, method = 'GET') => async base => {
+  const list = (await call(base, { path: '/api/media/exercises', headers: bearer('cdCoach000000000') })).json?.media || [];
+  const id = (list.find(m => m.exId === '0025') || {}).id;
+  const res = await fetch(base + '/api/media/ex?id=' + id, { method, headers: { ...(uid ? bearer(uid) : {}), ...extra } });
+  const body = Buffer.from(await res.arrayBuffer());
+  const h = k => res.headers.get(k);
+  return { status: res.status, headers: {}, cookies: [], json: {
+    length: h('content-length'), range: h('content-range'), type: h('content-type'), ranges: h('accept-ranges'),
+    received: body.length, isTheFile: body.length === DEMO.length && body.equals(DEMO),
+    error: res.status >= 400 && body.length ? JSON.parse(body.toString()).error : undefined,
+  } };
+};
 
 const fat = JSON.stringify({ state: { pad: 'x'.repeat(17 * 1024 * 1024) } });
 const CASES = [
@@ -431,6 +483,29 @@ const CASES = [
       lastDecision: m.lastDecision && { ...m.lastDecision, at: typeof m.lastDecision.at } }));
     return { ...r, json: { ...r.json, members } };
   }, mode: 'exact' },
+  // R3 — a coach's exercise demos (CHW-257). Run while cdMember is still cdCoach's client.
+  { name: 'media upload, anonymous', req: upload(null, '0025', DEMO), mode: 'exact' },
+  { name: 'media upload, a member', req: upload('cdMember00000000', '0025', DEMO), mode: 'exact' },
+  { name: 'media upload, a coach', run: uploaded(upload('cdCoach000000000', '0025', DEMO, '  Front view  ')), mode: 'exact' },
+  { name: 'media upload, an iPhone .mov is kept and flagged raw', run: uploaded(upload('cdCoach000000000', '0026', MOV)), mode: 'exact' },
+  { name: 'media upload, a photo in the video slot', req: upload('cdCoach000000000', '0027', mkfix('heic', 'mif1')), mode: 'exact' },
+  { name: 'media upload, bytes that are not media', req: upload('cdCoach000000000', '0028', Buffer.alloc(300000)), mode: 'exact' },
+  { name: 'media upload, a traversing exercise id', req: upload('cdCoach000000000', '../../etc', DEMO), mode: 'exact' },
+  { name: 'media upload, an empty body', req: upload('cdCoach000000000', '0029', Buffer.alloc(0)), mode: 'exact' },
+  { name: 'media upload, over the cap', req: upload('cdCoach000000000', '0033', mkfix('isom', 'avc1', 'big', 1024 * 1024 + 1)), mode: 'exact' },
+  { name: 'media upload, the same bytes again', run: uploaded(upload('cdCoach000000000', '0025', DEMO, 'again')), mode: 'exact' },
+  { name: 'media list, anonymous', req: { path: '/api/media/exercises' }, mode: 'exact' },
+  { name: 'media list, the coach', run: mediaList('cdCoach000000000'), mode: 'exact' },
+  { name: 'media list, their client', run: mediaList('cdMember00000000'), mode: 'exact' },
+  { name: 'media list, someone with no coach', run: mediaList('cdSync0000000000'), mode: 'exact' },
+  { name: 'media bytes, anonymous', run: bytesOf(null), mode: 'exact' },
+  { name: 'media bytes, the coach\'s client, whole', run: bytesOf('cdMember00000000'), mode: 'exact' },
+  { name: 'media bytes, a range', run: bytesOf('cdMember00000000', { Range: 'bytes=0-99' }), mode: 'exact' },
+  { name: 'media bytes, a suffix range', run: bytesOf('cdMember00000000', { Range: 'bytes=-50' }), mode: 'exact' },
+  { name: 'media bytes, a start past the end', run: bytesOf('cdMember00000000', { Range: 'bytes=99999-' }), mode: 'exact' },
+  { name: 'media bytes, a multi-range is served whole', run: bytesOf('cdMember00000000', { Range: 'bytes=0-9,20-29' }), mode: 'exact' },
+  { name: 'media bytes, HEAD', run: bytesOf('cdMember00000000', {}, 'HEAD'), mode: 'exact' },
+  { name: 'media bytes, an unknown id', req: { path: '/api/media/ex?id=nope', headers: bearer('cdMember00000000') }, mode: 'exact' },
   // R2 — the owner's account controls and detachCoach (CHW-250).
   { name: 'admin users, anonymous', req: { path: '/api/admin/users' }, mode: 'exact' },
   { name: 'admin users, a coach', req: { path: '/api/admin/users', headers: bearer('cdCoach000000000') }, mode: 'exact' },
