@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Carbon\CarbonInterface;
+
 /**
  * JavaScript's reading of a value, for code that reads the app's state blob the way the Node API
  * did. `S.x || fallback` falls back on null, undefined, false, 0, '' and NaN — and NOT on an empty
@@ -267,7 +269,13 @@ final class Js
     /** `new Date().toISOString()`: UTC, milliseconds, a Z. */
     public static function isoNow(): string
     {
-        return now()->utc()->format('Y-m-d\TH:i:s.v\Z');
+        return self::iso(now());
+    }
+
+    /** `Date.prototype.toISOString`: UTC, milliseconds, Z — the one date spelling the app reads. */
+    public static function iso(CarbonInterface $at): string
+    {
+        return $at->copy()->utc()->format('Y-m-d\TH:i:s.v\Z');
     }
 
     /**

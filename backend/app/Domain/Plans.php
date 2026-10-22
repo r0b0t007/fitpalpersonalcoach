@@ -83,8 +83,9 @@ final class Plans
             return [];
         }
         $out = [];
+        $products = self::products();
         foreach (self::CAPS as $plan => $cap) {
-            $periods = array_values(array_filter(self::PERIODS, fn ($p) => isset(self::products()[$plan][$p])));
+            $periods = array_values(array_filter(self::PERIODS, fn ($p) => isset($products[$plan][$p])));
             if ($periods !== []) {
                 $out[] = ['plan' => $plan, 'cap' => $cap, 'periods' => $periods];
             }
@@ -101,12 +102,17 @@ final class Plans
      */
     public static function problems(): array
     {
+        // CREEM_PRODUCTS counts as set only when it names a product this instance can sell: a value
+        // of nothing but typos turns billing off just as surely as an empty one.
         $set = array_filter([
             'CREEM_API_KEY' => (string) config('fitpal.creem.api_key') !== '',
             'CREEM_WEBHOOK_SECRET' => (string) config('fitpal.creem.webhook_secret') !== '',
-            'CREEM_PRODUCTS' => trim((string) config('fitpal.creem.products')) !== '',
+            'CREEM_PRODUCTS' => self::products() !== [],
         ]);
         $problems = [];
+        if (trim(str_replace(',', '', (string) config('fitpal.creem.products'))) === '' && trim((string) config('fitpal.creem.products')) !== '') {
+            $problems[] = 'CREEM_PRODUCTS holds no entry at all.';
+        }
         if ($set !== [] && count($set) < 3) {
             $missing = array_diff(['CREEM_API_KEY', 'CREEM_WEBHOOK_SECRET', 'CREEM_PRODUCTS'], array_keys($set));
             $problems[] = 'billing is off: '.implode(' and ', $missing).' '.(count($missing) > 1 ? 'are' : 'is').' not set, while '.implode(' and ', array_keys($set)).' '.(count($set) > 1 ? 'are' : 'is').'. Set all three, or none.';
@@ -118,29 +124,50 @@ final class Plans
         return $problems;
     }
 
-    /** @return array{products: array<string, array<string, string>>, bad: list<string>} */
+    /** @var array{string, array{products: array<string, array<string, string>>, bad: list<string>}}|null */
+    private static ?array $parsed = null;
+
+    /**
+     * CREEM_PRODUCTS read once per value. A product id named twice is refused everywhere it
+     * appears — failing closed: a webhook could not tell which tier was bought, and the first
+     * spelling winning could grant a dearer tier than the one paid for.
+     *
+     * @return array{products: array<string, array<string, string>>, bad: list<string>}
+     */
     private static function parse(): array
     {
-        $products = [];
+        $raw = (string) config('fitpal.creem.products');
+        if (self::$parsed !== null && self::$parsed[0] === $raw) {
+            return self::$parsed[1];
+        }
+        $entries = [];
         $bad = [];
-        $seen = [];
-        foreach (explode(',', (string) config('fitpal.creem.products')) as $entry) {
+        $ids = [];
+        foreach (explode(',', $raw) as $entry) {
             $entry = trim($entry);
             if ($entry === '') {
                 continue;
             }
             if (! preg_match('/^([a-z]+):([a-z]+)=(\S+)$/D', $entry, $m) || ! isset(self::CAPS[$m[1]]) || ! in_array($m[2], self::PERIODS, true)
-                || isset($products[$m[1]][$m[2]]) || isset($seen[$m[3]])) {
-                // Malformed, an unknown tier or period, a tier and period given twice, or one
-                // product sold as two things (a webhook could not tell which was bought).
+                || isset($entries[$m[1].':'.$m[2]])) {
+                // Malformed, an unknown tier or period, or a tier and period given twice.
                 $bad[] = $entry;
 
                 continue;
             }
-            $products[$m[1]][$m[2]] = $m[3];
-            $seen[$m[3]] = true;
+            $entries[$m[1].':'.$m[2]] = [$m[1], $m[2], $m[3], $entry];
+            $ids[$m[3]] = ($ids[$m[3]] ?? 0) + 1;
         }
+        $products = [];
+        foreach ($entries as [$plan, $period, $id, $entry]) {
+            if ($ids[$id] > 1) {
+                $bad[] = $entry;   // one product sold as two things
+            } else {
+                $products[$plan][$period] = $id;
+            }
+        }
+        self::$parsed = [$raw, ['products' => $products, 'bad' => $bad]];
 
-        return ['products' => $products, 'bad' => $bad];
+        return self::$parsed[1];
     }
 }

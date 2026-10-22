@@ -4,6 +4,7 @@ namespace App\Domain;
 
 use App\Models\Licence;
 use App\Models\User;
+use App\Support\Js;
 use Carbon\CarbonInterface;
 
 /**
@@ -18,11 +19,18 @@ use Carbon\CarbonInterface;
  *  5. canTakeClient = writable and under the cap; overCap = more active clients than the cap
  *     (after a downgrade: still writable, but cannot add).
  *
+ * One safety net beyond the spec: a Creem licence whose period ended more than GRACE_DAYS ago with
+ * no event since is not writable, whatever its stored status — a webhook lost for good must not
+ * leave a coach licensed for ever.
+ *
  * `used` counts active clients (User::activeClientsOf): a disabled client frees a seat. A client
  * account is not limited by anything here — clients are unaffected by their coach's billing.
  */
 final readonly class Entitlement
 {
+    /** How long past its period a Creem licence stays writable with no news from Creem (stale()). */
+    public const GRACE_DAYS = 14;
+
     public function __construct(
         public string $status,
         public ?string $plan,
@@ -39,7 +47,7 @@ final readonly class Entitlement
     public static function for(User $user): self
     {
         if (! $user->isCoach()) {
-            return new self('client', null, 0, 0, true, false, false);
+            return new self('client', null, null, 0, true, false, false);
         }
         $used = User::activeClientsOf($user)->count();
         if ($user->isAdmin()) {
@@ -52,18 +60,26 @@ final readonly class Entitlement
         if ($licence === null || $licence->user_id !== $user->id) {
             return new self('none', null, 0, $used, false, false, $used > 0);
         }
-        $cap = Plans::cap($licence->plan) ?? 0;
-        $canWrite = in_array($licence->status, Licence::WRITABLE, true)
+        // A plan this instance does not sell (a hand-edited row; grant refuses one) takes no client,
+        // and is not reported as over a cap it does not have.
+        $cap = Plans::cap($licence->plan);
+        $canWrite = (in_array($licence->status, Licence::WRITABLE, true) && ! self::stale($licence))
             || ($licence->status === 'canceled' && $licence->period_end !== null && $licence->period_end->isFuture());
 
-        return new self($licence->status, $licence->plan, $cap, $used, $canWrite, $canWrite && $used < $cap, $used > $cap,
+        return new self($licence->status, $licence->plan, $cap ?? 0, $used, $canWrite, $canWrite && $used < ($cap ?? 0), $cap !== null && $used > $cap,
             $licence->trial_ends_at, $licence->period_end);
     }
 
-    /** `Date.prototype.toISOString`: UTC, milliseconds, Z — as every other date the app reads. */
-    private static function iso(?CarbonInterface $at): ?string
+    /**
+     * A Creem licence whose paid period ended more than GRACE_DAYS ago without a word from Creem:
+     * a renewal moves period_end on (CHW-270), so this is a webhook lost for good — stop writing
+     * rather than stay licensed for ever. Creem's own retries (past_due) end well inside the grace.
+     * A manual licence has no period.
+     */
+    private static function stale(Licence $licence): bool
     {
-        return $at?->copy()->utc()->format('Y-m-d\\TH:i:s.v\\Z');
+        return $licence->source === 'creem' && $licence->period_end !== null
+            && $licence->period_end->lt(now()->subDays(self::GRACE_DAYS));
     }
 
     /** As the app reads it (`billing/me`, the banners): dates as ISO strings, the cap null when unlimited. */
@@ -72,7 +88,8 @@ final readonly class Entitlement
         return [
             'status' => $this->status, 'plan' => $this->plan, 'cap' => $this->cap, 'used' => $this->used,
             'canWrite' => $this->canWrite, 'canTakeClient' => $this->canTakeClient, 'overCap' => $this->overCap,
-            'trialEndsAt' => self::iso($this->trialEndsAt), 'periodEnd' => self::iso($this->periodEnd),
+            'trialEndsAt' => $this->trialEndsAt !== null ? Js::iso($this->trialEndsAt) : null,
+            'periodEnd' => $this->periodEnd !== null ? Js::iso($this->periodEnd) : null,
         ];
     }
 }

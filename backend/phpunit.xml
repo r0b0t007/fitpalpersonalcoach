@@ -27,6 +27,10 @@
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- Billing off, whatever a developer's .env holds for a lab trial: tests that bill say so. -->
+        <env name="CREEM_API_KEY" value=""/>
+        <env name="CREEM_WEBHOOK_SECRET" value=""/>
+        <env name="CREEM_PRODUCTS" value=""/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <!-- Small media caps: the fixtures are small, and the CLI's post_max_size (PHP's 8M default)
              is not the host's 100M, so the 90 MB default would read as a misconfiguration. -->

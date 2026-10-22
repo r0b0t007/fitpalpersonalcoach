@@ -5,6 +5,7 @@
 
 use App\Domain\Entitlement;
 use App\Domain\Plans;
+use App\Models\BillingEvent;
 use App\Models\Licence;
 use App\Models\User;
 use Tests\Support\Coaching;
@@ -48,11 +49,15 @@ it('reads CREEM_PRODUCTS both ways, and is on only with key, secret and a produc
 });
 
 it('ignores and reports an entry it cannot use', function () {
-    billingOn('pro:month=prod_a,gold:month=prod_b,pro:week=prod_c,pro:month=prod_d,solo:month=prod_a,nonsense');
-    expect(Plans::products())->toBe(['pro' => ['month' => 'prod_a']])
-        ->and(Plans::problems())->toHaveCount(5)
+    billingOn('pro:month=prod_a,gold:month=prod_b,pro:week=prod_c,pro:month=prod_d,studio:year=prod_ok,nonsense');
+    expect(Plans::products())->toBe(['pro' => ['month' => 'prod_a'], 'studio' => ['year' => 'prod_ok']])
+        ->and(Plans::problems())->toHaveCount(4)
         ->and(Plans::problems()[0])->toContain('"gold:month=prod_b"');
     $this->artisan('fitpal:check-config')->expectsOutputToContain('CREEM_PRODUCTS entry "nonsense"')->assertFailed();
+    // One product id for two tiers: refused for both — a webhook could not tell which was bought.
+    billingOn('studio:month=prod_a,solo:month=prod_a,pro:year=prod_p');
+    expect(Plans::products())->toBe(['pro' => ['year' => 'prod_p']])
+        ->and(Plans::fromProduct('prod_a'))->toBeNull();
 });
 
 it('lets an admin and an unlicensed instance write without limit', function () {
@@ -110,4 +115,42 @@ it('tells the app about billing in /api/config', function () {
     $this->getJson('/api/config')->assertJsonPath('billing', false)->assertJsonPath('plans', [])->assertJsonPath('trial_days', 14);
     billingOn('studio:year=prod_ty');
     $this->getJson('/api/config')->assertJsonPath('billing', true)->assertJsonPath('plans', [['plan' => 'studio', 'cap' => 75, 'periods' => ['year']]]);
+});
+
+it('says billing is off when CREEM_PRODUCTS names nothing it can sell', function () {
+    billingOn('Solo:month=prod_x, pro:monthly=prod_y');
+    expect(Plans::billingOn())->toBeFalse()
+        ->and(Plans::problems()[0])->toBe('billing is off: CREEM_PRODUCTS is not set, while CREEM_API_KEY and CREEM_WEBHOOK_SECRET are. Set all three, or none.');
+    billingOn(',');
+    expect(Plans::problems())->toContain('CREEM_PRODUCTS holds no entry at all.');
+});
+
+it('stops a Creem licence that has heard nothing for GRACE_DAYS past its period, but never a manual one', function () {
+    billingOn();
+    $l = licence($this->f->a, ['status' => 'active', 'plan' => 'pro', 'period_end' => now()->subDays(Entitlement::GRACE_DAYS - 1)]);
+    expect(Entitlement::for($this->f->a)->canWrite)->toBeTrue();
+    $l->forceFill(['period_end' => now()->subDays(Entitlement::GRACE_DAYS + 1)])->save();
+    expect(Entitlement::for($this->f->a)->canWrite)->toBeFalse();
+    $l->forceFill(['source' => 'manual', 'status' => 'manual'])->save();
+    expect(Entitlement::for($this->f->a)->canWrite)->toBeTrue();
+});
+
+it('takes no client on a plan it does not sell, without calling the coach over a cap', function () {
+    billingOn();
+    licence($this->f->a, ['status' => 'manual', 'source' => 'manual', 'plan' => 'gold']);
+    expect(Entitlement::for($this->f->a))->toMatchObject(['canWrite' => true, 'cap' => 0, 'canTakeClient' => false, 'overCap' => false])
+        ->and(Entitlement::for($this->f->a1)->cap)->toBeNull();   // a client: not limited
+});
+
+it('keeps the newest webhook ids and prunes the rest', function () {
+    foreach (range(1, BillingEvent::KEEP + 5) as $i) {
+        $rows[] = ['id' => "evt_$i", 'at' => now()->subSeconds(10000 - $i)->format('Y-m-d H:i:s.v')];
+    }
+    foreach (array_chunk($rows, 300) as $chunk) {
+        BillingEvent::query()->insert($chunk);
+    }
+    $this->artisan('fitpal:prune')->assertSuccessful();
+    expect(BillingEvent::query()->count())->toBe(BillingEvent::KEEP)
+        ->and(BillingEvent::query()->find('evt_1'))->toBeNull()
+        ->and(BillingEvent::query()->find('evt_'.(BillingEvent::KEEP + 5)))->not->toBeNull();
 });
