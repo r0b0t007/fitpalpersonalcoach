@@ -30,6 +30,15 @@ return [
 
     'disks' => [
 
+        // Uploaded media, outside the document root (App\Media\Paths): DATA_DIR/media, where the
+        // Node API kept it, so a cutover moves no files.
+        'media' => [
+            'driver' => 'local',
+            'root' => rtrim(env('DATA_DIR') ?: storage_path('app/fitpal'), '/\\').'/media',
+            'serve' => false,
+            'throw' => false,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),

@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Media\Paths;
 use App\Models\Assignment;
 use App\Models\CoachProgram;
 use App\Models\Invite;
@@ -126,7 +127,7 @@ final class LegacyCoaching
 
         $bySafe = [];
         foreach (array_keys($accounts) as $id) {
-            $bySafe[self::safeUid((string) $id)] ??= (string) $id;
+            $bySafe[Paths::safeUid((string) $id)] ??= (string) $id;
         }
         $libraries = [];
         foreach (self::files($dir, 'coach-') as $uid => $file) {
@@ -357,12 +358,6 @@ final class LegacyCoaching
         }
 
         return $v;
-    }
-
-    /** api/server.js safeUid: how Node named an account's files. */
-    private static function safeUid(string $id): string
-    {
-        return (string) preg_replace('/[^a-zA-Z0-9_-]/', '', $id);
     }
 
     /**
