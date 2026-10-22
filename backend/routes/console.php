@@ -3,6 +3,13 @@
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
+// The reminders, every minute (app/Console/Commands/Remind.php), BEFORE the worker below starts:
+// schedule:run goes in order, and a worker started first would find the queue empty and exit
+// before these pushes were queued — a minute late, on top of cron's own lateness. In the
+// foreground and short (it reads only the reminder columns); what it sends is recorded, so a
+// cron run that starts late and looks at the minute before sends nothing twice.
+Schedule::command('fitpal:remind')->everyMinute()->withoutOverlapping(2);
+
 // The queue, drained from the scheduler: shared hosting has no supervisor, so a worker lives at
 // most about one cron minute. Measured on the cPanel host in CHW-227 (docs/DEPLOY_COACH_SUBDOMAIN.md):
 // cron fires every minute but 2-51 s late, a 55 s worker exits cleanly, and the next minute's
@@ -36,10 +43,7 @@ if ($connection !== 'sync') {
 // Housekeeping, hourly (app/Console/Commands/Prune.php): audit retention (AUDIT_DAYS, AUDIT_MAX —
 // the read path already hides expired rows, this deletes them and their IPs on an idle instance
 // too), assignments past 30 days (Node pruned on every send; hourly here, so it holds no
-// recipient's lock and cannot fail a send), stale presence, abandoned uploads and temp files.
-Schedule::command('fitpal:prune')->hourly()->withoutOverlapping(10);
-
-// The reminders, every minute (app/Console/Commands/Remind.php). Each cron run also looks at the
-// minute before, as cron starts up to ~51 s late; what was sent is recorded, so none goes twice.
-// The pushes are queued, and the worker above sends them.
-Schedule::command('fitpal:remind')->everyMinute()->withoutOverlapping(2);
+// recipient's lock and cannot fail a send), stale presence, expired cache rows, abandoned uploads
+// and temp files. In the background: at the top of the hour, the most usual reminder time, the
+// reminders must not wait behind it.
+Schedule::command('fitpal:prune')->hourly()->withoutOverlapping(10)->runInBackground();

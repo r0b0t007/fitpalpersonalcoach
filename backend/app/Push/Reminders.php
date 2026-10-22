@@ -2,6 +2,7 @@
 
 namespace App\Push;
 
+use App\Coaching\MemberCard;
 use App\Support\Js;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -20,10 +21,10 @@ final class Reminders
     public const DEFAULT_CHECKIN_DAY = 0;
 
     /**
-     * `userNow(tz)` at $instant: the date, hh:mm and weekday on the member's own clock, or null
-     * for a zone that is not one (that member is skipped rather than guessed for).
+     * `userNow(tz)` at $instant: the date and hh:mm on the member's own clock, or null for a zone
+     * that is not one (that member is skipped rather than guessed for).
      *
-     * @return array{date: string, hhmm: string, weekday: int}|null
+     * @return array{date: string, hhmm: string}|null
      */
     public static function localNow(string $tz, DateTimeImmutable $instant): ?array
     {
@@ -33,20 +34,21 @@ final class Reminders
             return null;
         }
 
-        return ['date' => $local->format('Y-m-d'), 'hhmm' => $local->format('H:i'), 'weekday' => (int) $local->format('w')];
+        return ['date' => $local->format('Y-m-d'), 'hhmm' => $local->format('H:i')];
     }
 
     /** Weekday of an ISO date, read at midday UTC so no zone moves it (`new Date(iso+'T12:00:00Z')`). */
-    private static function weekday(string $iso): int
+    public static function weekday(string $iso): int
     {
         return (int) (new DateTimeImmutable($iso.'T12:00:00Z'))->format('w');
     }
 
     /**
      * The routine planned for a date, or null on a rest day: a day's own plan first ('rest' is a
-     * rest day), else the weekday's — which may list several routines; the first that exists.
+     * rest day), else the weekday's — which may list several routines; the first that exists. The
+     * id as the state holds it (a number stays a number, to find its routine by `===`).
      */
-    public static function effectiveRoutineId(stdClass $s, string $iso): ?string
+    public static function effectiveRoutineId(stdClass $s, string $iso): mixed
     {
         $routines = Js::list($s->routines ?? null);
         $exists = fn (mixed $id) => self::routine($routines, $id) !== null;
@@ -83,13 +85,10 @@ final class Reminders
         return null;
     }
 
-    /** `Number.isInteger(d) && 0 <= d <= 6`, else Sunday. */
+    /** The member's check-in weekday (MemberCard::checkinDay, the roster's rule), else Sunday. */
     public static function checkinDayOf(stdClass $s): int
     {
-        $d = $s->checkinDay ?? null;
-        $int = is_int($d) || (is_float($d) && is_finite($d) && floor($d) === $d);
-
-        return $int && $d >= 0 && $d <= 6 ? (int) $d : self::DEFAULT_CHECKIN_DAY;
+        return MemberCard::checkinDay($s->checkinDay ?? null) ?? self::DEFAULT_CHECKIN_DAY;
     }
 
     /** The latest check-in weekday on or before $todayIso: the start of the week a check-in belongs to. */

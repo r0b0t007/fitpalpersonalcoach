@@ -10,7 +10,9 @@ use App\Models\PushSubscription;
 use App\Models\User;
 use App\Models\UserState;
 use App\Push\Reminders;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\Coaching;
 
@@ -136,4 +138,80 @@ it('prunes what has expired, and only that', function () {
         ->and(array_values(array_diff(scandir("$dir/media/ex"), ['.', '..'])))->toEqualCanonicalizing(['.up-fresh', '.up-justnow', '0001-keep.mp4'])
         ->and(glob("$dir/media/photo/someone/.up-*"))->toBe([]);
     (new Filesystem)->deleteDirectory($dir);
+});
+
+it('still nudges for the check-in later on the day when its minute was missed — once', function () {
+    $a1 = $this->f->a1;
+    // Sunday 2026-10-25 in Lisbon, the night the clocks go back; the 02:30 run never happened.
+    remindable($a1, PLAN + ['reminder' => ['on' => true, 'time' => '02:30', 'tz' => 'Europe/Lisbon']]);
+    $this->travelTo('2026-10-25T09:15:00Z');
+    $this->artisan('fitpal:remind');
+    expect(pushed())->toBe([[$a1->id, 'checkin-reminder', null]]);
+    Queue::fake();
+    $this->travelTo('2026-10-25T09:16:00Z');
+    $this->artisan('fitpal:remind');
+    Queue::assertNothingPushed();
+    // Not on the next day: the nudge is for the check-in day only.
+    $a2 = $this->f->a2;
+    remindable($a2, PLAN + ['reminder' => ['on' => true, 'time' => '02:30', 'tz' => 'UTC']]);
+    $this->travelTo('2026-10-26T09:00:00Z');
+    $this->artisan('fitpal:remind');
+    Queue::assertNothingPushed();
+});
+
+it('marks a member who already checked in as handled, so their state is not read all day', function () {
+    $a1 = $this->f->a1;
+    remindable($a1, PLAN + ['reminder' => ['on' => true, 'time' => '08:00', 'tz' => 'UTC'], 'checkins' => [['d' => '2026-10-25']]]);
+    $this->travelTo('2026-10-25T10:00:00Z');
+    $this->artisan('fitpal:remind');
+    Queue::assertNothingPushed();
+    expect($a1->fresh()->last_checkin_reminder)->toBe('2026-10-25');
+});
+
+it('finds a routine whose id is a number, as Node did', function () {
+    $a1 = $this->f->a1;
+    remindable($a1, ['reminder' => ['on' => true, 'time' => '12:00'], 'routines' => [['id' => 5, 'name' => 'Five']], 'week' => ['3' => 5]]);
+    $this->travelTo('2026-10-21T12:00:00Z');
+    $this->artisan('fitpal:remind');
+    expect(pushed())->toBe([[$a1->id, 'day-reminder', 'Five']]);
+});
+
+it('keeps the reminder columns in step with the state, however it is written', function () {
+    $a1 = $this->f->a1;
+    $this->putJson('/api/data', ['state' => ['reminder' => ['on' => true, 'time' => '07:00'], 'checkinDay' => 4]], bearer($a1))->assertOk();
+    $row = UserState::query()->find($a1->id);
+    expect(json_decode($row->reminder, true))->toBe(['on' => true, 'time' => '07:00'])->and($row->checkin_day)->toBe(4);
+    $this->putJson('/api/data', ['state' => ['checkinDay' => '4']], bearer($a1))->assertOk();
+    $row->refresh();
+    expect($row->reminder)->toBeNull()->and($row->checkin_day)->toBeNull();
+    UserState::query()->whereKey($a1->id)->first()->forceFill(['state' => json_encode(['reminder' => ['on' => false]])])->save();
+    expect(UserState::query()->find($a1->id)->reminder)->toBe('{"on":false}');
+});
+
+it('runs the reminders before the worker starts, and the prune in the background', function () {
+    // The worker is not scheduled under the suite's sync queue, so its order is read where it is defined.
+    $schedule = file_get_contents(base_path('routes/console.php'));
+    $prune = collect(app(Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'fitpal:prune'));
+    expect(strpos($schedule, "Schedule::command('fitpal:remind')"))->toBeLessThan(strpos($schedule, 'Schedule::command("queue:work'))
+        ->and($prune->runInBackground)->toBeTrue();
+});
+
+it('keeps an upload a chunk revived while the prune ran, and clears expired cache rows', function () {
+    $f = $this->f;
+    $this->travelTo('2026-10-22T12:00:00Z');
+    $now = now()->getTimestampMs();
+    tap((new MediaUpload)->forceFill(['id' => 'revived', 'coach_id' => $f->a->id, 'ex_id' => '0001', 'size' => 10, 'received' => 0, 'created' => 'x', 'touched' => $now - MediaUpload::IDLE_MS - 1]))->save();
+    $raced = false;
+    DB::connection()->beforeExecuting(function (string $sql) use (&$raced, $now) {
+        if (! $raced && str_starts_with(strtolower($sql), 'delete from "media_uploads"')) {
+            $raced = true;   // the chunk lands between the read and the delete
+            DB::table('media_uploads')->where('id', 'revived')->update(['touched' => $now]);
+        }
+    });
+    config(['cache.default' => 'database']);
+    DB::table('cache')->insert([['key' => 'old', 'value' => 'x', 'expiration' => time() - 1], ['key' => 'live', 'value' => 'x', 'expiration' => time() + 600]]);
+    $this->artisan('fitpal:prune')->assertSuccessful();
+    expect($raced)->toBeTrue()
+        ->and(MediaUpload::acrossCoaches()->find('revived'))->not->toBeNull() // across coaches: the test reads every row
+        ->and(DB::table('cache')->pluck('key')->all())->toBe(['live']);
 });
