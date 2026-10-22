@@ -166,7 +166,7 @@ final class AuthController
                     // instance too: the client came for this coach, an account on nobody's roster
                     // is not what the link promised, and the 409 tells them who can fix it. Counted
                     // with the coach's row locked, so two sign-ups cannot both take the last seat.
-                    if ($full = CoachSeat::refusal($coach)) {
+                    if ($full = CoachSeat::refusal($coach, lock: true)) {
                         $failed = 'coach-full';
 
                         return $full;

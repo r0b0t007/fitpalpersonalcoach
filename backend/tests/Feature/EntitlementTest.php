@@ -130,10 +130,11 @@ it('stops a Creem licence that has heard nothing for GRACE_DAYS past its period,
     expect(Entitlement::for($this->f->a)->canWrite)->toBeTrue();
 });
 
-it('takes no client on a plan it does not sell, without calling the coach over a cap', function () {
+it('writes nothing and takes no client on a plan it does not sell, without calling the coach over a cap', function () {
     billingOn();
     licence($this->f->a, ['status' => 'manual', 'source' => 'manual', 'plan' => 'gold']);
-    expect(Entitlement::for($this->f->a))->toMatchObject(['canWrite' => true, 'cap' => 0, 'canTakeClient' => false, 'overCap' => false])
+    expect(Entitlement::for($this->f->a))->toMatchObject(['canWrite' => false, 'cap' => 0, 'canTakeClient' => false, 'overCap' => false])
+        ->and(Entitlement::canWrite($this->f->a))->toBeFalse()
         ->and(Entitlement::for($this->f->a1)->cap)->toBeNull();   // a client: not limited
 });
 

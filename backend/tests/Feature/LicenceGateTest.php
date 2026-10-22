@@ -9,6 +9,8 @@ use App\Models\CoachProgram;
 use App\Models\ExerciseMedia;
 use App\Models\Invite;
 use App\Models\User;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
@@ -195,12 +197,13 @@ it('turns a read-only coach\'s clients away without calling the roster full', fu
     expect($f->u1->fresh()->coach_id)->toBeNull();
 });
 
-it('says no seat, not a cap of 0, for a plan this instance does not sell', function () {
+it('makes a plan this instance does not sell read-only, and says so rather than "a cap of 0"', function () {
     $f = $this->f;
     Billing::licence($f->a, ['status' => 'active', 'plan' => 'team']);
     expect(collect($this->getJson('/api/coach/invites', bearer($f->a))->assertOk()->json())->only(['cap', 'canInvite', 'reason'])->all())
         ->toBe(['cap' => 0, 'canInvite' => false, 'reason' => 'read_only']);
     $this->postJson('/api/coach/invites/new', ['note' => 'x'], bearer($f->a))->assertStatus(402)->assertExactJson($this->readOnly);
+    $this->postJson('/api/coach/assign', [], bearer($f->a))->assertStatus(402)->assertExactJson($this->readOnly);
     redeemAs($f->u1, $this->code)->assertStatus(409)->assertExactJson(['error' => 'this coach cannot take new clients right now — ask them to check their plan']);
 });
 
@@ -214,29 +217,47 @@ it('takes clients without limit for an admin\'s code, and for anyone while billi
     redeemAs($f->u1, $this->code)->assertOk();
 });
 
-// SQLite emits no FOR UPDATE, so the lock itself cannot be seen here: it is CoachLock's, taken by
-// InviteGate::redeemable(lock: true) on both paths. What this pins is that the seat is counted
-// inside the join's own transaction, after the coach's row is read — where that lock holds.
-it('counts the seat inside the join\'s transaction, after the coach\'s row, at redeem and at register', function () {
+// SQLite compiles no lock clause, so the grammar is swapped for one that marks each lock in a
+// comment: what runs inside the join's transaction can then be read off the SQL. The coach's row
+// FOR UPDATE first (CoachLock), then the seat count and the licence as locking reads — a plain read
+// would answer from a snapshot fixed before the wait (Entitlement::for).
+it('counts the seat and reads the licence with locking reads, after the coach\'s lock', function (string $how) {
     $f = $this->f;
     Billing::licence($f->a, ['status' => 'active', 'plan' => 'pro']);
-    $order = [];
-    DB::listen(function ($q) use (&$order, $f) {
+    $connection = DB::connection();
+    $grammar = $connection->getQueryGrammar();
+    $connection->setQueryGrammar(new class($connection) extends SQLiteGrammar
+    {
+        protected function compileLock(Builder $query, $value)
+        {
+            return $value === true ? ' /*for update*/' : ($value === false ? ' /*shared*/' : '');
+        }
+    });
+    $seen = [];
+    DB::listen(function ($q) use (&$seen, $f) {
         if (DB::transactionLevel() < 2) {
             return;   // RefreshDatabase's own transaction is level 1
         }
-        if (str_contains($q->sql, 'count(*)') && str_contains($q->sql, '"coach_id"')) {
-            $order[] = 'count';
+        $lock = str_contains($q->sql, '/*for update*/') ? ' for update' : (str_contains($q->sql, '/*shared*/') ? ' shared' : '');
+        if (str_contains($q->sql, 'count(*) as "aggregate" from "users"') && str_contains($q->sql, '"coach_id"')) {
+            $seen[] = 'count'.$lock;
+        } elseif (str_contains($q->sql, 'from "licences"')) {
+            $seen[] = 'licence'.$lock;
         } elseif (str_starts_with($q->sql, 'select * from "users"') && in_array($f->a->id, $q->bindings, true)) {
-            $order[] = 'lock';
+            $seen[] = 'coach'.$lock;
         }
     });
-    redeemAs($f->u1, $this->code)->assertOk();
-    expect($order)->toContain('count')
-        ->and(array_search('lock', $order, true))->toBeLessThan(array_search('count', $order, true));
-
-    $order = [];
-    (new Passkey)->register($this, 'Late', 'INVA0000000000')->assertOk();
-    expect($order)->toContain('count')
-        ->and(array_search('lock', $order, true))->toBeLessThan(array_search('count', $order, true));
-});
+    try {
+        match ($how) {
+            'redeem' => redeemAs($f->u1, $this->code)->assertOk(),
+            'register' => (new Passkey)->register($this, 'Late', 'INVA0000000000')->assertOk(),
+            'mint' => $this->postJson('/api/coach/invites/new', ['note' => 'x'], bearer($f->a))->assertOk(),
+        };
+    } finally {
+        $connection->setQueryGrammar($grammar);
+    }
+    // In order of first appearance (the coach is locked twice on a join: CoachLock, coachBinding);
+    // a plain read of the coach after the join, for the reply's coach name, is fine.
+    expect(array_slice(array_values(array_unique($seen)), 0, 3))->toBe(['coach for update', 'count shared', 'licence shared'])
+        ->and($seen)->not->toContain('count')->not->toContain('licence');
+})->with(['redeem', 'register', 'mint']);

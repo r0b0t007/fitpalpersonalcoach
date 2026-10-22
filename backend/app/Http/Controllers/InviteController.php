@@ -50,7 +50,7 @@ final class InviteController
         // the landing screen says before the person creates a passkey for nothing.
         $coach = InviteGate::coachBinding($invite);
 
-        return Json::ok(['coachName' => $coach?->name, 'full' => CoachSeat::refusal($coach) !== null]);
+        return Json::ok(['coachName' => $coach?->name, 'full' => CoachSeat::reason($coach) !== null]);
     }
 
     /** POST /api/invite/redeem — joining a coach from an account that already exists. */
@@ -85,7 +85,7 @@ final class InviteController
             }
             // Counted with the coach's row locked (redeemable took it): a sign-up by the same
             // coach's code waits here, so the two cannot both take the last seat.
-            if ($full = CoachSeat::refusal($coach)) {
+            if ($full = CoachSeat::refusal($coach, lock: true)) {
                 return $full;
             }
             $user->coach_id = $coach->id;
@@ -105,9 +105,11 @@ final class InviteController
     }
 
     /**
-     * GET /api/coach/invites — the codes minted for this coach, and whether they may mint another
-     * under their licence: `cap` (null: unlimited) and `used` (active clients), `canInvite`, and
-     * `reason` when they may not — `read_only` (a lapsed licence) or `at_cap`.
+     * GET /api/coach/invites — the codes minted for this coach, and whether their LICENCE lets them
+     * take another client: `cap` (null: unlimited) and `used` (active clients), `canInvite`, and
+     * `reason` when it does not — `read_only` (a lapsed licence) or `at_cap`. The open-code limit
+     * is `max`, which the app already counts the listed codes against (the lifetime one is the
+     * mint's 429, an abuse limit no screen offers).
      */
     public function coachIndex(Request $request): JsonResponse
     {
@@ -154,7 +156,7 @@ final class InviteController
             // The licence judged again on the locked row (RequireWriter saw it before the wait).
             // A code is a promise of a seat: none is minted at the cap — open codes do not count
             // against it, but redeeming one past the cap is refused (CoachSeat).
-            $entitlement = Entitlement::for($me);
+            $entitlement = Entitlement::for($me, lock: true);
             switch ($entitlement->seatRefusal()) {
                 case 'read_only':
                     return RequireWriter::refusal();

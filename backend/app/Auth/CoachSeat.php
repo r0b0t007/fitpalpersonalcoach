@@ -16,18 +16,24 @@ use Illuminate\Http\JsonResponse;
  * two clients, and the client is not told why — only that the coach has something to sort out.
  *
  * Judged when called. The callers that write call it with the coach's row locked (CoachLock,
- * through InviteGate::redeemable), so two joins racing for the last seat are serialised and the
- * second one counts the first.
+ * through InviteGate::redeemable) and $lock, so two joins racing for the last seat are serialised
+ * and the second one's locking count sees the first (Entitlement::for).
  */
 final class CoachSeat
 {
+    /** Entitlement::seatRefusal for $coach, null when there is no coach to join: no response built. */
+    public static function reason(?User $coach): ?string
+    {
+        return $coach !== null ? Entitlement::for($coach)->seatRefusal() : null;
+    }
+
     /** Null when $coach can take one more client (or there is no coach to join); else the 409. */
-    public static function refusal(?User $coach): ?JsonResponse
+    public static function refusal(?User $coach, bool $lock = false): ?JsonResponse
     {
         if ($coach === null) {
             return null;
         }
-        $entitlement = Entitlement::for($coach);
+        $entitlement = Entitlement::for($coach, $lock);
 
         return match ($entitlement->seatRefusal()) {
             null => null,
