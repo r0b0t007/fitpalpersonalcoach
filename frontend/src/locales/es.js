@@ -1459,7 +1459,7 @@ export default {
   'your plan allows {0} clients — upgrade to invite more': 'tu plan permite {0} clientes — mejora tu plan para invitar a más',
   'this coach cannot take new clients right now — ask them to check their plan': 'este coach no puede aceptar clientes nuevos por ahora — pídele que revise su plan',
   'no such plan': 'ese plan no existe',
-  'that coach pays through Creem — change their plan there': 'ese coach paga a través de Creem — cambia su plan allí',
+  'that coach has a Creem subscription — change or cancel it there first': 'ese coach tiene una suscripción en Creem — cámbiala o cancélala allí primero',
   'that account has no granted plan to revoke': 'esa cuenta no tiene un plan concedido que revocar',
   'Made an account a coach': 'Convirtió una cuenta en coach',
   'Took the coach role away': 'Quitó el rol de coach',

@@ -67,7 +67,7 @@ final readonly class Entitlement
         if ($exempt !== null) {
             return new self($exempt, null, null, $used, true, true, false);
         }
-        $licence = self::licenceOf($user, $lock);
+        $licence = self::licenceOf($user, $lock ? 'share' : null);
         if ($licence === null) {
             return new self('none', null, 0, $used, false, false, $used > 0);
         }
@@ -120,22 +120,28 @@ final readonly class Entitlement
 
     /**
      * The user's licence, if it is theirs: a licence_id pointing at someone else's row is none.
-     * $lock reads it FOR SHARE; a writer of licences (the admin grant, the webhook) takes the
-     * coach's row first and then the licence's, the order these readers take them in.
+     * $lock: `share` for a reader under the coach's lock (for()), `update` for a writer of
+     * licences (the admin grant and revoke, the webhook) — each takes the coach's row first and
+     * then the licence's.
      */
-    public static function licenceOf(User $user, bool $lock = false): ?Licence
+    public static function licenceOf(User $user, ?string $lock = null): ?Licence
     {
         if ($user->licence_id === null) {
             return null;
         }
         $query = Licence::query()->whereKey($user->licence_id);
-        $licence = ($lock ? $query->sharedLock() : $query)->first();
+        $query = match ($lock) {
+            'share' => $query->sharedLock(),
+            'update' => $query->lockForUpdate(),
+            default => $query,
+        };
+        $licence = $query->first();
 
         return $licence !== null && $licence->user_id === $user->id ? $licence : null;
     }
 
     /** Rule 4, the stale net, and only on a plan this instance sells. */
-    public static function writable(Licence $licence): bool
+    private static function writable(Licence $licence): bool
     {
         return Plans::cap($licence->plan) !== null
             && ((in_array($licence->status, Licence::WRITABLE, true) && ! self::stale($licence))

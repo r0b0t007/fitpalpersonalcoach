@@ -96,8 +96,9 @@ final class AdminUserController
     {
         $id = Input::raw($request, 'id');
         $coach = Js::truthy(Input::raw($request, 'coach'));
-        $u = DB::transaction(function () use ($id, $coach): User {
+        [$u, $was] = DB::transaction(function () use ($id, $coach): array {
             $u = self::locked($id);
+            $was = (bool) $u->coach;
             $u->forceFill(['coach' => $coach])->save();
             // An admin is still a coach with the flag off: nothing is detached, their roster and
             // offers stay valid because they never lost the ability to coach.
@@ -105,14 +106,16 @@ final class AdminUserController
                 Detach::coach($u);
             }
 
-            return $u;
+            return [$u, $was];
         }, self::ATTEMPTS);
-        // Recorded after the commit, as every audit here is. Node recorded none of these. Two literal
-        // calls, not a ternary: check-audit-labels finds event names by their literal.
+        // Recorded after the commit, as every audit here is; only a change, and only a change of
+        // what the account can do — an admin coaches with the flag off too, so clearing theirs
+        // takes nothing away. Node recorded none of these. Two literal calls, not a ternary:
+        // check-audit-labels finds event names by their literal.
         $who = ['user' => $request->user('api'), 'target' => $u];
-        if ($coach) {
+        if ($coach && ! $was) {
             Audit::record($request, 'admin.user.coach', $who);
-        } else {
+        } elseif (! $coach && $was && ! $u->isCoach()) {
             Audit::record($request, 'admin.user.uncoach', $who);
         }
 
@@ -134,7 +137,7 @@ final class AdminUserController
                 $u->forceFill(['coach_id' => null])->save();
                 Assignment::expirePending($u->id, $previous);
 
-                return [$u, null];
+                return [$u, null, $previous];
             }
             if (! $c || ! $c->isCoach()) {
                 throw new ClientSafe(400, 'that user is not a coach');
@@ -153,11 +156,14 @@ final class AdminUserController
                 Assignment::expirePending($u->id, $previous);
             }
 
-            return [$u, $c];
+            return [$u, $c, $previous];
         }, self::ATTEMPTS);
-        [$u, $c] = $moved;
-        // Node recorded none of these. The new coach's id is the message (none: unassigned).
-        Audit::record($request, 'admin.user.assign', ['user' => $request->user('api'), 'target' => $u, 'msg' => $c?->id]);
+        [$u, $c, $previous] = $moved;
+        // Node recorded none of these. Only a move; the new coach's name is the message, as the
+        // activity log shows it to the owner (none: unassigned).
+        if ($previous !== $c?->id) {
+            Audit::record($request, 'admin.user.assign', ['user' => $request->user('api'), 'target' => $u, 'msg' => $c?->name]);
+        }
 
         return Json::ok(['ok' => true, 'id' => $u->id, 'coachId' => $c?->id]);
     }
@@ -165,9 +171,11 @@ final class AdminUserController
     /**
      * POST /api/admin/licence/grant {id, plan} — a coach licensed by hand, no Creem involved: the
      * existing coach at cutover (spec §11), a partner, a refund made good. A `manual` row, writable
-     * until revoked; granting again changes its plan. A coach whose Creem licence still writes is
-     * refused, not overwritten: they are paying, and the plan is changed in Creem's portal. A Creem
-     * licence that no longer writes (canceled, expired) is left as it is and stops being theirs.
+     * until revoked; granting again changes its plan. A coach whose Creem subscription can still
+     * bill (Licence::CREEM_LIVE) is refused, not overwritten: they would pay twice, or a webhook
+     * would undo the grant — the subscription is changed or canceled in Creem first. One that is
+     * over (canceled, even inside its paid period; expired), or a checkout never finished, is left
+     * as it is and stops being theirs. A disabled coach is refused, as assign-coach refuses one.
      * Allowed with billing off too, so the cutover can license the coach before Creem is set up.
      */
     public function grant(Request $request): JsonResponse
@@ -180,13 +188,15 @@ final class AdminUserController
             if (! $u->isCoach()) {
                 throw new ClientSafe(400, 'that user is not a coach');
             }
+            if ($u->disabled) {
+                throw new ClientSafe(400, 'that coach is disabled');
+            }
             if (! is_string($plan) || Plans::cap($plan) === null) {
                 throw new ClientSafe(400, 'no such plan');
             }
-            $licence = $u->licence_id !== null ? Licence::query()->whereKey($u->licence_id)->lockForUpdate()->first() : null;
-            $licence = $licence?->user_id === $u->id ? $licence : null;
-            if ($licence?->source === 'creem' && Entitlement::writable($licence)) {
-                throw new ClientSafe(409, 'that coach pays through Creem — change their plan there');
+            $licence = Entitlement::licenceOf($u, 'update');
+            if ($licence?->source === 'creem' && in_array($licence->status, Licence::CREEM_LIVE, true)) {
+                throw new ClientSafe(409, 'that coach has a Creem subscription — change or cancel it there first');
             }
             if ($licence?->source !== 'manual') {
                 $licence = (new Licence)->forceFill(['id' => Licence::newId(), 'user_id' => $u->id, 'source' => 'manual', 'status' => 'manual']);
@@ -202,21 +212,22 @@ final class AdminUserController
     }
 
     /**
-     * POST /api/admin/licence/revoke {id} — removes a licence granted by hand. A Creem licence is
-     * not the admin's to remove (it ends in Creem), so only a manual one is: anything else is
-     * "nothing to revoke". The coach is then unlicensed — read-only while billing is on.
+     * POST /api/admin/licence/revoke {id} — takes back a licence granted by hand. A Creem licence
+     * is not the admin's to remove (it ends in Creem), so only a manual one is: anything else is
+     * "nothing to revoke". The row stays, marked `revoked`, as the history of what was granted
+     * (the audit log is pruned); the coach is then unlicensed — read-only while billing is on.
      */
     public function revoke(Request $request): JsonResponse
     {
         $id = Input::raw($request, 'id');
         $u = DB::transaction(function () use ($id): User {
             $u = self::locked($id);
-            $licence = $u->licence_id !== null ? Licence::query()->whereKey($u->licence_id)->lockForUpdate()->first() : null;
-            if ($licence?->user_id !== $u->id || $licence->source !== 'manual') {
+            $licence = Entitlement::licenceOf($u, 'update');
+            if ($licence?->source !== 'manual') {
                 throw new ClientSafe(400, 'that account has no granted plan to revoke');
             }
             $u->forceFill(['licence_id' => null])->save();
-            $licence->delete();
+            $licence->forceFill(['status' => 'revoked', 'canceled_at' => now()])->save();
 
             return $u;
         }, self::ATTEMPTS);
