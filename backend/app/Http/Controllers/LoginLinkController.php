@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Audit\Audit;
+use App\Audit\ClientIp;
+use App\Auth\FreshAuth;
 use App\Auth\SessionToken;
 use App\Mail\AccountMail;
 use App\Mail\SendAfterResponse;
@@ -16,6 +18,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 
+use function Illuminate\Support\defer;
+
 /**
  * A coach's second way in (spec §4a, R4; Laravel only): a sign-in link by email, and changing the
  * address those links go to. Passkeys stay the primary sign-in and the only one for clients.
@@ -27,8 +31,8 @@ use Illuminate\Support\Facades\RateLimiter;
  *    passkey does (SessionToken::cookies, so `logout/all` ends it too); an email-change link moves
  *    the pending address into `email` and tells the old one.
  *  - POST /api/account/email {email} (signed in) only writes `pending_email` and mails the new
- *    address: a live session alone — a shared laptop, a paired phone — can never point the
- *    account's recovery at someone else's inbox.
+ *    address, and only from a session that signed in just now (FreshAuth): a live session alone
+ *    — a shared laptop, a paired phone — can never point the account's recovery at another inbox.
  */
 final class LoginLinkController
 {
@@ -40,7 +44,9 @@ final class LoginLinkController
     public function request(Request $request): JsonResponse
     {
         $email = self::normalise(Input::jsString($request, 'email'));
-        $ip = (string) $request->ip();
+        // The client's address, not the proxy's: behind Cloudflare $request->ip() is its edge, and
+        // every coach on that edge would share one bucket.
+        $ip = ClientIp::for($request, 'full') ?? (string) $request->ip();
         $emailKey = 'login-link:email:'.hash('sha256', $email);
         $ipKey = 'login-link:ip:'.$ip;
         if (RateLimiter::tooManyAttempts($emailKey, self::PER_EMAIL[0]) || RateLimiter::tooManyAttempts($ipKey, self::PER_IP[0])) {
@@ -52,10 +58,14 @@ final class LoginLinkController
         RateLimiter::hit($emailKey, self::PER_EMAIL[1]);
         RateLimiter::hit($ipKey, self::PER_IP[1]);
 
+        // Only the lookup happens before the answer, the same for any address: the link, the
+        // coach's language and the mail all come after it (defer), so timing tells nobody anything.
         $user = self::valid($email) ? self::coachWithEmail($email) : null;
         if ($user !== null) {
-            [$token] = LoginLink::issue($user, 'login', null, $ip);
-            SendAfterResponse::to($user->email, new AccountMail('signin', $user, self::url($token)));
+            defer(function () use ($user, $ip) {
+                [$token] = LoginLink::issue($user, 'login', null, $ip);
+                SendAfterResponse::send($user->email, new AccountMail('signin', $user, self::url($token)));
+            });
         }
 
         return Json::ok(['ok' => true]);
@@ -89,9 +99,13 @@ final class LoginLinkController
                 self::refuseTaken($link->email, $user->id);
                 $old = $user->email;
                 $user->forceFill(['email' => $link->email, 'pending_email' => null, 'email_verified_at' => now()])->save();
+                // Whatever went to the old address before the change stops working now.
+                LoginLink::spendAll($user->id);
 
                 return ['email', $user, $old];
             }
+            // One sign-in link used: the others mailed meanwhile are spent with it.
+            LoginLink::spendAll($user->id, 'login');
             if ($user->email_verified_at === null) {
                 $user->forceFill(['email_verified_at' => now()])->save();
             }
@@ -110,7 +124,7 @@ final class LoginLinkController
         }
         Audit::record($request, 'login.link', ['user' => $user]);
 
-        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user));
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
     }
 
     public function changeEmail(Request $request): JsonResponse
@@ -119,6 +133,9 @@ final class LoginLinkController
         $user = $request->user('api');
         if (! $user->isCoach()) {
             return Json::error(403, 'forbidden');
+        }
+        if (! FreshAuth::check($request)) {
+            return Json::error(403, 'sign in again to do this — it needs a recent sign-in');
         }
         $email = self::normalise(Input::jsString($request, 'email'));
         if (! self::valid($email)) {
@@ -136,7 +153,9 @@ final class LoginLinkController
             $me = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             self::refuseTaken($email, $me->id);
             $me->forceFill(['pending_email' => $email])->save();
-            [$token] = LoginLink::issue($me, 'email', $email, (string) $request->ip());
+            // A newer change replaces the older one: its link is spent (the pending address moved).
+            LoginLink::spendAll($me->id, 'email');
+            [$token] = LoginLink::issue($me, 'email', $email, ClientIp::for($request, 'full'));
 
             return $token;
         });
@@ -145,20 +164,25 @@ final class LoginLinkController
         return Json::ok(['ok' => true, 'pendingEmail' => $email]);
     }
 
-    /** The one coach (or admin) whose sign-in address this is; nobody when it is unclear. */
+    /**
+     * The coach (or admin) whose sign-in address this is. Addresses are stored normalised and
+     * `users.email` is unique, so this is the index, not a scan.
+     */
     private static function coachWithEmail(string $email): ?User
     {
-        $found = User::query()->whereRaw('lower(email) = ?', [$email])->where('disabled', false)->limit(2)->get();
+        $user = User::query()->where('email', $email)->where('disabled', false)->first();
 
-        return $found->count() === 1 && $found->first()->isCoach() ? $found->first() : null;
+        return $user?->isCoach() ? $user : null;
     }
 
-    /** An address another account signs in with, or is about to, is not free. */
+    /**
+     * An address another account signs in with is not free. A pending one is not counted: an
+     * address someone asked for and never confirmed must not block its real owner — whoever
+     * confirms first has it, and the other is refused here at redeem.
+     */
     private static function refuseTaken(string $email, string $self): void
     {
-        $taken = User::query()->whereKeyNot($self)
-            ->where(fn ($q) => $q->whereRaw('lower(email) = ?', [$email])->orWhereRaw('lower(pending_email) = ?', [$email]))
-            ->exists();
+        $taken = User::query()->whereKeyNot($self)->where('email', $email)->exists();
         if ($taken) {
             throw new ClientSafe(409, 'that email address is already used by another account');
         }

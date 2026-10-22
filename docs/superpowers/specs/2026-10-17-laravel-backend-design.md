@@ -178,6 +178,15 @@ browser must not be a support ticket to the owner. Decided 2026-10-17; no passwo
   not sign anyone in — and only if the address is still the pending one and no other account's
   (409 `that email address is already used by another account`, checked at request too). Mail
   copy in fr/en/es/de is provisional until E1; Resend and the DNS are CHW-271.
+- **A recent sign-in for the lasting writes (#138 review).** Pending-plus-notice alone still let
+  anyone holding a session move recovery to an inbox they control, or plant a passkey that
+  survives `logout/all`. So `account/email` and `passkeys/options|verify` need a session that
+  signed in within 15 minutes by a passkey, an email link or the sign-up (`FreshAuth`, by the
+  token's hash; pairing does not count, it would launder an old session); otherwise 403 `sign in
+  again to do this — it needs a recent sign-in`. Issuing a link no longer spends the older ones
+  (a stranger asking for a coach's links must not spend the one in their inbox); using one spends
+  the rest, and confirming a new address spends every unused link. Only a confirmed address
+  blocks another account's change; the per-IP limit keys on the client (`CF-Connecting-IP`).
 - **Tests.** Issuance is silent for unknown and client addresses; single use; expiry; throttling;
   disabled account refused; the link login sets the same cookie and dies with `logout/all` like
   any token; a second passkey attaches and either one logs in; a pending address cannot request a

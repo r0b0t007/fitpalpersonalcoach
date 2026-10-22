@@ -1488,6 +1488,7 @@ export default {
   'that is already your sign-in email': 'das ist schon deine Anmelde-E-Mail',
   'too many emails asked for — try again in a few minutes': 'zu viele E-Mails angefordert — versuch es in ein paar Minuten noch einmal',
   'that email address is already used by another account': 'diese E-Mail-Adresse wird schon von einem anderen Konto benutzt',
+  'sign in again to do this — it needs a recent sign-in': 'melde dich erneut an, um das zu tun — dafür ist eine frische Anmeldung nötig',
   'Signed in with an email link': 'Mit einem E-Mail-Link angemeldet',
   'Too many sign-in links asked for': 'Zu viele Anmeldelinks angefordert',
   'Changed the sign-in email': 'Hat die Anmelde-E-Mail geändert',

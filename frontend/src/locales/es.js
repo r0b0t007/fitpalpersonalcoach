@@ -1470,6 +1470,7 @@ export default {
   'that is already your sign-in email': 'esa ya es tu dirección de acceso',
   'too many emails asked for — try again in a few minutes': 'demasiados correos pedidos — inténtalo de nuevo en unos minutos',
   'that email address is already used by another account': 'esa dirección de correo ya la usa otra cuenta',
+  'sign in again to do this — it needs a recent sign-in': 'vuelve a iniciar sesión para hacer esto — hace falta un acceso reciente',
   'Signed in with an email link': 'Entró con un enlace por correo',
   'Too many sign-in links asked for': 'Demasiados enlaces de acceso pedidos',
   'Changed the sign-in email': 'Cambió su correo de acceso',

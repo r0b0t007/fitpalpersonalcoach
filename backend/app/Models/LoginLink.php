@@ -39,15 +39,16 @@ class LoginLink extends Model
 
     /**
      * A new link for $user: the token to mail (32 random bytes, base64url), and the row holding
-     * its hash. Issuing one spends every unused link of the same purpose the user still has.
+     * its hash. Older unused links stay valid until one of them is used (spendAll): a stranger who
+     * keeps asking for a coach's links only sends the coach links they can use, and cannot spend
+     * the one already in their inbox.
      *
      * @return array{string, self}
      */
     public static function issue(User $user, string $purpose, ?string $email, ?string $ip): array
     {
-        $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        $token = Js::token(32);
         $now = now();
-        self::query()->where('user_id', $user->id)->where('purpose', $purpose)->whereNull('used_at')->update(['used_at' => $now]);
         $link = (new self)->forceFill([
             'id' => 'll_'.Js::token(18), 'user_id' => $user->id, 'purpose' => $purpose, 'email' => $email,
             'token_hash' => self::hash($token), 'created_at' => $now, 'expires_at' => $now->copy()->addMinutes(self::TTL_MINUTES),
@@ -56,5 +57,13 @@ class LoginLink extends Model
         $link->save();
 
         return [$token, $link];
+    }
+
+    /** Spends every unused link $userId has (of $purpose, or of any): one has just been used. */
+    public static function spendAll(string $userId, ?string $purpose = null): void
+    {
+        self::query()->where('user_id', $userId)->whereNull('used_at')
+            ->when($purpose !== null, fn ($q) => $q->where('purpose', $purpose))
+            ->update(['used_at' => now()]);
     }
 }

@@ -22,12 +22,16 @@ final class SendAfterResponse
 {
     public static function to(string $address, Mailable $mail): void
     {
-        defer(function () use ($address, $mail) {
-            try {
-                Mail::to($address)->send($mail);
-            } catch (Throwable $e) {
-                Log::error('account mail failed', ['mail' => $mail::class, 'error' => $e->getMessage()]);
-            }
-        });
+        defer(fn () => self::send($address, $mail));
+    }
+
+    /** Sends now, logging a failure the same way: for a caller already running after the response. */
+    public static function send(string $address, Mailable $mail): void
+    {
+        try {
+            Mail::to($address)->send($mail);
+        } catch (Throwable $e) {
+            Log::error('account mail failed', ['mail' => $mail::class, 'error' => $e->getMessage()]);
+        }
     }
 }

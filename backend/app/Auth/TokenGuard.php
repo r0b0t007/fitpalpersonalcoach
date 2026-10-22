@@ -16,6 +16,14 @@ final class TokenGuard
 {
     public static function resolve(Request $request): ?User
     {
+        $token = self::token($request);
+
+        return $token !== null ? SessionToken::user($token) : null;
+    }
+
+    /** The token this request carries, by the rules above; null when none (FreshAuth reads it too). */
+    public static function token(Request $request): ?string
+    {
         $token = self::cookieToken($request, SessionToken::cookieName()) ?? self::cookieToken($request, 'gymsid');
         // No cookie, or two of one name that disagree (never guessed at): the Bearer, if any.
         if ($token === null || $token === false) {
@@ -25,7 +33,7 @@ final class TokenGuard
             }
         }
 
-        return $token ? SessionToken::user($token) : null;
+        return is_string($token) && $token !== '' ? $token : null;
     }
 
     /** The cookie's value, null when absent, false when it appears twice with different values. */

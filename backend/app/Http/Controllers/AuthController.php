@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Auth\Bootstrap;
 use App\Auth\CoachSeat;
+use App\Auth\FreshAuth;
 use App\Auth\InviteGate;
 use App\Auth\SessionToken;
 use App\Auth\TokenGuard;
@@ -103,7 +104,8 @@ final class AuthController
     {
         // Spent now, whatever the body turns out to be: one challenge, one attempt.
         $entry = CacheChallengeRepository::takeFor($this->cache, $request, Input::str($request, 'cid'));
-        if ($entry === null || empty($entry['extra']['uid'])) {
+        // An add-a-passkey challenge (passkeyOptions) names an existing account: never a sign-up's.
+        if ($entry === null || empty($entry['extra']['uid']) || ! empty($entry['extra']['add'])) {
             Audit::record($request, 'auth.register.fail', ['ok' => false, 'msg' => 'challenge-expired']);
 
             return Json::error(400, 'challenge expired — try again');
@@ -206,7 +208,7 @@ final class AuthController
         // The invite code the account came in with, as Node recorded it.
         Audit::record($request, 'auth.register.ok', ['user' => $user, 'msg' => $spent]);
 
-        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user));
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
     }
 
     /**
@@ -219,6 +221,9 @@ final class AuthController
     {
         /** @var User $user */
         $user = $request->user('api');
+        if (! FreshAuth::check($request)) {
+            return Json::error(403, 'sign in again to do this — it needs a recent sign-in');
+        }
         $request->attributes->set(CacheChallengeRepository::EXTRA_ATTRIBUTE, ['uid' => $user->id, 'add' => true]);
         $creation = app(AttestationCreator::class)
             ->send(new AttestationCreation(user: $user, residentKey: ResidentKey::Required, userVerification: UserVerification::Preferred, uniqueCredentials: true))
@@ -233,6 +238,9 @@ final class AuthController
     {
         /** @var User $user */
         $user = $request->user('api');
+        if (! FreshAuth::check($request)) {
+            return Json::error(403, 'sign in again to do this — it needs a recent sign-in');
+        }
         $entry = CacheChallengeRepository::takeFor($this->cache, $request, Input::str($request, 'cid'));
         // A challenge made for this account's add-a-passkey, not a sign-up's nor another account's.
         if ($entry === null || ($entry['extra']['uid'] ?? null) !== $user->id || empty($entry['extra']['add'])) {
@@ -311,7 +319,7 @@ final class AuthController
         }
         Audit::record($request, 'auth.login.ok', ['user' => $user]);
 
-        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user));
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
     }
 
     public function logout(Request $request): JsonResponse
