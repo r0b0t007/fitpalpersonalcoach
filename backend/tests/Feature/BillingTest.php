@@ -4,10 +4,12 @@
 // /api/billing/portal, and the Creem client under them. Creem is faked: nothing leaves the suite.
 
 use App\Billing\Creem;
+use App\Http\Controllers\BillingController;
 use App\Models\Licence;
 use App\Models\User;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\TestResponse;
@@ -28,9 +30,15 @@ function checkoutAs(User $who, array $body = ['plan' => 'pro', 'period' => 'mont
     return test()->postJson('/api/billing/checkout', $body, bearer($who));
 }
 
+/** Creem's checkout endpoint, faked: by default each session its own id and URL (ch_1, ch_2…). */
 function creemCheckouts(mixed $answer = null): void
 {
-    Http::fake(['test-api.creem.io/v1/checkouts' => $answer ?? Http::response(['id' => 'ch_1', 'checkout_url' => CHECKOUT_URL, 'status' => 'pending'])]);
+    $n = 0;
+    Http::fake(['test-api.creem.io/v1/checkouts' => $answer ?? function () use (&$n) {
+        $n++;
+
+        return Http::response(['id' => "ch_$n", 'checkout_url' => $n === 1 ? CHECKOUT_URL : CHECKOUT_URL."_$n", 'status' => 'pending']);
+    }]);
 }
 
 it('opens a Creem checkout for the plan and leaves a pending licence pointing at it', function () {
@@ -70,17 +78,65 @@ it('hands out the same checkout for a second tap within 30 minutes, and a new on
     checkoutAs($f->a)->assertOk();
     checkoutAs($f->a)->assertOk()->assertExactJson(['url' => CHECKOUT_URL]);
     Http::assertSentCount(1);
-    $id = $f->a->fresh()->licence_id;
+    $first = $f->a->fresh()->licence_id;
 
-    // Another period is another checkout, on the same pending row.
-    checkoutAs($f->a, ['plan' => 'pro', 'period' => 'year'])->assertOk();
+    // Another period is another checkout on a new row; the first keeps its session, which the
+    // webhook can still match should it be paid after all.
+    checkoutAs($f->a, ['plan' => 'pro', 'period' => 'year'])->assertOk()->assertExactJson(['url' => CHECKOUT_URL.'_2']);
     Http::assertSentCount(2);
+    expect(Licence::query()->find($first))->toMatchArray(['status' => 'pending', 'checkout_id' => 'ch_1', 'period' => 'month']);
     $this->travel(31)->minutes();
-    checkoutAs($f->a, ['plan' => 'pro', 'period' => 'year'])->assertOk();
+    checkoutAs($f->a, ['plan' => 'pro', 'period' => 'year'])->assertOk()->assertExactJson(['url' => CHECKOUT_URL.'_3']);
     Http::assertSentCount(3);
-    expect($f->a->fresh()->licence_id)->toBe($id)
-        ->and(Licence::query()->count())->toBe(1)
-        ->and(Licence::query()->find($id)->period)->toBe('year');
+    expect(Licence::query()->count())->toBe(3)
+        ->and(Licence::query()->find($f->a->fresh()->licence_id)->checkout_id)->toBe('ch_3');
+});
+
+it('does not hand out a checkout for a product that is no longer the one on sale', function () {
+    $f = $this->f;
+    creemCheckouts();
+    checkoutAs($f->a)->assertOk();
+    // A price change: pro monthly is another product now (or the store moved from test to live).
+    Billing::on(str_replace('prod_pm', 'prod_pm2', Billing::PRODUCTS));
+    checkoutAs($f->a)->assertOk()->assertExactJson(['url' => CHECKOUT_URL.'_2']);
+    Http::assertSentCount(2);
+    Http::assertSent(fn (ClientRequest $r) => $r['product_id'] === 'prod_pm2');
+});
+
+it('opens one checkout at a time per coach: a double tap waits for the first', function () {
+    $f = $this->f;
+    $heldDuringCall = null;
+    creemCheckouts(function () use ($f, &$heldDuringCall) {
+        // While Creem is answering, the coach's checkout lock is taken: a second tap would wait.
+        $heldDuringCall = ! Cache::lock('billing:checkout:'.$f->a->id, 1)->get();
+
+        return Http::response(['id' => 'ch_1', 'checkout_url' => CHECKOUT_URL]);
+    });
+    checkoutAs($f->a)->assertOk();
+    expect($heldDuringCall)->toBeTrue();
+
+    // A tap that waited too long is told to try again, with nothing sent or written.
+    $held = Cache::lock('billing:checkout:'.$f->b->id, 30);
+    $held->get();
+    BillingController::$lockWait = 0;
+    try {
+        checkoutAs($f->b)->assertStatus(502);
+    } finally {
+        BillingController::$lockWait = 20;
+        $held->release();
+    }
+    Http::assertSentCount(1);
+    expect($f->b->fresh()->licence_id)->toBeNull();
+});
+
+it('sells a new plan, and lets the owner grant one, when a Creem licence went stale', function () {
+    $f = $this->f;
+    creemCheckouts();
+    // "Active", but its period ended long ago and Creem said nothing since: a webhook lost for good.
+    Billing::licence($f->a, ['status' => 'active', 'plan' => 'pro', 'period_end' => now()->subDays(Licence::GRACE_DAYS + 1)]);
+    checkoutAs($f->a)->assertOk();
+    Billing::licence($f->b, ['status' => 'past_due', 'plan' => 'pro', 'period_end' => now()->subDays(Licence::GRACE_DAYS + 1)]);
+    $this->postJson('/api/admin/licence/grant', ['id' => $f->b->id, 'plan' => 'pro'], bearer($f->admin))->assertOk();
 });
 
 it('refuses a client, an admin, an instance without billing, and a plan it does not sell — asking Creem nothing', function () {
@@ -103,7 +159,7 @@ it('refuses a client, an admin, an instance without billing, and a plan it does 
 it('does not sell a second plan to a coach who has one, or whose subscription can still bill', function (array $licence) {
     Http::fake();
     Billing::licence($this->f->a, $licence + ['plan' => 'solo']);
-    checkoutAs($this->f->a)->assertStatus(409)->assertExactJson(['error' => 'you already have a plan — manage it from Account › Plan & billing']);
+    checkoutAs($this->f->a)->assertStatus(409)->assertExactJson(['error' => 'you already have a plan — see Account › Plan & billing']);
     Http::assertNothingSent();
 })->with([
     'trialing' => [['status' => 'trialing']],
@@ -165,6 +221,7 @@ it('tells the coach what their licence says, without Creem ids or the checkout U
         'entitlement' => ['status' => 'unlicensed', 'plan' => null, 'cap' => null, 'used' => 2, 'canWrite' => true, 'canTakeClient' => true, 'overCap' => false, 'trialEndsAt' => null, 'periodEnd' => null],
         'licence' => null,
         'plans' => [],
+        'portal' => false,
     ]);
     Billing::on();
     Billing::licence($f->a, [
@@ -175,8 +232,9 @@ it('tells the coach what their licence says, without Creem ids or the checkout U
     expect($res->json('licence'))->toBe([
         'status' => 'trialing', 'plan' => 'pro', 'period' => 'month', 'source' => 'creem',
         'trialEndsAt' => '2026-11-05T10:00:00.000Z', 'periodEnd' => '2026-11-05T10:00:00.000Z',
-        'cancelAt' => null, 'canceledAt' => null, 'checkoutAt' => null, 'portal' => true,
-    ])->and($res->json('entitlement'))->toMatchArray(['status' => 'trialing', 'cap' => 30, 'canWrite' => true])
+        'cancelAt' => null, 'canceledAt' => null, 'checkoutAt' => null,
+    ])->and($res->json('portal'))->toBeTrue()
+        ->and($res->json('entitlement'))->toMatchArray(['status' => 'trialing', 'cap' => 30, 'canWrite' => true])
         ->and($res->json('plans'))->toHaveCount(3)
         ->and($res->getContent())->not->toContain('cust_1')->not->toContain('checkout.creem.io');
     $this->getJson('/api/billing/me', bearer($f->a1))->assertStatus(403);
@@ -201,6 +259,17 @@ it('opens the Creem portal for a coach with a Creem customer, and only for them'
     $portal($f->a1)->assertStatus(403);
 });
 
+it('still opens the portal after a checkout was started and abandoned', function () {
+    $f = $this->f;
+    creemCheckouts();
+    Http::fake(['test-api.creem.io/v1/customers/billing' => Http::response(['customer_portal_link' => 'https://creem.io/test/portal/abc'])]);
+    Billing::licence($f->a, ['status' => 'expired', 'plan' => 'pro', 'creem_customer_id' => 'cust_1']);
+    checkoutAs($f->a)->assertOk();   // licence_id now points at a pending row with no customer
+    $this->getJson('/api/billing/me', bearer($f->a))->assertJsonPath('licence.status', 'pending')->assertJsonPath('portal', true);
+    $this->postJson('/api/billing/portal', [], bearer($f->a))->assertOk();
+    Http::assertSent(fn (ClientRequest $r) => str_ends_with($r->url(), '/v1/customers/billing') && $r['customer_id'] === 'cust_1');
+});
+
 it('answers 502 when the portal link cannot be had', function () {
     Http::fake(['test-api.creem.io/v1/customers/billing' => Http::response([], 503)]);
     Billing::licence($this->f->a, ['status' => 'active', 'plan' => 'pro', 'creem_customer_id' => 'cust_1']);
@@ -213,5 +282,12 @@ it('talks to the store the key belongs to, unless CREEM_API_BASE says otherwise'
     config(['fitpal.creem.api_key' => 'creem_abc']);
     expect(Creem::base())->toBe('https://api.creem.io');
     config(['fitpal.creem.api_base' => 'https://creem.internal']);
-    expect(Creem::base())->toBe('https://creem.internal');
+    expect(Creem::base())->toBe('https://creem.internal')->and(Creem::problems())->toBe([]);
+    // A base for the other store than the key's: every call would be a 401. check-config says so.
+    config(['fitpal.creem.api_base' => Creem::TEST_BASE, 'fitpal.creem.api_key' => 'creem_live']);
+    expect(Creem::problems())->toHaveCount(1)->and(Creem::problems()[0])->toContain('live key');
+    config(['fitpal.creem.api_base' => Creem::LIVE_BASE, 'fitpal.creem.api_key' => 'creem_test_x']);
+    expect(Creem::problems()[0])->toContain('test key');
+    config(['fitpal.creem.api_base' => Creem::TEST_BASE]);
+    expect(Creem::problems())->toBe([]);
 });

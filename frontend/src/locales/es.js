@@ -1461,7 +1461,7 @@ export default {
   'no such plan': 'ese plan no existe',
   'the payment service did not answer — try again in a moment': 'el servicio de pago no respondió — inténtalo de nuevo en un momento',
   'billing is not set up on this server': 'la facturación no está configurada en este servidor',
-  'you already have a plan — manage it from Account › Plan & billing': 'ya tienes un plan — gestiónalo desde Cuenta › Plan y facturación',
+  'you already have a plan — see Account › Plan & billing': 'ya tienes un plan — consulta Cuenta › Plan y facturación',
   'there is no billing account to manage yet — choose a plan first': 'aún no hay una cuenta de facturación que gestionar — elige un plan primero',
   'an admin needs no plan': 'un admin no necesita plan',
   'Took a client off their coach’s list': 'Quitó a un cliente de la lista de su coach',

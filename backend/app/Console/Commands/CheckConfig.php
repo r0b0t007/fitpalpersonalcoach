@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Auth\Bootstrap;
 use App\Auth\SessionToken;
+use App\Billing\Creem;
 use App\Domain\Plans;
 use App\Media\Upload;
 use Illuminate\Console\Command;
@@ -36,7 +37,7 @@ final class CheckConfig extends Command
         }
         // Creem: a partial set leaves billing off (every coach entitled) — say so, and name any
         // CREEM_PRODUCTS entry that is ignored.
-        array_push($warnings, ...Plans::problems());
+        array_push($warnings, ...Plans::problems(), ...Creem::problems());
         foreach ($warnings as $w) {
             $this->warn($w);
         }

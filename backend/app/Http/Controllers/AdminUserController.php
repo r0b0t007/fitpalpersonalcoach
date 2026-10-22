@@ -178,7 +178,7 @@ final class AdminUserController
      * POST /api/admin/licence/grant {id, plan} — a coach licensed by hand, no Creem involved: the
      * existing coach at cutover (spec §11), a partner, a refund made good. A `manual` row, writable
      * until revoked; granting again changes its plan. A coach whose Creem subscription can still
-     * bill (Licence::CREEM_LIVE) is refused, not overwritten: they would pay twice, or a webhook
+     * bill (Licence::canStillBill) is refused, not overwritten: they would pay twice, or a webhook
      * would undo the grant — the subscription is changed or canceled in Creem first. One that is
      * over (canceled, even inside its paid period; expired), or a checkout never finished, is left
      * as it is and stops being theirs (the webhook updates such a row without taking licence_id
@@ -207,7 +207,7 @@ final class AdminUserController
                 throw new ClientSafe(400, 'no such plan');
             }
             $licence = Entitlement::licenceOf($u, 'update');
-            if ($licence?->source === 'creem' && in_array($licence->status, Licence::CREEM_LIVE, true)) {
+            if ($licence?->canStillBill()) {
                 throw new ClientSafe(409, 'that coach has a Creem subscription — change or cancel it there first');
             }
             // Only a grant still in force is changed in place; anything else (a hand-edited or

@@ -1479,7 +1479,7 @@ export default {
   'no such plan': 'diesen Tarif gibt es nicht',
   'the payment service did not answer — try again in a moment': 'der Zahlungsdienst hat nicht geantwortet — versuch es gleich noch einmal',
   'billing is not set up on this server': 'die Abrechnung ist auf diesem Server nicht eingerichtet',
-  'you already have a plan — manage it from Account › Plan & billing': 'du hast schon einen Tarif — verwalte ihn unter Konto › Tarif & Abrechnung',
+  'you already have a plan — see Account › Plan & billing': 'du hast schon einen Tarif — siehe Konto › Tarif & Abrechnung',
   'there is no billing account to manage yet — choose a plan first': 'es gibt noch kein Abrechnungskonto zu verwalten — wähle zuerst einen Tarif',
   'an admin needs no plan': 'ein Admin braucht keinen Tarif',
   'Took a client off their coach’s list': 'Hat einen Kunden von der Liste seines Coaches genommen',

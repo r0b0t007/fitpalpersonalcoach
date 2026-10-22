@@ -295,7 +295,8 @@ their coach's demo media.
 - `POST /api/billing/checkout {plan, period}`: coach, non-admin (400), billing on (404), valid plan
   and period with a product (400), no writable licence and no Creem subscription that can still
   bill (paused, unpaid: the card is fixed in the portal) already (409), a pending checkout under
-  30 minutes old for the same plan and period is reused; otherwise Creem `POST /v1/checkouts`
+  30 minutes old for the same plan, period and product is reused, one checkout at a time per
+  coach (a double tap waits and gets the same one); otherwise a new pending row, and Creem `POST /v1/checkouts`
   with `request_id`, `metadata{userId, plan, period}`, `success_url = ORIGIN + '/'` and the
   coach's email; the call is made outside the coach's lock and the licence judged again before
   the pending row and `users.licence_id` are written; returns `{url}`. Provider failure → 502,
@@ -310,7 +311,10 @@ their coach's demo media.
   `last_event_at` are recorded but not applied. An event for a licence row that is not the coach's
   `licence_id` (one a grant took over: a checkout finished late, a canceled subscription's
   `expired`) updates that row only and never moves `licence_id` off a `manual` grant; a payment
-  landing on a coach who holds a grant is audited for the owner to reconcile.
+  landing on a coach who holds a grant is audited for the owner to reconcile. A coach can have
+  several pending rows (one per checkout opened for a different plan, period or product); when one
+  of them is paid while `licence_id` points at another row that does not write, `licence_id` moves
+  to the paid one.
 - `GET /api/billing/me` → `{entitlement, licence (public fields), plans}`. `POST /api/billing/
   portal` → Creem's customer portal link. Plan changes and cancellation happen in the portal in
   v1. `POST /api/admin/licence/grant {id, plan}` gives a coach a `manual` licence (or changes the

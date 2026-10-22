@@ -1461,7 +1461,7 @@ export default {
   'no such plan': 'formule inconnue',
   'the payment service did not answer — try again in a moment': 'le service de paiement n’a pas répondu — réessayez dans un instant',
   'billing is not set up on this server': 'la facturation n’est pas configurée sur ce serveur',
-  'you already have a plan — manage it from Account › Plan & billing': 'vous avez déjà une formule — gérez-la depuis Compte › Formule et facturation',
+  'you already have a plan — see Account › Plan & billing': 'vous avez déjà une formule — voir Compte › Formule et facturation',
   'there is no billing account to manage yet — choose a plan first': 'il n’y a pas encore de compte de facturation à gérer — choisissez d’abord une formule',
   'an admin needs no plan': 'un admin n’a pas besoin de formule',
   'Took a client off their coach’s list': 'A retiré un client de la liste de son coach',

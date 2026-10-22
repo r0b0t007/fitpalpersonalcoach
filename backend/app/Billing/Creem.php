@@ -39,6 +39,22 @@ final class Creem
         return str_starts_with((string) config('fitpal.creem.api_key'), 'creem_test_') ? self::TEST_BASE : self::LIVE_BASE;
     }
 
+    /** For fitpal:check-config: a CREEM_API_BASE pointing at the other store from the key's. */
+    public static function problems(): array
+    {
+        $key = (string) config('fitpal.creem.api_key');
+        $base = (string) config('fitpal.creem.api_base');
+        $test = str_starts_with($key, 'creem_test_');
+        if ($key === '' || $base === '' || $base === ($test ? self::TEST_BASE : self::LIVE_BASE)) {
+            return [];
+        }
+        if ($base === ($test ? self::LIVE_BASE : self::TEST_BASE)) {
+            return ['CREEM_API_BASE is '.$base.' but CREEM_API_KEY is a '.($test ? 'test' : 'live').' key — every Creem call will be refused (401). Leave CREEM_API_BASE empty: the host follows the key.'];
+        }
+
+        return [];
+    }
+
     /**
      * POST /v1/checkouts. $body is Creem's request as documented (product_id, request_id,
      * success_url, metadata, customer). Returns the session's id and the URL to send the coach to.
