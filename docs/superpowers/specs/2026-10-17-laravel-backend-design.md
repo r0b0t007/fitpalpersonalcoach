@@ -312,9 +312,15 @@ their coach's demo media.
   older than `last_event_at` are recorded but not applied (`{stale: true}`). The signature is the
   hex HMAC-SHA256 of the raw body in `creem-signature`; the event id is recorded in the same
   transaction that applies it, so a failure is retried whole. The row: by subscription id, then
-  checkout id, request id, then the coach's pending row for the product; a subscription of theirs
-  never seen before gets a row of its own. Audit `billing.event|stale|ignored|orphan|conflict|
-  unsold|refund|dispute`. An event for a licence row that is not the coach's
+  checkout id, request id, then the coach's one pending row for the product — never a row holding
+  another subscription; a subscription of theirs never seen before gets a row of its own; with
+  several pending rows for the product the event is answered 503 for Creem to retry once
+  `checkout.completed` has said which was paid. The subscription's own status wins over the event
+  name; a resumed subscription clears `cancel_at` and `canceled_at`. When the row in force stops
+  writing, another writing subscription of the coach's takes over; a second subscription writing
+  beside the one in force (or beside a grant) is audited `billing.conflict` and does not take over.
+  Audit `billing.event|stale|ignored|orphan|conflict|unsold|refund|dispute`; `unsold` once per
+  product change. An event for a licence row that is not the coach's
   `licence_id` (one a grant took over: a checkout finished late, a canceled subscription's
   `expired`) updates that row only and never moves `licence_id` off a `manual` grant; a payment
   landing on a coach who holds a grant is audited for the owner to reconcile. A coach can have

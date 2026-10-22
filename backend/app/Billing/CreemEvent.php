@@ -17,29 +17,32 @@ use Carbon\CarbonInterface;
  *
  * Who it is for, in order: the metadata our checkout put on it (`userId`, carried onto the
  * subscription), then a licence row holding its subscription id, its customer id, its checkout
- * request id. Which row: the one holding its subscription id, its checkout id or request id, then
- * the coach's pending row for the same product, else a new row.
+ * request id — the first of these that is a coach. Which row: the one holding its subscription
+ * id, then its checkout id or request id, then the coach's one pending row for the product; never
+ * a row that already holds another subscription; else a new row (a subscription of theirs we have
+ * never seen). Several pending rows for the product and nothing to tell them apart: the event is
+ * sent back for Creem to retry (RetryLater), by when `checkout.completed` will have said which.
  *
- * Where `licence_id` points afterwards: the row this event made writable, if the licence in force
- * does not write — but never away from a manual grant (a payment landing on a coach who holds one
- * is audited for the owner instead), and never by an event about a row other than the one in
- * force that leaves it unwritable.
+ * Where `licence_id` points afterwards: at the row this event made writable if the licence in force
+ * does not write; away from the row in force when this event made it stop writing and another row
+ * of theirs writes; never away from a manual grant. Two plans writing at once (a payment on a
+ * granted coach, a second subscription) is audited `billing.conflict` for the owner to refund.
  *
  * Runs inside the webhook's transaction, the coach's row locked first (CoachLock), then licences.
  */
 final class CreemEvent
 {
-    /** What `subscription.*` says the status is now; `scheduled_cancel` stays active, with a date. */
-    private const STATUS = [
-        'subscription.active' => 'active', 'subscription.paid' => 'active', 'subscription.trialing' => 'trialing',
-        'subscription.past_due' => 'past_due', 'subscription.unpaid' => 'unpaid', 'subscription.paused' => 'paused',
-        'subscription.expired' => 'expired', 'subscription.canceled' => 'canceled',
-    ];
-
-    /** Creem's own subscription statuses, as a licence status (`checkout.completed`, `subscription.update`). */
+    /** Creem's subscription statuses as a licence status; `scheduled_cancel` stays active, with a date. */
     private const FROM_CREEM = [
         'active' => 'active', 'trialing' => 'trialing', 'past_due' => 'past_due', 'unpaid' => 'unpaid',
         'paused' => 'paused', 'canceled' => 'canceled', 'expired' => 'expired', 'scheduled_cancel' => 'active',
+    ];
+
+    /** Only when the subscription carries no status we know: what the event type implies. */
+    private const BY_TYPE = [
+        'subscription.active' => 'active', 'subscription.paid' => 'active', 'subscription.trialing' => 'trialing',
+        'subscription.past_due' => 'past_due', 'subscription.unpaid' => 'unpaid', 'subscription.paused' => 'paused',
+        'subscription.expired' => 'expired', 'subscription.canceled' => 'canceled',
     ];
 
     /** @var list<array{string, ?User, ?string}> audit lines, written by the caller after the commit */
@@ -86,114 +89,169 @@ final class CreemEvent
             return;
         }
 
-        $status = self::STATUS[$this->type()] ?? self::FROM_CREEM[(string) ($sub['status'] ?? '')] ?? null;
+        $creemStatus = is_string($sub['status'] ?? null) ? $sub['status'] : null;
+        $status = self::FROM_CREEM[$creemStatus] ?? self::BY_TYPE[$this->type()] ?? null;
+        $end = self::date($sub['current_period_end_date'] ?? null);
         $fill = [
             'source' => 'creem',
             'creem_subscription_id' => self::str($sub['id'] ?? null) ?? $licence->creem_subscription_id,
             'creem_customer_id' => self::id($sub['customer'] ?? null) ?? self::id($o['customer'] ?? null) ?? $licence->creem_customer_id,
             'period_start' => self::date($sub['current_period_start_date'] ?? null) ?? $licence->period_start,
-            'period_end' => self::date($sub['current_period_end_date'] ?? null) ?? $licence->period_end,
-            'canceled_at' => self::date($sub['canceled_at'] ?? null) ?? $licence->canceled_at,
+            'period_end' => $end ?? $licence->period_end,
             'last_event_id' => (string) $this->event['id'], 'last_event_at' => $at,
         ];
         if ($status !== null) {
             $fill['status'] = $status;
-        }
-        if (($status ?? $licence->status) === 'trialing') {
-            $fill['trial_ends_at'] = self::date($sub['current_period_end_date'] ?? null) ?? $licence->trial_ends_at;
-        }
-        if ($this->type() === 'subscription.scheduled_cancel' || ($sub['status'] ?? null) === 'scheduled_cancel') {
-            $fill['cancel_at'] = self::date($sub['current_period_end_date'] ?? null);
+            // What the subscription says now, including that a cancellation was taken back: a
+            // resumed subscription carries `canceled_at: null` and no scheduled end.
+            if (array_key_exists('canceled_at', $sub)) {
+                $fill['canceled_at'] = self::date($sub['canceled_at']);
+            }
+            $scheduled = $creemStatus === 'scheduled_cancel' || $this->type() === 'subscription.scheduled_cancel';
+            $fill['cancel_at'] = $scheduled ? ($end ?? $licence->period_end) : null;
+            if ($status === 'trialing') {
+                $fill['trial_ends_at'] = $end ?? $licence->trial_ends_at;
+            }
         }
         $product = self::id($sub['product'] ?? null) ?? self::id($o['product'] ?? null);
-        if ($product !== null) {
+        if ($product !== null && $product !== $licence->creem_product_id) {
             $sold = Plans::fromProduct($product);
             if ($sold !== null) {
-                $fill += ['plan' => $sold['plan'], 'period' => $sold['period'], 'creem_product_id' => $product];
-            } elseif ($product !== $licence->creem_product_id) {
-                // Not on sale here (a product retired from CREEM_PRODUCTS): the plan is left as it was.
+                $fill += ['plan' => $sold['plan'], 'period' => $sold['period']];
+            } else {
+                // Not on sale here (retired from CREEM_PRODUCTS): the plan is left as it was — a
+                // paying coach is not cut off for the owner's configuration — and the owner is told,
+                // once: the product is recorded, so the next renewal does not say it again.
                 $this->audits[] = ['billing.unsold', $coach, $product];
             }
+            $fill['creem_product_id'] = $product;
         }
         $licence->forceFill($fill)->save();
         $this->audits[] = ['billing.event', $coach, $this->type()];
         $this->point($coach, $licence);
     }
 
-    /** The subscription this event is about: the object itself, or the checkout's. */
+    /**
+     * The subscription this event is about: the object itself, or the checkout's — expanded, or
+     * only its id (then its status comes with the subscription's own events).
+     */
     private function subscription(array $o): ?array
     {
         if (str_starts_with($this->type(), 'subscription.')) {
             return $o;
         }
-        if ($this->type() === 'checkout.completed' && is_array($o['subscription'] ?? null)) {
+        if ($this->type() !== 'checkout.completed') {
+            return null;
+        }
+        if (is_array($o['subscription'] ?? null)) {
             return $o['subscription'];
+        }
+        $id = self::str($o['subscription'] ?? null);
+
+        return $id !== null ? ['id' => $id, 'customer' => $o['customer'] ?? null, 'product' => $o['product'] ?? null] : null;
+    }
+
+    private function coach(array $o, ?array $sub): ?User
+    {
+        $find = fn (string $column, ?string $value) => $value === null ? null
+            : Licence::query()->where($column, $value)->orderByDesc('created_at')->value('user_id');
+        $candidates = [
+            fn () => self::str(($o['metadata'] ?? [])['userId'] ?? null) ?? self::str(($sub['metadata'] ?? [])['userId'] ?? null),
+            fn () => $find('creem_subscription_id', self::str($sub['id'] ?? null) ?? self::id($o['subscription'] ?? null)),
+            fn () => $find('creem_customer_id', self::id($sub['customer'] ?? null) ?? self::id($o['customer'] ?? null)),
+            fn () => $find('request_id', self::str($o['request_id'] ?? null)),
+        ];
+        // The first that names a coach: a metadata id since turned client, or a stale one, must not
+        // hide the coach the subscription id points at.
+        foreach ($candidates as $candidate) {
+            $id = $candidate();
+            if ($id !== null && User::query()->whereKey($id)->first()?->isCoach()) {
+                $coach = CoachLock::take($id);
+                if ($coach !== null && $coach->isCoach()) {
+                    return $coach;
+                }
+            }
         }
 
         return null;
     }
 
-    private function coach(array $o, ?array $sub): ?User
-    {
-        $userId = self::str(($o['metadata'] ?? [])['userId'] ?? null) ?? self::str(($sub['metadata'] ?? [])['userId'] ?? null);
-        $find = fn (string $column, ?string $value) => $value === null ? null
-            : Licence::query()->where($column, $value)->orderByDesc('created_at')->value('user_id');
-        $id = $userId
-            ?? $find('creem_subscription_id', self::str($sub['id'] ?? null) ?? self::id($o['subscription'] ?? null))
-            ?? $find('creem_customer_id', self::id($sub['customer'] ?? null) ?? self::id($o['customer'] ?? null))
-            ?? $find('request_id', self::str($o['request_id'] ?? null));
-        if ($id === null) {
-            return null;
-        }
-        $coach = CoachLock::take($id);
-
-        return $coach !== null && $coach->isCoach() ? $coach : null;
-    }
-
     /** The licence row this subscription lives on, locked; a new one if none is theirs yet. */
     private function row(User $coach, array $o, array $sub): Licence
     {
-        $mine = fn () => Licence::query()->where('user_id', $coach->id)->lockForUpdate();
+        $subId = self::str($sub['id'] ?? null);
+        // A row already carrying another subscription is that subscription's, never this one's.
+        $mine = fn () => Licence::query()->where('user_id', $coach->id)
+            ->where(fn ($q) => $subId === null ? $q->whereNull('creem_subscription_id')
+                : $q->whereNull('creem_subscription_id')->orWhere('creem_subscription_id', $subId))
+            ->lockForUpdate();
         $checkout = $this->type() === 'checkout.completed' ? self::str($o['id'] ?? null) : null;
-        $product = self::id($sub['product'] ?? null);
-        $licence = (($id = self::str($sub['id'] ?? null)) !== null ? $mine()->where('creem_subscription_id', $id)->first() : null)
+        $request = self::str($o['request_id'] ?? null);
+        $licence = ($subId !== null ? $mine()->where('creem_subscription_id', $subId)->first() : null)
             ?? ($checkout !== null ? $mine()->where('checkout_id', $checkout)->first() : null)
-            ?? (($req = self::str($o['request_id'] ?? null)) !== null ? $mine()->where('request_id', $req)->first() : null)
-            // A subscription event that beat its checkout.completed here: the pending row for its product.
-            ?? ($product !== null ? $mine()->where('status', 'pending')->where('creem_product_id', $product)->orderByDesc('created_at')->first() : null);
+            ?? ($request !== null ? $mine()->where('request_id', $request)->first() : null);
+        if ($licence !== null) {
+            return $licence;
+        }
+        // A subscription event that beat its checkout.completed: the pending row for its product —
+        // if there is only one; with several, only checkout.completed can say which was paid.
+        $product = self::id($sub['product'] ?? null);
+        if ($product !== null && $checkout === null) {
+            $pending = $mine()->where('status', 'pending')->where('creem_product_id', $product)->limit(2)->get();
+            if ($pending->count() > 1) {
+                throw new RetryLater;
+            }
+            if ($pending->count() === 1) {
+                return $pending->first();
+            }
+        }
 
-        return $licence ?? (new Licence)->forceFill(['id' => Licence::newId(), 'user_id' => $coach->id, 'source' => 'creem', 'status' => 'pending']);
+        return (new Licence)->forceFill(['id' => Licence::newId(), 'user_id' => $coach->id, 'source' => 'creem', 'status' => 'pending']);
     }
 
     /** licence_id after the event (see the class comment). */
     private function point(User $coach, Licence $licence): void
     {
-        if ($coach->licence_id === $licence->id) {
-            return;
-        }
         $current = Entitlement::licenceOf($coach, 'update');
-        if ($current?->source === 'manual' && $current->status === 'manual') {
-            if (Entitlement::writable($licence)) {
-                $this->audits[] = ['billing.conflict', $coach, $licence->id];
+        if ($current?->id === $licence->id) {
+            if (! Entitlement::writable($licence)) {
+                // It stopped writing: another subscription of theirs that writes takes over.
+                $other = Licence::query()->where('user_id', $coach->id)->where('source', 'creem')->whereKeyNot($licence->id)
+                    ->orderByDesc('created_at')->lockForUpdate()->get()->first(fn (Licence $l) => Entitlement::writable($l));
+                if ($other !== null) {
+                    $coach->forceFill(['licence_id' => $other->id])->save();
+                }
             }
 
             return;
         }
-        if (Entitlement::writable($licence) && ($current === null || ! Entitlement::writable($current))) {
-            $coach->forceFill(['licence_id' => $licence->id])->save();
+        if (! Entitlement::writable($licence)) {
+            return;
         }
+        if ($current !== null && Entitlement::writable($current)) {
+            // Two plans at once: a payment on a granted coach, or a second subscription. The one in
+            // force stays (a grant is never displaced); the owner decides what to refund.
+            $this->audits[] = ['billing.conflict', $coach, $licence->id];
+
+            return;
+        }
+        if ($current?->source === 'manual' && $current->status === 'manual') {
+            return;   // a grant on a plan not sold here: still never displaced
+        }
+        $coach->forceFill(['licence_id' => $licence->id])->save();
     }
 
-    /** A refund or a dispute: told to the owner; a dispute marks the licence. Nothing else changes. */
+    /** A refund or a dispute: told to the owner; a dispute marks the subscription's own row. */
     private function money(User $coach, array $o): void
     {
         $type = $this->type() === 'refund.created' ? 'billing.refund' : 'billing.dispute';
         $this->audits[] = [$type, $coach, self::str($o['id'] ?? null)];
-        if ($type === 'billing.dispute') {
-            $sub = self::id($o['subscription'] ?? null);
-            $licence = $sub !== null ? Licence::query()->where('user_id', $coach->id)->where('creem_subscription_id', $sub)->lockForUpdate()->first() : null;
-            $licence ??= Entitlement::licenceOf($coach, 'update');
-            $licence?->forceFill(['disputed' => true])->save();
+        $sub = self::id($o['subscription'] ?? null);
+        if ($type === 'billing.dispute' && $sub !== null) {
+            // Only the row this subscription lives on: a dispute over a one-off order, or one we
+            // cannot place, marks nothing — never a grant or another subscription.
+            Licence::query()->where('user_id', $coach->id)->where('creem_subscription_id', $sub)->lockForUpdate()->first()
+                ?->forceFill(['disputed' => true])->save();
         }
     }
 

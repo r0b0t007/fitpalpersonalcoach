@@ -1481,6 +1481,7 @@ export default {
   'billing is not set up on this server': 'die Abrechnung ist auf diesem Server nicht eingerichtet',
   'invalid signature': 'ungültige Signatur',
   'not a Creem event': 'kein Creem-Ereignis',
+  'this event cannot be placed yet — send it again later': 'dieses Ereignis kann noch nicht zugeordnet werden — sende es später erneut',
   'you already have a plan — see Account › Plan & billing': 'du hast schon einen Tarif — siehe Konto › Tarif & Abrechnung',
   'there is no billing account to manage yet — choose a plan first': 'es gibt noch kein Abrechnungskonto zu verwalten — wähle zuerst einen Tarif',
   'an admin needs no plan': 'ein Admin braucht keinen Tarif',

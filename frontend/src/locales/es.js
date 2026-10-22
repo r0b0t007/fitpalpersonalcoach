@@ -1463,6 +1463,7 @@ export default {
   'billing is not set up on this server': 'la facturación no está configurada en este servidor',
   'invalid signature': 'firma no válida',
   'not a Creem event': 'no es un evento de Creem',
+  'this event cannot be placed yet — send it again later': 'este evento aún no se puede procesar — envíalo de nuevo más tarde',
   'you already have a plan — see Account › Plan & billing': 'ya tienes un plan — consulta Cuenta › Plan y facturación',
   'there is no billing account to manage yet — choose a plan first': 'aún no hay una cuenta de facturación que gestionar — elige un plan primero',
   'an admin needs no plan': 'un admin no necesita plan',

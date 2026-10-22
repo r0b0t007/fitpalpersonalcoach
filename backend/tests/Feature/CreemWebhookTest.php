@@ -276,3 +276,119 @@ it('acknowledges an event it has no use for', function () {
     expect(Licence::query()->count())->toBe(0);
     $this->assertDatabaseHas('audit_events', ['ev' => 'billing.ignored', 'msg' => 'credits.granted']);
 });
+
+// --- review round 1 (#137) ---
+
+/** A row of $coach's that the licence in force does not point at (licence_id untouched). */
+function sideRow(User $coach, array $fields): Licence
+{
+    return tap((new Licence)->forceFill($fields + ['id' => Licence::newId(), 'user_id' => $coach->id, 'source' => 'creem', 'plan' => 'pro', 'period' => 'month']))->save();
+}
+
+it('forgets a cancellation the coach took back: no end date left on a paying plan', function () {
+    $f = $this->f;
+    pendingCheckout($f->a);
+    deliver(checkoutCompleted($f->a))->assertOk();
+    deliver(creemEvent('subscription.scheduled_cancel', creemSubscription($f->a, ['status' => 'scheduled_cancel', 'canceled_at' => '2026-10-25T10:00:00.000Z'])))->assertOk();
+    expect(Licence::query()->first()->cancel_at)->not->toBeNull();
+    deliver(creemEvent('subscription.active', creemSubscription($f->a, ['canceled_at' => null])))->assertOk();
+    $licence = Licence::query()->first();
+    expect($licence->cancel_at)->toBeNull()->and($licence->canceled_at)->toBeNull();
+    $this->getJson('/api/billing/me', bearer($f->a))->assertJsonPath('licence.cancelAt', null)->assertJsonPath('licence.canceledAt', null);
+});
+
+it("hands the licence to the coach's other subscription when the one in force stops writing", function () {
+    $f = $this->f;
+    pendingCheckout($f->a);
+    deliver(checkoutCompleted($f->a))->assertOk();
+    $b = sideRow($f->a, ['status' => 'active', 'creem_subscription_id' => 'sub_2', 'period_end' => now()->addMonth()]);
+    deliver(creemEvent('subscription.expired', creemSubscription($f->a, ['status' => 'expired'])))->assertOk();
+    expect($f->a->fresh()->licence_id)->toBe($b->id)
+        ->and(Entitlement::for($f->a->fresh())->canWrite)->toBeTrue();
+});
+
+it('tells the owner of a second subscription paid while the first still writes, and keeps the first', function () {
+    $f = $this->f;
+    pendingCheckout($f->a);
+    deliver(checkoutCompleted($f->a))->assertOk();
+    $first = $f->a->fresh()->licence_id;
+    $second = sideRow($f->a, ['status' => 'pending', 'creem_product_id' => 'prod_py', 'checkout_id' => 'ch_2', 'request_id' => 'req_2']);
+    deliver(checkoutCompleted($f->a, ['id' => 'sub_2', 'product' => ['id' => 'prod_py']], 'ch_2', 'req_2'))->assertOk();
+    expect($f->a->fresh()->licence_id)->toBe($first)
+        ->and($second->fresh()->status)->toBe('active')
+        ->and(Licence::query()->find($first)->creem_subscription_id)->toBe('sub_1');
+    $this->assertDatabaseHas('audit_events', ['ev' => 'billing.conflict', 'uid' => $f->a->id, 'msg' => $second->id]);
+});
+
+it('asks Creem to send a subscription event again when it cannot tell which of two checkouts was paid', function () {
+    $f = $this->f;
+    $one = pendingCheckout($f->a, 'prod_pm', 'ch_1', 'req_1');
+    $two = pendingCheckout($f->a, 'prod_pm', 'ch_2', 'req_2');
+    $early = creemEvent('subscription.active', creemSubscription($f->a));
+    deliver($early)->assertStatus(503)->assertExactJson(['error' => 'this event cannot be placed yet — send it again later']);
+    expect(BillingEvent::query()->count())->toBe(0)
+        ->and($one->fresh()->status)->toBe('pending')->and($two->fresh()->status)->toBe('pending');
+    // checkout.completed says it was the first; Creem's retry of the early event then finds that
+    // row — and, being older than what it says now, is recorded without undoing it.
+    deliver(checkoutCompleted($f->a, ['status' => 'trialing'], 'ch_1', 'req_1'))->assertOk();
+    deliver($early)->assertOk()->assertExactJson(['ok' => true, 'stale' => true]);
+    expect($one->fresh()->only(['status', 'creem_subscription_id']))->toBe(['status' => 'trialing', 'creem_subscription_id' => 'sub_1'])
+        ->and($two->fresh()->creem_subscription_id)->toBeNull();
+});
+
+it("never writes one subscription over another's row, even matched by checkout", function () {
+    $f = $this->f;
+    $row = sideRow($f->a, ['status' => 'active', 'creem_subscription_id' => 'sub_1', 'checkout_id' => 'ch_1', 'request_id' => 'req_1']);
+    deliver(checkoutCompleted($f->a, ['id' => 'sub_9'], 'ch_1', 'req_1'))->assertOk();
+    expect($row->fresh()->creem_subscription_id)->toBe('sub_1')
+        ->and(Licence::query()->where('creem_subscription_id', 'sub_9')->exists())->toBeTrue();
+});
+
+it('says a product is not on sale once, not at every renewal', function () {
+    $f = $this->f;
+    pendingCheckout($f->a);
+    deliver(checkoutCompleted($f->a))->assertOk();
+    foreach (range(1, 3) as $i) {
+        deliver(creemEvent('subscription.paid', creemSubscription($f->a, ['product' => ['id' => 'prod_retired']])))->assertOk();
+    }
+    expect(DB::table('audit_events')->where('ev', 'billing.unsold')->count())->toBe(1)
+        ->and(Licence::query()->first()->only(['plan', 'creem_product_id']))->toBe(['plan' => 'pro', 'creem_product_id' => 'prod_retired']);
+});
+
+it("marks only the disputed subscription's own row, never a grant", function () {
+    $f = $this->f;
+    $this->postJson('/api/admin/licence/grant', ['id' => $f->a->id, 'plan' => 'pro'], bearer($f->admin))->assertOk();
+    deliver(creemEvent('dispute.created', ['id' => 'dsp_1', 'subscription' => 'sub_nobody_knows', 'customer' => 'cust_1', 'metadata' => ['userId' => $f->a->id]]))->assertOk();
+    expect(Licence::query()->where('disputed', true)->count())->toBe(0);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'billing.dispute', 'msg' => 'dsp_1']);
+});
+
+it("takes a checkout.completed whose subscription comes as an id, and its status from the subscription's events", function () {
+    $f = $this->f;
+    $row = pendingCheckout($f->a);
+    deliver(creemEvent('checkout.completed', ['id' => 'ch_1', 'request_id' => 'req_1', 'subscription' => 'sub_1', 'customer' => 'cust_1', 'product' => 'prod_pm', 'metadata' => ['userId' => $f->a->id]]))->assertOk();
+    expect($row->fresh()->only(['status', 'creem_subscription_id', 'creem_customer_id']))->toBe(['status' => 'pending', 'creem_subscription_id' => 'sub_1', 'creem_customer_id' => 'cust_1']);
+    deliver(creemEvent('subscription.active', creemSubscription($f->a, ['metadata' => []])))->assertOk();
+    expect($row->fresh()->status)->toBe('active');
+});
+
+it('looks past a metadata user who is not a coach, to the coach the subscription belongs to', function () {
+    $f = $this->f;
+    $row = sideRow($f->a, ['status' => 'active', 'creem_subscription_id' => 'sub_1']);
+    deliver(creemEvent('subscription.paused', creemSubscription($f->a, ['status' => 'paused', 'metadata' => ['userId' => $f->a1->id]])))->assertOk()->assertExactJson(['ok' => true]);
+    expect($row->fresh()->status)->toBe('paused');
+});
+
+it("believes the subscription's own status over the event's name", function () {
+    $f = $this->f;
+    pendingCheckout($f->a);
+    deliver(checkoutCompleted($f->a, ['status' => 'trialing']))->assertOk();
+    deliver(creemEvent('subscription.paid', creemSubscription($f->a, ['status' => 'trialing'])))->assertOk();
+    expect(Licence::query()->first()->status)->toBe('trialing');
+});
+
+it('refuses a body past the cap every route has, unread', function () {
+    $raw = str_repeat('x', 5 * 1024 * 1024 + 1);
+    $this->call('POST', '/api/billing/webhook', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_CREEM_SIGNATURE' => hash_hmac('sha256', $raw, WHSEC)], $raw)
+        ->assertStatus(413);
+});

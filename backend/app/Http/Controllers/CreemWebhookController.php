@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Audit\Audit;
 use App\Billing\CreemEvent;
+use App\Billing\RetryLater;
 use App\Models\BillingEvent;
+use App\Support\Input;
 use App\Support\Json;
+use App\Support\Say;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,7 +37,14 @@ final class CreemWebhookController
         if ($secret === '') {
             return Json::error(404, 'billing is not set up on this server');
         }
+        // The cap every JSON route has (Input::body): nobody signed, nothing worth hashing past it.
+        if ((int) $request->headers->get('Content-Length', '0') > Input::MAX_BODY) {
+            return Json::error(413, Say::f('request body is larger than the {0} MB limit', 5));
+        }
         $raw = $request->getContent();
+        if (strlen($raw) > Input::MAX_BODY) {
+            return Json::error(413, Say::f('request body is larger than the {0} MB limit', 5));
+        }
         $signature = $request->headers->get('creem-signature');
         if (! is_string($signature) || ! hash_equals(hash_hmac('sha256', $raw, $secret), strtolower(trim($signature)))) {
             return Json::error(401, 'invalid signature');
@@ -45,17 +55,22 @@ final class CreemWebhookController
             return Json::error(400, 'not a Creem event');
         }
 
-        $applied = DB::transaction(function () use ($event): ?CreemEvent {
-            // The id first: of two deliveries of one event, the second waits on this row and then
-            // finds it taken.
-            if (BillingEvent::query()->insertOrIgnore(['id' => $event['id'], 'at' => now()]) === 0) {
-                return null;
-            }
-            $reducer = new CreemEvent($event);
-            $reducer->apply();
+        try {
+            $applied = DB::transaction(function () use ($event): ?CreemEvent {
+                // The id first: of two deliveries of one event, the second waits on this row and then
+                // finds it taken.
+                if (BillingEvent::query()->insertOrIgnore(['id' => $event['id'], 'at' => now()]) === 0) {
+                    return null;
+                }
+                $reducer = new CreemEvent($event);
+                $reducer->apply();
 
-            return $reducer;
-        }, 3);
+                return $reducer;
+            }, 3);
+        } catch (RetryLater) {
+            // Rolled back, the event id with it: Creem sends it again in 30 s, then 5 min, 30 min, 6 h.
+            return Json::error(503, 'this event cannot be placed yet — send it again later');
+        }
         if ($applied === null) {
             return Json::ok(['ok' => true, 'duplicate' => true]);
         }
