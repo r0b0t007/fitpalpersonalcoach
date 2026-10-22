@@ -39,9 +39,11 @@ it('grants a coach a plan by hand and revokes it, and the entitlement follows', 
     // The coach can write now.
     $this->postJson('/api/coach/invites/new', ['note' => 'x'], bearer($f->a))->assertOk();
 
-    // Granting again changes the plan on the same row.
+    // Granting again changes the plan on the same row; the same plan again changes nothing.
     grantAs($f->admin, ['id' => $f->a->id, 'plan' => 'solo'])->assertOk()->assertJsonPath('entitlement.cap', 10);
-    expect(Licence::query()->count())->toBe(1)->and(Licence::query()->first()->plan)->toBe('solo');
+    grantAs($f->admin, ['id' => $f->a->id, 'plan' => 'solo'])->assertOk()->assertJsonPath('entitlement.cap', 10);
+    expect(Licence::query()->count())->toBe(1)->and(Licence::query()->first()->plan)->toBe('solo')
+        ->and(DB::table('audit_events')->where('ev', 'admin.licence.grant')->count())->toBe(2);
 
     revokeAs($f->admin, ['id' => $f->a->id])->assertOk()
         ->assertJsonPath('entitlement.status', 'none')->assertJsonPath('entitlement.canWrite', false);
@@ -50,7 +52,7 @@ it('grants a coach a plan by hand and revokes it, and the entitlement follows', 
         ->and(Licence::query()->count())->toBe(1)
         ->and(Licence::query()->first())->toMatchArray(['status' => 'revoked', 'plan' => 'solo'])
         ->and(Licence::query()->first()->canceled_at)->not->toBeNull();
-    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.licence.revoke', 'uid' => $f->admin->id, 'tgt' => $f->a->id]);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.licence.revoke', 'uid' => $f->admin->id, 'tgt' => $f->a->id, 'msg' => 'solo']);
     $this->postJson('/api/coach/invites/new', ['note' => 'x'], bearer($f->a))->assertStatus(402);
     // Revoked twice: nothing to revoke. Granted again: a new row, the revoked one untouched.
     revokeAs($f->admin, ['id' => $f->a->id])->assertStatus(400);
@@ -68,6 +70,7 @@ it('refuses nobody, a client, a plan it does not sell, and a coach and a non-adm
         grantAs($f->admin, ['id' => $id, 'plan' => $plan])->assertStatus(404)->assertExactJson(['error' => 'no such user']);
     }
     grantAs($f->admin, ['id' => $f->a1->id, 'plan' => 'pro'])->assertStatus(400)->assertExactJson(['error' => 'that user is not a coach']);
+    grantAs($f->admin, ['id' => $f->admin->id, 'plan' => 'pro'])->assertStatus(400)->assertExactJson(['error' => 'an admin needs no plan']);
     $f->b->forceFill(['disabled' => true])->save();
     grantAs($f->admin, ['id' => $f->b->id, 'plan' => 'pro'])->assertStatus(400)->assertExactJson(['error' => 'that coach is disabled']);
     foreach (['gold', '', null, ['pro'], 'PRO'] as $plan) {
@@ -100,6 +103,19 @@ it('takes over a Creem licence that is over, even inside its paid period, and ke
     'a checkout never finished' => [['status' => 'pending']],
 ]);
 
+it('puts a new grant in front of a manual row that is no longer in force, rather than reviving it', function () {
+    $f = $this->f;
+    $old = Billing::licence($f->a, ['status' => 'revoked', 'source' => 'manual', 'plan' => 'studio']);
+    grantAs($f->admin, ['id' => $f->a->id, 'plan' => 'pro'])->assertOk()->assertJsonPath('entitlement.status', 'manual');
+    expect($f->a->fresh()->licence_id)->not->toBe($old->id)
+        ->and($old->fresh()->only(['status', 'plan']))->toBe(['status' => 'revoked', 'plan' => 'studio']);
+});
+
+it('fails loudly on a lock mode it does not know', function () {
+    Billing::licence($this->f->a, ['status' => 'active', 'plan' => 'pro']);
+    expect(fn () => Entitlement::licenceOf($this->f->a, 'updte'))->toThrow(InvalidArgumentException::class);
+});
+
 it('does not take a licence that belongs to someone else', function () {
     $f = $this->f;
     $theirs = Billing::licence($f->b, ['status' => 'manual', 'source' => 'manual', 'plan' => 'pro']);
@@ -128,17 +144,17 @@ it('records the admin\'s role and assignment changes, which Node never did', fun
     expect($count('admin.user.coach'))->toBe(1);
     $post('coach', ['id' => $f->u1->id, 'coach' => false]);
     $this->assertDatabaseHas('audit_events', ['ev' => 'admin.user.uncoach', 'tgt' => $f->u1->id]);
-    // An admin's own flag: they coach without it, so nothing was taken away.
-    $f->admin->forceFill(['coach' => true])->save();
+    // An admin's own flag, either way: they coach whatever it says, so nothing changed.
+    $post('coach', ['id' => $f->admin->id, 'coach' => true]);
     $post('coach', ['id' => $f->admin->id, 'coach' => false]);
-    expect($count('admin.user.uncoach'))->toBe(1);
+    expect($count('admin.user.coach'))->toBe(1)->and($count('admin.user.uncoach'))->toBe(1);
     $post('assign-coach', ['id' => $f->u1->id, 'coachId' => $f->b->id]);
-    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.user.assign', 'tgt' => $f->u1->id, 'msg' => 'Coach B']);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.user.assign', 'tgt' => $f->u1->id, 'msg' => $f->b->id]);
     $post('assign-coach', ['id' => $f->u1->id, 'coachId' => $f->b->id]);   // already theirs
     $post('assign-coach', ['id' => $f->u1->id, 'coachId' => '']);
-    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.user.assign', 'tgt' => $f->u1->id, 'msg' => null]);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.user.unassign', 'tgt' => $f->u1->id, 'msg' => null]);
     $post('assign-coach', ['id' => $f->u1->id, 'coachId' => '']);   // already unassigned
     // A refused write records nothing.
     $this->postJson('/api/admin/user/assign-coach', ['id' => $f->u1->id, 'coachId' => $f->a1->id], bearer($f->admin))->assertStatus(400);
-    expect(DB::table('audit_events')->where('ev', 'admin.user.assign')->count())->toBe(2);
+    expect(DB::table('audit_events')->where('ev', 'admin.user.assign')->count())->toBe(1);
 });

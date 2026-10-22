@@ -133,7 +133,9 @@ final readonly class Entitlement
         $query = match ($lock) {
             'share' => $query->sharedLock(),
             'update' => $query->lockForUpdate(),
-            default => $query,
+            null => $query,
+            // A typo must not quietly read without the lock the caller is relying on.
+            default => throw new \InvalidArgumentException("unknown lock mode: {$lock}"),
         };
         $licence = $query->first();
 

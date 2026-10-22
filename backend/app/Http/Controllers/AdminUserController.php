@@ -98,7 +98,7 @@ final class AdminUserController
         $coach = Js::truthy(Input::raw($request, 'coach'));
         [$u, $was] = DB::transaction(function () use ($id, $coach): array {
             $u = self::locked($id);
-            $was = (bool) $u->coach;
+            $was = $u->isCoach();
             $u->forceFill(['coach' => $coach])->save();
             // An admin is still a coach with the flag off: nothing is detached, their roster and
             // offers stay valid because they never lost the ability to coach.
@@ -108,14 +108,14 @@ final class AdminUserController
 
             return [$u, $was];
         }, self::ATTEMPTS);
-        // Recorded after the commit, as every audit here is; only a change, and only a change of
-        // what the account can do — an admin coaches with the flag off too, so clearing theirs
-        // takes nothing away. Node recorded none of these. Two literal calls, not a ternary:
-        // check-audit-labels finds event names by their literal.
+        // Recorded after the commit, as every audit here is; only a change of what the account can
+        // do (isCoach before and after) — an admin coaches whatever their flag says, so setting
+        // or clearing it changes nothing. Node recorded none of these. Two literal calls, not a
+        // ternary: check-audit-labels finds event names by their literal.
         $who = ['user' => $request->user('api'), 'target' => $u];
-        if ($coach && ! $was) {
+        if (! $was && $u->isCoach()) {
             Audit::record($request, 'admin.user.coach', $who);
-        } elseif (! $coach && $was && ! $u->isCoach()) {
+        } elseif ($was && ! $u->isCoach()) {
             Audit::record($request, 'admin.user.uncoach', $who);
         }
 
@@ -159,10 +159,16 @@ final class AdminUserController
             return [$u, $c, $previous];
         }, self::ATTEMPTS);
         [$u, $c, $previous] = $moved;
-        // Node recorded none of these. Only a move; the new coach's name is the message, as the
-        // activity log shows it to the owner (none: unassigned).
+        // Node recorded none of these. Only a move. The new coach is named by id, as
+        // coach.member.release names the member (msg carries codes and ids: a name is personal
+        // data and goes stale); taking a client off every roster is an event of its own.
         if ($previous !== $c?->id) {
-            Audit::record($request, 'admin.user.assign', ['user' => $request->user('api'), 'target' => $u, 'msg' => $c?->name]);
+            $who = ['user' => $request->user('api'), 'target' => $u];
+            if ($c !== null) {
+                Audit::record($request, 'admin.user.assign', $who + ['msg' => $c->id]);
+            } else {
+                Audit::record($request, 'admin.user.unassign', $who);
+            }
         }
 
         return Json::ok(['ok' => true, 'id' => $u->id, 'coachId' => $c?->id]);
@@ -175,18 +181,24 @@ final class AdminUserController
      * bill (Licence::CREEM_LIVE) is refused, not overwritten: they would pay twice, or a webhook
      * would undo the grant — the subscription is changed or canceled in Creem first. One that is
      * over (canceled, even inside its paid period; expired), or a checkout never finished, is left
-     * as it is and stops being theirs. A disabled coach is refused, as assign-coach refuses one.
-     * Allowed with billing off too, so the cutover can license the coach before Creem is set up.
+     * as it is and stops being theirs (the webhook updates such a row without taking licence_id
+     * back from a grant: spec §6). A disabled coach is refused, as assign-coach refuses one, and
+     * an admin, whom no licence limits. Allowed with billing off too, so the cutover can license
+     * the coach before Creem is set up. Granting the plan a coach already holds changes nothing
+     * and records nothing.
      */
     public function grant(Request $request): JsonResponse
     {
         $id = Input::raw($request, 'id');
         $plan = Input::raw($request, 'plan');
-        $u = DB::transaction(function () use ($id, $plan): User {
+        [$u, $changed] = DB::transaction(function () use ($id, $plan): array {
             // The coach's row first, then the licence: the order Entitlement::for(lock) reads them.
             $u = self::locked($id);
             if (! $u->isCoach()) {
                 throw new ClientSafe(400, 'that user is not a coach');
+            }
+            if ($u->isAdmin()) {
+                throw new ClientSafe(400, 'an admin needs no plan');
             }
             if ($u->disabled) {
                 throw new ClientSafe(400, 'that coach is disabled');
@@ -198,15 +210,23 @@ final class AdminUserController
             if ($licence?->source === 'creem' && in_array($licence->status, Licence::CREEM_LIVE, true)) {
                 throw new ClientSafe(409, 'that coach has a Creem subscription — change or cancel it there first');
             }
-            if ($licence?->source !== 'manual') {
+            // Only a grant still in force is changed in place; anything else (a hand-edited or
+            // revoked row that is somehow still pointed at) stays as history behind a new one.
+            if ($licence?->source === 'manual' && $licence->status === 'manual') {
+                if ($licence->plan === $plan) {
+                    return [$u, false];
+                }
+            } else {
                 $licence = (new Licence)->forceFill(['id' => Licence::newId(), 'user_id' => $u->id, 'source' => 'manual', 'status' => 'manual']);
             }
             $licence->forceFill(['plan' => $plan])->save();
             $u->forceFill(['licence_id' => $licence->id])->save();
 
-            return $u;
+            return [$u, true];
         }, self::ATTEMPTS);
-        Audit::record($request, 'admin.licence.grant', ['user' => $request->user('api'), 'target' => $u, 'msg' => $plan]);
+        if ($changed) {
+            Audit::record($request, 'admin.licence.grant', ['user' => $request->user('api'), 'target' => $u, 'msg' => $plan]);
+        }
 
         return Json::ok(['ok' => true, 'id' => $u->id, 'entitlement' => Entitlement::for($u)->toArray()]);
     }
@@ -220,7 +240,7 @@ final class AdminUserController
     public function revoke(Request $request): JsonResponse
     {
         $id = Input::raw($request, 'id');
-        $u = DB::transaction(function () use ($id): User {
+        [$u, $plan] = DB::transaction(function () use ($id): array {
             $u = self::locked($id);
             $licence = Entitlement::licenceOf($u, 'update');
             if ($licence?->source !== 'manual') {
@@ -229,9 +249,10 @@ final class AdminUserController
             $u->forceFill(['licence_id' => null])->save();
             $licence->forceFill(['status' => 'revoked', 'canceled_at' => now()])->save();
 
-            return $u;
+            return [$u, $licence->plan];
         }, self::ATTEMPTS);
-        Audit::record($request, 'admin.licence.revoke', ['user' => $request->user('api'), 'target' => $u]);
+        // The plan taken back: the log says what, should the row later be edited.
+        Audit::record($request, 'admin.licence.revoke', ['user' => $request->user('api'), 'target' => $u, 'msg' => $plan]);
 
         return Json::ok(['ok' => true, 'id' => $u->id, 'entitlement' => Entitlement::for($u)->toArray()]);
     }

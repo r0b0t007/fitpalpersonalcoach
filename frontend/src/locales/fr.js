@@ -1459,6 +1459,8 @@ export default {
   'your plan allows {0} clients — upgrade to invite more': 'votre formule permet {0} clients — passez à une formule supérieure pour en inviter davantage',
   'this coach cannot take new clients right now — ask them to check their plan': 'ce coach ne peut pas accueillir de nouveaux clients pour le moment — demandez-lui de vérifier sa formule',
   'no such plan': 'formule inconnue',
+  'an admin needs no plan': 'un admin n’a pas besoin de formule',
+  'Took a client off their coach’s list': 'A retiré un client de la liste de son coach',
   'that coach has a Creem subscription — change or cancel it there first': 'ce coach a un abonnement Creem — modifiez-le ou résiliez-le d’abord là-bas',
   'that account has no granted plan to revoke': 'ce compte n’a pas de formule accordée à révoquer',
   'Made an account a coach': 'A fait d’un compte un coach',

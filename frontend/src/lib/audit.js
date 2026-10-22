@@ -26,6 +26,7 @@ const LABELS = {
   'admin.user.coach': () => t('Made an account a coach'),
   'admin.user.uncoach': () => t('Took the coach role away'),
   'admin.user.assign': () => t('Changed a client’s coach'),
+  'admin.user.unassign': () => t('Took a client off their coach’s list'),
   'admin.licence.grant': () => t('Granted a plan'),
   'admin.licence.revoke': () => t('Revoked a granted plan'),
   'admin.invite.create': () => t('Created an invite code'),
