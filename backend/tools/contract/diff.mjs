@@ -51,6 +51,9 @@ const DEMO_SHA = sha16(DEMO);
 const MOV_SHA = sha16(MOV);
 
 const INTENDED = {
+  'config $.billing: only Laravel has it (false)': 'licensing (R4): whether Creem is configured; with no `billing` the app shows no billing at all, which is how it reads the Node API.',
+  'config $.plans: only Laravel has it ([])': 'licensing (R4): the tiers on sale; none while billing is off.',
+  'config $.trial_days: only Laravel has it (14)': 'licensing (R4): the trial the Creem products carry, for the app to say.',
   'config $.self_serve: only Laravel has it (false)': 'the self-serve coach signup flag for R4 (/#/start); the app ignores unknown keys.',
   'push subscribe, endpoint v4-mapped private status: Node 200 vs Laravel 400': 'a hole in Node, closed: the WHATWG parser writes [::ffff:10.0.0.1] as ::ffff:a00:1, which the isPrivateAddr of Node (dotted form only) passed. Laravel compares the address, not its spelling (app/Push/Endpoint.php); its guard at send time refuses it either way.',
   'push subscribe, endpoint v4-mapped private $.error: Node undefined vs Laravel "endpoint must not point at a private address"': 'the same: refused, in the words for it.',

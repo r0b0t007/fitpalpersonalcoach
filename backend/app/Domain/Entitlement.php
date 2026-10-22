@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Domain;
+
+use App\Models\Licence;
+use App\Models\User;
+use Carbon\CarbonInterface;
+
+/**
+ * What a coach may do under their licence (spec §6), decided in one place:
+ *
+ *  1. an admin runs the instance: unlimited, writable, never a tenant;
+ *  2. billing off (no Creem configured, Plans::billingOn) → `unlicensed`, writable, unlimited —
+ *     a self-hosted instance and the test suite are unaffected;
+ *  3. no licence → cap 0, not writable;
+ *  4. writable while trialing, active, past_due (Creem is still retrying), manual, and canceled
+ *     until the period that was paid for ends;
+ *  5. canTakeClient = writable and under the cap; overCap = more active clients than the cap
+ *     (after a downgrade: still writable, but cannot add).
+ *
+ * `used` counts active clients (User::activeClientsOf): a disabled client frees a seat. A client
+ * account is not limited by anything here — clients are unaffected by their coach's billing.
+ */
+final readonly class Entitlement
+{
+    public function __construct(
+        public string $status,
+        public ?string $plan,
+        /** null: unlimited */
+        public ?int $cap,
+        public int $used,
+        public bool $canWrite,
+        public bool $canTakeClient,
+        public bool $overCap,
+        public ?CarbonInterface $trialEndsAt = null,
+        public ?CarbonInterface $periodEnd = null,
+    ) {}
+
+    public static function for(User $user): self
+    {
+        if (! $user->isCoach()) {
+            return new self('client', null, 0, 0, true, false, false);
+        }
+        $used = User::activeClientsOf($user)->count();
+        if ($user->isAdmin()) {
+            return new self('admin', null, null, $used, true, true, false);
+        }
+        if (! Plans::billingOn()) {
+            return new self('unlicensed', null, null, $used, true, true, false);
+        }
+        $licence = $user->licence_id !== null ? Licence::query()->find($user->licence_id) : null;
+        if ($licence === null || $licence->user_id !== $user->id) {
+            return new self('none', null, 0, $used, false, false, $used > 0);
+        }
+        $cap = Plans::cap($licence->plan) ?? 0;
+        $canWrite = in_array($licence->status, Licence::WRITABLE, true)
+            || ($licence->status === 'canceled' && $licence->period_end !== null && $licence->period_end->isFuture());
+
+        return new self($licence->status, $licence->plan, $cap, $used, $canWrite, $canWrite && $used < $cap, $used > $cap,
+            $licence->trial_ends_at, $licence->period_end);
+    }
+
+    /** `Date.prototype.toISOString`: UTC, milliseconds, Z — as every other date the app reads. */
+    private static function iso(?CarbonInterface $at): ?string
+    {
+        return $at?->copy()->utc()->format('Y-m-d\\TH:i:s.v\\Z');
+    }
+
+    /** As the app reads it (`billing/me`, the banners): dates as ISO strings, the cap null when unlimited. */
+    public function toArray(): array
+    {
+        return [
+            'status' => $this->status, 'plan' => $this->plan, 'cap' => $this->cap, 'used' => $this->used,
+            'canWrite' => $this->canWrite, 'canTakeClient' => $this->canTakeClient, 'overCap' => $this->overCap,
+            'trialEndsAt' => self::iso($this->trialEndsAt), 'periodEnd' => self::iso($this->periodEnd),
+        ];
+    }
+}

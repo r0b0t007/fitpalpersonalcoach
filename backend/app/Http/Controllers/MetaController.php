@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Plans;
 use App\Models\User;
 use App\Support\Json;
 use Illuminate\Http\JsonResponse;
@@ -27,6 +28,11 @@ final class MetaController
             // A demo may be sent in chunks (ChunkUploadController), each this big at most. The Node
             // API sends no `upload`, and the app then sends the whole file as one request.
             'upload' => ['chunked' => true, 'chunk_mb' => ChunkUploadController::CHUNK_MB],
+            // Licensing (spec §6). The Node API sends none of these, and the app then shows no
+            // billing at all: `billing` false is the same, for an instance without Creem.
+            'billing' => Plans::billingOn(),
+            'plans' => Plans::offered(),
+            'trial_days' => Plans::TRIAL_DAYS,
         ]);
     }
 }
