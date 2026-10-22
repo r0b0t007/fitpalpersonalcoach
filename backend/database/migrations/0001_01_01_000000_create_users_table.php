@@ -18,6 +18,9 @@ return new class extends Migration
             $table->string('name', 40);
             $table->string('email')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
+            // A new sign-in address waiting for its link to be followed (spec §4a): sign-in by
+            // email matches `email` alone, so a live session can never switch the address.
+            $table->string('pending_email')->nullable();
             $table->string('password')->nullable();
             $table->boolean('admin')->default(false);
             $table->boolean('coach')->default(false);

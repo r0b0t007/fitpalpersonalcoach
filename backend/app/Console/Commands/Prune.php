@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Audit\Audit;
 use App\Media\Paths;
 use App\Models\Assignment;
+use App\Models\BillingEvent;
 use App\Models\MediaUpload;
 use App\Models\Presence;
 use App\Support\Js;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\DB;
  *  - assignments past their 30 days (Assignment::prune, as Node's pruneAssignments);
  *  - presence rows past the 70 s TTL (reads already ignore them; Node swept every 30 s);
  *  - expired rows of the database cache store (passkey challenges, pairing codes);
+ *  - Creem webhook ids past the newest BillingEvent::KEEP;
  *  - chunked uploads nobody has sent to for a day, with their partial files;
  *  - temp files no request is writing any more (`.up-*` under media/ex and each photo folder)
  *    older than a day: a request killed mid-upload (a worker past its limit, a host reboot)
@@ -45,8 +47,15 @@ final class Prune extends Command
             }
         }
         $cache = $this->expiredCache();
+        // Webhook ids kept for idempotency: the newest BillingEvent::KEEP, far more than Creem redelivers.
+        $events = 0;
+        // Raw, not cast: a Carbon compares without its milliseconds, and the boundary row would stay.
+        $oldest = BillingEvent::query()->toBase()->orderByDesc('at')->orderByDesc('id')->skip(BillingEvent::KEEP)->value('at');
+        if ($oldest !== null) {
+            $events = BillingEvent::query()->where('at', '<=', $oldest)->delete();
+        }
         $files = $this->orphans($now);
-        $this->info("pruned: {$audit} audit, {$offers} offers, {$presence} presence, {$uploads} uploads, {$files} temp files, {$cache} cache rows");
+        $this->info("pruned: {$audit} audit, {$offers} offers, {$presence} presence, {$uploads} uploads, {$files} temp files, {$cache} cache rows, {$events} billing events");
 
         return self::SUCCESS;
     }

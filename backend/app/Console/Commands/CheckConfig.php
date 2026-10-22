@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Auth\Bootstrap;
 use App\Auth\SessionToken;
+use App\Domain\Plans;
 use App\Media\Upload;
 use Illuminate\Console\Command;
 
@@ -33,6 +34,9 @@ final class CheckConfig extends Command
         if (((string) config('fitpal.vapid.public') === '') !== ((string) config('fitpal.vapid.private') === '')) {
             $warnings[] = 'only one of VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY is set — set both, or neither (DATA_DIR/vapid.json is then used). No push is sent until then.';
         }
+        // Creem: a partial set leaves billing off (every coach entitled) — say so, and name any
+        // CREEM_PRODUCTS entry that is ignored.
+        array_push($warnings, ...Plans::problems());
         foreach ($warnings as $w) {
             $this->warn($w);
         }

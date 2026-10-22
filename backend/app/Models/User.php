@@ -105,7 +105,7 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     /** `created` as Node wrote it ("2026-05-01T10:20:30.123Z"), or null for the oldest accounts. */
     public function createdIso(): ?string
     {
-        return $this->created_at?->utc()->format('Y-m-d\TH:i:s.v\Z');
+        return $this->created_at !== null ? Js::iso($this->created_at) : null;
     }
 
     /** The one shape of "who am I" the app sees, from /me and both verify routes. */
