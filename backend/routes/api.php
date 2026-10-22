@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AuditController;
@@ -73,6 +74,8 @@ $routes = static function (): void {
         Route::post('/push/test', [PushController::class, 'test']);
         Route::post('/push/rest-timer', [PushController::class, 'restTimer']);
         Route::post('/push/rest-timer/cancel', [PushController::class, 'cancelRestTimer']);
+        // The live-workout heartbeat, and its "left" (a sendBeacon too).
+        Route::post('/activity', [ActivityController::class, 'store']);
         Route::post('/pair/create', [PairController::class, 'create']);
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
         Route::get('/data', [DataController::class, 'show']);

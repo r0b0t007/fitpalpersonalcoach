@@ -55,7 +55,7 @@ final class MemberCard
      *
      * @param  Collection<int, Assignment>  $offers  every coach's assignments for this member, oldest first
      */
-    public static function card(User $u, ?string $viewerId, Collection $offers): array
+    public static function card(User $u, ?string $viewerId, Collection $offers, ?stdClass $live = null): array
     {
         $s = self::state($u->id);
         $trainable = self::trainable($s);
@@ -70,7 +70,7 @@ final class MemberCard
 
         $card = [
             'id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso(), 'disabled' => (bool) $u->disabled,
-        ] + self::activity($s) + [
+        ] + self::activity($s, $live) + [
             // Only the viewer's own offers: withdraw is theirs to press, and another coach's
             // pending program is not their business to see or cancel.
             'pending' => $offers->filter(fn (Assignment $a) => $a->status === 'pending' && ($viewerId === null || $a->coach_id === $viewerId))
@@ -93,14 +93,15 @@ final class MemberCard
      * The activity fields every account list shows — the coach's roster and the admin's — read
      * from the state the same way in both.
      */
-    public static function activity(stdClass $s): array
+    public static function activity(stdClass $s, ?stdClass $live): array
     {
         $workouts = Js::list($s->workouts ?? null);
 
         return ['workouts' => count($workouts)] + self::lastWorkout($workouts) + [
             'lastSync' => Js::or($s->_ts ?? null, null),
-            // The presence object while they train (R3 brings presence); null otherwise, as Node.
-            'live' => null,
+            // The presence object while they train (Presence::liveMap, loaded once per list);
+            // null otherwise, as Node.
+            'live' => $live,
         ];
     }
 
