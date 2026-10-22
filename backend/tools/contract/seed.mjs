@@ -57,7 +57,25 @@ const ASSIGNMENTS = [
   offer('seedWithdrawn000', 'withdrawn', 6, 5, 'Oops'),
   offer('seedPending00000', 'pending', 3, null, 'Block C'),
 ];
-writeFileSync(join(dir, 'db.json'), JSON.stringify({ users: USERS, creds: [], subs: [], invites: INVITES, assignments: ASSIGNMENTS }, null, 2));
+// R3 media and push (fitpal:import-legacy, CHW-264): a demo of the first coach's with its file, a
+// client's progress photo with its file, and a subscription. The endpoint is under .invalid: a push
+// either server tries for it fails at DNS and reaches nobody.
+const DEMO_BYTES = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypisom'), Buffer.alloc(4), Buffer.from('isomavc1'), Buffer.from('a seeded demo'.padEnd(64, '.'))]);
+const PHOTO_BYTES = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from('a seeded photo'.padEnd(96, '.'))]);
+const MEDIA = [
+  { id: 'seedMedia0000001', exId: '0031', coachId: 'cdCoach000000000', file: '0031-5eed5eed5eed5eed.mp4', label: 'Seeded', bytes: DEMO_BYTES.length, mime: 'video/mp4', status: 'ready', created: '2026-03-15T00:00:00.000Z' },
+];
+const SUBS = [
+  { userId: 'cdMemberB0000000', endpoint: 'https://push.invalid/seeded', keys: { p256dh: 'BSeededKeyForTheContractOnly', auth: 'seededAuth' }, created: '2026-03-16T00:00:00.000Z' },
+];
+mkdirSync(join(dir, 'media', 'ex'), { recursive: true });
+writeFileSync(join(dir, 'media', 'ex', MEDIA[0].file), DEMO_BYTES);
+mkdirSync(join(dir, 'media', 'photo', 'cdMemberB0000000'), { recursive: true });
+writeFileSync(join(dir, 'media', 'photo', 'cdMemberB0000000', 'seededPhotoFileName0001.jpg'), PHOTO_BYTES);
+writeFileSync(join(dir, 'media-cdMemberB0000000.json'), JSON.stringify({ photos: [
+  { id: 'seedPhoto0000001', d: '2026-03-15', pose: 'front', file: 'seededPhotoFileName0001.jpg', bytes: PHOTO_BYTES.length, mime: 'image/jpeg', created: '2026-03-15T09:00:00.000Z' },
+] }));
+writeFileSync(join(dir, 'db.json'), JSON.stringify({ users: USERS, creds: [], subs: SUBS, media: MEDIA, invites: INVITES, assignments: ASSIGNMENTS }, null, 2));
 writeFileSync(join(dir, 'coach-cdCoachB00000000.json'), JSON.stringify({
   programs: [
     { id: 'seed-prog-1', name: 'Seeded block', created: 1772000000000, updated: 1772000005000, bundle: { ...PLAN('Seeded block'), week: {} } },

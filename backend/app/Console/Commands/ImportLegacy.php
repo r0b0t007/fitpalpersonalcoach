@@ -5,7 +5,9 @@ namespace App\Console\Commands;
 use App\Audit\Audit;
 use App\Auth\SessionToken;
 use App\Console\LegacyCoaching;
+use App\Console\LegacyMedia;
 use App\Http\Request;
+use App\Models\PushSubscription;
 use App\Models\User;
 use App\Models\UserState;
 use App\Support\Input;
@@ -27,7 +29,9 @@ use Throwable;
  * Imports today: accounts, passkeys, training state, the audit log (audit.log, into a table that
  * holds nothing else — see below), and the coaching data: invites, program libraries and
  * assignments (App\Console\LegacyCoaching, which mirrors the files: rows they no longer hold are
- * removed). Photos, media rows and push subscriptions follow in R3 as their tables land.
+ * removed), and the media and push data: push subscriptions, coaches' demo rows and clients'
+ * progress photos (App\Console\LegacyMedia, mirrored the same way; the files stay where Node
+ * wrote them), with the VAPID pair reported on, never written.
  */
 final class ImportLegacy extends Command
 {
@@ -208,10 +212,18 @@ final class ImportLegacy extends Command
         }
 
         $coaching = LegacyCoaching::import($dbo, $dir, array_flip(User::query()->pluck('id')->all()), $skipped);
+        $media = LegacyMedia::import($dbo, $dir, array_flip(User::query()->pluck('id')->all()), $skipped);
 
-        $this->info("users $users · passkeys $creds · states $states · audit $audit · invites {$coaching['invites']} · programs {$coaching['programs']} · assignments {$coaching['assignments']}");
+        $this->info("users $users · passkeys $creds · states $states · audit $audit · invites {$coaching['invites']} · programs {$coaching['programs']} · assignments {$coaching['assignments']}"
+            ." · push {$media['subs']} · demos {$media['media']} · photos {$media['photos']}");
         if ($coaching['removed'] > 0) {
             $this->warn("removed {$coaching['removed']} invite/program/assignment row(s) the files no longer hold");
+        }
+        if ($media['removed'] > 0) {
+            $this->warn("removed {$media['removed']} subscription/demo/photo row(s) the files no longer hold");
+        }
+        foreach (LegacyMedia::vapidReport($dir) as $w) {
+            $this->warn($w);
         }
         foreach ($skipped as $s) {
             $this->warn("skipped $s");
@@ -242,9 +254,11 @@ final class ImportLegacy extends Command
         $byId = collect($db['users'] ?? [])->filter(fn ($u) => is_string($u['id'] ?? null))->unique('id')->keyBy('id');
         $adminUids = (array) config('fitpal.admin_uids');
         $coaching = LegacyCoaching::verifyContext($dbo, $dir, array_flip(User::query()->pluck('id')->all()));
+        $ignored = [];
+        $mediaRows = LegacyMedia::rows($dbo, $dir, array_flip(User::query()->pluck('id')->all()), $ignored);
         $problems = [];
-        $get = function (User $user, string $path) use ($kernel) {
-            $request = Request::create($path, 'GET', server: ['HTTP_AUTHORIZATION' => 'Bearer '.SessionToken::make($user)]);
+        $get = function (User $user, string $path, string $method = 'GET') use ($kernel) {
+            $request = Request::create($path, $method, server: ['HTTP_AUTHORIZATION' => 'Bearer '.SessionToken::make($user)]);
             $response = $kernel->handle($request);
             $kernel->terminate($request, $response);
             // Each replayed request starts clean, as a real one would: no signed-in user and no
@@ -293,6 +307,25 @@ final class ImportLegacy extends Command
                 }
             }
 
+            // R3: the demo list (with Laravel's visibility), the photo list, every byte stream read
+            // back (HEAD: there when Node had the file, a 404 where Node answered one), and push.
+            $node = LegacyMedia::nodeAnswers($mediaRows, $user, $dir);
+            foreach (['/api/media/exercises' => 'media', '/api/media/photos' => 'photos'] as $route => $field) {
+                $laravel = json_decode((string) $get($user, $route)->getContent())->{$field} ?? null;
+                if (json_encode(LegacyCoaching::canonical($laravel), Json::FLAGS) !== json_encode(LegacyCoaching::canonical($node[$field]), Json::FLAGS)) {
+                    $problems[] = "$id: GET $route differs from the files";
+                }
+            }
+            foreach ($node['heads'] as [$path, $status]) {
+                $head = $get($user, $path, 'HEAD');
+                if ($head->getStatusCode() !== $status) {
+                    $problems[] = "$id: HEAD $path answered {$head->getStatusCode()}, the files say $status";
+                }
+            }
+            if (PushSubscription::query()->where('user_id', $id)->exists() !== $node['hasPush']) {
+                $problems[] = "$id: hasPush is not what db.subs says";
+            }
+
             $file = $dir.DIRECTORY_SEPARATOR.'state-'.$id.'.json';
             // Node's GET /api/data answers the file exactly as stored, and the import stores it raw.
             $wantState = is_file($file) ? json_decode((string) file_get_contents($file)) : null;
@@ -311,7 +344,7 @@ final class ImportLegacy extends Command
         if ($problems !== []) {
             return self::FAILURE;
         }
-        $this->info('verified '.$byId->count().' account(s): /me, /data and the coaching routes match the files');
+        $this->info('verified '.$byId->count().' account(s): /me, /data and the coaching routes match the files, and so do the demos, photos and push');
 
         return self::SUCCESS;
     }
