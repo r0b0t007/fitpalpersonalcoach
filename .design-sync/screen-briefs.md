@@ -473,6 +473,113 @@ Purpose: prove the token mapping both ways. If anything needs a hard-coded colou
 
 ---
 
+## R4 — licensing, self-serve signup and sign-in by email
+
+> Added for R4 (Linear CHW-234). Same session rules as above: paste the Consistency rules first,
+> then one brief per message. These continue the numbering (S4–S7, C20–C23) and add an E series
+> for mail. Plans are named Solo, Pro and Studio and differ only by how many active clients they
+> allow (10, 30, 75); prices are never drawn — they live in the payment page, not in the app.
+> Billing copy states facts and next steps; nothing alarming, no red for a trial ending.
+
+## S4 — Start (coach signup)
+
+```
+Frame: phone 390x844, dark. No tab bar. Same centred column as S1: the Logo, then one muted line under it: "Coach your clients from one app."
+26px gap, then a .card titled with .t-sub "Your plan":
+  a Segmented with three options "Solo", "Pro", "Studio" (Pro selected), and under it one muted line that follows the choice: "Up to 30 active clients".
+  10px gap, a second Segmented "Monthly" / "Yearly" (Monthly selected).
+  10px gap, a .dim .small line: "14 days free, then billed by Creem. Cancel any time from Account."
+18px gap, then the form, each field full width:
+  TextField placeholder "Your name".
+  TextField placeholder "Email" (type email), with a .dim .small caption under it: "For receipts and for signing in if you lose your passkey."
+  14px gap, Button variant primary, icon person, "Create passkey and continue".
+20px gap, a centred .dim .small line: "Already coaching here? " followed by a link-styled "Sign in".
+Rules: the plan comes pre-selected from the link (?plan=pro&period=month); when the link names none, Pro and Monthly are the defaults drawn here. No price, no card field — the card is entered on the payment page that opens next. One coach per account; no gym, team or seat wording.
+```
+
+## S5 — Login, sign in with email
+
+```
+Frame: phone 390x844, dark. S1 unchanged except under the passkey button: draw two states side by side as two artboards, "S5a" and "S5b".
+S5a: under "Sign in with passkey", a 10px gap, then Button variant ghost, icon link, "Sign in with email". Under it, open, an inline .card: TextField placeholder "Your email" (type email, focused), then Button variant primary full width "Send me a link". The "Create new profile" and guest buttons move below the card.
+S5b: the same card after sending: icon link in var(--acc) at 28px, centred .tt "Check your inbox", centred .ss "If that address belongs to a coach, a sign-in link is on its way. It works once, for 15 minutes.", then a plain Button "Use another address".
+Rules: the passkey button stays first and primary — email is the fallback. The confirmation never says whether the address exists (that is deliberate). Not shown in guest mode. Clients do not sign in by email; nothing here addresses them.
+```
+
+## S6 — Link landing
+
+```
+Frame: phone 390x844, dark. No tab bar. Three artboards, "S6a", "S6b", "S6c", each the S1 centred column with the Logo on top.
+S6a (loading): under the logo a spinner in var(--acc) and a muted line "Signing you in…".
+S6b (signed in): icon checkCircle in var(--green) at 32px, .tt "You are signed in", .ss "Taking you to Today…". (The app moves on by itself; draw the moment before.)
+S6c (expired or used): icon clock in var(--label-3) at 32px, .tt "This link no longer works", .ss "Sign-in links work once, for 15 minutes.", then Button variant primary full width "Send a new link" and under it a plain Button "Sign in with passkey".
+Rules: no error red — an old link is ordinary. The two server sentences ("this sign-in link has expired — request a new one", "this sign-in link was already used") may replace the .ss line; keep room for two lines.
+```
+
+## S7 — Add a passkey sheet
+
+```
+Same shell as C1 underneath (Today, coach shell), dimmed by .mback. Sheet .sheet, .grab, <h3> "Add a passkey to this device?".
+1. .t-sub muted "You signed in with an email link. A passkey lets you sign in here with fingerprint, face or PIN next time — no email needed."
+2. Button primary icon person full width "Add passkey".
+3. A plain Button "Not now".
+Rules: offered once per device after a link sign-in; "Not now" is remembered and the sheet does not come back on this device. Sheet about 40% height.
+```
+
+## C20 — Coach · Account · Plan & billing
+
+```
+Same shell as C16, Account cell on. Insert a new Section "Plan & billing" between "Profile" and "Coaching"; draw two artboards, "C20a" and "C20b".
+C20a (trialing): Row icon sparkles iconTint var(--acc) title "Pro · monthly" subtitle "Free trial · ends 5 Nov" value "12 / 30 clients"; Row icon gear "Manage billing" subtitle "Payment method, invoices, change or cancel" chevron (opens the payment provider's page); a .dim .small footnote under the section: "Plans differ only by active clients: Solo 10, Pro 30, Studio 75."
+C20b (read-only, payment failed for good): the first Row reads title "Pro · monthly" subtitle "Paused — your clients can still train" value "12 / 30 clients", then a .card with border var(--orange): .tt "Billing needs attention", .ss "You can see everything, but inviting, sending programs and uploading demos are paused until billing is sorted out.", Button primary full width "Update payment".
+Rules: no prices. The client count is "active clients" (disabled clients do not count). Admins see none of this section.
+```
+
+## C21 — Coach · Today · banners
+
+```
+Same shell as C1, Today cell on. A single banner .card sits between the .hdr and the .tiles; draw five artboards C21a–C21e, everything else C1 unchanged.
+C21a (activating, just back from the payment page): spinner in var(--acc), .tt "Setting up your plan…", .ss "This takes a few seconds." No button.
+C21b (trialing, 3 days left): icon sparkles iconTint var(--acc), .tt "Free trial · 3 days left", .ss "Your Pro plan starts on 5 Nov." Button size xs "Plan & billing" on the right.
+C21c (past_due): icon warning iconTint var(--orange), .tt "Payment didn't go through", .ss "We'll retry automatically. Everything keeps working meanwhile." Button size xs "Update payment".
+C21d (lapsed, read-only): icon pause iconTint var(--orange), .tt "Your plan is paused", .ss "Clients can still train. Inviting, sending programs and uploading demos are paused." Button size xs "Fix billing".
+C21e (over cap after a downgrade): icon people iconTint var(--yellow), .tt "32 active clients on a 30-client plan", .ss "Everyone keeps training. Upgrade to invite more." Button size xs "Upgrade".
+Rules: one banner at a time, the most urgent first (lapsed, past_due, over cap, activating, trialing). It is a card, not a modal; it never covers the tiles.
+```
+
+## C22 — Coach · Invite sheet at the cap
+
+```
+Same as C14 (sheet over C3, Clients cell on), with the link card replaced; draw two artboards, "C22a" and "C22b".
+C22a (at cap): in place of the link .card, a .card with border var(--yellow): icon people iconTint var(--yellow), .tt "Your plan allows 30 clients", .ss "You have 30 active clients. Upgrade your plan to invite more — or disable a client who has stopped training to free a seat.", Button primary full width "Upgrade plan", plain Button "Manage clients".
+C22b (read-only): the same card in var(--orange): icon pause, .tt "Inviting is paused", .ss "Your plan is read-only until billing is sorted out.", Button primary full width "Plan & billing".
+The "Waiting" and "Joined" sections stay below, unchanged; waiting codes can still be revoked.
+```
+
+## C23 — Coach · Account · email row
+
+```
+Same shell as C16, Account cell on. In Section "Profile", under the name Row, add the email Row; draw three artboards, "C23a" to "C23c".
+C23a (verified): Row icon link title "ahmed@example.com" subtitle "Verified · for sign-in links and receipts" accessory chevron.
+C23b (changing): Row icon link title "ahmed@example.com" subtitle "Waiting for confirmation of new@example.com" with a .tag "pending"; tapping opens a small sheet (draw it open): <h3> "Change email", TextField placeholder "New email", .dim .small "We'll send a link to the new address. Your sign-in email changes when you open it.", Button primary full width "Send link".
+C23c (no email yet, an older account): Row icon link title "Add an email" subtitle "Lets you sign in by link if you lose your passkey" chevron.
+Rules: the address never changes until the link is opened; the old address gets a notice. Clients have no email row.
+```
+
+## E1 — Mail · Sign-in link
+
+```
+Frame: email, 600px wide content on a mobile width of 390 (draw the 390 view). Light-on-dark brand palette from email/: background graphite #1C1A17, text bone #F2EDE4, muted #A9A198, rules #746C62, the button gold #D4AF37 with ink #14120F text — this is the one place outside the app tokens, because mail clients do not read CSS variables.
+French copy (the primary language of the coaches):
+  Wordmark as live text "FitPal Coach" in gold, small icon (https://fitpal.ma/icon-180.png, alt "") before it.
+  Heading: "Votre lien de connexion".
+  Body: "Bonjour Ahmed, voici votre lien pour vous connecter à FitPal Coach. Il fonctionne une seule fois, pendant 15 minutes."
+  Button: "Me connecter".
+  Under the button, muted: "Le bouton ne fonctionne pas ? Copiez ce lien dans votre navigateur :" then the link as text.
+  Footer, muted, small: "Vous n'avez rien demandé ? Ignorez ce message — personne ne peut se connecter sans ce lien."
+Rules: vous throughout; a table-based layout (Outlook-safe), no background images, no VML; Archivo with a system-font fallback; the plain-text part says the same words. The same design serves the email-change link ("Confirmez votre nouvelle adresse") and the change notice to the old address ("Votre adresse de connexion a changé"); draw the first only.
+```
+
 ## Consistency rules
 
 Paste once at the start of the session, before the first brief.
