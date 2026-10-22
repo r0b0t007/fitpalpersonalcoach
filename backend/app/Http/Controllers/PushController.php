@@ -88,16 +88,27 @@ final class PushController
     /**
      * A rest timer started (or extended): "Rest over" in `seconds`, clamped to 1 s - 1 h as Node
      * did (`Math.max(1, Math.min(3600, Math.round(+body.seconds || 0)))`). The one timer a user
-     * has: this replaces any before it. In the language they use now, as Node captured it.
+     * has: this replaces any before it.
+     *
+     * The app calls this on every set and every +15 s, so it stays cheap: nothing at all for an
+     * account no browser is subscribed for (Node's timer would have sent to nobody), and the
+     * language is the job's to read.
      */
     public function restTimer(Request $request): JsonResponse
     {
         $user = $request->user('api');
         $n = Js::toNumber(Input::raw($request, 'seconds'));
-        $sec = (int) max(1, min(3600, is_nan($n) ? 0 : floor($n + 0.5)));
+        $sec = (int) max(1, min(3600, is_nan($n) ? 0 : Js::round($n)));
+        // The sync driver runs a job the moment it is dispatched, delay or not: "Rest over" as the
+        // rest begins is worse than no push at all.
+        if (config('queue.default') === 'sync' || ! PushSubscription::query()->where('user_id', $user->id)->exists()) {
+            return Json::ok(['ok' => true]);
+        }
         $token = Js::randomId();
-        Cache::put(RestTimerPush::key($user->id), $token, $sec + 3600);
-        RestTimerPush::dispatch($user->id, $token, MemberCard::lang($user->id))->delay(now()->addSeconds($sec));
+        // Current until the rest is over and the worker has had its accepted lateness: a job that
+        // runs later than that finds no timer, and sends nothing long after the workout.
+        Cache::put(RestTimerPush::key($user->id), $token, $sec + RestTimerPush::LATE_SECONDS);
+        RestTimerPush::dispatch($user->id, $token)->delay(now()->addSeconds($sec));
 
         return Json::ok(['ok' => true]);
     }

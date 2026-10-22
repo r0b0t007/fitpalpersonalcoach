@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Coaching\MemberCard;
 use App\Push\Messages;
 use App\Push\Sender;
 use Illuminate\Bus\Queueable;
@@ -22,10 +23,12 @@ final class RestTimerPush implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
 
+    /** How late past its due time the worker may run a job and it still counts (cron's ~1.5 min). */
+    public const LATE_SECONDS = 180;
+
     public int $tries = 1;
 
-    /** @param  string|null  $lang  the language when the timer started, as Node captured it */
-    public function __construct(public readonly string $userId, public readonly string $token, public readonly ?string $lang) {}
+    public function __construct(public readonly string $userId, public readonly string $token) {}
 
     public static function key(string $userId): string
     {
@@ -34,19 +37,16 @@ final class RestTimerPush implements ShouldQueue
 
     public function handle(Sender $sender): void
     {
-        // Still this user's timer? Taken as it is checked: of two copies, one sends.
-        $lock = Cache::lock(self::key($this->userId).':fire', 30);
-        if (! $lock->get()) {
+        // Still this user's timer? Only compared, never cleared here: a clear could land after
+        // the next rest had already put its own token, and silence that one instead.
+        if (Cache::get(self::key($this->userId)) !== $this->token) {
             return;
         }
-        try {
-            if (Cache::get(self::key($this->userId)) !== $this->token) {
-                return;
-            }
-            Cache::forget(self::key($this->userId));
-        } finally {
-            $lock->release();
+        // Once per timer, should the same job be handed out twice: `add` is atomic, and only the
+        // first one in may send.
+        if (! Cache::add(self::key($this->userId).':sent:'.$this->token, true, self::LATE_SECONDS)) {
+            return;
         }
-        $sender->send($this->userId, Messages::restTimer($this->lang));
+        $sender->send($this->userId, Messages::restTimer(MemberCard::lang($this->userId)));
     }
 }

@@ -163,7 +163,7 @@ final class PlanBundle
                 });
             }
             if ($n > 0) {
-                $out->{$k} = (int) floor($n + 0.5);   // Math.round
+                $out->{$k} = (int) Js::round($n);
             }
         }
         if (get_object_vars($out) === []) {

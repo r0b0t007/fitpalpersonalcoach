@@ -594,8 +594,10 @@ const CASES = [
   { name: 'push unsubscribe, anonymous', req: { method: 'POST', path: '/api/push/unsubscribe', body: { endpoint: 'x' } }, mode: 'exact' },
   { name: 'push test, anonymous', req: { method: 'POST', path: '/api/push/test' }, mode: 'exact' },
   { name: 'push test, nobody subscribed', req: { method: 'POST', path: '/api/push/test', headers: bearer('cdBare0000000000') }, mode: 'exact' },
-  // R3 — the rest-timer push (CHW-261): an hour, for an account with no browser, so neither side
-  // ever sends it during the run.
+  // R3 — the rest-timer push (CHW-261). Some of these timers are due within the run (1 s, 45 s),
+  // and they are harmless only because cdBare has no push subscription in the seed: Node's timer
+  // then sends to nobody, and Laravel queues nothing for an account no browser is subscribed for.
+  // Give cdBare a subscription and Node would start pushing for real here.
   { name: 'rest timer, anonymous', req: { method: 'POST', path: '/api/push/rest-timer', body: { seconds: 60 } }, mode: 'exact' },
   ...[['an hour', 3600], ['nothing', undefined], ['not a number', 'abc'], ['past the hour', 99999], ['negative', -5], ['as text', '45']]
     .map(([what, seconds]) => ({ name: `rest timer, ${what}`, req: { method: 'POST', path: '/api/push/rest-timer', headers: bearer('cdBare0000000000'), body: { seconds } }, mode: 'exact' })),
