@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Media\Paths;
+use App\Media\RowNotWritten;
 use App\Media\Serve;
 use App\Media\Sniff;
 use App\Media\Upload;
@@ -41,55 +42,80 @@ final class ExerciseMediaController
         }
         $label = Js::slice(Js::trim(Input::searchParam($request, 'label') ?? ''), 40);
         if (self::atCap($exId)) {
-            return Json::error(429, Say::f('that exercise already has {0} videos', ExerciseMedia::MAX_PER_EXERCISE), [], Json::CLOSE);
+            return self::capRefusal();
         }
         $dir = Paths::dir('ex');
         $up = Upload::stream($request, $dir, Upload::maxVideo(), 'video');
 
         // Content-addressed on what arrived: the same file twice lands on the same name, and a
-        // name can be cached for good because it cannot change meaning.
-        $file = "{$exId}-{$coach->id}-".substr($up['sha'], 0, 16).".{$up['meta']['ext']}";
+        // name can be cached for good because it cannot change meaning. A demo uploaded to the Node
+        // API was named without its coach; the same bytes again replace that row too.
+        $sha16 = substr($up['sha'], 0, 16);
+        $file = "{$exId}-{$coach->id}-{$sha16}.{$up['meta']['ext']}";
+        $legacy = "{$exId}-{$sha16}.{$up['meta']['ext']}";
         $stored = $dir.DIRECTORY_SEPARATOR.$file;
-        $existed = is_file($stored);
+        $existed = false;
+        $replacedLegacy = false;
         try {
-            $row = DB::transaction(function () use ($coach, $exId, $label, $file, $stored, $up): ExerciseMedia|JsonResponse {
-                // Re-checked under the coach's lock: the first check ran before the upload, and
-                // parallel uploads all passed it against the same count.
-                CoachLock::take($coach->id);
-                if (self::atCap($exId)) {
-                    @unlink($up['tmp']);
-
-                    return Json::error(429, Say::f('that exercise already has {0} videos', ExerciseMedia::MAX_PER_EXERCISE));
+            $row = DB::transaction(function () use ($coach, $exId, $label, $file, $legacy, $stored, $up, &$existed, &$replacedLegacy): ExerciseMedia|JsonResponse {
+                // Judged again on the locked row, as every attach to a coach is (CoachLock): a role
+                // revoked or an account disabled while the file streamed lands no row.
+                $me = CoachLock::take($coach->id);
+                if (! $me || $me->disabled) {
+                    return Json::error(401, 'not signed in');
                 }
+                if (! $me->isCoach()) {
+                    return Json::error(403, 'forbidden');
+                }
+                // Re-checked under the lock: the first check ran before the upload, and parallel
+                // uploads all passed it against the same count.
+                if (self::atCap($exId)) {
+                    return self::capRefusal();
+                }
+                // Under the lock too: whether this name already belongs to a committed row decides
+                // whether a failed write may remove it.
+                $existed = is_file($stored);
                 if (! @rename($up['tmp'], $stored)) {
-                    @unlink($up['tmp']);
-
                     return Json::error(500, 'could not store the file');
                 }
-                // The same bytes again replace their row: one row and one file, with a fresh id.
-                ExerciseMedia::query()->where('file', $file)->delete();
+                try {
+                    // The same bytes again replace their row: one row and one file, with a fresh id.
+                    $replacedLegacy = ExerciseMedia::query()->where('file', $legacy)->exists();
+                    ExerciseMedia::query()->whereIn('file', [$file, $legacy])->delete();
 
-                return tap((new ExerciseMedia)->forceFill([
-                    'id' => Js::randomId(), 'ex_id' => $exId, 'file' => $file, 'label' => $label,
-                    'bytes' => $up['bytes'], 'mime' => $up['meta']['mime'],
-                    // 'raw' is not broken: nothing has yet confirmed a browser can decode it.
-                    'status' => $up['meta']['needsTranscode'] ? 'raw' : 'ready', 'created' => Js::isoNow(),
-                ]))->save();
+                    return tap((new ExerciseMedia)->forceFill([
+                        'id' => Js::randomId(), 'ex_id' => $exId, 'file' => $file, 'label' => $label,
+                        'bytes' => $up['bytes'], 'mime' => $up['meta']['mime'],
+                        // 'raw' is not broken: nothing has yet confirmed a browser can decode it.
+                        'status' => $up['meta']['needsTranscode'] ? 'raw' : 'ready', 'created' => Js::isoNow(),
+                    ]))->save();
+                } catch (Throwable $e) {
+                    throw new RowNotWritten($e);
+                }
             });
-        } catch (Throwable $e) {
+        } catch (RowNotWritten $e) {
             // The file is in place and the row is not: unwind it, or it is an orphan nothing lists
-            // and nothing can delete, on a quota-limited host — unless it is the file of a row
-            // that already existed (the same bytes again), which still needs it.
+            // and nothing can delete, on a quota-limited host — unless a committed row already
+            // named it (the same bytes again), which still needs it. Node's 507 was for exactly
+            // this failure, a write that did not happen; anything else is the ordinary 500.
             if (! $existed) {
                 @unlink($stored);
             }
-            @unlink($up['tmp']);
-            Log::error('media save failed', ['exception' => $e]);
+            Log::error('media save failed', ['exception' => $e->getPrevious()]);
 
             return Json::error(507, 'could not record the upload — is the disk full?');
+        } finally {
+            @unlink($up['tmp']);   // still there only if it never reached its place
         }
         if ($row instanceof JsonResponse) {
             return $row;
+        }
+        // The Node-era file the same bytes replaced — only when this coach's row for it was the
+        // one replaced, and no row names it any more. A file of that name with no row here is
+        // not this upload's to remove.
+        $old = $dir.DIRECTORY_SEPARATOR.$legacy;
+        if ($replacedLegacy && is_file($old) && ! ExerciseMedia::acrossCoaches()->where('file', $legacy)->exists()) { // across coaches: a file is freed only when no coach's row names it
+            @unlink($old);
         }
 
         return Json::ok(['ok' => true, 'media' => $row->toNode()]);
@@ -117,6 +143,11 @@ final class ExerciseMediaController
         }
 
         return Serve::file($request, Paths::root().DIRECTORY_SEPARATOR.'ex'.DIRECTORY_SEPARATOR.$row->file, $row->mime);
+    }
+
+    private static function capRefusal(): JsonResponse
+    {
+        return Json::error(429, Say::f('that exercise already has {0} videos', ExerciseMedia::MAX_PER_EXERCISE), [], Json::CLOSE);
     }
 
     /** The uploading coach's demos for one exercise (CoachContext): at the cap? */

@@ -100,7 +100,7 @@ it('keeps one client\'s offers from another client', function () {
         ->and(Assignment::forMember($this->f->b1->id)->first()->status)->toBe('pending');
 });
 
-it('keeps coach B\'s demos out of coach A\'s list and bytes, and A\'s cap counts only A\'s', function () {
+it('keeps coach B\'s demos out of coach A\'s list and bytes (the per-coach cap: ExerciseMediaTest)', function () {
     expect(array_column($this->getJson('/api/media/exercises', bearer($this->f->a))->json('media'), 'id'))->toBe(['mediaa']);
     $this->getJson('/api/media/ex?id=mediab', bearer($this->f->a))->assertStatus(404)->assertExactJson(['error' => 'not found']);
     $this->getJson('/api/media/ex?id=mediab', bearer($this->f->a1))->assertStatus(404);

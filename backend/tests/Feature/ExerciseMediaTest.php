@@ -7,8 +7,10 @@
 use App\Models\ExerciseMedia;
 use App\Models\User;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\Support\Coaching;
+use Tests\Support\MediaFixtures;
 
 beforeEach(function () {
     $this->f = Coaching::twoCoaches();
@@ -20,30 +22,19 @@ afterEach(function () {
     (new Filesystem)->deleteDirectory($this->dataDir);
 });
 
-/** coach-smoke's mkfix: an ISO header (brand, one compatible brand), a marker at 2048 so contents differ. */
 function mkfix(string $brand, string $compat = '', string $marker = 'pad', int $size = 4096): string
 {
-    $b = str_repeat("\0", $size);
-    $b = substr_replace($b, pack('N', 32).'ftyp'.$brand.pack('N', 0).$compat, 0, 16 + strlen($compat));
-
-    return substr_replace($b, $marker, 2048, strlen($marker));
+    return MediaFixtures::mkfix($brand, $compat, $marker, $size);
 }
 
 function up(?User $who, string $ex, string $body, string $label = 'front'): TestResponse
 {
-    $headers = ($who ? test()->transformHeadersToServerVars(bearer($who)) : []) + ['CONTENT_TYPE' => 'application/octet-stream', 'HTTP_ACCEPT' => 'application/json'];
-
-    return test()->call('POST', '/api/media/exercise?ex='.rawurlencode($ex).'&label='.rawurlencode($label), [], [], [], $headers, $body);
+    return MediaFixtures::post($who, '/api/media/exercise?ex='.rawurlencode($ex).'&label='.rawurlencode($label), $body);
 }
 
 function listed(User $who): array
 {
     return test()->getJson('/api/media/exercises', bearer($who))->assertOk()->json('media');
-}
-
-function exFiles(string $root, string $prefix = ''): array
-{
-    return array_values(array_filter(scandir($root.'/media/ex') ?: [], fn ($n) => str_starts_with($n, $prefix) && $n[0] !== '.' && $prefix !== '' || ($prefix === '' && $n[0] !== '.')));
 }
 
 it('== media upload: role gating ==, every refusal closing the connection', function () {
@@ -141,4 +132,55 @@ it('records nothing and keeps nothing when the row cannot be written', function 
     ExerciseMedia::creating(fn () => throw new RuntimeException('disk full'));
     up($this->f->a, '0050', mkfix('isom', 'avc1'))->assertStatus(507)->assertExactJson(['error' => 'could not record the upload — is the disk full?']);
     expect(glob($this->dataDir.'/media/ex/0050-*'))->toBe([])->and(glob($this->dataDir.'/media/ex/.up-*'))->toBe([]);
+});
+
+it('refuses an upload whose coach lost the role, or the account, while it streamed', function (array $change, int $status) {
+    $f = $this->f;
+    // Past RequireCoach; then, while the file streams, an admin's detach commits. Simulated by
+    // changing the row just before the upload's locked read of it.
+    $done = false;
+    DB::connection()->beforeExecuting(function (string $sql) use (&$done, $f, $change) {
+        if (! $done && DB::transactionLevel() >= 2 && str_contains($sql, 'from "users"')) {
+            $done = true;
+            DB::table('users')->where('id', $f->a->id)->update($change);
+        }
+    });
+    up($f->a, '0060', mkfix('isom', 'avc1', 'late'))->assertStatus($status);
+    expect($done)->toBeTrue()
+        ->and(ExerciseMedia::acrossCoaches()->where('ex_id', '0060')->exists())->toBeFalse() // across coaches: the test reads every row
+        ->and(glob($this->dataDir.'/media/ex/*0060*'))->toBe([]);
+})->with([
+    'role revoked' => [['coach' => false], 403],
+    'disabled' => [['disabled' => true], 401],
+]);
+
+it('replaces a demo uploaded to the Node API, named without its coach, when the same bytes come again', function () {
+    $f = $this->f;
+    $demo = mkfix('isom', 'avc1', 'node-era');
+    $legacy = '0070-'.substr(hash('sha256', $demo), 0, 16).'.mp4';
+    @mkdir($this->dataDir.'/media/ex', 0700, true);
+    file_put_contents($this->dataDir.'/media/ex/'.$legacy, $demo);
+    Coaching::own(new ExerciseMedia, $f->a, ['id' => 'nodeEraRow000000', 'ex_id' => '0070', 'file' => $legacy, 'label' => '', 'bytes' => 4096, 'mime' => 'video/mp4', 'status' => 'ready', 'created' => '2026-01-01T00:00:00.000Z']);
+    up($f->a, '0070', $demo)->assertOk();
+    expect(collect(listed($f->a))->where('exId', '0070')->pluck('file')->all())->toBe(['0070-'.$f->a->id.'-'.substr(hash('sha256', $demo), 0, 16).'.mp4'])
+        ->and(is_file($this->dataDir.'/media/ex/'.$legacy))->toBeFalse();
+});
+
+it('leaves a file of the old name alone when no row of this coach named it', function () {
+    $demo = mkfix('isom', 'avc1', 'not-ours');
+    $legacy = '0071-'.substr(hash('sha256', $demo), 0, 16).'.mp4';
+    @mkdir($this->dataDir.'/media/ex', 0700, true);
+    file_put_contents($this->dataDir.'/media/ex/'.$legacy, $demo);
+    up($this->f->a, '0071', $demo)->assertOk();
+    expect(is_file($this->dataDir.'/media/ex/'.$legacy))->toBeTrue();
+});
+
+it('answers 507 only for the row write itself; a failed lock is an ordinary 500', function () {
+    DB::connection()->beforeExecuting(function (string $sql) {
+        if (DB::transactionLevel() >= 2 && str_contains($sql, 'from "users"')) {
+            throw new RuntimeException('lock wait timeout');
+        }
+    });
+    up($this->f->a, '0080', mkfix('isom', 'avc1', 'lock'))->assertStatus(500);
+    expect(glob($this->dataDir.'/media/ex/.up-*'))->toBe([]);
 });
