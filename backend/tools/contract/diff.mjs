@@ -232,6 +232,14 @@ const PUSH_SUB = { endpoint: 'https://push.invalid/send/abc', keys: {
   p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM', auth: 'tBHItJI5svbpez7KI4CCXg' } };
 const pushSub = (uid, subscription) => ({ method: 'POST', path: '/api/push/subscribe', headers: uid ? bearer(uid) : {}, body: { subscription } });
 
+// A member's `live` on their coach's roster, with the server's own clock readings as their form.
+const liveOf = (coach, member) => async base => {
+  const r = await call(base, { path: '/api/coach/members', headers: bearer(coach) });
+  const live = (r.json?.members || []).find(m => m.id === member)?.live;
+  const near = t => typeof t === 'number' && Math.abs(Date.now() - t) < 60000 ? 'just now' : t;
+  return { ...r, json: { live: live && { ...live, updatedAt: near(live.updatedAt), startedAt: near(live.startedAt) } } };
+};
+
 const CASES = [
   { name: 'health', req: { path: '/api/health' }, mode: 'exact' },
   { name: 'config', req: { path: '/api/config' }, mode: 'exact' },
@@ -604,6 +612,17 @@ const CASES = [
   { name: 'rest timer, bad json', req: { method: 'POST', path: '/api/push/rest-timer', headers: bearer('cdBare0000000000'), raw: '{nope' }, mode: 'exact' },
   { name: 'rest timer cancel', req: { method: 'POST', path: '/api/push/rest-timer/cancel', headers: bearer('cdBare0000000000') }, mode: 'exact' },
   { name: 'rest timer cancel, anonymous', req: { method: 'POST', path: '/api/push/rest-timer/cancel' }, mode: 'exact' },
+  // R3 — live presence (CHW-262). cdMember trains, is seen on the roster, and leaves again, so
+  // every later list shows nobody live on either side.
+  { name: 'activity, anonymous', req: { method: 'POST', path: '/api/activity', body: { active: true } }, mode: 'exact' },
+  { name: 'activity, bad json', req: { method: 'POST', path: '/api/activity', headers: bearer('cdMember00000000'), raw: '{nope' }, mode: 'exact' },
+  { name: 'activity, training', req: { method: 'POST', path: '/api/activity', headers: bearer('cdMember00000000'),
+    body: { active: true, name: 'Push day — a name well past the sixty characters the server keeps of it', exIdx: 2, exTotal: '5', setsDone: 'abc', setsTotal: 1.5, startedAt: 1767225600000 } }, mode: 'exact' },
+  { name: 'members, coach, a client training', run: liveOf('cdCoach000000000', 'cdMember00000000'), mode: 'exact' },
+  { name: 'activity, no start given', req: { method: 'POST', path: '/api/activity', headers: bearer('cdMember00000000'), body: { active: 1, name: 42 } }, mode: 'exact' },
+  { name: 'members, coach, started now', run: liveOf('cdCoach000000000', 'cdMember00000000'), mode: 'exact' },
+  { name: 'activity, left', req: { method: 'POST', path: '/api/activity', headers: bearer('cdMember00000000'), body: { active: false } }, mode: 'exact' },
+  { name: 'members, coach, nobody training', run: liveOf('cdCoach000000000', 'cdMember00000000'), mode: 'exact' },
   // R2 — the owner's account controls and detachCoach (CHW-250).
   { name: 'admin users, anonymous', req: { path: '/api/admin/users' }, mode: 'exact' },
   { name: 'admin users, a coach', req: { path: '/api/admin/users', headers: bearer('cdCoach000000000') }, mode: 'exact' },
