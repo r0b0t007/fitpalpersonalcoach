@@ -160,3 +160,18 @@ it('records nothing and keeps nothing when the row cannot be written', function 
     photo($this->f->a1, MediaFixtures::jpeg())->assertStatus(507)->assertExactJson(['error' => 'could not record the upload — is the disk full?']);
     expect(glob(photoDir($this->dataDir, $this->f->a1).'/*'))->toBe([]);
 });
+
+it('files nothing for an account disabled while its photo streamed', function () {
+    $a1 = $this->f->a1;
+    $done = false;
+    DB::connection()->beforeExecuting(function (string $sql) use (&$done, $a1) {
+        if (! $done && DB::transactionLevel() >= 2 && str_contains($sql, 'from "users"')) {
+            $done = true;
+            DB::table('users')->where('id', $a1->id)->update(['disabled' => true]);
+        }
+    });
+    photo($a1, MediaFixtures::jpeg('late'))->assertStatus(401)->assertExactJson(['error' => 'not signed in']);
+    expect($done)->toBeTrue()
+        ->and(ProgressPhoto::query()->where('user_id', $a1->id)->exists())->toBeFalse()
+        ->and(glob(photoDir($this->dataDir, $a1).'/*'))->toBe([]);
+});

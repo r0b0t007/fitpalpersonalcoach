@@ -13,7 +13,6 @@ use App\Support\Input;
 use App\Support\Js;
 use App\Support\Json;
 use App\Support\Say;
-use App\Support\Uid;
 use App\Tenancy\Access;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,14 +50,14 @@ final class PhotoController
         if ($error = self::capError($user->id, $d, $pose, 0)) {
             return Json::error(429, $error, [], Json::CLOSE); // relayed: capError's two sentences are Say::f templates
         }
-        $dir = Paths::dir('photo/'.Uid::safe($user->id));
+        $dir = Paths::photoDir($user->id, create: true);
         $up = Upload::stream($request, $dir, Upload::maxPhoto(), 'photo');
 
         // Unguessable, never content-addressed: a photo's name must say nothing about who took it
         // or when, should this directory ever be reachable some other way — and content addressing
         // would make the same bytes from two people collide. base64url starts a name with '-' or
         // '_' 2 times in 64, which Sniff::safeFile takes.
-        $file = rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=').'.'.$up['meta']['ext'];
+        $file = Js::token(16).'.'.$up['meta']['ext'];
         $stored = $dir.DIRECTORY_SEPARATOR.$file;
         if (! @rename($up['tmp'], $stored)) {
             @unlink($up['tmp']);
@@ -70,15 +69,19 @@ final class PhotoController
         try {
             $result = DB::transaction(function () use ($user, $d, $pose, $file, $up, &$replaced): ProgressPhoto|JsonResponse {
                 // The client's own row, locked: two uploads for different poses at once each count
-                // the other, and neither replaces the other's slot.
-                User::query()->whereKey($user->id)->lockForUpdate()->first();
+                // the other, and neither replaces the other's slot. Judged again on it, too: an
+                // account disabled or removed while the file streamed files nothing.
+                $me = User::query()->whereKey($user->id)->lockForUpdate()->first();
+                if (! $me || $me->disabled) {
+                    return Json::error(401, 'not signed in');
+                }
                 // The caps again, with the real size: the first ask was a promise about the past.
                 if ($error = self::capError($user->id, $d, $pose, $up['bytes'])) {
                     return Json::error(429, $error); // relayed: capError's two sentences are Say::f templates
                 }
+                $old = ProgressPhoto::query()->where('user_id', $user->id)->where('d', $d)->where('pose', $pose)->get();
+                $replaced = $old->pluck('file')->all();
                 try {
-                    $old = ProgressPhoto::query()->where('user_id', $user->id)->where('d', $d)->where('pose', $pose)->get();
-                    $replaced = $old->pluck('file')->all();
                     ProgressPhoto::query()->whereKey($old->modelKeys())->delete();
 
                     return tap((new ProgressPhoto)->forceFill([
@@ -117,9 +120,7 @@ final class PhotoController
     /** The caller's own photos, so their check-in sheet can show which angles this period has. */
     public function index(Request $request): JsonResponse
     {
-        $photos = ProgressPhoto::of($request->user('api')->id)->get();
-
-        return Json::ok(['photos' => $photos->map(fn (ProgressPhoto $p) => $p->toPublic())->all()]);
+        return Json::ok(['photos' => ProgressPhoto::listed($request->user('api')->id)]);
     }
 
     /**
@@ -140,7 +141,7 @@ final class PhotoController
             return Json::error(403, 'forbidden');
         }
 
-        return Serve::file($request, Paths::root().DIRECTORY_SEPARATOR.'photo'.DIRECTORY_SEPARATOR.Uid::safe($owner->id).DIRECTORY_SEPARATOR.$row->file, $row->mime);
+        return Serve::file($request, Paths::photoDir($owner->id).DIRECTORY_SEPARATOR.$row->file, $row->mime);
     }
 
     /**
@@ -150,11 +151,12 @@ final class PhotoController
      */
     private static function capError(string $userId, string $d, string $pose, int $incoming): ?string
     {
-        $rest = ProgressPhoto::query()->where('user_id', $userId)->where(fn ($q) => $q->where('d', '!=', $d)->orWhere('pose', '!=', $pose));
-        if ((clone $rest)->count() >= ProgressPhoto::MAX_COUNT) {
+        $rest = ProgressPhoto::query()->where('user_id', $userId)->where(fn ($q) => $q->where('d', '!=', $d)->orWhere('pose', '!=', $pose))
+            ->selectRaw('count(*) as n, coalesce(sum(bytes), 0) as b')->toBase()->first();
+        if ((int) $rest->n >= ProgressPhoto::MAX_COUNT) {
             return Say::f('that is {0} photos already stored', ProgressPhoto::MAX_COUNT);
         }
-        if ((int) (clone $rest)->sum('bytes') + $incoming > ProgressPhoto::MAX_TOTAL) {
+        if ((int) $rest->b + $incoming > ProgressPhoto::MAX_TOTAL) {
             return Say::f('that is {0} MB of photos already stored', Upload::mb(ProgressPhoto::MAX_TOTAL));
         }
 

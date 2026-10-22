@@ -24,7 +24,8 @@ class ProgressPhoto extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'user_id', 'd', 'pose', 'file', 'bytes', 'mime', 'created'];
+    // Not user_id: whose photo it is is never a request's to say (rows are written with forceFill).
+    protected $fillable = ['id', 'd', 'pose', 'file', 'bytes', 'mime', 'created'];
 
     protected function casts(): array
     {
@@ -35,6 +36,12 @@ class ProgressPhoto extends Model
     public static function of(string $userId): Builder
     {
         return static::query()->where('user_id', $userId)->orderBy('d')->orderBy('seq');
+    }
+
+    /** `userPhotos(uid).map(publicPhoto)`: the one list both the client and their coach are shown. */
+    public static function listed(string $userId): array
+    {
+        return static::of($userId)->get()->map(fn (self $p) => $p->toPublic())->all();
     }
 
     /** api/server.js publicPhoto: everything but the stored name, which never leaves the server. */

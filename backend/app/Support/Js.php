@@ -240,7 +240,16 @@ final class Js
      */
     public static function randomId(): string
     {
-        return strtr(base64_encode(random_bytes(12)), '+/', '-_');
+        return self::token(12);
+    }
+
+    /**
+     * `crypto.randomBytes(n).toString('base64url')`: n random bytes in the URL-safe alphabet,
+     * unpadded — the one spelling of it (ids, challenge ids, unguessable file names).
+     */
+    public static function token(int $bytes): string
+    {
+        return rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '=');
     }
 
     /** `Date.now()`, through Laravel's clock so tests can move it. */

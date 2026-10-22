@@ -195,7 +195,7 @@ final class MemberCard
             'mealDays' => ($s->mealDays ?? null) instanceof stdClass ? $s->mealDays : new stdClass,
             'nutriTarget' => $s->nutriTarget ?? null,
             // Server-owned, metadata only: the bytes are GET /api/media/photo's, behind its own check.
-            'photos' => ProgressPhoto::of($u->id)->get()->map(fn (ProgressPhoto $p) => $p->toPublic())->all(),
+            'photos' => ProgressPhoto::listed($u->id),
             'workouts' => array_reverse(Js::list($s->workouts ?? null)),
             'body' => Js::or($s->body ?? null, 'male'),
             'targetW' => $s->targetW ?? null,
