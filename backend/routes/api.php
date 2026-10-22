@@ -71,6 +71,8 @@ $routes = static function (): void {
         Route::post('/push/subscribe', [PushController::class, 'subscribe']);
         Route::post('/push/unsubscribe', [PushController::class, 'unsubscribe']);
         Route::post('/push/test', [PushController::class, 'test']);
+        Route::post('/push/rest-timer', [PushController::class, 'restTimer']);
+        Route::post('/push/rest-timer/cancel', [PushController::class, 'cancelRestTimer']);
         Route::post('/pair/create', [PairController::class, 'create']);
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
         Route::get('/data', [DataController::class, 'show']);
