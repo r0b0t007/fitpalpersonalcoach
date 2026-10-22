@@ -52,6 +52,9 @@ const MOV_SHA = sha16(MOV);
 
 const INTENDED = {
   'config $.self_serve: only Laravel has it (false)': 'the self-serve coach signup flag for R4 (/#/start); the app ignores unknown keys.',
+  'push subscribe, endpoint v4-mapped private status: Node 200 vs Laravel 400': 'a hole in Node, closed: the WHATWG parser writes [::ffff:10.0.0.1] as ::ffff:a00:1, which the isPrivateAddr of Node (dotted form only) passed. Laravel compares the address, not its spelling (app/Push/Endpoint.php); its guard at send time refuses it either way.',
+  'push subscribe, endpoint v4-mapped private $.error: Node undefined vs Laravel "endpoint must not point at a private address"': 'the same: refused, in the words for it.',
+  'push subscribe, endpoint v4-mapped private $.ok: only Node has it (true)': 'the same.',
   'config $.upload: only Laravel has it ({"chunked":true,"chunk_mb":4})': 'demos may be sent in chunks (CHW-259), a protocol only Laravel speaks; with no `upload` the app sends the one request it sends to Node (frontend/src/lib/api.js uploadExerciseMedia).',
   'login options $.options.allowCredentials: only Node has it ([])': 'Laragear omits an empty list. Same meaning in WebAuthn (any discoverable passkey), and the app reads `(o.allowCredentials || [])` (frontend/src/lib/api.js).',
   'me, admin headers.cache-control: Node "no-store" vs Laravel "no-store, private"': 'Symfony always adds private when neither public nor private is set. no-store already forbids every cache.',
@@ -224,6 +227,11 @@ const photoRead = (viewer, u = 'owner', method = 'GET') => async base => {
 };
 
 const fat = JSON.stringify({ state: { pad: 'x'.repeat(17 * 1024 * 1024) } });
+// A push subscription as PushSubscription.toJSON() writes it (a real browser's keys).
+const PUSH_SUB = { endpoint: 'https://push.invalid/send/abc', keys: {
+  p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM', auth: 'tBHItJI5svbpez7KI4CCXg' } };
+const pushSub = (uid, subscription) => ({ method: 'POST', path: '/api/push/subscribe', headers: uid ? bearer(uid) : {}, body: { subscription } });
+
 const CASES = [
   { name: 'health', req: { path: '/api/health' }, mode: 'exact' },
   { name: 'config', req: { path: '/api/config' }, mode: 'exact' },
@@ -560,6 +568,32 @@ const CASES = [
     const r = await call(base, { path: '/api/coach/member?id=cdMember00000000', headers: bearer('cdCoach000000000') });
     return { ...r, json: { photos: (r.json?.photos || []).map(stamped) } };
   }, mode: 'exact' },
+  // R3 — Web Push subscriptions (CHW-260). Endpoints under .invalid: a push either server tries
+  // later (an assignment below) fails at DNS, and reaches nobody.
+  { name: 'push key', req: { path: '/api/push/public-key' }, mode: 'exact' },
+  { name: 'push subscribe, anonymous', req: pushSub(null, PUSH_SUB), mode: 'exact' },
+  { name: 'push subscribe, nothing', req: { method: 'POST', path: '/api/push/subscribe', headers: bearer('cdMember00000000'), body: {} }, mode: 'exact' },
+  { name: 'push subscribe, a list', req: pushSub('cdMember00000000', [PUSH_SUB]), mode: 'exact' },
+  { name: 'push subscribe, no keys', req: pushSub('cdMember00000000', { endpoint: PUSH_SUB.endpoint }), mode: 'exact' },
+  { name: 'push subscribe, an empty auth', req: pushSub('cdMember00000000', { ...PUSH_SUB, keys: { ...PUSH_SUB.keys, auth: '' } }), mode: 'exact' },
+  { name: 'push subscribe, bad json', req: { method: 'POST', path: '/api/push/subscribe', headers: bearer('cdMember00000000'), raw: '{nope' }, mode: 'exact' },
+  ...[
+    ['not a URL', 'not a url'], ['a number', 42], ['http', 'http://push.invalid/x'], ['mailto', 'mailto:a@b.c'],
+    ['credentials', 'https://u:p@push.invalid/x'], ['loopback', 'https://127.0.0.1/x'], ['private', 'https://10.1.2.3/x'],
+    ['cloud metadata', 'https://169.254.169.254/latest'], ['one number', 'https://2130706433/x'], ['hex', 'https://0x7f.1/x'],
+    ['octal', 'https://017700000001/x'], ['v6 loopback', 'https://[::1]/x'], ['v6 loopback, long', 'https://[0:0:0:0:0:0:0:1]/x'],
+    ['v6 unique local', 'https://[fd00::1]/x'], ['v4-mapped private', 'https://[::ffff:10.0.0.1]/x'],
+    ['a public address', 'https://8.8.8.8/x'], ['a name', 'HTTPS://Push.Invalid/member'],
+  ].map(([what, endpoint]) => ({ name: `push subscribe, endpoint ${what}`, req: pushSub('cdMember00000000', { ...PUSH_SUB, endpoint }), mode: 'exact' })),
+  // Node took the v4-mapped one (see INTENDED); dropped again, so the two sides hold the same rows.
+  { name: 'push unsubscribe, the v4-mapped one', req: { method: 'POST', path: '/api/push/unsubscribe', headers: bearer('cdMember00000000'), body: { endpoint: 'https://[::ffff:10.0.0.1]/x' } }, mode: 'exact' },
+  { name: 'push subscribe, the same browser, another account', req: pushSub('cdSync0000000000', { ...PUSH_SUB, endpoint: 'HTTPS://Push.Invalid/member' }), mode: 'exact' },
+  { name: 'push unsubscribe, not theirs any more', req: { method: 'POST', path: '/api/push/unsubscribe', headers: bearer('cdMember00000000'), body: { endpoint: 'HTTPS://Push.Invalid/member' } }, mode: 'exact' },
+  { name: 'push unsubscribe, not a string', req: { method: 'POST', path: '/api/push/unsubscribe', headers: bearer('cdMember00000000'), body: { endpoint: ['https://8.8.8.8/x'] } }, mode: 'exact' },
+  { name: 'push unsubscribe, theirs', req: { method: 'POST', path: '/api/push/unsubscribe', headers: bearer('cdMember00000000'), body: { endpoint: 'https://8.8.8.8/x' } }, mode: 'exact' },
+  { name: 'push unsubscribe, anonymous', req: { method: 'POST', path: '/api/push/unsubscribe', body: { endpoint: 'x' } }, mode: 'exact' },
+  { name: 'push test, anonymous', req: { method: 'POST', path: '/api/push/test' }, mode: 'exact' },
+  { name: 'push test, nobody subscribed', req: { method: 'POST', path: '/api/push/test', headers: bearer('cdBare0000000000') }, mode: 'exact' },
   // R2 — the owner's account controls and detachCoach (CHW-250).
   { name: 'admin users, anonymous', req: { path: '/api/admin/users' }, mode: 'exact' },
   { name: 'admin users, a coach', req: { path: '/api/admin/users', headers: bearer('cdCoach000000000') }, mode: 'exact' },

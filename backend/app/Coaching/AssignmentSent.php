@@ -11,9 +11,8 @@ use Illuminate\Foundation\Events\Dispatchable;
  * the send runs inside a caller's own transaction (ShouldDispatchAfterCommit): a push must never
  * announce an offer that was rolled back.
  *
- * Node pushed each member a notification in their own language at this point (assignmentPush);
- * the push is R3's, as a queued job listening here. Until then nobody listens and a member finds
- * the offer the next time they open the app, which is what Node did for anyone without push.
+ * Each member is then pushed a notification in their own language (assignmentPush), queued
+ * (AppServiceProvider). A member without push finds the offer the next time they open the app.
  */
 final class AssignmentSent implements ShouldDispatchAfterCommit
 {

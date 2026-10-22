@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Coaching\MemberCard;
 use App\Models\Assignment;
+use App\Models\PushSubscription;
 use App\Models\User;
 use App\Support\ClientSafe;
 use App\Support\Input;
@@ -32,9 +33,9 @@ final class AdminUserController
     /** One row per account, in Node's order; each state is read on its own, as Node did. */
     public function index(): JsonResponse
     {
-        $users = User::query()->signupOrder()->get()->map(function (User $u): array {
-            // Push subscriptions arrive with R3; until then nobody has one.
-            return self::identity($u) + MemberCard::activity(MemberCard::state($u->id)) + ['hasPush' => false];
+        $withPush = PushSubscription::query()->distinct()->pluck('user_id')->flip();
+        $users = User::query()->signupOrder()->get()->map(function (User $u) use ($withPush): array {
+            return self::identity($u) + MemberCard::activity(MemberCard::state($u->id)) + ['hasPush' => $withPush->has($u->id)];
         });
 
         return Json::ok(['users' => $users->all(), 'invite_only' => (bool) config('fitpal.invite_only'), 'now' => Audit::now()]);
