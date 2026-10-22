@@ -118,8 +118,12 @@ final readonly class Entitlement
         };
     }
 
-    /** The user's licence, if it is theirs: a licence_id pointing at someone else's row is none. */
-    private static function licenceOf(User $user, bool $lock = false): ?Licence
+    /**
+     * The user's licence, if it is theirs: a licence_id pointing at someone else's row is none.
+     * $lock reads it FOR SHARE; a writer of licences (the admin grant, the webhook) takes the
+     * coach's row first and then the licence's, the order these readers take them in.
+     */
+    public static function licenceOf(User $user, bool $lock = false): ?Licence
     {
         if ($user->licence_id === null) {
             return null;
@@ -131,7 +135,7 @@ final readonly class Entitlement
     }
 
     /** Rule 4, the stale net, and only on a plan this instance sells. */
-    private static function writable(Licence $licence): bool
+    public static function writable(Licence $licence): bool
     {
         return Plans::cap($licence->plan) !== null
             && ((in_array($licence->status, Licence::WRITABLE, true) && ! self::stale($licence))

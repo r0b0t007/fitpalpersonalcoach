@@ -122,6 +122,9 @@ $routes = static function (): void {
             Route::post('/admin/user/disable', [AdminUserController::class, 'disable']);
             Route::post('/admin/user/coach', [AdminUserController::class, 'coach']);
             Route::post('/admin/user/assign-coach', [AdminUserController::class, 'assignCoach']);
+            // A licence by hand (R4, Laravel only): no Creem, writable until revoked.
+            Route::post('/admin/licence/grant', [AdminUserController::class, 'grant']);
+            Route::post('/admin/licence/revoke', [AdminUserController::class, 'revoke']);
         });
     });
 };

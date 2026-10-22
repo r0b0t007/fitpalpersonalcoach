@@ -20,7 +20,7 @@ final class Billing
     /** A licence for $coach, put in force. */
     public static function licence(User $coach, array $fields): Licence
     {
-        $l = tap((new Licence)->forceFill(['id' => Licence::newId(), 'user_id' => $coach->id, 'source' => 'creem'] + $fields))->save();
+        $l = tap((new Licence)->forceFill($fields + ['id' => Licence::newId(), 'user_id' => $coach->id, 'source' => 'creem']))->save();
         $coach->forceFill(['licence_id' => $l->id])->save();
 
         return $l;
