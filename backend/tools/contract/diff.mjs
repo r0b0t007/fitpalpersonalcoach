@@ -173,15 +173,19 @@ const codesOf = async (base, coachId) => ((await call(base, { path: '/api/admin/
 const upload = (uid, ex, body, label = 'front') => ({ method: 'POST', path: `/api/media/exercise?ex=${encodeURIComponent(ex)}&label=${encodeURIComponent(label)}`,
   headers: uid ? bearer(uid) : {}, raw: body });
 // A row with its server-made values replaced by their form: the id and the date are each server's own.
-const mediaRow = m => m && { ...m, id: /^[A-Za-z0-9_-]{16}$/.test(m.id) ? 'an id' : m.id, created: typeof m.created };
-const uploaded = req => async base => {
+// A media or photo row with its server-made values replaced by their form: the id and the date
+// are each server's own. One normaliser for both kinds, and for the upload answer and the list.
+const stamped = m => m && { ...m, id: /^[A-Za-z0-9_-]{16}$/.test(m.id) ? 'an id' : m.id, created: typeof m.created };
+const sent = (req, key) => async base => {
   const r = await call(base, req);
-  return { ...r, json: r.json?.media ? { ...r.json, media: mediaRow(r.json.media) } : r.json };
+  return { ...r, json: r.json?.[key] ? { ...r.json, [key]: stamped(r.json[key]) } : r.json };
 };
-const mediaList = uid => async base => {
-  const r = await call(base, { path: '/api/media/exercises', headers: bearer(uid) });
-  return { ...r, json: r.json?.media ? { media: r.json.media.map(mediaRow) } : r.json };
+const listing = (path, key) => uid => async base => {
+  const r = await call(base, { path, headers: bearer(uid) });
+  return { ...r, json: r.json?.[key] ? { [key]: r.json[key].map(stamped) } : r.json };
 };
+const uploaded = req => sent(req, 'media');
+const mediaList = listing('/api/media/exercises', 'media');
 // The bytes, as the facts a player reads: status, length, range, type, and whether they are the file.
 const bytesOf = (uid, extra = {}, method = 'GET') => async base => {
   const list = (await call(base, { path: '/api/media/exercises', headers: bearer('cdCoach000000000') })).json?.media || [];
@@ -192,6 +196,28 @@ const bytesOf = (uid, extra = {}, method = 'GET') => async base => {
   return { status: res.status, headers: {}, cookies: [], json: {
     length: h('content-length'), range: h('content-range'), type: h('content-type'), ranges: h('accept-ranges'),
     received: body.length, isTheFile: body.length === DEMO.length && body.equals(DEMO),
+    error: res.status >= 400 && body.length ? JSON.parse(body.toString()).error : undefined,
+  } };
+};
+
+// Progress photos (CHW-258): a JPEG fixture, and the facts of a read as a <img> sees them.
+const JPEG = (marker = 'jpg', size = 2048) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from(marker), Buffer.alloc(size - 4 - marker.length)]);
+const PHOTO_D = '2026-05-04';
+const photoUp = (uid, body, d = PHOTO_D, pose = 'front') => ({ method: 'POST', path: `/api/media/photo?d=${encodeURIComponent(d)}&pose=${encodeURIComponent(pose)}`,
+  headers: uid ? bearer(uid) : {}, raw: body });
+const photoSent = req => sent(req, 'photo');
+const photosOf = listing('/api/media/photos', 'photos');
+// cdMember's front photo, read by `viewer` (with `u` as given: 'owner', 'none', or an id).
+const photoRead = (viewer, u = 'owner', method = 'GET') => async base => {
+  const mine = (await call(base, { path: '/api/media/photos', headers: bearer('cdMember00000000') })).json?.photos || [];
+  const id = (mine.find(p => p.pose === 'front') || {}).id;
+  const q = (u === 'none' ? '' : `u=${u === 'owner' ? 'cdMember00000000' : u}&`) + 'id=' + id;
+  const res = await fetch(base + '/api/media/photo?' + q, { method, headers: viewer ? bearer(viewer) : {} });
+  const body = Buffer.from(await res.arrayBuffer());
+  return { status: res.status, headers: {}, cookies: [], json: {
+    length: res.headers.get('content-length'), type: res.headers.get('content-type'), received: body.length,
+    // The retake, byte for byte: the replaced first photo is the same size and must not come back.
+    isTheRetake: method === 'GET' && body.equals(JPEG('again', 3000)),
     error: res.status >= 400 && body.length ? JSON.parse(body.toString()).error : undefined,
   } };
 };
@@ -506,6 +532,33 @@ const CASES = [
   { name: 'media bytes, a multi-range is served whole', run: bytesOf('cdMember00000000', { Range: 'bytes=0-9,20-29' }), mode: 'exact' },
   { name: 'media bytes, HEAD', run: bytesOf('cdMember00000000', {}, 'HEAD'), mode: 'exact' },
   { name: 'media bytes, an unknown id', req: { path: '/api/media/ex?id=nope', headers: bearer('cdMember00000000') }, mode: 'exact' },
+  // R3 — progress photos (CHW-258). cdMember is still cdCoach's client here.
+  { name: 'photo upload, anonymous', req: photoUp(null, JPEG()), mode: 'exact' },
+  { name: 'photo upload, a client', run: photoSent(photoUp('cdMember00000000', JPEG('first', 3000))), mode: 'exact' },
+  { name: 'photo upload, not a date', req: photoUp('cdMember00000000', JPEG(), 'not-a-date'), mode: 'exact' },
+  { name: 'photo upload, a day the month does not have', req: photoUp('cdMember00000000', JPEG(), '2026-02-30'), mode: 'exact' },
+  { name: 'photo upload, a year under 100', req: photoUp('cdMember00000000', JPEG(), '0050-01-01'), mode: 'exact' },
+  { name: 'photo upload, a pose outside the three', req: photoUp('cdMember00000000', JPEG(), PHOTO_D, 'moon'), mode: 'exact' },
+  { name: 'photo upload, a video', req: photoUp('cdMember00000000', DEMO, PHOTO_D, 'side'), mode: 'exact' },
+  { name: 'photo upload, a HEIC', req: photoUp('cdMember00000000', mkfix('heic', 'mif1'), PHOTO_D, 'side'), mode: 'exact' },
+  { name: 'photo upload, a retake replaces the slot', run: photoSent(photoUp('cdMember00000000', JPEG('again', 3000))), mode: 'exact' },
+  { name: 'photo upload, a second pose', run: photoSent(photoUp('cdMember00000000', JPEG('side', 2500), PHOTO_D, 'side')), mode: 'exact' },
+  { name: 'photos, anonymous', req: { path: '/api/media/photos' }, mode: 'exact' },
+  { name: 'photos, the client\'s own', run: photosOf('cdMember00000000'), mode: 'exact' },
+  { name: 'photos, someone with none', run: photosOf('cdSync0000000000'), mode: 'exact' },
+  { name: 'photo bytes, anonymous', run: photoRead(null), mode: 'exact' },
+  { name: 'photo bytes, the owner', run: photoRead('cdMember00000000'), mode: 'exact' },
+  { name: 'photo bytes, the owner without naming themselves', run: photoRead('cdMember00000000', 'none'), mode: 'exact' },
+  { name: 'photo bytes, their coach', run: photoRead('cdCoach000000000'), mode: 'exact' },
+  { name: 'photo bytes, an admin', run: photoRead('cdAdmin000000000'), mode: 'exact' },
+  { name: 'photo bytes, another coach', run: photoRead('cdCoachB00000000'), mode: 'exact' },
+  { name: 'photo bytes, another client', run: photoRead('cdSync0000000000'), mode: 'exact' },
+  { name: 'photo bytes, an unknown member', run: photoRead('cdCoach000000000', 'ghost'), mode: 'exact' },
+  { name: 'photo bytes, HEAD', run: photoRead('cdCoach000000000', 'owner', 'HEAD'), mode: 'exact' },
+  { name: 'member, own client, with photos', run: async base => {
+    const r = await call(base, { path: '/api/coach/member?id=cdMember00000000', headers: bearer('cdCoach000000000') });
+    return { ...r, json: { photos: (r.json?.photos || []).map(stamped) } };
+  }, mode: 'exact' },
   // R2 — the owner's account controls and detachCoach (CHW-250).
   { name: 'admin users, anonymous', req: { path: '/api/admin/users' }, mode: 'exact' },
   { name: 'admin users, a coach', req: { path: '/api/admin/users', headers: bearer('cdCoach000000000') }, mode: 'exact' },

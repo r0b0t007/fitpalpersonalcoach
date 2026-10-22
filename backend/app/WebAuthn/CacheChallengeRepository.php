@@ -2,6 +2,7 @@
 
 namespace App\WebAuthn;
 
+use App\Support\Js;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Http\Request;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreation;
@@ -34,7 +35,7 @@ final class CacheChallengeRepository implements WebAuthnChallengeRepository
 
     public function store(AttestationCreation|AssertionCreation $ceremony, Challenge $challenge): void
     {
-        $cid = rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '=');
+        $cid = Js::token(16);
         $this->cache->put(self::key($cid), [
             'challenge' => $challenge->toArray(),
             'extra' => $this->request->attributes->get(self::EXTRA_ATTRIBUTE, []),

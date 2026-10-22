@@ -4,6 +4,7 @@ namespace App\Media;
 
 use App\Support\ClientSafe;
 use App\Support\Json;
+use App\Support\Uid;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 
@@ -28,6 +29,17 @@ final class Paths
     public static function disk(): Filesystem
     {
         return Storage::build(['driver' => 'local', 'root' => self::root(), 'serve' => false, 'throw' => false]);
+    }
+
+    /**
+     * A client's photo directory (Node's photoDir), named by Uid::safe: the one spelling both the
+     * upload (which creates it) and the read use.
+     *
+     * @throws ClientSafe
+     */
+    public static function photoDir(string $userId, bool $create = false): string
+    {
+        return $create ? self::dir('photo/'.Uid::safe($userId)) : self::root().DIRECTORY_SEPARATOR.'photo'.DIRECTORY_SEPARATOR.Uid::safe($userId);
     }
 
     /**

@@ -240,7 +240,16 @@ final class Js
      */
     public static function randomId(): string
     {
-        return strtr(base64_encode(random_bytes(12)), '+/', '-_');
+        return self::token(12);
+    }
+
+    /**
+     * `crypto.randomBytes(n).toString('base64url')`: n random bytes in the URL-safe alphabet,
+     * unpadded — the one spelling of it (ids, challenge ids, unguessable file names).
+     */
+    public static function token(int $bytes): string
+    {
+        return rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '=');
     }
 
     /** `Date.now()`, through Laravel's clock so tests can move it. */
@@ -286,6 +295,17 @@ final class Js
         }
 
         return $ms;
+    }
+
+    /**
+     * api/domain.mjs isRealDate: a strict YYYY-MM-DD that is a real calendar day. Node built it with
+     * Date.UTC, which reads a year under 100 as 19xx — so `0050-01-01` came back as 1950 and was
+     * refused. Kept: years below 100 are not dates here either.
+     */
+    public static function isRealDate(mixed $iso): bool
+    {
+        return is_string($iso) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $iso, $m) === 1
+            && (int) $m[1] >= 100 && checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
     }
 
     /** api/domain.mjs addDaysISO: a calendar date moved by whole days, '' for anything else. */
