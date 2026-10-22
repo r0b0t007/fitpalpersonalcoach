@@ -1,7 +1,5 @@
 <?php
 
-use App\Audit\Audit;
-use App\Models\Assignment;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
@@ -35,13 +33,13 @@ if ($connection !== 'sync') {
         ->onFailure(fn () => Log::warning('queue worker exited non-zero: a job hit --timeout, or the worker could not start'));
 }
 
-// Audit retention (AUDIT_DAYS, AUDIT_MAX), hourly as the Node API compacted it: the read path
-// already hides expired rows, this deletes them — and their IPs — on an idle instance too.
-Schedule::call(fn () => Audit::prune())->hourly()->name('audit:prune')->withoutOverlapping(10);
+// Housekeeping, hourly (app/Console/Commands/Prune.php): audit retention (AUDIT_DAYS, AUDIT_MAX —
+// the read path already hides expired rows, this deletes them and their IPs on an idle instance
+// too), assignments past 30 days (Node pruned on every send; hourly here, so it holds no
+// recipient's lock and cannot fail a send), stale presence, abandoned uploads and temp files.
+Schedule::command('fitpal:prune')->hourly()->withoutOverlapping(10);
 
-// Assignment retention (api/domain.mjs pruneAssignments: 30 days pending or answered, never the
-// program a member is on). Node pruned on every send; hourly here, so housekeeping holds no
-// recipient's lock and cannot fail a send.
-Schedule::call(fn () => Assignment::prune())->hourly()->name('assignments:prune')->withoutOverlapping(10);
-
-// fitpal:remind and the rest of fitpal:prune join here in R3.
+// The reminders, every minute (app/Console/Commands/Remind.php). Each cron run also looks at the
+// minute before, as cron starts up to ~51 s late; what was sent is recorded, so none goes twice.
+// The pushes are queued, and the worker above sends them.
+Schedule::command('fitpal:remind')->everyMinute()->withoutOverlapping(2);
