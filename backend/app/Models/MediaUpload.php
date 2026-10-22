@@ -39,10 +39,13 @@ class MediaUpload extends Model
         return Paths::root().DIRECTORY_SEPARATOR.'ex'.DIRECTORY_SEPARATOR.'.up-'.$this->id;
     }
 
-    /** The session gone, with its bytes. */
+    /**
+     * The session gone, with its bytes. The row first: a chunk holding its lock finishes writing
+     * before the delete goes through, so the file removed after it is the whole of it.
+     */
     public function discard(): void
     {
-        @unlink($this->partialPath());
         $this->delete();
+        @unlink($this->partialPath());
     }
 }

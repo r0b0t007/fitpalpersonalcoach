@@ -1439,6 +1439,7 @@ export default {
   'server error': 'Serverfehler',
   'empty upload': 'leere Datei',
   'upload interrupted': 'Upload unterbrochen',
+  'the chunk is larger than expected': 'das Stück ist größer als erwartet',
   'the upload is out of step': 'der Upload ist aus dem Takt',
   'could not write the file': 'die Datei konnte nicht geschrieben werden',
   'endpoint is not a valid URL': 'die Benachrichtigungsadresse ist keine gültige URL',

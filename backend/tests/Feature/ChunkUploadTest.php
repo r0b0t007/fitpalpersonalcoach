@@ -61,7 +61,8 @@ it('stores a chunked demo exactly as the one-shot upload stores it', function ()
     expect($r->json('media'))->toMatchArray(['exId' => '0025', 'coachId' => $f->a->id, 'label' => 'Front view', 'bytes' => 4096, 'mime' => 'video/mp4', 'status' => 'ready'])
         ->and($r->json('media.file'))->toBe('0025-'.$f->a->id.'-'.substr(hash('sha256', $demo), 0, 16).'.mp4')
         ->and(file_get_contents($this->dataDir.'/media/ex/'.$r->json('media.file')))->toBe($demo)
-        ->and(MediaUpload::acrossCoaches()->count())->toBe(0) // across coaches: the test reads every row
+        // The session remembers what it stored (a finish sent again answers it); its bytes moved.
+        ->and(MediaUpload::acrossCoaches()->sole()->media_id)->toBe($r->json('media.id')) // across coaches: the test reads every row
         ->and(glob($this->dataDir.'/media/ex/.up-*'))->toBe([]);
     // The same bytes one-shot: one row, one file — the two paths are one store.
     MediaFixtures::post($f->a, '/api/media/exercise?ex=0025', $demo)->assertOk();
@@ -84,12 +85,24 @@ it('refuses at the start what it would refuse at the end: the id, the cap, the s
     startUpload($f->a, '0040', 100)->assertStatus(429)->assertJsonPath('msg.k', 'that exercise already has {0} videos');
 });
 
-it('refuses a photo or junk on the first chunk, not after the whole file', function () {
+it('refuses a photo or junk on the first chunk, not after the whole file — and again on a retry', function () {
     $a = $this->f->a;
     $id = startUpload($a, '0027', 4096)->json('upload');
-    sendChunk($a, $id, 0, substr(MediaFixtures::mkfix('heic', 'mif1'), 0, 1000))->assertStatus(415)->assertJsonPath('error', 'expected a video, got image/heic');
+    $heic = substr(MediaFixtures::mkfix('heic', 'mif1'), 0, 1000);
+    sendChunk($a, $id, 0, $heic)->assertStatus(415)->assertJsonPath('error', 'expected a video, got image/heic');
+    // The answer lost on the way: the retry hears the same sentence, not "not found".
+    sendChunk($a, $id, 0, $heic)->assertStatus(415)->assertJsonPath('error', 'expected a video, got image/heic');
+    expect(filesize($this->dataDir.'/media/ex/.up-'.$id))->toBe(0);
+    // The app then drops it, bytes and all.
+    $this->call('DELETE', "/api/media/exercise/upload?id=$id", [], [], [], $this->transformHeadersToServerVars(bearer($a)))->assertOk();
     expect(MediaUpload::acrossCoaches()->find($id))->toBeNull() // across coaches: the test reads every row
         ->and(glob($this->dataDir.'/media/ex/.up-*'))->toBe([]);
+});
+
+it('caps a chunked demo at MEDIA_MAX_VIDEO_MB itself: post_max_size bounds one request, not the file', function () {
+    config(['fitpal.media_max_video_mb' => 20]);   // the CLI's post_max_size is 8M
+    startUpload($this->f->a, '0028', 10 * 1048576)->assertOk()->assertJsonPath('chunk', 4 * 1048576);
+    startUpload($this->f->a, '0028', 20 * 1048576 + 1)->assertStatus(413)->assertJsonPath('error', 'file is larger than the 20 MB limit');
 });
 
 it('resumes where the server is: a chunk at the wrong offset is told the right one', function () {
@@ -109,7 +122,7 @@ it('resumes where the server is: a chunk at the wrong offset is told the right o
 it('refuses a chunk past the declared size, and a finish before every byte arrived', function () {
     $a = $this->f->a;
     $id = startUpload($a, '0031', 2000)->json('upload');
-    sendChunk($a, $id, 0, MediaFixtures::mkfix('isom', 'avc1', 'x', 2500))->assertStatus(413);
+    sendChunk($a, $id, 0, MediaFixtures::mkfix('isom', 'avc1', 'x', 2500))->assertStatus(413)->assertExactJson(['error' => 'the chunk is larger than expected']);
     sendChunk($a, $id, 0, substr(MediaFixtures::mkfix('isom', 'avc1', 'x', 2000), 0, 1500))->assertOk();
     finishUpload($a, $id)->assertStatus(400)->assertExactJson(['error' => 'upload interrupted']);
     sendChunk($a, $id, 1500, '')->assertStatus(400)->assertExactJson(['error' => 'empty upload']);
@@ -138,11 +151,34 @@ it('stores nothing for a coach who lost the role before the finish', function ()
     expect(ExerciseMedia::acrossCoaches()->where('ex_id', '0033')->exists())->toBeFalse(); // across coaches: the test reads every row
 });
 
-it('finishes once: a second finish of the same upload is not found', function () {
+it('finishes once: a finish sent again answers what the first one stored', function () {
     $a = $this->f->a;
     $id = startUpload($a, '0034', 4096)->json('upload');
     sendChunk($a, $id, 0, MediaFixtures::mkfix('isom', 'avc1', 'once'))->assertOk();
-    finishUpload($a, $id)->assertOk();
-    finishUpload($a, $id)->assertStatus(404);
-    expect(ExerciseMedia::query()->where('ex_id', '0034')->count())->toBe(1);
+    $first = finishUpload($a, $id)->assertOk()->json('media');
+    expect(finishUpload($a, $id)->assertOk()->json('media'))->toBe($first)
+        ->and(ExerciseMedia::query()->where('ex_id', '0034')->count())->toBe(1);
+    // A chunk after the finish is out of step, at the end.
+    sendChunk($a, $id, 0, 'x')->assertStatus(409)->assertJsonPath('received', 4096);
+});
+
+it('frees the session and its bytes when the finish is refused', function () {
+    $a = $this->f->a;
+    $id = startUpload($a, '0035', 4096)->json('upload');
+    sendChunk($a, $id, 0, MediaFixtures::mkfix('isom', 'avc1', 'late'))->assertOk();
+    // The exercise filled up while this one was on its way: the cap, re-checked at the finish.
+    foreach (range(1, 6) as $i) {
+        MediaFixtures::post($a, '/api/media/exercise?ex=0035', MediaFixtures::mkfix('isom', 'avc1', "full$i"))->assertOk();
+    }
+    finishUpload($a, $id)->assertStatus(429);
+    expect(MediaUpload::acrossCoaches()->find($id))->toBeNull() // across coaches: the test reads every row
+        ->and(glob($this->dataDir.'/media/ex/.up-*'))->toBe([]);
+});
+
+it('cancels only an upload of the caller', function () {
+    $f = $this->f;
+    $id = startUpload($f->a, '0036', 4096)->json('upload');
+    $this->call('DELETE', "/api/media/exercise/upload?id=$id", [], [], [], $this->transformHeadersToServerVars(bearer($f->b)))->assertStatus(404);
+    $this->call('DELETE', "/api/media/exercise/upload?id=$id", [], [], [], $this->transformHeadersToServerVars(bearer($f->a)))->assertOk()->assertExactJson(['ok' => true]);
+    expect(MediaUpload::acrossCoaches()->find($id))->toBeNull(); // across coaches: the test reads every row
 });

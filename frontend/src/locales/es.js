@@ -1421,6 +1421,7 @@ export default {
   'server error': 'error del servidor',
   'empty upload': 'archivo vacío',
   'upload interrupted': 'subida interrumpida',
+  'the chunk is larger than expected': 'el fragmento es más grande de lo esperado',
   'the upload is out of step': 'la subida está desincronizada',
   'could not write the file': 'no se pudo escribir el archivo',
   'endpoint is not a valid URL': 'la dirección de notificación no es una URL válida',

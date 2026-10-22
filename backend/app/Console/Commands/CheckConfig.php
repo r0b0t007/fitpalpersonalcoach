@@ -28,7 +28,7 @@ final class CheckConfig extends Command
         // nobody can reach: uploads are capped at post_max_size instead (Upload::maxVideo).
         $post = Upload::postMax();
         if ($post !== null && (int) config('fitpal.media_max_video_mb') * 1048576 > $post) {
-            $warnings[] = 'MEDIA_MAX_VIDEO_MB ('.config('fitpal.media_max_video_mb').') is above PHP\'s post_max_size ('.Upload::mb($post).' MB) — videos are capped at '.Upload::mb($post).' MB. Raise post_max_size (public/.user.ini, public/.htaccess) or lower the cap; keep both under Cloudflare\'s 100 MB.';
+            $warnings[] = 'MEDIA_MAX_VIDEO_MB ('.config('fitpal.media_max_video_mb').') is above PHP\'s post_max_size ('.Upload::mb($post).' MB) — a video sent as one request is capped at '.Upload::mb($post).' MB. Raise post_max_size (public/.user.ini, public/.htaccess) or lower the cap; keep both under Cloudflare\'s 100 MB.';
         }
         foreach ($warnings as $w) {
             $this->warn($w);

@@ -154,8 +154,71 @@ describe('against a server that takes chunks (the Laravel API)', () => {
     await vi.waitFor(() => expect(sent.some(x => x.method === 'PUT')).toBe(true))
     p.abort()
     await expect(p).rejects.toMatchObject({ aborted: true })
-    expect(sent.filter(x => x.method === 'PUT')).toHaveLength(1)
-    expect(sent.at(-1).xhr.aborted).toBe(true)
+    const puts = sent.filter(x => x.method === 'PUT')
+    expect(puts).toHaveLength(1)
+    expect(puts[0].xhr.aborted).toBe(true)
+    // …and the server is told, so it frees what it was holding.
+    expect(sent.at(-1)).toMatchObject({ method: 'DELETE', url: '/api/media/exercise/upload?id=u1' })
+  })
+
+  it('tells the server when it gives up, so the bytes do not wait for the prune', async () => {
+    chunked()
+    on('POST', '/api/media/exercise/upload?', [200, { upload: 'u1', chunk: MB }])
+    on('PUT', '/api/media/exercise/upload?', [415, { error: 'expected a video, got image/heic' }])
+    await expect(uploadExerciseMedia('0025', '', fileOf(10))).rejects.toMatchObject({ status: 415 })
+    expect(sent.at(-1)).toMatchObject({ method: 'DELETE', url: '/api/media/exercise/upload?id=u1' })
+  })
+
+  it('sends a chunk again after a 5xx from the edge, or a body that arrived cut short', async () => {
+    chunked()
+    const file = fileOf(2 * MB)
+    serve(file.size)
+    const answers = [[524, {}], [400, { error: 'upload interrupted' }]]
+    handlers.unshift({ test: r => r.method === 'PUT' && answers.length > 0, answer: () => answers.shift() })
+    vi.useFakeTimers()
+    const p = uploadExerciseMedia('0025', '', file)
+    await vi.advanceTimersByTimeAsync(10000)
+    await expect(p).resolves.toEqual({ ok: true, media: { id: 'm2' } })
+    expect(sent.filter(x => x.method === 'PUT').map(x => new URL(x.url, 'http://x').searchParams.get('offset'))).toEqual(['0', '0', '0', String(MB)])
+  })
+
+  it('sends the finish again when its answer was lost, and takes what the server stored', async () => {
+    chunked()
+    const file = fileOf(10)
+    serve(file.size)
+    let lost = false
+    handlers.unshift({ test: r => r.url.includes('/finish') && !lost, answer: () => { lost = true; return 'drop' } })
+    vi.useFakeTimers()
+    const p = uploadExerciseMedia('0025', '', file)
+    await vi.advanceTimersByTimeAsync(5000)
+    await expect(p).resolves.toEqual({ ok: true, media: { id: 'm2' } })
+    expect(sent.filter(x => x.url.includes('/finish'))).toHaveLength(2)
+    expect(sent.some(x => x.method === 'DELETE')).toBe(false)
+  })
+
+  it('resyncs as often as answers are lost, with no cap across the upload', async () => {
+    chunked()
+    const file = fileOf(3 * MB)
+    serve(file.size)
+    // Every chunk's first answer is lost after the server took it: three resyncs in all, fine.
+    const seen = new Set()
+    handlers.unshift({ test: r => r.method === 'PUT' && !seen.has(r.url), answer: r => { seen.add(r.url); handlers[3].answer(r); return 'drop' } })
+    vi.useFakeTimers()
+    const p = uploadExerciseMedia('0025', '', file)
+    await vi.advanceTimersByTimeAsync(20000)
+    await expect(p).resolves.toEqual({ ok: true, media: { id: 'm2' } })
+  })
+
+  it('asks the config again after it could not be read', async () => {
+    const f = vi.spyOn(globalThis, 'fetch')
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ ok: true, status: 200, json: async () => ({ upload: { chunked: true, chunk_mb: 1 } }) })
+    on('POST', '/api/media/exercise?', [200, { ok: true, media: {} }])
+    await uploadExerciseMedia('0025', '', fileOf(10))
+    const file = fileOf(10)
+    serve(file.size)
+    await expect(uploadExerciseMedia('0026', '', file)).resolves.toEqual({ ok: true, media: { id: 'm2' } })
+    expect(f).toHaveBeenCalledTimes(2)
   })
 
   it('asks the config once per server', async () => {

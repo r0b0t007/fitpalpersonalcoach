@@ -21,6 +21,8 @@ return new class extends Migration
             $table->unsignedBigInteger('received')->default(0);
             $table->string('created', 30);
             $table->unsignedBigInteger('touched');   // epoch ms of the last chunk
+            // Set once the finish stored it: a finish sent again answers this demo.
+            $table->string('media_id', 16)->nullable();
             $table->foreign('coach_id')->references('id')->on('users')->cascadeOnDelete();
             $table->index(['coach_id', 'touched']);
         });

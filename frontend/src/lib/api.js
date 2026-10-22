@@ -117,10 +117,13 @@ let chunkPlan = null
 let chunkPlanFor = null
 function chunkSize() {
   if (chunkPlan && chunkPlanFor === remoteBase) return chunkPlan
-  chunkPlanFor = remoteBase
+  const base = remoteBase
+  chunkPlanFor = base
   chunkPlan = api('/api/config')
     .then(c => (c && c.upload && c.upload.chunked === true && c.upload.chunk_mb > 0 ? c.upload.chunk_mb * 1048576 : 0))
-    .catch(() => 0)
+    // Only an answer is remembered: a config that could not be read this once is asked again by
+    // the next upload, rather than turning chunks off until the app is reloaded.
+    .catch(() => { if (chunkPlanFor === base) chunkPlan = null; return 0 })
   return chunkPlan
 }
 // Tests start each case from a server nobody has asked yet.
@@ -128,16 +131,21 @@ export const resetChunkPlan = () => { chunkPlan = null; chunkPlanFor = null }
 
 const cancelled = () => Object.assign(new Error(t('Upload cancelled')), { aborted: true })
 const pause = ms => new Promise(r => setTimeout(r, ms))
+// Worth sending again as it was: no answer at all (the phone moved between masts), an edge or a
+// server that failed (5xx, Cloudflare's 52x among them), or a body that arrived cut short.
+const transient = e => !e.status || e.status >= 500 || (e.status === 400 && e.data && e.data.error === 'upload interrupted')
 
 /* A coach's demo. Against a server that takes chunks it is sent as start, chunks, finish — each
    chunk small enough to cross Cloudflare — and otherwise exactly as before, as one rawUpload.
    Either way the caller sees the same thing: a promise with .abort(), progress from 0 to 1, the
    server's `{ok, media}`, and the server's sentence (or `cutOff`) on a refusal.
 
-   A chunk whose answer was lost is sent again; the server only ever takes the chunk that starts
-   where it is, and says where that is (409 + `received`) when a retry is a step behind, so the
-   loop resumes rather than duplicating bytes. A network drop is retried a few times with a short
-   pause — the phone moved between masts — before the upload gives up with `cutOff`. */
+   Every step may be sent twice and means the same the second time (ChunkUploadController): a
+   chunk is taken only where the server is, which it says (409 + `received`) when a retry is a step
+   behind, and a finish already done answers what it stored. So a transient failure of a chunk or
+   of the finish is retried a few times with a short pause, each step counting its own, before the
+   upload gives up — and an upload that gives up or is cancelled tells the server, which frees the
+   bytes it was holding rather than leaving them for the prune. */
 export function uploadExerciseMedia(exId, label, file, onProgress) {
   const query = '?ex=' + encodeURIComponent(exId) + '&label=' + encodeURIComponent(label || '')
   const cutOff = t('The upload was cut off before the server answered — it may have refused the file for being too large or not a video.')
@@ -151,28 +159,45 @@ export function uploadExerciseMedia(exId, label, file, onProgress) {
 
     const start = await step(rawUpload('/api/media/exercise/upload' + query + '&size=' + file.size, null, null, cutOff))
     const id = encodeURIComponent(start.upload)
-    const each = Math.min(chunk, start.chunk > 0 ? start.chunk : chunk)
-    let offset = 0
-    let drops = 0
-    let resyncs = 0
-    while (offset < file.size) {
-      if (aborted) throw cancelled()
-      const from = offset
-      const piece = file.slice(from, from + each)
-      try {
-        const r = await step(rawUpload('/api/media/exercise/upload?id=' + id + '&offset=' + from, piece,
-          f => onProgress && onProgress(Math.min(1, (from + f * piece.size) / file.size)), cutOff, 'PUT'))
-        offset = r.received
-        drops = 0
-      } catch (e) {
-        if (e.aborted) throw e
-        if (e.status === 409 && e.data && Number.isInteger(e.data.received) && ++resyncs <= 10) { offset = e.data.received; continue }
-        if (!e.status && ++drops <= 3) { await pause(1000 * drops); continue }
-        throw e
+    const at = '/api/media/exercise/upload?id=' + id
+    // The start's answer is the server's real chunk (post_max_size may hold it under chunk_mb).
+    const each = start.chunk > 0 ? start.chunk : chunk
+    try {
+      let offset = 0
+      while (offset < file.size) {
+        if (aborted) throw cancelled()
+        const from = offset
+        const piece = file.slice(from, from + each)
+        let tries = 0
+        for (;;) {
+          try {
+            const r = await step(rawUpload(at + '&offset=' + from, piece,
+              f => onProgress && onProgress(Math.min(1, (from + f * piece.size) / file.size)), cutOff, 'PUT'))
+            offset = r.received
+            break
+          } catch (e) {
+            if (e.aborted) throw e
+            // Out of step: go on from where the server is — unless it says this very offset, which
+            // no retry can change (no loop on a server that answers so).
+            if (e.status === 409 && e.data && Number.isInteger(e.data.received) && e.data.received !== from) { offset = e.data.received; break }
+            if (transient(e) && ++tries <= 3) { await pause(1000 * tries); if (aborted) throw cancelled(); continue }
+            throw e
+          }
+        }
       }
+      if (onProgress) onProgress(1)
+      for (let tries = 0; ; ) {
+        try {
+          return await step(rawUpload('/api/media/exercise/upload/finish?id=' + id, null, null, cutOff))
+        } catch (e) {
+          if (!e.aborted && transient(e) && ++tries <= 3) { await pause(1000 * tries); if (aborted) throw cancelled(); continue }
+          throw e
+        }
+      }
+    } catch (e) {
+      rawUpload(at, null, null, cutOff, 'DELETE').catch(() => {})
+      throw e
     }
-    if (onProgress) onProgress(1)
-    return step(rawUpload('/api/media/exercise/upload/finish?id=' + id, null, null, cutOff))
   })()
   p.abort = () => { aborted = true; if (current) current.abort() }
   return p

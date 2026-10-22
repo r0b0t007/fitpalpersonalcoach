@@ -55,6 +55,7 @@ $routes = static function (): void {
         Route::post('/media/exercise/upload', [ChunkUploadController::class, 'start']);
         Route::put('/media/exercise/upload', [ChunkUploadController::class, 'chunk']);
         Route::post('/media/exercise/upload/finish', [ChunkUploadController::class, 'finish']);
+        Route::delete('/media/exercise/upload', [ChunkUploadController::class, 'cancel']);
     });
     // A client's progress photo, for themselves: the same raw-body upload, any signed-in account.
     Route::post('/media/photo', [PhotoController::class, 'upload'])
