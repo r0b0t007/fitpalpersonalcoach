@@ -22,6 +22,8 @@ beforeEach(function () {
         'fitpal.rp_id' => 'localhost', 'fitpal.origin' => 'http://localhost:5173',
         'webauthn.relying_party.id' => 'localhost', 'webauthn.origins' => 'localhost',
         'fitpal.invite_only' => true, 'fitpal.bootstrap_code' => '',
+        // A sign-up signs a session: CI has no .env, and some tests register before any bearer().
+        'fitpal.session_secret' => str_repeat('ab', 32),
     ]);
     $this->dataDir = sys_get_temp_dir().'/fitpal-gate-'.bin2hex(random_bytes(4));
     config(['fitpal.data_dir' => $this->dataDir]);
