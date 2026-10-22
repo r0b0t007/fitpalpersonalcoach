@@ -12,9 +12,12 @@ use App\Push\Endpoint;
 use App\Push\Messages;
 use App\Push\Sender;
 use App\Push\Vapid;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
@@ -167,7 +170,8 @@ it('sends a test push to every browser, signed and encrypted, and forgets the on
         ->and((string) $req->getBody())->not->toContain('Test notification')   // encrypted
         // Pinned to the address vetted here: curl never resolves the name itself.
         ->and($sent[0]['options']['curl'][CURLOPT_RESOLVE])->toBe(['push.example.com:443:93.184.215.14'])
-        ->and($sent[0]['options']['curl'][CURLOPT_PROTOCOLS])->toBe(CURLPROTO_HTTPS)
+        ->and($sent[0]['options']['protocols'])->toBe(['https'])
+        ->and($sent[0]['options']['proxy'])->toBe(['no' => ['*']])
         ->and($sent[0]['options']['allow_redirects'])->toBeFalse();
     // 410: that browser unsubscribed; 500: a bad moment, kept.
     expect(PushSubscription::of($a1->id)->pluck('endpoint')->all())->toBe([SUB['endpoint'], 'https://push.example.com/broken']);
@@ -327,4 +331,27 @@ it('refuses half a VAPID pair rather than handing out some other key', function 
 it('writes a routine with no name as Node did', function () {
     expect(Messages::dayReminder('en', (object) ['emoji' => '💪'])['title'])->toBe('💪 undefined today')
         ->and(Messages::dayReminder('en', (object) ['name' => null])['title'])->toBe('🏋️ null today');
+});
+
+it('sends through the real curl handler with these options — what the scripted transport cannot show', function () {
+    // The lab trial (2026-10-22): Guzzle refuses CURLOPT_PROTOCOLS in `curl` and every push failed
+    // before a byte went out, while every test here passed on a MockHandler that never reads them.
+    // A closed local port: the request must get as far as connecting (and be refused there), not
+    // be rejected as a request Guzzle will not build.
+    $client = new Client(['timeout' => 5, 'connect_timeout' => 5, 'http_errors' => false]);
+    $error = null;
+    try {
+        $client->sendAsync(new Request('POST', 'https://localhost:1/push'), Sender::options(['localhost:1:127.0.0.1']))->wait();
+    } catch (Throwable $e) {
+        $error = $e;
+    }
+    expect($error)->toBeInstanceOf(ConnectException::class);
+    // And plain http is refused by the protocols option, as the raw curl option did.
+    $error = null;
+    try {
+        $client->sendAsync(new Request('POST', 'http://localhost:1/push'), Sender::options([]))->wait();
+    } catch (Throwable $e) {
+        $error = $e;
+    }
+    expect($error)->not->toBeNull()->and($error)->not->toBeInstanceOf(ConnectException::class);
 });

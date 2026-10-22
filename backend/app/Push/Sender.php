@@ -94,9 +94,7 @@ class Sender
                     continue;
                 }
                 $request = $builder->request(new Subscription($endpoint, $sub->p256dh, $sub->auth, ContentEncoding::aes128gcm), $body);
-                // Per request, all of it: a request's `curl` replaces the client's, it is not merged.
-                $curl = [CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_NOPROXY => '*'] + ($pin === [] ? [] : [CURLOPT_RESOLVE => $pin]);
-                $sends[$sub->id] = fn () => $client->sendAsync($request, ['curl' => $curl]);
+                $sends[$sub->id] = fn () => $client->sendAsync($request, self::options($pin));
             } catch (Throwable $e) {
                 // Keys a browser would never have made: that one is skipped, as Node's send threw.
                 Log::warning('push send failed', ['user' => $userId, 'error' => $e->getMessage()]);
@@ -165,6 +163,20 @@ class Sender
     private static function canonical(string $endpoint): string
     {
         return (string) preg_replace_callback('#^[a-z][a-z0-9+.-]*://[^/?\#]*#i', fn (array $m) => strtolower($m[0]), $endpoint);
+    }
+
+    /**
+     * The request options for one push: https only and no proxy, as Guzzle's own options — Guzzle
+     * manages CURLOPT_PROTOCOLS and CURLOPT_NOPROXY itself and refuses them raw (the lab trial's
+     * every push failed so) — and the vetted addresses pinned as CURLOPT_RESOLVE, which it lets
+     * through.
+     *
+     * @param  list<string>  $pin  pin()'s answer: `host:port:addr,…`, or [] for an address literal
+     */
+    public static function options(array $pin): array
+    {
+        return ['protocols' => ['https'], 'proxy' => ['no' => ['*']]]
+            + ($pin === [] ? [] : ['curl' => [CURLOPT_RESOLVE => $pin]]);
     }
 
     /** Every address the name resolves to, v4 and v6. A seam for tests: they have no DNS. */
