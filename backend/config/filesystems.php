@@ -30,6 +30,9 @@ return [
 
     'disks' => [
 
+        // Uploaded media has no disk here: App\Media\Paths::disk() builds it from the same root
+        // the routes write to (DATA_DIR/media), so the two cannot drift apart.
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),

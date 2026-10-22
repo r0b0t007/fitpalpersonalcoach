@@ -14,6 +14,13 @@ final class Json
 {
     public const FLAGS = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 
+    /**
+     * For a refusal sent before an upload's body has been read: the connection goes, so the client
+     * stops sending (Node's `shut`). Without it a 90 MB body keeps arriving at a server that has
+     * already answered.
+     */
+    public const CLOSE = ['Connection' => 'close'];
+
     /** @param list<Cookie> $cookies */
     public static function ok(array $body, int $status = 200, array $headers = [], array $cookies = []): JsonResponse
     {

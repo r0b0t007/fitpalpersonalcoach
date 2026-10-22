@@ -6,6 +6,7 @@ use App\Http\Middleware\NoStore;
 use App\Http\Middleware\ReflectOrigin;
 use App\Http\Middleware\RequireCoach;
 use App\Http\Request as AppRequest;
+use App\Media\Upload;
 use App\Support\ClientSafe;
 use App\Support\Json;
 use Illuminate\Auth\AuthenticationException;
@@ -71,7 +72,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (AuthenticationException $e) => Json::error(401, 'not signed in'));
         // PHP refused the body (post_max_size) before any controller ran: say what the sync
         // route would have said. README.md names the ini values production needs.
-        $exceptions->render(fn (PostTooLargeException $e) => DataController::tooLarge());
+        // Past post_max_size PHP refuses the body before any route runs: an upload is told its own
+        // cap in its own words, every other route the state sync's.
+        $exceptions->render(fn (PostTooLargeException $e, Request $request) => Upload::tooLargeFor($request) ?? DataController::tooLarge());
         // Unknown path or method: the Node API looked routes up by "METHOD /path" and answered
         // 404 for both, before any other check.
         $exceptions->render(fn (NotFoundHttpException $e) => Json::error(404, 'not found'));
