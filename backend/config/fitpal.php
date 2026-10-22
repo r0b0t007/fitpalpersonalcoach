@@ -60,7 +60,8 @@ return [
     'creem' => [
         'api_key' => env('CREEM_API_KEY', ''),
         'webhook_secret' => env('CREEM_WEBHOOK_SECRET', ''),
-        'api_base' => rtrim((string) env('CREEM_API_BASE', 'https://api.creem.io'), '/'),
+        // Empty: the host follows the key (creem_test_… → test-api.creem.io), App\Billing\Creem.
+        'api_base' => rtrim((string) env('CREEM_API_BASE', ''), '/'),
         // "solo:month=prod_x,solo:year=prod_y,pro:month=…" — parsed by App\Domain\Plans.
         'products' => env('CREEM_PRODUCTS', ''),
     ],
