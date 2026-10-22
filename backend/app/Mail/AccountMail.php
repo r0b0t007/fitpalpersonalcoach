@@ -22,9 +22,10 @@ final class AccountMail extends Mailable
 
     public readonly string $lang;
 
-    public function __construct(public readonly string $kind, User $user, public readonly ?string $url = null, ?string $email = null)
+    /** $lang: when the account has no saved language yet (a sign-up's first mail), the app's own. */
+    public function __construct(public readonly string $kind, User $user, public readonly ?string $url = null, ?string $email = null, ?string $lang = null)
     {
-        $this->lang = MailCopy::langFor($user);
+        $this->lang = in_array($lang, MailCopy::LANGS, true) ? $lang : MailCopy::langFor($user);
         $this->words = MailCopy::words($this->lang, $kind, ['name' => $user->name, 'email' => $email]);
     }
 

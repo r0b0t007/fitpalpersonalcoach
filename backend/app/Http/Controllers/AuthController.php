@@ -3,11 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Audit\Audit;
+use App\Audit\ClientIp;
 use App\Auth\Bootstrap;
 use App\Auth\CoachSeat;
 use App\Auth\InviteGate;
 use App\Auth\SessionToken;
 use App\Auth\TokenGuard;
+use App\Mail\AccountMail;
+use App\Mail\MailCopy;
+use App\Mail\SendAfterResponse;
+use App\Models\LoginLink;
 use App\Models\User;
 use App\Support\Input;
 use App\Support\Js;
@@ -19,10 +24,12 @@ use App\WebAuthn\AttestationValidator;
 use App\WebAuthn\CacheChallengeRepository;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository as Cache;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreation;
 use Laragear\WebAuthn\Assertion\Creator\AssertionCreator;
 use Laragear\WebAuthn\Assertion\Validator\AssertionValidation;
@@ -36,6 +43,8 @@ use Laragear\WebAuthn\JsonTransport;
 use Laragear\WebAuthn\Models\WebAuthnCredential;
 use Throwable;
 
+use function Illuminate\Support\defer;
+
 /**
  * Passkeys and the session, on the four routes the React app calls with the shapes it sends
  * (frontend/src/lib/api.js). Registration creates the account inside the ceremony: options takes
@@ -44,6 +53,7 @@ use Throwable;
  *
  * The sign-up gate is here: INVITE_ONLY, the bootstrap code, and invite codes (InviteGate), whose
  * coach's code puts the new client on that coach's roster — if that coach has a seat (CoachSeat).
+ * And the coach's own sign-up (R4, `coach: true` with an email), behind SELF_SERVE_COACH.
  */
 final class AuthController
 {
@@ -65,6 +75,9 @@ final class AuthController
         $name = Js::slice(Js::trim(Input::jsString($request, 'name')), 40);
         if ($name === '') {
             return Json::error(400, 'name required');
+        }
+        if (Input::raw($request, 'coach') === true) {
+            return $this->coachOptions($request, $name);
         }
         $code = InviteGate::normalise(Input::jsString($request, 'code'));
         // A code is looked up whenever one is SUPPLIED, and REQUIRED only when INVITE_ONLY is on:
@@ -130,6 +143,9 @@ final class AuthController
         // pass "no users yet" and both become admin (Node relied on having no await in between).
         // Only a sign-up that SUPPLIED a code has anything to race over; one without a code is
         // never admin and never spends an invite, so it does not queue behind the lock.
+        if (! empty($entry['extra']['coach'])) {
+            return $this->coachVerify($request, $user, $validation, $entry['extra']);
+        }
         $code = (string) ($entry['extra']['code'] ?? '');
         $spent = null;
         // One transaction for the check, the account, its passkey and the spent code: an account
@@ -254,6 +270,94 @@ final class AuthController
         Audit::record($request, 'auth.passkey.add', ['user' => $user]);
 
         return Json::ok(['ok' => true]);
+    }
+
+    /**
+     * A coach signing up on their own (spec §2 flow, §4): name, email and a passkey, then the
+     * checkout. Behind SELF_SERVE_COACH, which opens this WITHOUT an invite even when INVITE_ONLY
+     * — a coach account is worth nothing until a licence lands on it, and that is paid for. The
+     * address is checked here, before the passkey prompt, and again when the account is written.
+     *
+     * Saying an address is taken tells the caller it has an account, which sign-up cannot avoid
+     * (two accounts cannot share one); it is kept to 10 coach sign-ups an hour per client.
+     */
+    private function coachOptions(Request $request, string $name): JsonResponse
+    {
+        if (! config('fitpal.self_serve_coach')) {
+            Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'self-serve-closed']);
+
+            return Json::error(403, 'coach sign-up is not open on this server');
+        }
+        $key = 'register-coach:'.(ClientIp::for($request, 'full') ?? (string) $request->ip());
+        if (RateLimiter::tooManyAttempts($key, 10)) {
+            return Json::error(429, 'too many sign-ups from here — try again later');
+        }
+        RateLimiter::hit($key, 3600);
+        $email = mb_strtolower(trim(Input::jsString($request, 'email')));
+        if ($email === '' || strlen($email) > 254 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return Json::error(400, 'that is not an email address');
+        }
+        if (User::query()->where('email', $email)->exists()) {
+            return Json::error(409, 'that email address already has an account — sign in with it instead');
+        }
+        $lang = Input::jsString($request, 'lang');
+
+        $user = new User(['id' => User::newId(), 'name' => $name]);
+        $request->attributes->set(CacheChallengeRepository::EXTRA_ATTRIBUTE, [
+            'uid' => $user->id, 'name' => $name, 'code' => '', 'coach' => true, 'email' => $email,
+            'lang' => in_array($lang, MailCopy::LANGS, true) ? $lang : null,
+        ]);
+        $creation = app(AttestationCreator::class)
+            ->send(new AttestationCreation(user: $user, residentKey: ResidentKey::Required, userVerification: UserVerification::Preferred, uniqueCredentials: false))
+            ->thenReturn();
+        $creation->json->set('timeout', self::PROMPT_TIMEOUT_MS);
+
+        return Json::ok(['cid' => $request->attributes->get(CacheChallengeRepository::CID_ATTRIBUTE), 'options' => $creation->json->toArray()]);
+    }
+
+    /**
+     * The coach's account, written with its passkey: coach and self_serve set, the address stored
+     * (not yet verified), no licence — read-only until the checkout's webhook (Entitlement). The
+     * verification mail is the account's first sign-in link (spec §4a): opening it verifies the
+     * address and proves it signs in, in one step. Sent after the response; never blocking.
+     */
+    private function coachVerify(Request $request, User $user, $validation, array $extra): JsonResponse
+    {
+        try {
+            $refused = DB::transaction(function () use ($user, $validation, $extra): ?JsonResponse {
+                // Judged again: the flag may have been turned off, the address taken, since options.
+                if (! config('fitpal.self_serve_coach')) {
+                    return Json::error(403, 'coach sign-up is not open on this server');
+                }
+                if (User::query()->where('email', $extra['email'])->exists()) {
+                    return Json::error(409, 'that email address already has an account — sign in with it instead');
+                }
+                $user->forceFill(['coach' => true, 'self_serve' => true, 'email' => $extra['email']]);
+                $user->save();
+                $credential = $validation->credential;
+                $credential->authenticatable_id = $user->id;
+                $credential->save();
+
+                return null;
+            });
+        } catch (UniqueConstraintViolationException) {
+            // Two sign-ups with one address at once: the index decided.
+            $refused = Json::error(409, 'that email address already has an account — sign in with it instead');
+        }
+        if ($refused !== null) {
+            Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'self-serve-refused']);
+
+            return $refused;
+        }
+        Audit::record($request, 'auth.register.ok', ['user' => $user, 'msg' => 'self-serve']);
+        $lang = $extra['lang'] ?? null;
+        $ip = ClientIp::for($request, (string) config('fitpal.audit.ip'));
+        defer(function () use ($user, $lang, $ip) {
+            [$token] = LoginLink::issue($user, 'login', null, $ip);
+            SendAfterResponse::send($user->email, new AccountMail('signin', $user, config('fitpal.origin').'/#/link?t='.$token, null, $lang));
+        });
+
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
     }
 
     public function loginOptions(Request $request, AssertionCreator $creator): JsonResponse
