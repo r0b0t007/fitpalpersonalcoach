@@ -307,8 +307,14 @@ their coach's demo media.
   `metadata.userId`, then subscription id, customer id, `request_id`; none → `200` plus audit
   `billing.orphan`. Event map: trialing/active/paid → writable; past_due → writable;
   unpaid/paused/expired → read-only; canceled keeps `period_end`; scheduled_cancel → `cancel_at`;
-  update → plan and period from `product.id`; refund and dispute → audit only. Events older than
-  `last_event_at` are recorded but not applied. An event for a licence row that is not the coach's
+  update → plan and period from `product.id` (a product not on sale here leaves the plan and is
+  audited `billing.unsold`); refund and dispute → audit, a dispute also sets `disputed`. Events
+  older than `last_event_at` are recorded but not applied (`{stale: true}`). The signature is the
+  hex HMAC-SHA256 of the raw body in `creem-signature`; the event id is recorded in the same
+  transaction that applies it, so a failure is retried whole. The row: by subscription id, then
+  checkout id, request id, then the coach's pending row for the product; a subscription of theirs
+  never seen before gets a row of its own. Audit `billing.event|stale|ignored|orphan|conflict|
+  unsold|refund|dispute`. An event for a licence row that is not the coach's
   `licence_id` (one a grant took over: a checkout finished late, a canceled subscription's
   `expired`) updates that row only and never moves `licence_id` off a `manual` grant; a payment
   landing on a coach who holds a grant is audited for the owner to reconcile. A coach can have

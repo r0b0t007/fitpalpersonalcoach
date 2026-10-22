@@ -9,6 +9,7 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ChunkUploadController;
 use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRosterController;
+use App\Http\Controllers\CreemWebhookController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\ExerciseMediaController;
 use App\Http\Controllers\InviteController;
@@ -66,6 +67,9 @@ $routes = static function (): void {
     // A client's progress photo, for themselves: the same raw-body upload, any signed-in account.
     Route::post('/media/photo', [PhotoController::class, 'upload'])
         ->middleware([CloseOnRefusal::class, 'auth:api']);
+
+    // Creem's webhook (R4, Laravel only): no session, the HMAC signature is the credential.
+    Route::post('/billing/webhook', [CreemWebhookController::class, 'handle']);
 
     // The key a browser subscribes with: asked before anyone signs in, as of Node.
     Route::get('/push/public-key', [PushController::class, 'publicKey']);
