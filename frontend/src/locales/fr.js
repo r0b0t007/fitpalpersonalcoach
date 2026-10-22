@@ -1472,7 +1472,6 @@ export default {
   'that email address is already used by another account': 'cette adresse e-mail est déjà utilisée par un autre compte',
   'sign in again to do this — it needs a recent sign-in': 'reconnectez-vous pour faire cela — il faut une connexion récente',
   'coach sign-up is not open on this server': 'l’inscription des coachs n’est pas ouverte sur ce serveur',
-  'that email address already has an account — sign in with it instead': 'cette adresse e-mail a déjà un compte — connectez-vous avec elle',
   'too many sign-ups from here — try again later': 'trop d’inscriptions depuis cet endroit — réessayez plus tard',
   'Signed in with an email link': 'Connecté avec un lien par e-mail',
   'Too many sign-in links asked for': 'Trop de liens de connexion demandés',

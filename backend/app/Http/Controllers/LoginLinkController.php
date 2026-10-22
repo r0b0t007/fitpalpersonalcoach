@@ -53,7 +53,7 @@ final class LoginLinkController
 
     public function request(Request $request): JsonResponse
     {
-        $email = self::normalise(Input::jsString($request, 'email'));
+        $email = LoginLink::normaliseEmail(Input::jsString($request, 'email'));
         // The client's address, not the proxy's: behind Cloudflare $request->ip() is its edge, and
         // every coach on that edge would share one bucket.
         $ip = ClientIp::for($request, 'full') ?? (string) $request->ip();
@@ -79,11 +79,11 @@ final class LoginLinkController
 
         // Only the lookup happens before the answer, the same for any address: the link, the
         // coach's language and the mail all come after it (defer), so timing tells nobody anything.
-        $user = self::valid($email) ? self::coachWithEmail($email) : null;
+        $user = LoginLink::validEmail($email) ? self::coachWithEmail($email) : null;
         if ($user !== null) {
             defer(function () use ($user, $stored) {
                 [$token] = LoginLink::issue($user, 'login', null, $stored);
-                SendAfterResponse::send($user->email, new AccountMail('signin', $user, self::url($token)));
+                SendAfterResponse::send($user->email, new AccountMail('signin', $user, LoginLink::url($token)));
             });
         }
 
@@ -170,11 +170,11 @@ final class LoginLinkController
         if (! $user->isCoach()) {
             return Json::error(403, 'forbidden');
         }
-        $email = self::normalise(Input::jsString($request, 'email'));
-        if (! self::valid($email)) {
+        $email = LoginLink::normaliseEmail(Input::jsString($request, 'email'));
+        if (! LoginLink::validEmail($email)) {
             return Json::error(400, 'that is not an email address');
         }
-        if ($email === self::normalise((string) $user->email)) {
+        if ($email === LoginLink::normaliseEmail((string) $user->email)) {
             return Json::error(400, 'that is already your sign-in email');
         }
         // Whether another account has this address is not said here — that would make this a
@@ -194,7 +194,7 @@ final class LoginLinkController
 
             return $token;
         });
-        SendAfterResponse::to($email, new AccountMail('confirm', $user, self::url($token), $email));
+        SendAfterResponse::to($email, new AccountMail('confirm', $user, LoginLink::url($token), $email));
 
         return Json::ok(['ok' => true, 'pendingEmail' => $email]);
     }
@@ -221,21 +221,5 @@ final class LoginLinkController
         if ($taken) {
             throw new ClientSafe(409, 'that email address is already used by another account');
         }
-    }
-
-    private static function normalise(string $email): string
-    {
-        return mb_strtolower(trim($email));
-    }
-
-    private static function valid(string $email): bool
-    {
-        return $email !== '' && strlen($email) <= 254 && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
-    }
-
-    /** The app's link-landing screen (S6): the token in the hash, never sent to a server log. */
-    private static function url(string $token): string
-    {
-        return config('fitpal.origin').'/#/link?t='.$token;
     }
 }
