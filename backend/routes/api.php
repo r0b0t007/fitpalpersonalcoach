@@ -7,9 +7,11 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRosterController;
 use App\Http\Controllers\DataController;
+use App\Http\Controllers\ExerciseMediaController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PairController;
+use App\Http\Middleware\CloseOnRefusal;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireCoach;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +44,11 @@ $routes = static function (): void {
     // The invite landing screen, before the person has an account.
     Route::get('/invite', [InviteController::class, 'show']);
 
+    // A coach's exercise demo: the file is the body. Outside the groups below so CloseOnRefusal
+    // wraps the sign-in and coach checks too — their refusals must close the connection as well.
+    Route::post('/media/exercise', [ExerciseMediaController::class, 'upload'])
+        ->middleware([CloseOnRefusal::class, 'auth:api', RequireCoach::class]);
+
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/me', [AuthController::class, 'me']);
         Route::post('/pair/create', [PairController::class, 'create']);
@@ -49,6 +56,9 @@ $routes = static function (): void {
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);
         Route::post('/invite/redeem', [InviteController::class, 'redeem']);
+        // Demo media: listed and served to whoever may see each row (ExerciseMedia::visibleTo).
+        Route::get('/media/exercises', [ExerciseMediaController::class, 'index']);
+        Route::get('/media/ex', [ExerciseMediaController::class, 'show']);
         // A client's offers, from whichever coach sent them.
         Route::get('/assignments', [AssignmentController::class, 'inbox']);
         Route::get('/assignments/history', [AssignmentController::class, 'history']);
