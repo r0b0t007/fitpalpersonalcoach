@@ -195,6 +195,15 @@ it('turns a read-only coach\'s clients away without calling the roster full', fu
     expect($f->u1->fresh()->coach_id)->toBeNull();
 });
 
+it('says no seat, not a cap of 0, for a plan this instance does not sell', function () {
+    $f = $this->f;
+    Billing::licence($f->a, ['status' => 'active', 'plan' => 'team']);
+    expect(collect($this->getJson('/api/coach/invites', bearer($f->a))->assertOk()->json())->only(['cap', 'canInvite', 'reason'])->all())
+        ->toBe(['cap' => 0, 'canInvite' => false, 'reason' => 'read_only']);
+    $this->postJson('/api/coach/invites/new', ['note' => 'x'], bearer($f->a))->assertStatus(402)->assertExactJson($this->readOnly);
+    redeemAs($f->u1, $this->code)->assertStatus(409)->assertExactJson(['error' => 'this coach cannot take new clients right now — ask them to check their plan']);
+});
+
 it('takes clients without limit for an admin\'s code, and for anyone while billing is off', function () {
     $f = $this->f;
     $res = (new Passkey)->register($this, 'Admin\'s', 'INVADMIN0000000000')->assertOk();
@@ -205,7 +214,10 @@ it('takes clients without limit for an admin\'s code, and for anyone while billi
     redeemAs($f->u1, $this->code)->assertOk();
 });
 
-it('counts the seat with the coach\'s row locked, at redeem and at register', function () {
+// SQLite emits no FOR UPDATE, so the lock itself cannot be seen here: it is CoachLock's, taken by
+// InviteGate::redeemable(lock: true) on both paths. What this pins is that the seat is counted
+// inside the join's own transaction, after the coach's row is read — where that lock holds.
+it('counts the seat inside the join\'s transaction, after the coach\'s row, at redeem and at register', function () {
     $f = $this->f;
     Billing::licence($f->a, ['status' => 'active', 'plan' => 'pro']);
     $order = [];

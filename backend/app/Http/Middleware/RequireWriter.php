@@ -28,7 +28,7 @@ final class RequireWriter
         if ($user === null) {
             return Json::error(401, 'not signed in');
         }
-        if (! Entitlement::for($user)->canWrite) {
+        if (! Entitlement::canWrite($user)) {
             return self::refusal();
         }
 

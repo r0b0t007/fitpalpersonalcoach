@@ -28,15 +28,11 @@ final class CoachSeat
             return null;
         }
         $entitlement = Entitlement::for($coach);
-        if ($entitlement->canTakeClient) {
-            return null;
-        }
 
-        if (! $entitlement->canWrite) {
-            return Json::error(409, 'this coach cannot take new clients right now — ask them to check their plan');
-        }
-
-        // Writable and not taking a client means a cap: admins and an unlicensed instance always take one.
-        return Json::error(409, Say::f('this coach\'s client list is full ({0}) — ask them to upgrade', (int) $entitlement->cap));
+        return match ($entitlement->seatRefusal()) {
+            null => null,
+            'at_cap' => Json::error(409, Say::f('this coach\'s client list is full ({0}) — ask them to upgrade', (int) $entitlement->cap)),
+            default => Json::error(409, 'this coach cannot take new clients right now — ask them to check their plan'),
+        };
     }
 }

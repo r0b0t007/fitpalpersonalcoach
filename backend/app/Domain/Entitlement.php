@@ -56,18 +56,62 @@ final readonly class Entitlement
         if (! Plans::billingOn()) {
             return new self('unlicensed', null, null, $used, true, true, false);
         }
-        $licence = $user->licence_id !== null ? Licence::query()->find($user->licence_id) : null;
-        if ($licence === null || $licence->user_id !== $user->id) {
+        $licence = self::licenceOf($user);
+        if ($licence === null) {
             return new self('none', null, 0, $used, false, false, $used > 0);
         }
         // A plan this instance does not sell (a hand-edited row; grant refuses one) takes no client,
         // and is not reported as over a cap it does not have.
         $cap = Plans::cap($licence->plan);
-        $canWrite = (in_array($licence->status, Licence::WRITABLE, true) && ! self::stale($licence))
-            || ($licence->status === 'canceled' && $licence->period_end !== null && $licence->period_end->isFuture());
+        $canWrite = self::writable($licence);
 
         return new self($licence->status, $licence->plan, $cap ?? 0, $used, $canWrite, $canWrite && $used < ($cap ?? 0), $cap !== null && $used > $cap,
             $licence->trial_ends_at, $licence->period_end);
+    }
+
+    /**
+     * for()->canWrite without counting the clients: RequireWriter asks it on every gated request,
+     * each chunk of an upload included, and needs nothing else.
+     */
+    public static function canWrite(User $user): bool
+    {
+        if (! $user->isCoach() || $user->isAdmin() || ! Plans::billingOn()) {
+            return true;
+        }
+        $licence = self::licenceOf($user);
+
+        return $licence !== null && self::writable($licence);
+    }
+
+    /**
+     * Why this coach takes no more clients, or null when they can — the one reading of it, for
+     * the invite list's `reason` and for every refusal (CoachSeat, the mint): `at_cap` for a plan
+     * with a cap that is reached; `read_only` for a licence that does not write, and for a plan
+     * this instance does not sell, which has no cap to be "at" (refusing it as "full (0)" or
+     * "allows 0 clients — upgrade" would be untrue).
+     */
+    public function seatRefusal(): ?string
+    {
+        if ($this->canTakeClient) {
+            return null;
+        }
+
+        return $this->canWrite && $this->cap > 0 ? 'at_cap' : 'read_only';
+    }
+
+    /** The user's licence, if it is theirs: a licence_id pointing at someone else's row is none. */
+    private static function licenceOf(User $user): ?Licence
+    {
+        $licence = $user->licence_id !== null ? Licence::query()->find($user->licence_id) : null;
+
+        return $licence !== null && $licence->user_id === $user->id ? $licence : null;
+    }
+
+    /** Rule 4, and the stale net. */
+    private static function writable(Licence $licence): bool
+    {
+        return (in_array($licence->status, Licence::WRITABLE, true) && ! self::stale($licence))
+            || ($licence->status === 'canceled' && $licence->period_end !== null && $licence->period_end->isFuture());
     }
 
     /**

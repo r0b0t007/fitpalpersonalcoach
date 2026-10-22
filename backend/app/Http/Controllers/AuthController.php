@@ -70,7 +70,8 @@ final class AuthController
         // A code is looked up whenever one is SUPPLIED, and REQUIRED only when INVITE_ONLY is on:
         // a coach's invite link works on an open instance too. Who may create an account at all is
         // a separate question from taking a client on.
-        if (config('fitpal.invite_only') && ! Bootstrap::matches($code, User::query()->count()) && ! InviteGate::redeemable($code)) {
+        $invite = InviteGate::redeemable($code);
+        if (config('fitpal.invite_only') && ! Bootstrap::matches($code, User::query()->count()) && ! $invite) {
             // The rejected code itself is never recorded: a near-miss guess in the log is a liability.
             Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'invite-rejected']);
 
@@ -79,7 +80,7 @@ final class AuthController
         // A coach's code for a coach with no seat left: said now, before the passkey prompt, rather
         // than after the person has made a passkey for an account that cannot be written. Judged
         // again under the lock at verify.
-        if ($code !== '' && ($invite = InviteGate::redeemable($code)) && ($full = CoachSeat::refusal(InviteGate::coachBinding($invite)))) {
+        if ($invite && ($full = CoachSeat::refusal(InviteGate::coachBinding($invite)))) {
             Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'coach-full']);
 
             return $full;
@@ -134,13 +135,15 @@ final class AuthController
         // without a passkey could never be signed in to, and the invite row is locked so a code
         // redeemed from an existing account at the same moment cannot be spent twice.
         // A plain closure, not fn(): an arrow function captures $spent by value, and the code would
-        // never reach the audit line below.
-        $gate = function () use ($request, $user, $validation, $code, &$spent) {
-            return DB::transaction(function () use ($request, $user, $validation, $code, &$spent) {
+        // never reach the audit line below. A refusal is audited after the commit too ($failed): an
+        // audit write, and the prune it may trigger, must not hold the coach's row and the gate.
+        $failed = null;
+        $gate = function () use ($user, $validation, $code, &$spent, &$failed) {
+            return DB::transaction(function () use ($user, $validation, $code, &$spent, &$failed) {
                 $bootstrap = Bootstrap::matches($code, User::query()->count());
                 $invite = $bootstrap ? null : InviteGate::redeemable($code, lock: true);
                 if (config('fitpal.invite_only') && ! $bootstrap && ! $invite) {
-                    Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'invite-invalid']);
+                    $failed = 'invite-invalid';
 
                     return Json::error(403, 'invite code is no longer valid — ask for a new one');
                 }
@@ -155,14 +158,16 @@ final class AuthController
                 // arrive unassigned and can redeem a fresh code later.
                 if ($invite) {
                     // A coach's code puts this client straight onto that coach's roster, if the coach
-                    // can still coach now (not at mint time). Otherwise the signup still succeeds,
-                    // unassigned: refusing it would punish the client for what only the gym can fix.
+                    // can still coach now (not at mint time). A coach who cannot (demoted, disabled
+                    // since the mint) leaves the signup to succeed unassigned: refusing it would
+                    // punish the client for what only the gym can fix.
                     $coach = InviteGate::coachBinding($invite, lock: true);
-                    // A full roster is refused instead (spec §6): the client came for this coach,
-                    // and an account on no roster is not what the link promised. Counted with the
-                    // coach's row locked, so two sign-ups cannot both take the last seat.
+                    // A coach who CAN coach but has no seat is refused instead (spec §6), on an open
+                    // instance too: the client came for this coach, an account on nobody's roster
+                    // is not what the link promised, and the 409 tells them who can fix it. Counted
+                    // with the coach's row locked, so two sign-ups cannot both take the last seat.
                     if ($full = CoachSeat::refusal($coach)) {
-                        Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'coach-full']);
+                        $failed = 'coach-full';
 
                         return $full;
                     }
@@ -192,6 +197,10 @@ final class AuthController
             return Json::error(503, 'challenge expired — try again');
         }
         if ($refused !== null) {
+            if ($failed !== null) {
+                Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => $failed]);
+            }
+
             return $refused;
         }
         // The invite code the account came in with, as Node recorded it.

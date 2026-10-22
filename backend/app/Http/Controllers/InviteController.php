@@ -128,7 +128,7 @@ final class InviteController
             'cap' => $entitlement->cap,
             'used' => $entitlement->used,
             'canInvite' => $entitlement->canTakeClient,
-            'reason' => ! $entitlement->canWrite ? 'read_only' : (! $entitlement->canTakeClient ? 'at_cap' : null),
+            'reason' => $entitlement->seatRefusal(),
         ]);
     }
 
@@ -155,11 +155,11 @@ final class InviteController
             // A code is a promise of a seat: none is minted at the cap — open codes do not count
             // against it, but redeeming one past the cap is refused (CoachSeat).
             $entitlement = Entitlement::for($me);
-            if (! $entitlement->canWrite) {
-                return RequireWriter::refusal();
-            }
-            if (! $entitlement->canTakeClient) {
-                return Json::error(402, Say::f('your plan allows {0} clients — upgrade to invite more', (int) $entitlement->cap));
+            switch ($entitlement->seatRefusal()) {
+                case 'read_only':
+                    return RequireWriter::refusal();
+                case 'at_cap':
+                    return Json::error(402, Say::f('your plan allows {0} clients — upgrade to invite more', (int) $entitlement->cap));
             }
             if (Invite::query()->whereNull('used_by')->where('revoked', false)->count() >= self::COACH_MAX_OPEN) {
                 return Json::error(429, Say::f('you already have {0} unused codes — revoke one before making another', self::COACH_MAX_OPEN));
