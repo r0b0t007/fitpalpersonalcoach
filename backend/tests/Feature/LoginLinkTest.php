@@ -178,13 +178,17 @@ it('changes the sign-in address only when the link to the new one is opened, and
     Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->kind === 'signin' && $m->hasTo('new.a@example.com'));
 });
 
-it('refuses an address change that is not one, is taken, is the same, or comes from a client', function () {
+it('refuses an address change that is not one, is the same, or comes from a client — and says nothing of who has an address', function () {
     $f = $this->f;
     $f->b->forceFill(['email' => 'coach.b@example.com'])->save();
     $change = fn (User $who, string $email) => $this->postJson('/api/account/email', ['email' => $email], freshBearer($who));
     $change($f->a, 'nope')->assertStatus(400)->assertExactJson(['error' => 'that is not an email address']);
     $change($f->a, ' COACH.A@example.com')->assertStatus(400)->assertExactJson(['error' => 'that is already your sign-in email']);
-    $change($f->a, 'Coach.B@example.com')->assertStatus(409)->assertExactJson(['error' => 'that email address is already used by another account']);
+    // Another account's address: answered like any other, so this is no way to look addresses up;
+    // whoever holds that inbox and opens the link is the one told it is taken.
+    $change($f->a, 'Coach.B@example.com')->assertOk();
+    redeemLink(tokenMailed('coach.b@example.com', 'confirm'))->assertStatus(409)->assertExactJson(['error' => 'that email address is already used by another account']);
+    expect($f->a->fresh()->email)->toBe('coach.a@example.com');
     $change($f->a1, 'client.new@example.com')->assertStatus(403);
     // Another account's address that was only asked for, never confirmed, blocks nobody.
     $f->b->forceFill(['email' => 'coach.b2@example.com', 'pending_email' => 'squatted@example.com'])->save();
@@ -274,6 +278,61 @@ it('keys the per-IP limit on the client behind Cloudflare, not on Cloudflare', f
     $this->postJson('/api/login/email', ['email' => 'x@example.com'], ['CF-Connecting-IP' => '203.0.113.9'])->assertOk();
     expect(RateLimiter::attempts('login-link:ip:203.0.113.9'))->toBe(1)
         ->and(RateLimiter::attempts('login-link:ip:127.0.0.1'))->toBe(0);
+});
+
+it('refuses a sign-in link redeemed from another site: no signing a visitor in to someone else\'s account', function () {
+    askLink('coach.a@example.com');
+    $token = tokenMailed('coach.a@example.com');
+    $this->postJson('/api/login/link', ['t' => $token], ['Origin' => 'https://evil.example'])->assertStatus(403);
+    $this->call('POST', '/api/login/link', [], [], [], ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'CONTENT_TYPE' => 'text/plain'], json_encode(['t' => $token]))->assertStatus(403);
+    // Asking for a link stays open to the phone app's WebView, whose origin is not the site's.
+    $this->postJson('/api/login/email', ['email' => 'coach.a@example.com'], ['Origin' => 'capacitor://localhost'])->assertOk();
+    redeemLink($token)->assertOk();
+});
+
+it('caps the audit rows a flood of throttled requests can write', function () {
+    foreach (range(1, 40) as $i) {
+        askLink('coach.a@example.com');
+    }
+    expect(DB::table('audit_events')->where('ev', 'login.link.throttled')->count())->toBe(20);
+});
+
+it('limits a caller that varies the forwarded address, by the connection itself', function () {
+    // A new forwarded address each time (its own 10-an-hour bucket never fills), a new email each
+    // time: only the connection's own bucket holds, at 300.
+    foreach (range(1, 300) as $i) {
+        $this->postJson('/api/login/email', ['email' => "x{$i}@example.com"], ['CF-Connecting-IP' => '198.51.100.'.($i % 250)]);
+    }
+    expect(RateLimiter::attempts('login-link:peer:127.0.0.1'))->toBe(300);
+    $this->postJson('/api/login/email', ['email' => 'coach.a@example.com'], ['CF-Connecting-IP' => '203.0.113.77'])->assertOk();
+    Mail::assertNothingSent();
+    $this->assertDatabaseHas('audit_events', ['ev' => 'login.link.throttled']);
+});
+
+it('keeps on the link row only as much of the address as AUDIT_IP allows', function (string $mode, ?string $stored) {
+    config(['fitpal.audit.ip' => $mode]);
+    askLink('coach.a@example.com');
+    expect(LoginLink::query()->sole()->ip)->toBe($stored);
+})->with([
+    'off' => ['off', null],
+    'net' => ['net', '127.0.0.0/24'],
+    'full' => ['full', '127.0.0.1'],
+]);
+
+it('tells the second of two accounts confirming one address at once that it is taken, not a server error', function () {
+    $f = $this->f;
+    $this->postJson('/api/account/email', ['email' => 'shared@example.com'], freshBearer($f->a))->assertOk();
+    $token = tokenMailed('shared@example.com', 'confirm');
+    // The other account's confirmation commits between this one's check and its write.
+    $raced = false;
+    DB::connection()->beforeExecuting(function (string $sql) use (&$raced, $f) {
+        if (! $raced && str_starts_with($sql, 'update "users" set "email"')) {
+            $raced = true;
+            DB::table('users')->where('id', $f->b->id)->update(['email' => 'shared@example.com']);
+        }
+    });
+    redeemLink($token)->assertStatus(409)->assertExactJson(['error' => 'that email address is already used by another account']);
+    expect($raced)->toBeTrue()->and($f->a->fresh()->email)->toBe('coach.a@example.com');
 });
 
 it('prunes links older than a day', function () {

@@ -21,6 +21,7 @@ use App\Http\Controllers\PushController;
 use App\Http\Middleware\CloseOnRefusal;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireCoach;
+use App\Http\Middleware\RequireFreshAuth;
 use App\Http\Middleware\RequireWriter;
 use Illuminate\Support\Facades\Route;
 
@@ -90,10 +91,13 @@ $routes = static function (): void {
         Route::post('/activity', [ActivityController::class, 'store']);
         Route::post('/pair/create', [PairController::class, 'create']);
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
-        // Another passkey for this account, and a new sign-in address (R4, Laravel only).
-        Route::post('/passkeys/options', [AuthController::class, 'passkeyOptions']);
-        Route::post('/passkeys/verify', [AuthController::class, 'passkeyVerify']);
-        Route::post('/account/email', [LoginLinkController::class, 'changeEmail']);
+        // Another passkey for this account, and a new sign-in address (R4, Laravel only): writes
+        // that outlive a session, so they need one that signed in just now (RequireFreshAuth).
+        Route::middleware(RequireFreshAuth::class)->group(function (): void {
+            Route::post('/passkeys/options', [AuthController::class, 'passkeyOptions']);
+            Route::post('/passkeys/verify', [AuthController::class, 'passkeyVerify']);
+            Route::post('/account/email', [LoginLinkController::class, 'changeEmail']);
+        });
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);
         Route::post('/invite/redeem', [InviteController::class, 'redeem']);

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Audit\Audit;
 use App\Audit\ClientIp;
-use App\Auth\FreshAuth;
 use App\Auth\SessionToken;
 use App\Mail\AccountMail;
 use App\Mail\SendAfterResponse;
@@ -13,6 +12,7 @@ use App\Models\User;
 use App\Support\ClientSafe;
 use App\Support\Input;
 use App\Support\Json;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,29 +41,48 @@ final class LoginLinkController
 
     private const PER_IP = [10, 3600];
 
+    /**
+     * Per connection, whatever it says it forwards: CF-Connecting-IP is believed for PER_IP (the
+     * client behind Cloudflare), but a caller reaching the server directly can say anything there.
+     * Generous, as every coach behind one Cloudflare edge shares it.
+     */
+    private const PER_PEER = [300, 3600];
+
+    /** At most this many `login.link.throttled` rows an hour: a flood must not push real events out of the log. */
+    private const THROTTLE_AUDITS = 20;
+
     public function request(Request $request): JsonResponse
     {
         $email = self::normalise(Input::jsString($request, 'email'));
         // The client's address, not the proxy's: behind Cloudflare $request->ip() is its edge, and
         // every coach on that edge would share one bucket.
         $ip = ClientIp::for($request, 'full') ?? (string) $request->ip();
-        $emailKey = 'login-link:email:'.hash('sha256', $email);
-        $ipKey = 'login-link:ip:'.$ip;
-        if (RateLimiter::tooManyAttempts($emailKey, self::PER_EMAIL[0]) || RateLimiter::tooManyAttempts($ipKey, self::PER_IP[0])) {
-            // The address is not recorded: a log of what strangers typed is a liability.
-            Audit::record($request, 'login.link.throttled', ['ok' => false]);
+        $buckets = [
+            'login-link:email:'.hash('sha256', $email) => self::PER_EMAIL,
+            'login-link:ip:'.$ip => self::PER_IP,
+            'login-link:peer:'.$request->server('REMOTE_ADDR') => self::PER_PEER,
+        ];
+        foreach ($buckets as $key => [$max]) {
+            if (RateLimiter::tooManyAttempts($key, $max)) {
+                // The address is not recorded: a log of what strangers typed is a liability.
+                RateLimiter::attempt('login-link:throttle-audit', self::THROTTLE_AUDITS,
+                    fn () => Audit::record($request, 'login.link.throttled', ['ok' => false]), 3600);
 
-            return Json::ok(['ok' => true]);
+                return Json::ok(['ok' => true]);
+            }
         }
-        RateLimiter::hit($emailKey, self::PER_EMAIL[1]);
-        RateLimiter::hit($ipKey, self::PER_IP[1]);
+        foreach ($buckets as $key => [, $decay]) {
+            RateLimiter::hit($key, $decay);
+        }
+        // What is kept on the link row follows the owner's AUDIT_IP, as the audit log does.
+        $stored = ClientIp::for($request, (string) config('fitpal.audit.ip'));
 
         // Only the lookup happens before the answer, the same for any address: the link, the
         // coach's language and the mail all come after it (defer), so timing tells nobody anything.
         $user = self::valid($email) ? self::coachWithEmail($email) : null;
         if ($user !== null) {
-            defer(function () use ($user, $ip) {
-                [$token] = LoginLink::issue($user, 'login', null, $ip);
+            defer(function () use ($user, $stored) {
+                [$token] = LoginLink::issue($user, 'login', null, $stored);
                 SendAfterResponse::send($user->email, new AccountMail('signin', $user, self::url($token)));
             });
         }
@@ -74,7 +93,20 @@ final class LoginLinkController
     public function redeem(Request $request): JsonResponse
     {
         $token = Input::jsString($request, 't');
-        $result = DB::transaction(function () use ($token): array {
+        try {
+            $result = $this->redeemLocked($token);
+        } catch (UniqueConstraintViolationException) {
+            // Two accounts confirming one address at once: the index decided, the second is told.
+            throw new ClientSafe(409, 'that email address is already used by another account');
+        }
+
+        return $this->finish($request, $result);
+    }
+
+    /** @return array{string, User, ?string} the link's purpose, the account, the old address */
+    private function redeemLocked(string $token): array
+    {
+        return DB::transaction(function () use ($token): array {
             $link = $token === '' ? null : LoginLink::query()->where('token_hash', LoginLink::hash($token))->lockForUpdate()->first();
             if ($link === null || $link->expires_at->isPast()) {
                 // An unknown token reads as an expired one: there is nothing more to say about it.
@@ -112,6 +144,10 @@ final class LoginLinkController
 
             return ['login', $user, null];
         });
+    }
+
+    private function finish(Request $request, array $result): JsonResponse
+    {
         [$purpose, $user, $old] = $result;
 
         if ($purpose === 'email') {
@@ -134,9 +170,6 @@ final class LoginLinkController
         if (! $user->isCoach()) {
             return Json::error(403, 'forbidden');
         }
-        if (! FreshAuth::check($request)) {
-            return Json::error(403, 'sign in again to do this — it needs a recent sign-in');
-        }
         $email = self::normalise(Input::jsString($request, 'email'));
         if (! self::valid($email)) {
             return Json::error(400, 'that is not an email address');
@@ -144,6 +177,9 @@ final class LoginLinkController
         if ($email === self::normalise((string) $user->email)) {
             return Json::error(400, 'that is already your sign-in email');
         }
+        // Whether another account has this address is not said here — that would make this a
+        // way to look addresses up. The confirmation goes out either way; opening it, which only
+        // the inbox's holder can, is where a taken address is refused (redeem).
         $key = 'account-email:'.$user->id;
         if (RateLimiter::tooManyAttempts($key, self::PER_EMAIL[0])) {
             return Json::error(429, 'too many emails asked for — try again in a few minutes');
@@ -151,11 +187,10 @@ final class LoginLinkController
         RateLimiter::hit($key, self::PER_EMAIL[1]);
         $token = DB::transaction(function () use ($user, $email, $request): string {
             $me = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            self::refuseTaken($email, $me->id);
             $me->forceFill(['pending_email' => $email])->save();
             // A newer change replaces the older one: its link is spent (the pending address moved).
             LoginLink::spendAll($me->id, 'email');
-            [$token] = LoginLink::issue($me, 'email', $email, ClientIp::for($request, 'full'));
+            [$token] = LoginLink::issue($me, 'email', $email, ClientIp::for($request, (string) config('fitpal.audit.ip')));
 
             return $token;
         });

@@ -164,8 +164,8 @@ browser must not be a support ticket to the owner. Decided 2026-10-17; no passwo
   the pending one; redeeming that link moves `pending_email` into `email`, sets
   `email_verified_at`, clears the pending column and sends a notice to the **old** address
   ("your sign-in email was changed; if that was not you, …"). The audit event is `account.email`.
-- **CSRF.** `login/email` and `login/link` join `CsrfOrigin::EXEMPT` beside the other `login/*`
-  routes. **Mail.** One branded template under `email/` (text and HTML) in **fr, en, es and de**,
+- **CSRF.** `login/email` joins `CsrfOrigin::EXEMPT` (see "A recent sign-in" below for why
+  `login/link` does not). **Mail.** One branded template under `email/` (text and HTML) in **fr, en, es and de**,
   falling back to `en`, in the language the app itself uses: `user_states.state->lang`, read the
   way the push code already reads it (`api/server.js` `readState(uid)?.lang`) — not a new column,
   which would go stale the first time the coach changes language in Settings. Sent through the
@@ -186,7 +186,12 @@ browser must not be a support ticket to the owner. Decided 2026-10-17; no passwo
   again to do this — it needs a recent sign-in`. Issuing a link no longer spends the older ones
   (a stranger asking for a coach's links must not spend the one in their inbox); using one spends
   the rest, and confirming a new address spends every unused link. Only a confirmed address
-  blocks another account's change; the per-IP limit keys on the client (`CF-Connecting-IP`).
+  blocks another account's change, and only when its link is opened (the request answers the same
+  either way, so it looks nothing up). The per-IP limit keys on the client (`CF-Connecting-IP`),
+  with a generous per-connection limit beside it, since that header can be forged by a caller
+  reaching the server directly; throttle audit rows are capped at 20 an hour. Only `login/email` is
+  CSRF-exempt (the phone app's WebView); `login/link` is redeemed on ORIGIN, and exempting it
+  would allow login CSRF. `login_links.ip` follows AUDIT_IP.
 - **Tests.** Issuance is silent for unknown and client addresses; single use; expiry; throttling;
   disabled account refused; the link login sets the same cookie and dies with `logout/all` like
   any token; a second passkey attaches and either one logs in; a pending address cannot request a

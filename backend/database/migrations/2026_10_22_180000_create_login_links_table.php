@@ -17,7 +17,10 @@ return new class extends Migration
             $table->string('purpose', 8);              // login | email
             $table->string('email')->nullable();       // the new address, for an email-change link
             $table->char('token_hash', 64)->unique();
-            $table->timestamp('created_at', 3)->index();
+            // An explicit default: MariaDB with explicit_defaults_for_timestamp off makes a table's
+            // first bare NOT NULL TIMESTAMP `ON UPDATE CURRENT_TIMESTAMP`, and spending a link
+            // would then move its age — and the 24-hour retention — on.
+            $table->timestamp('created_at', 3)->useCurrent()->index();
             $table->timestamp('expires_at', 3);
             $table->timestamp('used_at', 3)->nullable();
             $table->string('ip', 45)->nullable();

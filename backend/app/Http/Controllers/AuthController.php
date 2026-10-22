@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Auth\Bootstrap;
 use App\Auth\CoachSeat;
-use App\Auth\FreshAuth;
 use App\Auth\InviteGate;
 use App\Auth\SessionToken;
 use App\Auth\TokenGuard;
@@ -221,9 +220,6 @@ final class AuthController
     {
         /** @var User $user */
         $user = $request->user('api');
-        if (! FreshAuth::check($request)) {
-            return Json::error(403, 'sign in again to do this — it needs a recent sign-in');
-        }
         $request->attributes->set(CacheChallengeRepository::EXTRA_ATTRIBUTE, ['uid' => $user->id, 'add' => true]);
         $creation = app(AttestationCreator::class)
             ->send(new AttestationCreation(user: $user, residentKey: ResidentKey::Required, userVerification: UserVerification::Preferred, uniqueCredentials: true))
@@ -238,9 +234,6 @@ final class AuthController
     {
         /** @var User $user */
         $user = $request->user('api');
-        if (! FreshAuth::check($request)) {
-            return Json::error(403, 'sign in again to do this — it needs a recent sign-in');
-        }
         $entry = CacheChallengeRepository::takeFor($this->cache, $request, Input::str($request, 'cid'));
         // A challenge made for this account's add-a-passkey, not a sign-up's nor another account's.
         if ($entry === null || ($entry['extra']['uid'] ?? null) !== $user->id || empty($entry['extra']['add'])) {
