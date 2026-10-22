@@ -1421,6 +1421,8 @@ export default {
   'server error': 'erreur du serveur',
   'empty upload': 'fichier vide',
   'upload interrupted': 'envoi interrompu',
+  'the chunk is larger than expected': 'le morceau est plus grand que prévu',
+  'the upload is out of step': 'l’envoi est désynchronisé',
   'could not write the file': 'impossible d’écrire le fichier',
   'endpoint is not a valid URL': 'l’adresse de notification n’est pas une URL valide',
   'endpoint must be an https:// URL': 'l’adresse de notification doit commencer par https://',

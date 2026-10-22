@@ -24,6 +24,9 @@ final class MetaController
             // in the app only shows when this is true, so it never shows.
             'request_access' => false,
             'self_serve' => (bool) config('fitpal.self_serve_coach'),
+            // A demo may be sent in chunks (ChunkUploadController), each this big at most. The Node
+            // API sends no `upload`, and the app then sends the whole file as one request.
+            'upload' => ['chunked' => true, 'chunk_mb' => ChunkUploadController::CHUNK_MB],
         ]);
     }
 }

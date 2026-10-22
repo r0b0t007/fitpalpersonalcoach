@@ -8,6 +8,8 @@ use App\Media\Serve;
 use App\Media\Sniff;
 use App\Media\Upload;
 use App\Models\ExerciseMedia;
+use App\Models\User;
+use App\Support\ClientSafe;
 use App\Support\Input;
 use App\Support\Js;
 use App\Support\Json;
@@ -35,18 +37,25 @@ final class ExerciseMediaController
     public function upload(Request $request): JsonResponse
     {
         $coach = $request->user('api');
-        // `String(q.get('ex') || '').trim()`. Whitelisted, not escaped: this becomes a file name.
-        $exId = Js::trim(Input::searchParam($request, 'ex') ?? '');
-        if (! preg_match('/^[A-Za-z0-9_-]{1,40}$/D', $exId)) {
-            return Json::error(400, 'bad exercise id', [], Json::CLOSE);
-        }
-        $label = Js::slice(Js::trim(Input::searchParam($request, 'label') ?? ''), 40);
+        [$exId, $label] = self::target($request);
         if (self::atCap($exId)) {
             return self::capRefusal();
         }
         $dir = Paths::dir('ex');
         $up = Upload::stream($request, $dir, Upload::maxVideo(), 'video');
 
+        return self::store($coach, $exId, $label, $dir, $up);
+    }
+
+    /**
+     * An arrived demo — a streamed body (upload) or an assembled chunked one (ChunkUploadController)
+     * — moved into place and recorded: the one path both take, so they cannot store differently.
+     * $up is Upload::stream's shape: the temp file, its size, its SHA-256 and the sniff.
+     *
+     * @param  array{tmp: string, bytes: int, sha: string, meta: array{ext: string, mime: string, needsTranscode: bool}}  $up
+     */
+    public static function store(User $coach, string $exId, string $label, string $dir, array $up): JsonResponse
+    {
         // Content-addressed on what arrived: the same file twice lands on the same name, and a
         // name can be cached for good because it cannot change meaning. A demo uploaded to the Node
         // API was named without its coach; the same bytes again replace that row too.
@@ -145,13 +154,31 @@ final class ExerciseMediaController
         return Serve::file($request, Paths::root().DIRECTORY_SEPARATOR.'ex'.DIRECTORY_SEPARATOR.$row->file, $row->mime);
     }
 
-    private static function capRefusal(): JsonResponse
+    /**
+     * `?ex=&label=`: the exercise id (`String(q.get('ex') || '').trim()`, whitelisted, not escaped —
+     * it becomes a file name) and the label (trimmed, cut at 40).
+     *
+     * @return array{string, string}
+     *
+     * @throws ClientSafe
+     */
+    public static function target(Request $request): array
+    {
+        $exId = Js::trim(Input::searchParam($request, 'ex') ?? '');
+        if (! preg_match('/^[A-Za-z0-9_-]{1,40}$/D', $exId)) {
+            throw new ClientSafe(400, 'bad exercise id', [], Json::CLOSE);
+        }
+
+        return [$exId, Js::slice(Js::trim(Input::searchParam($request, 'label') ?? ''), 40)];
+    }
+
+    public static function capRefusal(): JsonResponse
     {
         return Json::error(429, Say::f('that exercise already has {0} videos', ExerciseMedia::MAX_PER_EXERCISE), [], Json::CLOSE);
     }
 
     /** The uploading coach's demos for one exercise (CoachContext): at the cap? */
-    private static function atCap(string $exId): bool
+    public static function atCap(string $exId): bool
     {
         return ExerciseMedia::query()->where('ex_id', $exId)->count() >= ExerciseMedia::MAX_PER_EXERCISE;
     }

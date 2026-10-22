@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChunkUploadController;
 use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRosterController;
 use App\Http\Controllers\DataController;
@@ -49,6 +50,13 @@ $routes = static function (): void {
     // wraps the sign-in and coach checks too — their refusals must close the connection as well.
     Route::post('/media/exercise', [ExerciseMediaController::class, 'upload'])
         ->middleware([CloseOnRefusal::class, 'auth:api', RequireCoach::class]);
+    // The same demo in chunks (Laravel only, advertised in /api/config): start, each chunk, finish.
+    Route::middleware([CloseOnRefusal::class, 'auth:api', RequireCoach::class])->group(function (): void {
+        Route::post('/media/exercise/upload', [ChunkUploadController::class, 'start']);
+        Route::put('/media/exercise/upload', [ChunkUploadController::class, 'chunk']);
+        Route::post('/media/exercise/upload/finish', [ChunkUploadController::class, 'finish']);
+        Route::delete('/media/exercise/upload', [ChunkUploadController::class, 'cancel']);
+    });
     // A client's progress photo, for themselves: the same raw-body upload, any signed-in account.
     Route::post('/media/photo', [PhotoController::class, 'upload'])
         ->middleware([CloseOnRefusal::class, 'auth:api']);
