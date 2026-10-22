@@ -103,7 +103,8 @@ final class AuthController
     {
         // Spent now, whatever the body turns out to be: one challenge, one attempt.
         $entry = CacheChallengeRepository::takeFor($this->cache, $request, Input::str($request, 'cid'));
-        if ($entry === null || empty($entry['extra']['uid'])) {
+        // An add-a-passkey challenge (passkeyOptions) names an existing account: never a sign-up's.
+        if ($entry === null || empty($entry['extra']['uid']) || ! empty($entry['extra']['add'])) {
             Audit::record($request, 'auth.register.fail', ['ok' => false, 'msg' => 'challenge-expired']);
 
             return Json::error(400, 'challenge expired — try again');
@@ -206,7 +207,53 @@ final class AuthController
         // The invite code the account came in with, as Node recorded it.
         Audit::record($request, 'auth.register.ok', ['user' => $user, 'msg' => $spent]);
 
-        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user));
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
+    }
+
+    /**
+     * POST /api/passkeys/options (signed in) — another passkey for this account, typically after an
+     * email-link sign-in on a device that has none (spec §4a). The same ceremony as registration,
+     * against the signed-in user, with their passkeys excluded (uniqueCredentials), so this device
+     * is not asked to make a second one for the same account.
+     */
+    public function passkeyOptions(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user('api');
+        $request->attributes->set(CacheChallengeRepository::EXTRA_ATTRIBUTE, ['uid' => $user->id, 'add' => true]);
+        $creation = app(AttestationCreator::class)
+            ->send(new AttestationCreation(user: $user, residentKey: ResidentKey::Required, userVerification: UserVerification::Preferred, uniqueCredentials: true))
+            ->thenReturn();
+        $creation->json->set('timeout', self::PROMPT_TIMEOUT_MS);
+
+        return Json::ok(['cid' => $request->attributes->get(CacheChallengeRepository::CID_ATTRIBUTE), 'options' => $creation->json->toArray()]);
+    }
+
+    /** POST /api/passkeys/verify (signed in) — the new passkey, attached to the signed-in account. */
+    public function passkeyVerify(Request $request, AttestationValidator $validator): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user('api');
+        $entry = CacheChallengeRepository::takeFor($this->cache, $request, Input::str($request, 'cid'));
+        // A challenge made for this account's add-a-passkey, not a sign-up's nor another account's.
+        if ($entry === null || ($entry['extra']['uid'] ?? null) !== $user->id || empty($entry['extra']['add'])) {
+            return Json::error(400, 'challenge expired — try again');
+        }
+        try {
+            $validation = $validator->send(new AttestationValidation($user, self::transport(Input::assoc($request, 'credential'), AttestationValidation::REQUEST_KEYS)))->thenReturn();
+        } catch (Throwable $e) {
+            if ($e instanceof AttestationException && str_contains($e->getMessage(), 'Credential ID already exists')) {
+                return Json::error(409, 'credential already registered');
+            }
+
+            return Json::error(400, self::verifyError($e));
+        }
+        $credential = $validation->credential;
+        $credential->authenticatable_id = $user->id;
+        $credential->save();
+        Audit::record($request, 'auth.passkey.add', ['user' => $user]);
+
+        return Json::ok(['ok' => true]);
     }
 
     public function loginOptions(Request $request, AssertionCreator $creator): JsonResponse
@@ -265,7 +312,7 @@ final class AuthController
         }
         Audit::record($request, 'auth.login.ok', ['user' => $user]);
 
-        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user));
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
     }
 
     public function logout(Request $request): JsonResponse

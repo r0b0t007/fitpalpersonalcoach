@@ -13,6 +13,7 @@ use App\Http\Controllers\CreemWebhookController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\ExerciseMediaController;
 use App\Http\Controllers\InviteController;
+use App\Http\Controllers\LoginLinkController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PairController;
 use App\Http\Controllers\PhotoController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\PushController;
 use App\Http\Middleware\CloseOnRefusal;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireCoach;
+use App\Http\Middleware\RequireFreshAuth;
 use App\Http\Middleware\RequireWriter;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +48,9 @@ $routes = static function (): void {
     Route::post('/login/options', [AuthController::class, 'loginOptions']);
     Route::post('/login/verify', [AuthController::class, 'loginVerify']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    // A coach's sign-in by email link (R4, Laravel only). No session: the address, then the token.
+    Route::post('/login/email', [LoginLinkController::class, 'request']);
+    Route::post('/login/link', [LoginLinkController::class, 'redeem']);
     // The phone's side of pairing: no session, the code is the credential (CSRF-exempt).
     Route::post('/pair/redeem', [PairController::class, 'redeem']);
     // The invite landing screen, before the person has an account.
@@ -86,6 +91,13 @@ $routes = static function (): void {
         Route::post('/activity', [ActivityController::class, 'store']);
         Route::post('/pair/create', [PairController::class, 'create']);
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
+        // Another passkey for this account, and a new sign-in address (R4, Laravel only): writes
+        // that outlive a session, so they need one that signed in just now (RequireFreshAuth).
+        Route::middleware(RequireFreshAuth::class)->group(function (): void {
+            Route::post('/passkeys/options', [AuthController::class, 'passkeyOptions']);
+            Route::post('/passkeys/verify', [AuthController::class, 'passkeyVerify']);
+            Route::post('/account/email', [LoginLinkController::class, 'changeEmail']);
+        });
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);
         Route::post('/invite/redeem', [InviteController::class, 'redeem']);

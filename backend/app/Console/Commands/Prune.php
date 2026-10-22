@@ -6,6 +6,7 @@ use App\Audit\Audit;
 use App\Media\Paths;
 use App\Models\Assignment;
 use App\Models\BillingEvent;
+use App\Models\LoginLink;
 use App\Models\MediaUpload;
 use App\Models\Presence;
 use App\Support\Js;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\DB;
  *  - presence rows past the 70 s TTL (reads already ignore them; Node swept every 30 s);
  *  - expired rows of the database cache store (passkey challenges, pairing codes);
  *  - Creem webhook ids past the newest BillingEvent::KEEP;
+ *  - sign-in and email-change links older than LoginLink::KEEP_HOURS;
  *  - chunked uploads nobody has sent to for a day, with their partial files;
  *  - temp files no request is writing any more (`.up-*` under media/ex and each photo folder)
  *    older than a day: a request killed mid-upload (a worker past its limit, a host reboot)
@@ -54,8 +56,10 @@ final class Prune extends Command
         if ($oldest !== null) {
             $events = BillingEvent::query()->where('at', '<=', $oldest)->delete();
         }
+        // Sign-in links: past use within minutes, and their ip is personal data (spec §4a).
+        $links = LoginLink::query()->where('created_at', '<', now()->subHours(LoginLink::KEEP_HOURS))->delete();
         $files = $this->orphans($now);
-        $this->info("pruned: {$audit} audit, {$offers} offers, {$presence} presence, {$uploads} uploads, {$files} temp files, {$cache} cache rows, {$events} billing events");
+        $this->info("pruned: {$audit} audit, {$offers} offers, {$presence} presence, {$uploads} uploads, {$files} temp files, {$cache} cache rows, {$events} billing events, {$links} sign-in links");
 
         return self::SUCCESS;
     }

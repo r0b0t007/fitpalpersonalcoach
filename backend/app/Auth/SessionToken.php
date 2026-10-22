@@ -89,10 +89,18 @@ final class SessionToken
         return $user;
     }
 
-    /** The Set-Cookie headers that sign a browser in: the token, and on https the clearing of the old plain name. */
-    public static function cookies(User $user): array
+    /**
+     * The Set-Cookie headers that sign a browser in: the token, and on https the clearing of the old
+     * plain name. $fresh: this sign-in proved the account (a passkey, an email link, the sign-up),
+     * so the session may change the sign-in address or add a passkey for a while (FreshAuth).
+     */
+    public static function cookies(User $user, bool $fresh = false): array
     {
-        $cookies = [self::cookie(self::cookieName(), self::make($user), (int) config('fitpal.session_days') * 86400)];
+        $token = self::make($user);
+        if ($fresh) {
+            FreshAuth::mark($token);
+        }
+        $cookies = [self::cookie(self::cookieName(), $token, (int) config('fitpal.session_days') * 86400)];
         if (self::secure()) {
             $cookies[] = self::cookie('gymsid', '', 0);
         }

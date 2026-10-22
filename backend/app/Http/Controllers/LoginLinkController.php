@@ -1,0 +1,241 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Audit\Audit;
+use App\Audit\ClientIp;
+use App\Auth\SessionToken;
+use App\Mail\AccountMail;
+use App\Mail\SendAfterResponse;
+use App\Models\LoginLink;
+use App\Models\User;
+use App\Support\ClientSafe;
+use App\Support\Input;
+use App\Support\Json;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+
+use function Illuminate\Support\defer;
+
+/**
+ * A coach's second way in (spec §4a, R4; Laravel only): a sign-in link by email, and changing the
+ * address those links go to. Passkeys stay the primary sign-in and the only one for clients.
+ *
+ *  - POST /api/login/email {email} always answers {ok: true} — unknown, a client's, a disabled
+ *    account's, a pending address, throttled: all alike, so it cannot tell anyone whether an
+ *    address has an account. A coach or admin whose `email` is that address gets a link.
+ *  - POST /api/login/link {t} redeems either kind of link: a sign-in link signs in exactly as a
+ *    passkey does (SessionToken::cookies, so `logout/all` ends it too); an email-change link moves
+ *    the pending address into `email` and tells the old one.
+ *  - POST /api/account/email {email} (signed in) only writes `pending_email` and mails the new
+ *    address, and only from a session that signed in just now (FreshAuth): a live session alone
+ *    — a shared laptop, a paired phone — can never point the account's recovery at another inbox.
+ */
+final class LoginLinkController
+{
+    /** 3 links per address per 15 minutes; 10 requests per IP per hour (spec §4a). */
+    private const PER_EMAIL = [3, 900];
+
+    private const PER_IP = [10, 3600];
+
+    /**
+     * Per connection, whatever it says it forwards: CF-Connecting-IP is believed for PER_IP (the
+     * client behind Cloudflare), but a caller reaching the server directly can say anything there.
+     * Generous, as every coach behind one Cloudflare edge shares it.
+     */
+    private const PER_PEER = [300, 3600];
+
+    /** At most this many `login.link.throttled` rows an hour: a flood must not push real events out of the log. */
+    private const THROTTLE_AUDITS = 20;
+
+    public function request(Request $request): JsonResponse
+    {
+        $email = self::normalise(Input::jsString($request, 'email'));
+        // The client's address, not the proxy's: behind Cloudflare $request->ip() is its edge, and
+        // every coach on that edge would share one bucket.
+        $ip = ClientIp::for($request, 'full') ?? (string) $request->ip();
+        $buckets = [
+            'login-link:email:'.hash('sha256', $email) => self::PER_EMAIL,
+            'login-link:ip:'.$ip => self::PER_IP,
+            'login-link:peer:'.$request->server('REMOTE_ADDR') => self::PER_PEER,
+        ];
+        foreach ($buckets as $key => [$max]) {
+            if (RateLimiter::tooManyAttempts($key, $max)) {
+                // The address is not recorded: a log of what strangers typed is a liability.
+                RateLimiter::attempt('login-link:throttle-audit', self::THROTTLE_AUDITS,
+                    fn () => Audit::record($request, 'login.link.throttled', ['ok' => false]), 3600);
+
+                return Json::ok(['ok' => true]);
+            }
+        }
+        foreach ($buckets as $key => [, $decay]) {
+            RateLimiter::hit($key, $decay);
+        }
+        // What is kept on the link row follows the owner's AUDIT_IP, as the audit log does.
+        $stored = ClientIp::for($request, (string) config('fitpal.audit.ip'));
+
+        // Only the lookup happens before the answer, the same for any address: the link, the
+        // coach's language and the mail all come after it (defer), so timing tells nobody anything.
+        $user = self::valid($email) ? self::coachWithEmail($email) : null;
+        if ($user !== null) {
+            defer(function () use ($user, $stored) {
+                [$token] = LoginLink::issue($user, 'login', null, $stored);
+                SendAfterResponse::send($user->email, new AccountMail('signin', $user, self::url($token)));
+            });
+        }
+
+        return Json::ok(['ok' => true]);
+    }
+
+    public function redeem(Request $request): JsonResponse
+    {
+        $token = Input::jsString($request, 't');
+        try {
+            $result = $this->redeemLocked($token);
+        } catch (UniqueConstraintViolationException) {
+            // Two accounts confirming one address at once: the index decided, the second is told.
+            throw new ClientSafe(409, 'that email address is already used by another account');
+        }
+
+        return $this->finish($request, $result);
+    }
+
+    /** @return array{string, User, ?string} the link's purpose, the account, the old address */
+    private function redeemLocked(string $token): array
+    {
+        return DB::transaction(function () use ($token): array {
+            $link = $token === '' ? null : LoginLink::query()->where('token_hash', LoginLink::hash($token))->lockForUpdate()->first();
+            if ($link === null || $link->expires_at->isPast()) {
+                // An unknown token reads as an expired one: there is nothing more to say about it.
+                throw new ClientSafe(400, 'this sign-in link has expired — request a new one');
+            }
+            if ($link->used_at !== null) {
+                throw new ClientSafe(400, 'this sign-in link was already used');
+            }
+            $user = User::query()->whereKey($link->user_id)->lockForUpdate()->first();
+            if ($user === null || ! $user->isCoach()) {
+                throw new ClientSafe(400, 'this sign-in link has expired — request a new one');
+            }
+            if ($user->disabled) {
+                throw new ClientSafe(403, 'this account has been disabled');
+            }
+            $link->forceFill(['used_at' => now()])->save();
+            if ($link->purpose === 'email') {
+                // Still the address they asked for, and nobody else's by now.
+                if ($user->pending_email === null || $user->pending_email !== $link->email) {
+                    throw new ClientSafe(400, 'this sign-in link has expired — request a new one');
+                }
+                self::refuseTaken($link->email, $user->id);
+                $old = $user->email;
+                $user->forceFill(['email' => $link->email, 'pending_email' => null, 'email_verified_at' => now()])->save();
+                // Whatever went to the old address before the change stops working now.
+                LoginLink::spendAll($user->id);
+
+                return ['email', $user, $old];
+            }
+            // One sign-in link used: the others mailed meanwhile are spent with it.
+            LoginLink::spendAll($user->id, 'login');
+            if ($user->email_verified_at === null) {
+                $user->forceFill(['email_verified_at' => now()])->save();
+            }
+
+            return ['login', $user, null];
+        });
+    }
+
+    private function finish(Request $request, array $result): JsonResponse
+    {
+        [$purpose, $user, $old] = $result;
+
+        if ($purpose === 'email') {
+            Audit::record($request, 'account.email', ['user' => $user]);
+            if (is_string($old) && $old !== '' && $old !== $user->email) {
+                SendAfterResponse::to($old, new AccountMail('changed', $user, null, $user->email));
+            }
+
+            return Json::ok(['ok' => true, 'email' => $user->email]);
+        }
+        Audit::record($request, 'login.link', ['user' => $user]);
+
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
+    }
+
+    public function changeEmail(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user('api');
+        if (! $user->isCoach()) {
+            return Json::error(403, 'forbidden');
+        }
+        $email = self::normalise(Input::jsString($request, 'email'));
+        if (! self::valid($email)) {
+            return Json::error(400, 'that is not an email address');
+        }
+        if ($email === self::normalise((string) $user->email)) {
+            return Json::error(400, 'that is already your sign-in email');
+        }
+        // Whether another account has this address is not said here — that would make this a
+        // way to look addresses up. The confirmation goes out either way; opening it, which only
+        // the inbox's holder can, is where a taken address is refused (redeem).
+        $key = 'account-email:'.$user->id;
+        if (RateLimiter::tooManyAttempts($key, self::PER_EMAIL[0])) {
+            return Json::error(429, 'too many emails asked for — try again in a few minutes');
+        }
+        RateLimiter::hit($key, self::PER_EMAIL[1]);
+        $token = DB::transaction(function () use ($user, $email, $request): string {
+            $me = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $me->forceFill(['pending_email' => $email])->save();
+            // A newer change replaces the older one: its link is spent (the pending address moved).
+            LoginLink::spendAll($me->id, 'email');
+            [$token] = LoginLink::issue($me, 'email', $email, ClientIp::for($request, (string) config('fitpal.audit.ip')));
+
+            return $token;
+        });
+        SendAfterResponse::to($email, new AccountMail('confirm', $user, self::url($token), $email));
+
+        return Json::ok(['ok' => true, 'pendingEmail' => $email]);
+    }
+
+    /**
+     * The coach (or admin) whose sign-in address this is. Addresses are stored normalised and
+     * `users.email` is unique, so this is the index, not a scan.
+     */
+    private static function coachWithEmail(string $email): ?User
+    {
+        $user = User::query()->where('email', $email)->where('disabled', false)->first();
+
+        return $user?->isCoach() ? $user : null;
+    }
+
+    /**
+     * An address another account signs in with is not free. A pending one is not counted: an
+     * address someone asked for and never confirmed must not block its real owner — whoever
+     * confirms first has it, and the other is refused here at redeem.
+     */
+    private static function refuseTaken(string $email, string $self): void
+    {
+        $taken = User::query()->whereKeyNot($self)->where('email', $email)->exists();
+        if ($taken) {
+            throw new ClientSafe(409, 'that email address is already used by another account');
+        }
+    }
+
+    private static function normalise(string $email): string
+    {
+        return mb_strtolower(trim($email));
+    }
+
+    private static function valid(string $email): bool
+    {
+        return $email !== '' && strlen($email) <= 254 && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    /** The app's link-landing screen (S6): the token in the hash, never sent to a server log. */
+    private static function url(string $token): string
+    {
+        return config('fitpal.origin').'/#/link?t='.$token;
+    }
+}
