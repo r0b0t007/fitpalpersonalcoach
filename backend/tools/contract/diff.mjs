@@ -594,6 +594,16 @@ const CASES = [
   { name: 'push unsubscribe, anonymous', req: { method: 'POST', path: '/api/push/unsubscribe', body: { endpoint: 'x' } }, mode: 'exact' },
   { name: 'push test, anonymous', req: { method: 'POST', path: '/api/push/test' }, mode: 'exact' },
   { name: 'push test, nobody subscribed', req: { method: 'POST', path: '/api/push/test', headers: bearer('cdBare0000000000') }, mode: 'exact' },
+  // R3 — the rest-timer push (CHW-261). Some of these timers are due within the run (1 s, 45 s),
+  // and they are harmless only because cdBare has no push subscription in the seed: Node's timer
+  // then sends to nobody, and Laravel queues nothing for an account no browser is subscribed for.
+  // Give cdBare a subscription and Node would start pushing for real here.
+  { name: 'rest timer, anonymous', req: { method: 'POST', path: '/api/push/rest-timer', body: { seconds: 60 } }, mode: 'exact' },
+  ...[['an hour', 3600], ['nothing', undefined], ['not a number', 'abc'], ['past the hour', 99999], ['negative', -5], ['as text', '45']]
+    .map(([what, seconds]) => ({ name: `rest timer, ${what}`, req: { method: 'POST', path: '/api/push/rest-timer', headers: bearer('cdBare0000000000'), body: { seconds } }, mode: 'exact' })),
+  { name: 'rest timer, bad json', req: { method: 'POST', path: '/api/push/rest-timer', headers: bearer('cdBare0000000000'), raw: '{nope' }, mode: 'exact' },
+  { name: 'rest timer cancel', req: { method: 'POST', path: '/api/push/rest-timer/cancel', headers: bearer('cdBare0000000000') }, mode: 'exact' },
+  { name: 'rest timer cancel, anonymous', req: { method: 'POST', path: '/api/push/rest-timer/cancel' }, mode: 'exact' },
   // R2 — the owner's account controls and detachCoach (CHW-250).
   { name: 'admin users, anonymous', req: { path: '/api/admin/users' }, mode: 'exact' },
   { name: 'admin users, a coach', req: { path: '/api/admin/users', headers: bearer('cdCoach000000000') }, mode: 'exact' },

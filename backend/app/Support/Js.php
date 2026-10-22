@@ -46,6 +46,12 @@ final class Js
         };
     }
 
+    /** `Math.round(n)`: halves toward +Infinity (-2.5 is -2), NaN and the infinities as they are. */
+    public static function round(float $n): float
+    {
+        return is_finite($n) ? floor($n + 0.5) : $n;
+    }
+
     /**
      * `+value` / `Number(value)` on a decoded JSON value: a string is trimmed and read as a decimal
      * literal (or 0x/0o/0b, or Infinity), '' is 0, true is 1, an array is read through its string,

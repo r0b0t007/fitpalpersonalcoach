@@ -24,7 +24,7 @@ final class SendPush implements ShouldQueue
     public int $tries = 1;
 
     /**
-     * @param  'assignment'|'rest-timer'|'day-reminder'|'checkin-reminder'  $kind
+     * @param  'assignment'|'day-reminder'|'checkin-reminder'  $kind  (the rest timer is RestTimerPush)
      * @param  list<mixed>  $args  what the message needs besides the language (a coach's name…)
      */
     public function __construct(public readonly string $userId, public readonly string $kind, public readonly array $args = []) {}
@@ -38,7 +38,6 @@ final class SendPush implements ShouldQueue
         $lang = MemberCard::lang($this->userId);
         $sender->send($this->userId, match ($this->kind) {
             'assignment' => Messages::assignment($lang, (string) $this->args[0], (string) config('fitpal.rp_name')),
-            'rest-timer' => Messages::restTimer($lang),
             'day-reminder' => Messages::dayReminder($lang, $this->args[0] ?? null),
             'checkin-reminder' => Messages::checkinReminder($lang),
         });

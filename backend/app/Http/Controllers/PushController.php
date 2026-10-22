@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Coaching\MemberCard;
+use App\Jobs\RestTimerPush;
 use App\Models\PushSubscription;
 use App\Models\User;
 use App\Push\Endpoint;
@@ -15,6 +16,7 @@ use App\Support\Json;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use stdClass;
 
@@ -79,6 +81,42 @@ final class PushController
             PushSubscription::query()->where('user_id', $request->user('api')->id)
                 ->where('endpoint_hash', PushSubscription::hashOf($endpoint))->delete();
         }
+
+        return Json::ok(['ok' => true]);
+    }
+
+    /**
+     * A rest timer started (or extended): "Rest over" in `seconds`, clamped to 1 s - 1 h as Node
+     * did (`Math.max(1, Math.min(3600, Math.round(+body.seconds || 0)))`). The one timer a user
+     * has: this replaces any before it.
+     *
+     * The app calls this on every set and every +15 s, so it stays cheap: nothing at all for an
+     * account no browser is subscribed for (Node's timer would have sent to nobody), and the
+     * language is the job's to read.
+     */
+    public function restTimer(Request $request): JsonResponse
+    {
+        $user = $request->user('api');
+        $n = Js::toNumber(Input::raw($request, 'seconds'));
+        $sec = (int) max(1, min(3600, is_nan($n) ? 0 : Js::round($n)));
+        // The sync driver runs a job the moment it is dispatched, delay or not: "Rest over" as the
+        // rest begins is worse than no push at all.
+        if (config('queue.default') === 'sync' || ! PushSubscription::query()->where('user_id', $user->id)->exists()) {
+            return Json::ok(['ok' => true]);
+        }
+        $token = Js::randomId();
+        // Current until the rest is over and the worker has had its accepted lateness: a job that
+        // runs later than that finds no timer, and sends nothing long after the workout.
+        Cache::put(RestTimerPush::key($user->id), $token, $sec + RestTimerPush::LATE_SECONDS);
+        RestTimerPush::dispatch($user->id, $token)->delay(now()->addSeconds($sec));
+
+        return Json::ok(['ok' => true]);
+    }
+
+    /** The app finished or skipped the rest itself: whatever timer is queued sends nothing. */
+    public function cancelRestTimer(Request $request): JsonResponse
+    {
+        Cache::forget(RestTimerPush::key($request->user('api')->id));
 
         return Json::ok(['ok' => true]);
     }
