@@ -173,7 +173,7 @@ it('counts the AUDIT_MAX window among rows inside AUDIT_DAYS, as Node did (age f
 });
 
 it('prunes hourly from the scheduler, and on write only past 1.25 × AUDIT_MAX', function () {
-    $this->artisan('schedule:list')->expectsOutputToContain('audit:prune');
+    $this->artisan('schedule:list')->expectsOutputToContain('fitpal:prune');
     config(['fitpal.audit.max' => 100]);
     foreach (range(1, 120) as $i) {
         Audit::record(Request::create('/'), 'auth.login.ok');

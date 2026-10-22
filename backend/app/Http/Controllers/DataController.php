@@ -59,7 +59,7 @@ final class DataController
         UserState::query()->updateOrCreate(
             ['user_id' => $request->user()->id],
             // Encoded as deep as it was parsed: json_encode's default 512 would 500 on a state Node took.
-            ['state' => json_encode($state, Json::FLAGS, 100_000), 'ts' => $ts],
+            ['state' => json_encode($state, Json::FLAGS, 100_000), 'ts' => $ts] + UserState::derived($state),
         );
 
         return Json::ok(['ok' => true, 'ts' => $ts]);

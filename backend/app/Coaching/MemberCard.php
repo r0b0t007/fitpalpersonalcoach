@@ -243,7 +243,7 @@ final class MemberCard
     }
 
     /** `Number.isInteger(d) && 0 <= d <= 6`: 3.0 counts (JSON has one number type), '3' does not. */
-    private static function checkinDay(mixed $d): ?int
+    public static function checkinDay(mixed $d): ?int
     {
         if ((is_int($d) || (is_float($d) && floor($d) === $d)) && $d >= 0 && $d <= 6) {
             return (int) $d;

@@ -233,7 +233,7 @@ it('prunes hourly as pruneAssignments did: 30 days pending or answered, but neve
         ->toBe(['freshPending', 'lateDecided', 'onIt', 'rolledOver'])
         // The fixture's offers are dated 2026-05-01, past the window too, whichever coach sent them.
         ->and(Assignment::acrossCoaches()->whereKey(['assignA', 'assignB', 'assignBtoA1'])->count())->toBe(0); // across coaches: test reads every row
-    $task = collect(app(Schedule::class)->events())->firstWhere('description', 'assignments:prune');
+    $task = collect(app(Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'fitpal:prune'));
     expect($task?->expression)->toBe('0 * * * *');
 });
 

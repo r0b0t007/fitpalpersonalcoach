@@ -1,9 +1,14 @@
 <?php
 
-use App\Audit\Audit;
-use App\Models\Assignment;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
+
+// The reminders, every minute (app/Console/Commands/Remind.php), BEFORE the worker below starts:
+// schedule:run goes in order, and a worker started first would find the queue empty and exit
+// before these pushes were queued — a minute late, on top of cron's own lateness. In the
+// foreground and short (it reads only the reminder columns); what it sends is recorded, so a
+// cron run that starts late and looks at the minute before sends nothing twice.
+Schedule::command('fitpal:remind')->everyMinute()->withoutOverlapping(2);
 
 // The queue, drained from the scheduler: shared hosting has no supervisor, so a worker lives at
 // most about one cron minute. Measured on the cPanel host in CHW-227 (docs/DEPLOY_COACH_SUBDOMAIN.md):
@@ -35,13 +40,10 @@ if ($connection !== 'sync') {
         ->onFailure(fn () => Log::warning('queue worker exited non-zero: a job hit --timeout, or the worker could not start'));
 }
 
-// Audit retention (AUDIT_DAYS, AUDIT_MAX), hourly as the Node API compacted it: the read path
-// already hides expired rows, this deletes them — and their IPs — on an idle instance too.
-Schedule::call(fn () => Audit::prune())->hourly()->name('audit:prune')->withoutOverlapping(10);
-
-// Assignment retention (api/domain.mjs pruneAssignments: 30 days pending or answered, never the
-// program a member is on). Node pruned on every send; hourly here, so housekeeping holds no
-// recipient's lock and cannot fail a send.
-Schedule::call(fn () => Assignment::prune())->hourly()->name('assignments:prune')->withoutOverlapping(10);
-
-// fitpal:remind and the rest of fitpal:prune join here in R3.
+// Housekeeping, hourly (app/Console/Commands/Prune.php): audit retention (AUDIT_DAYS, AUDIT_MAX —
+// the read path already hides expired rows, this deletes them and their IPs on an idle instance
+// too), assignments past 30 days (Node pruned on every send; hourly here, so it holds no
+// recipient's lock and cannot fail a send), stale presence, expired cache rows, abandoned uploads
+// and temp files. In the background: at the top of the hour, the most usual reminder time, the
+// reminders must not wait behind it.
+Schedule::command('fitpal:prune')->hourly()->withoutOverlapping(10)->runInBackground();
