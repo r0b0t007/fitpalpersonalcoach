@@ -170,6 +170,14 @@ browser must not be a support ticket to the owner. Decided 2026-10-17; no passwo
   way the push code already reads it (`api/server.js` `readState(uid)?.lang`) — not a new column,
   which would go stale the first time the coach changes language in Settings. Sent through the
   transactional API of §2.
+- **As built (CHW-233).** One `login_links` table for both kinds (`purpose` login|email, the new
+  address in `email`). The mail is sent after the response (`defer()`), not queued: the reply is
+  the same and as fast for any address, the link leaves at once, and no token sits in `jobs`. A
+  link to a coach demoted since is refused as expired; a disabled account gets 403 and the link
+  stays unspent. Opening an email-change link swaps the address and answers `{ok, email}` — it does
+  not sign anyone in — and only if the address is still the pending one and no other account's
+  (409 `that email address is already used by another account`, checked at request too). Mail
+  copy in fr/en/es/de is provisional until E1; Resend and the DNS are CHW-271.
 - **Tests.** Issuance is silent for unknown and client addresses; single use; expiry; throttling;
   disabled account refused; the link login sets the same cookie and dies with `logout/all` like
   any token; a second passkey attaches and either one logs in; a pending address cannot request a
