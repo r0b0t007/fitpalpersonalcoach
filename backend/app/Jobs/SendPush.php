@@ -35,7 +35,7 @@ final class SendPush implements ShouldQueue
         if (! PushSubscription::query()->where('user_id', $this->userId)->exists()) {
             return;
         }
-        $lang = MemberCard::state($this->userId)->lang ?? null;
+        $lang = MemberCard::lang($this->userId);
         $sender->send($this->userId, match ($this->kind) {
             'assignment' => Messages::assignment($lang, (string) $this->args[0], (string) config('fitpal.rp_name')),
             'rest-timer' => Messages::restTimer($lang),

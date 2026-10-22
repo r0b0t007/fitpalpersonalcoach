@@ -17,6 +17,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 use Tests\Support\Coaching;
@@ -53,19 +54,24 @@ function withEndpoint(string $endpoint): array
  * A Sender whose transport is scripted and whose DNS answers from $dns (a test has none);
  * $sent collects every request it makes, with its options.
  */
-function fakeSender(array $responses, array &$sent, array $dns = []): Sender
+function fakeSender(array $responses, array &$sent, array $dns = [], float $dnsBudget = Sender::DNS_BUDGET): Sender
 {
     $stack = HandlerStack::create(new MockHandler($responses));
     $stack->push(Middleware::history($sent));
-    $sender = new class($stack, $dns) extends Sender
+    $sender = new class($stack, $dns, $dnsBudget) extends Sender
     {
-        public function __construct(HandlerStack $stack, private array $dns)
+        public array $lookups = [];
+
+        public function __construct(HandlerStack $stack, private array $dns, float $dnsBudget)
         {
             parent::__construct($stack);
+            $this->dnsBudget = $dnsBudget;
         }
 
         protected function addresses(string $host): array
         {
+            $this->lookups[] = $host;
+
             return $this->dns[$host] ?? ['93.184.215.14'];
         }
     };
@@ -254,4 +260,71 @@ it('never connects a push to a private address, whatever the name resolves to', 
         ->and(Endpoint::isPrivateAddr('::ffff:192.168.1.1'))->toBeTrue()
         ->and(Endpoint::isPrivateAddr('fe80::1'))->toBeTrue()
         ->and(Endpoint::isPrivateAddr('2a00:1450::1'))->toBeFalse();
+});
+
+it('connects to no private address however it is spelled, even on a row the subscribe check never saw', function () {
+    $a1 = $this->f->a1;
+    // As an import of Node's rows would bring them: Node let [::ffff:a00:1] through.
+    foreach (['https://[::ffff:a00:1]/x', 'https://[0:0:0:0:0:0:0:1]/x', 'https://[::ffff:7f00:1]:8443/x'] as $i => $e) {
+        (new PushSubscription)->forceFill(['user_id' => $a1->id, 'endpoint' => $e, 'endpoint_hash' => PushSubscription::hashOf($e),
+            'p256dh' => SUB['keys']['p256dh'], 'auth' => SUB['keys']['auth'], 'created' => 'x'])->save();
+    }
+    $sent = [];
+    fakeSender([], $sent)->send($a1->id, Messages::test(null, 'App'));
+    expect($sent)->toBe([])
+        ->and(Endpoint::isPrivateAddr('::ffff:a00:1'))->toBeTrue()
+        ->and(Endpoint::isPrivateAddr('[::1]'))->toBeTrue();
+});
+
+it('signs for the push service own origin: scheme and host as `new URL` writes them', function () {
+    $a1 = $this->f->a1;
+    subscribe($a1, withEndpoint('HTTPS://Push.Example.COM/Send/AbC'))->assertOk();
+    $sent = [];
+    fakeSender([new Response(201)], $sent)->send($a1->id, Messages::test(null, 'App'));
+    expect((string) $sent[0]['request']->getUri())->toBe('https://push.example.com/Send/AbC')
+        ->and($sent[0]['options']['curl'][CURLOPT_RESOLVE])->toBe(['push.example.com:443:93.184.215.14']);
+});
+
+it('looks each host up once, and stops looking once the time for it is spent', function () {
+    $a1 = $this->f->a1;
+    foreach (range(1, 3) as $i) {
+        subscribe($a1, withEndpoint("https://push.example.com/$i"))->assertOk();
+    }
+    $sent = [];
+    $sender = fakeSender([new Response(201), new Response(201), new Response(201)], $sent);
+    $sender->send($a1->id, Messages::test(null, 'App'));
+    expect($sent)->toHaveCount(3)->and($sender->lookups)->toBe(['push.example.com']);
+    // No time at all: nothing is looked up, nothing is sent, nothing is dropped.
+    $sent = [];
+    $sender = fakeSender([], $sent, [], 0.0);
+    $sender->send($a1->id, Messages::test(null, 'App'));
+    expect($sent)->toBe([])->and($sender->lookups)->toBe([])
+        ->and(PushSubscription::of($a1->id)->count())->toBe(3);
+});
+
+it('moves a browser two accounts subscribe at the same moment, instead of failing', function () {
+    $f = $this->f;
+    $raced = false;
+    DB::connection()->beforeExecuting(function (string $sql) use (&$raced, $f) {
+        if (! $raced && str_starts_with($sql, 'insert into "push_subscriptions"')) {
+            $raced = true;   // the other account's insert lands first
+            (new PushSubscription)->forceFill(['user_id' => $f->a2->id, 'endpoint' => SUB['endpoint'], 'endpoint_hash' => PushSubscription::hashOf(SUB['endpoint']),
+                'p256dh' => 'k', 'auth' => 'a', 'created' => 'x'])->save();
+        }
+    });
+    subscribe($f->a1, SUB)->assertOk();
+    expect($raced)->toBeTrue()
+        ->and(PushSubscription::query()->pluck('user_id')->all())->toBe([$f->a1->id]);
+});
+
+it('refuses half a VAPID pair rather than handing out some other key', function () {
+    config(['fitpal.vapid.public' => 'envPublic', 'fitpal.vapid.private' => '']);
+    $this->getJson('/api/push/public-key')->assertStatus(500);
+    expect(is_file($this->dataDir.'/vapid.json'))->toBeFalse();
+    $this->artisan('fitpal:check-config')->expectsOutputToContain('only one of VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY is set')->assertFailed();
+});
+
+it('writes a routine with no name as Node did', function () {
+    expect(Messages::dayReminder('en', (object) ['emoji' => '💪'])['title'])->toBe('💪 undefined today')
+        ->and(Messages::dayReminder('en', (object) ['name' => null])['title'])->toBe('🏋️ null today');
 });

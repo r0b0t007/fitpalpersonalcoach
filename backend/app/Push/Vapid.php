@@ -26,6 +26,11 @@ final class Vapid
         if ($public !== '' && $private !== '') {
             return ['publicKey' => $public, 'privateKey' => $private];
         }
+        // Half a pair is a typo, not a choice: handing out some other key would silently strand
+        // every browser subscribed under the intended one. fitpal:check-config says so too.
+        if ($public !== '' || $private !== '') {
+            throw new RuntimeException('VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set together');
+        }
 
         return self::$keys ??= self::fromFile();
     }
@@ -67,8 +72,15 @@ final class Vapid
                 return $keys;
             }
             $keys = Keys::createVapidKeys();
+            // 0600 before the private key is in it, as Node's mode: 0o600: never readable by the
+            // other accounts of a shared host, not even for a moment.
             $tmp = $file.'.'.bin2hex(random_bytes(4)).'.tmp';
-            if (@file_put_contents($tmp, json_encode($keys)) === false || ! @chmod($tmp, 0600) || ! @rename($tmp, $file)) {
+            $h = @fopen($tmp, 'x');
+            $ok = $h !== false && @chmod($tmp, 0600) && fwrite($h, (string) json_encode($keys)) !== false;
+            if ($h !== false) {
+                fclose($h);
+            }
+            if (! $ok || ! @rename($tmp, $file)) {
                 @unlink($tmp);
                 throw new RuntimeException("cannot write {$file}");
             }

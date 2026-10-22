@@ -18,7 +18,12 @@ final class Endpoint
     /** api/server.js isPrivateAddr: loopback, private, link-local, CGNAT, multicast and reserved. */
     public static function isPrivateAddr(string $ip): bool
     {
-        $v = strtolower($ip);
+        $v = strtolower(trim($ip, '[]'));
+        // An IPv6 address judged in its canonical spelling, whoever wrote it: [::ffff:a00:1] is
+        // ::ffff:10.0.0.1, and 0:0:0:0:0:0:0:1 is ::1.
+        if (str_contains($v, ':') && ($bin = @inet_pton($v)) !== false) {
+            $v = (string) inet_ntop($bin);
+        }
         if (preg_match('/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/D', $v, $m)) {
             [$a, $b] = [(int) $m[1], (int) $m[2]];
 

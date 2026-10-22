@@ -89,7 +89,9 @@ final class Messages
     {
         $c = self::copy($lang);
         $title = $routine
-            ? (Js::truthy($routine->emoji ?? null) ? Js::string($routine->emoji) : '🏋️').' '.Js::string($routine->name ?? null).' '.$c['dayRoutineSuffix']
+            // `${routine.name}`: a name missing altogether is written "undefined", as Node wrote it.
+            ? (Js::truthy($routine->emoji ?? null) ? Js::string($routine->emoji) : '🏋️').' '
+                .(property_exists($routine, 'name') ? Js::string($routine->name) : 'undefined').' '.$c['dayRoutineSuffix']
             : $c['dayFallbackTitle'];
 
         return ['title' => $title, 'body' => $c['dayBody'], 'tag' => 'day-reminder'];

@@ -30,6 +30,9 @@ final class CheckConfig extends Command
         if ($post !== null && (int) config('fitpal.media_max_video_mb') * 1048576 > $post) {
             $warnings[] = 'MEDIA_MAX_VIDEO_MB ('.config('fitpal.media_max_video_mb').') is above PHP\'s post_max_size ('.Upload::mb($post).' MB) — a video sent as one request is capped at '.Upload::mb($post).' MB. Raise post_max_size (public/.user.ini, public/.htaccess) or lower the cap; keep both under Cloudflare\'s 100 MB.';
         }
+        if (((string) config('fitpal.vapid.public') === '') !== ((string) config('fitpal.vapid.private') === '')) {
+            $warnings[] = 'only one of VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY is set — set both, or neither (DATA_DIR/vapid.json is then used). No push is sent until then.';
+        }
         foreach ($warnings as $w) {
             $this->warn($w);
         }

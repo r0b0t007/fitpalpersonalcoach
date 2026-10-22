@@ -37,9 +37,6 @@ class AppServiceProvider extends ServiceProvider
         // import once lost every account's creation date this way, silently.
         Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
 
-        // A job that fails for good (out of tries, or timed out) lands in failed_jobs, which
-        // nobody reads; cron output is discarded. One error line per failure is what an operator
-        // will see. (A worker that exits non-zero is logged by its schedule, routes/console.php.)
         // A program sent: each member told, in their language, by the queue (Node pushed after its
         // response). Best-effort, as Node's was: a member without push sees it in the app.
         Event::listen(AssignmentSent::class, function (AssignmentSent $e): void {
@@ -48,6 +45,9 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // A job that fails for good (out of tries, or timed out) lands in failed_jobs, which
+        // nobody reads; cron output is discarded. One error line per failure is what an operator
+        // will see. (A worker that exits non-zero is logged by its schedule, routes/console.php.)
         Queue::failing(fn (JobFailed $event) => Log::error('queued job failed', [
             'job' => $event->job->resolveName(),
             'error' => $event->exception->getMessage(),

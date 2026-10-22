@@ -12,6 +12,7 @@ use App\Push\Vapid;
 use App\Support\Input;
 use App\Support\Js;
 use App\Support\Json;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,7 @@ final class PushController
         $endpoint = Js::string($sub->endpoint);
         // Only the two keys the push protocol needs are kept, as text: the rest of `sub` is the
         // caller's, and nothing reads it.
-        DB::transaction(function () use ($user, $endpoint, $keys): void {
+        $store = fn () => DB::transaction(function () use ($user, $endpoint, $keys): void {
             // The account's row, locked: two subscribes at once cannot both slip under the cap.
             User::query()->whereKey($user->id)->lockForUpdate()->first();
             $hash = PushSubscription::hashOf($endpoint);
@@ -59,6 +60,13 @@ final class PushController
                 'p256dh' => Js::string($keys->p256dh), 'auth' => Js::string($keys->auth), 'created' => Js::isoNow(),
             ])->save();
         });
+        try {
+            $store();
+        } catch (UniqueConstraintViolationException) {
+            // The same browser subscribed by two accounts at the same moment: each locked only its
+            // own account, so both inserted. Once more, now that the other row is there to move.
+            $store();
+        }
 
         return Json::ok(['ok' => true]);
     }
@@ -80,7 +88,7 @@ final class PushController
     {
         $user = $request->user('api');
         if (PushSubscription::query()->where('user_id', $user->id)->exists()) {
-            $sender->send($user->id, Messages::test(MemberCard::state($user->id)->lang ?? null, (string) config('fitpal.rp_name')));
+            $sender->send($user->id, Messages::test(MemberCard::lang($user->id), (string) config('fitpal.rp_name')));
         }
 
         return Json::ok(['ok' => true]);
