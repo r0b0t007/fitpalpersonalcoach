@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('licences', function (Blueprint $table) {
             $table->string('id', 32)->primary();
             $table->string('user_id', 16)->index();
-            // pending|trialing|active|past_due|unpaid|paused|canceled|expired|manual
+            // pending|trialing|active|past_due|unpaid|paused|canceled|expired|manual, and revoked:
+            // a manual licence the owner took back, kept as history
             $table->string('status', 16);
             $table->string('plan', 16)->nullable();     // solo|pro|studio (App\Domain\Plans)
             $table->string('period', 8)->nullable();    // month|year; null for a manual licence

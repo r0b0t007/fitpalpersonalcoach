@@ -282,7 +282,7 @@ their coach's demo media.
 ## 6. Licensing and Creem
 
 - `licences`: `id, user_id, status (pending|trialing|active|past_due|unpaid|paused|canceled|
-  expired|manual), plan, period, source (creem|manual), creem_customer_id,
+  expired|manual|revoked), plan, period, source (creem|manual), creem_customer_id,
   creem_subscription_id, creem_product_id, checkout_id, request_id, checkout_url, checkout_at,
   trial_ends_at, period_start, period_end, cancel_at, canceled_at, disputed, last_event_id,
   last_event_at`. `billing_events (id, at)` for idempotency, newest 1000 kept.
@@ -303,11 +303,18 @@ their coach's demo media.
   `billing.orphan`. Event map: trialing/active/paid → writable; past_due → writable;
   unpaid/paused/expired → read-only; canceled keeps `period_end`; scheduled_cancel → `cancel_at`;
   update → plan and period from `product.id`; refund and dispute → audit only. Events older than
-  `last_event_at` are recorded but not applied.
+  `last_event_at` are recorded but not applied. An event for a licence row that is not the coach's
+  `licence_id` (one a grant took over: a checkout finished late, a canceled subscription's
+  `expired`) updates that row only and never moves `licence_id` off a `manual` grant; a payment
+  landing on a coach who holds a grant is audited for the owner to reconcile.
 - `GET /api/billing/me` → `{entitlement, licence (public fields), plans}`. `POST /api/billing/
   portal` → Creem's customer portal link. Plan changes and cancellation happen in the portal in
-  v1. `POST /api/admin/licence/grant {id, plan}` and `revoke {id}` create and remove `manual`
-  rows; the existing coach account receives one at cutover.
+  v1. `POST /api/admin/licence/grant {id, plan}` gives a coach a `manual` licence (or changes the
+  plan of the one in force); refused for an admin, a disabled coach, and with 409 for a Creem
+  subscription that can still bill (trialing, active, past_due, unpaid, paused) — a canceled,
+  expired or pending one is taken over and kept. `revoke {id}` marks the manual row `revoked`,
+  kept as history, and clears `licence_id`. The existing coach account receives a grant at
+  cutover. Audited `admin.licence.grant` / `.revoke`.
 - Enforcement: `RequireWriter` (402 `your plan is read-only until billing is sorted out — see
   Account › Plan & billing`) on assign, programs/save, media/exercise, the chunked upload's start,
   chunk and finish (R3), and invites/new. Cap checks at register/options (before the passkey

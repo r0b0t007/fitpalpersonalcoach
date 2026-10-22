@@ -14,6 +14,14 @@ class Licence extends Model
     /** The statuses a coach keeps writing in (canceled too, until the paid period ends). */
     public const WRITABLE = ['trialing', 'active', 'past_due', 'manual'];
 
+    /**
+     * A Creem subscription that can still bill, whether or not it writes today: paused and unpaid
+     * resume when the card goes through. A grant by hand does not take one over (the coach would
+     * pay twice, or a webhook would undo the grant). Canceled and expired ones are over; a pending
+     * checkout is not a subscription yet.
+     */
+    public const CREEM_LIVE = ['trialing', 'active', 'past_due', 'unpaid', 'paused'];
+
     public $incrementing = false;
 
     protected $keyType = 'string';
