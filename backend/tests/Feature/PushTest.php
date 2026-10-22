@@ -12,9 +12,12 @@ use App\Push\Endpoint;
 use App\Push\Messages;
 use App\Push\Sender;
 use App\Push\Vapid;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
@@ -167,7 +170,8 @@ it('sends a test push to every browser, signed and encrypted, and forgets the on
         ->and((string) $req->getBody())->not->toContain('Test notification')   // encrypted
         // Pinned to the address vetted here: curl never resolves the name itself.
         ->and($sent[0]['options']['curl'][CURLOPT_RESOLVE])->toBe(['push.example.com:443:93.184.215.14'])
-        ->and($sent[0]['options']['curl'][CURLOPT_PROTOCOLS])->toBe(CURLPROTO_HTTPS)
+        ->and($sent[0]['options']['protocols'])->toBe(['https'])
+        ->and($sent[0]['options']['proxy'])->toBe(['no' => ['*']])
         ->and($sent[0]['options']['allow_redirects'])->toBeFalse();
     // 410: that browser unsubscribed; 500: a bad moment, kept.
     expect(PushSubscription::of($a1->id)->pluck('endpoint')->all())->toBe([SUB['endpoint'], 'https://push.example.com/broken']);
@@ -327,4 +331,57 @@ it('refuses half a VAPID pair rather than handing out some other key', function 
 it('writes a routine with no name as Node did', function () {
     expect(Messages::dayReminder('en', (object) ['emoji' => '💪'])['title'])->toBe('💪 undefined today')
         ->and(Messages::dayReminder('en', (object) ['name' => null])['title'])->toBe('🏋️ null today');
+});
+
+it('sends through its own client and the real curl handler: pinned, past any proxy, https only', function () {
+    // The lab trial (2026-10-22): Guzzle refused the raw curl options and every push failed before
+    // a byte went out, while the tests above passed on a MockHandler that never reads them. So:
+    // Sender's own client, the real handler, a name that resolves nowhere (push.invalid) pinned
+    // to a listener of the test's own on loopback, and a dead proxy in the environment. The
+    // listener hearing a TLS hello proves the pin was used (nothing else could find it) and the
+    // proxy was not (the hello would have gone to 127.0.0.1:9 as a CONNECT).
+    $server = stream_socket_server('tcp://127.0.0.1:0');
+    $port = (int) substr(strrchr(stream_socket_get_name($server, false), ':'), 1);
+    $a1 = $this->f->a1;
+    subscribe($a1, withEndpoint("https://push.invalid:$port/x"))->assertOk();
+    $sender = new class extends Sender
+    {
+        protected int $timeout = 2;
+
+        protected function addresses(string $host): array
+        {
+            return $host === 'push.invalid' ? ['127.0.0.1'] : [];
+        }
+
+        protected function refused(string $ip): bool
+        {
+            return false;   // this test's own listener, on loopback
+        }
+
+        public function exposedClient(): Client
+        {
+            return $this->client();
+        }
+    };
+    $before = getenv('HTTPS_PROXY');
+    putenv('HTTPS_PROXY=http://127.0.0.1:9');
+    try {
+        $sender->send($a1->id, Messages::test(null, 'App'));
+    } finally {
+        putenv($before === false ? 'HTTPS_PROXY' : "HTTPS_PROXY=$before");
+    }
+    $conn = @stream_socket_accept($server, 1);
+    $hello = $conn ? (string) fread($conn, 5) : '';
+    expect($conn)->not->toBeFalse()
+        ->and(bin2hex(substr($hello, 0, 1)))->toBe('16');   // a TLS handshake record
+
+    // And plain http is refused by the client's protocols rule, before any connection.
+    $error = null;
+    try {
+        $sender->exposedClient()->send(new Request('POST', 'http://localhost:1/push'));
+    } catch (Throwable $e) {
+        $error = $e;
+    }
+    expect($error)->toBeInstanceOf(RequestException::class)
+        ->and($error->getMessage())->toContain('is not allowed by the protocols request option');
 });
