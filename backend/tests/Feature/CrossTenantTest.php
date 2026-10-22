@@ -12,6 +12,7 @@
 use App\Models\Assignment;
 use App\Models\CoachProgram;
 use App\Models\Invite;
+use App\Models\ProgressPhoto;
 use Tests\Support\Coaching;
 
 beforeEach(function () {
@@ -106,4 +107,12 @@ it('keeps coach B\'s demos out of coach A\'s list and bytes (the per-coach cap: 
     $this->getJson('/api/media/ex?id=mediab', bearer($this->f->a1))->assertStatus(404);
     // The admin sees every coach's, as on every other cross-coach read.
     expect($this->getJson('/api/media/exercises', bearer($this->f->admin))->json('media'))->toHaveCount(3);
+});
+
+it('keeps coach B\'s client\'s photos from coach A, by the same 403 as a photo that does not exist', function () {
+    config(['fitpal.data_dir' => sys_get_temp_dir().'/fitpal-ct-'.bin2hex(random_bytes(4))]);
+    ProgressPhoto::query()->insert(['id' => 'b1photo000000000', 'user_id' => $this->f->b1->id, 'd' => '2026-05-04', 'pose' => 'front', 'file' => 'x.jpg', 'bytes' => 1, 'mime' => 'image/jpeg', 'created' => '2026-05-04T00:00:00.000Z']);
+    $this->getJson('/api/media/photo?u='.$this->f->b1->id.'&id=b1photo000000000', bearer($this->f->a))->assertStatus(403)->assertExactJson(['error' => 'forbidden']);
+    $this->getJson('/api/media/photo?u='.$this->f->b1->id.'&id=nope', bearer($this->f->a))->assertStatus(403)->assertExactJson(['error' => 'forbidden']);
+    $this->getJson('/api/coach/member?id='.$this->f->b1->id, bearer($this->f->a))->assertStatus(403);
 });

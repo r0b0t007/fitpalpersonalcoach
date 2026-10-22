@@ -3,6 +3,7 @@
 namespace App\Coaching;
 
 use App\Models\Assignment;
+use App\Models\ProgressPhoto;
 use App\Models\User;
 use App\Models\UserState;
 use App\Support\Js;
@@ -193,8 +194,8 @@ final class MemberCard
             'meals' => Js::or($s->meals ?? null, []),
             'mealDays' => ($s->mealDays ?? null) instanceof stdClass ? $s->mealDays : new stdClass,
             'nutriTarget' => $s->nutriTarget ?? null,
-            // Progress photos are server-owned and arrive with R3; none until then.
-            'photos' => [],
+            // Server-owned, metadata only: the bytes are GET /api/media/photo's, behind its own check.
+            'photos' => ProgressPhoto::of($u->id)->get()->map(fn (ProgressPhoto $p) => $p->toPublic())->all(),
             'workouts' => array_reverse(Js::list($s->workouts ?? null)),
             'body' => Js::or($s->body ?? null, 'male'),
             'targetW' => $s->targetW ?? null,

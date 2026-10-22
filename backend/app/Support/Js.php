@@ -288,6 +288,17 @@ final class Js
         return $ms;
     }
 
+    /**
+     * api/domain.mjs isRealDate: a strict YYYY-MM-DD that is a real calendar day. Node built it with
+     * Date.UTC, which reads a year under 100 as 19xx — so `0050-01-01` came back as 1950 and was
+     * refused. Kept: years below 100 are not dates here either.
+     */
+    public static function isRealDate(mixed $iso): bool
+    {
+        return is_string($iso) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $iso, $m) === 1
+            && (int) $m[1] >= 100 && checkdate((int) $m[2], (int) $m[3], (int) $m[1]);
+    }
+
     /** api/domain.mjs addDaysISO: a calendar date moved by whole days, '' for anything else. */
     public static function addDaysIso(string $iso, int $days): string
     {

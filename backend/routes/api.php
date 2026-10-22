@@ -11,6 +11,7 @@ use App\Http\Controllers\ExerciseMediaController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PairController;
+use App\Http\Controllers\PhotoController;
 use App\Http\Middleware\CloseOnRefusal;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireCoach;
@@ -48,6 +49,9 @@ $routes = static function (): void {
     // wraps the sign-in and coach checks too — their refusals must close the connection as well.
     Route::post('/media/exercise', [ExerciseMediaController::class, 'upload'])
         ->middleware([CloseOnRefusal::class, 'auth:api', RequireCoach::class]);
+    // A client's progress photo, for themselves: the same raw-body upload, any signed-in account.
+    Route::post('/media/photo', [PhotoController::class, 'upload'])
+        ->middleware([CloseOnRefusal::class, 'auth:api']);
 
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/me', [AuthController::class, 'me']);
@@ -59,6 +63,9 @@ $routes = static function (): void {
         // Demo media: listed and served to whoever may see each row (ExerciseMedia::visibleTo).
         Route::get('/media/exercises', [ExerciseMediaController::class, 'index']);
         Route::get('/media/ex', [ExerciseMediaController::class, 'show']);
+        // Progress photos: the caller's own list; the bytes to the owner and whoever coaches them.
+        Route::get('/media/photos', [PhotoController::class, 'index']);
+        Route::get('/media/photo', [PhotoController::class, 'show']);
         // A client's offers, from whichever coach sent them.
         Route::get('/assignments', [AssignmentController::class, 'inbox']);
         Route::get('/assignments/history', [AssignmentController::class, 'history']);
