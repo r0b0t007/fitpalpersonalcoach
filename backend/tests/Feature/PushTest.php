@@ -13,7 +13,7 @@ use App\Push\Messages;
 use App\Push\Sender;
 use App\Push\Vapid;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
@@ -333,25 +333,55 @@ it('writes a routine with no name as Node did', function () {
         ->and(Messages::dayReminder('en', (object) ['name' => null])['title'])->toBe('🏋️ null today');
 });
 
-it('sends through the real curl handler with these options — what the scripted transport cannot show', function () {
-    // The lab trial (2026-10-22): Guzzle refuses CURLOPT_PROTOCOLS in `curl` and every push failed
-    // before a byte went out, while every test here passed on a MockHandler that never reads them.
-    // A closed local port: the request must get as far as connecting (and be refused there), not
-    // be rejected as a request Guzzle will not build.
-    $client = new Client(['timeout' => 5, 'connect_timeout' => 5, 'http_errors' => false]);
+it('sends through its own client and the real curl handler: pinned, past any proxy, https only', function () {
+    // The lab trial (2026-10-22): Guzzle refused the raw curl options and every push failed before
+    // a byte went out, while the tests above passed on a MockHandler that never reads them. So:
+    // Sender's own client, the real handler, a name that resolves nowhere (push.invalid) pinned
+    // to a listener of the test's own on loopback, and a dead proxy in the environment. The
+    // listener hearing a TLS hello proves the pin was used (nothing else could find it) and the
+    // proxy was not (the hello would have gone to 127.0.0.1:9 as a CONNECT).
+    $server = stream_socket_server('tcp://127.0.0.1:0');
+    $port = (int) substr(strrchr(stream_socket_get_name($server, false), ':'), 1);
+    $a1 = $this->f->a1;
+    subscribe($a1, withEndpoint("https://push.invalid:$port/x"))->assertOk();
+    $sender = new class extends Sender
+    {
+        protected int $timeout = 2;
+
+        protected function addresses(string $host): array
+        {
+            return $host === 'push.invalid' ? ['127.0.0.1'] : [];
+        }
+
+        protected function refused(string $ip): bool
+        {
+            return false;   // this test's own listener, on loopback
+        }
+
+        public function exposedClient(): Client
+        {
+            return $this->client();
+        }
+    };
+    $before = getenv('HTTPS_PROXY');
+    putenv('HTTPS_PROXY=http://127.0.0.1:9');
+    try {
+        $sender->send($a1->id, Messages::test(null, 'App'));
+    } finally {
+        putenv($before === false ? 'HTTPS_PROXY' : "HTTPS_PROXY=$before");
+    }
+    $conn = @stream_socket_accept($server, 1);
+    $hello = $conn ? (string) fread($conn, 5) : '';
+    expect($conn)->not->toBeFalse()
+        ->and(bin2hex(substr($hello, 0, 1)))->toBe('16');   // a TLS handshake record
+
+    // And plain http is refused by the client's protocols rule, before any connection.
     $error = null;
     try {
-        $client->sendAsync(new Request('POST', 'https://localhost:1/push'), Sender::options(['localhost:1:127.0.0.1']))->wait();
+        $sender->exposedClient()->send(new Request('POST', 'http://localhost:1/push'));
     } catch (Throwable $e) {
         $error = $e;
     }
-    expect($error)->toBeInstanceOf(ConnectException::class);
-    // And plain http is refused by the protocols option, as the raw curl option did.
-    $error = null;
-    try {
-        $client->sendAsync(new Request('POST', 'http://localhost:1/push'), Sender::options([]))->wait();
-    } catch (Throwable $e) {
-        $error = $e;
-    }
-    expect($error)->not->toBeNull()->and($error)->not->toBeInstanceOf(ConnectException::class);
+    expect($error)->toBeInstanceOf(RequestException::class)
+        ->and($error->getMessage())->toContain('is not allowed by the protocols request option');
 });

@@ -49,6 +49,9 @@ class Sender
     /** DNS_BUDGET, as a property a test can shorten. */
     protected float $dnsBudget = self::DNS_BUDGET;
 
+    /** TIMEOUT, likewise: a test that lets a send reach a listener which never answers. */
+    protected int $timeout = self::TIMEOUT;
+
     /** @param  HandlerStack|null  $handler  a test's transport; production uses curl */
     public function __construct(private readonly ?HandlerStack $handler = null) {}
 
@@ -94,7 +97,8 @@ class Sender
                     continue;
                 }
                 $request = $builder->request(new Subscription($endpoint, $sub->p256dh, $sub->auth, ContentEncoding::aes128gcm), $body);
-                $sends[$sub->id] = fn () => $client->sendAsync($request, self::options($pin));
+                // The one thing that differs per request: where this host may be connected to.
+                $sends[$sub->id] = fn () => $client->sendAsync($request, $pin === [] ? [] : ['curl' => [CURLOPT_RESOLVE => $pin]]);
             } catch (Throwable $e) {
                 // Keys a browser would never have made: that one is skipped, as Node's send threw.
                 Log::warning('push send failed', ['user' => $userId, 'error' => $e->getMessage()]);
@@ -138,7 +142,7 @@ class Sender
         }
         $literal = trim($host, '[]');
         if (filter_var($literal, FILTER_VALIDATE_IP) !== false) {
-            return Endpoint::isPrivateAddr($literal) ? null : [];
+            return $this->refused($literal) ? null : [];
         }
         if (! array_key_exists($host, $this->resolved)) {
             if (microtime(true) > $this->dnsDeadline) {
@@ -147,7 +151,7 @@ class Sender
             $this->resolved[$host] = $this->addresses($host);
         }
         $addrs = $this->resolved[$host];
-        if ($addrs === [] || array_filter($addrs, Endpoint::isPrivateAddr(...)) !== []) {
+        if ($addrs === [] || array_filter($addrs, $this->refused(...)) !== []) {
             return null;
         }
         $v6 = array_map(fn (string $a) => str_contains($a, ':') ? "[$a]" : $a, $addrs);
@@ -165,20 +169,6 @@ class Sender
         return (string) preg_replace_callback('#^[a-z][a-z0-9+.-]*://[^/?\#]*#i', fn (array $m) => strtolower($m[0]), $endpoint);
     }
 
-    /**
-     * The request options for one push: https only and no proxy, as Guzzle's own options — Guzzle
-     * manages CURLOPT_PROTOCOLS and CURLOPT_NOPROXY itself and refuses them raw (the lab trial's
-     * every push failed so) — and the vetted addresses pinned as CURLOPT_RESOLVE, which it lets
-     * through.
-     *
-     * @param  list<string>  $pin  pin()'s answer: `host:port:addr,…`, or [] for an address literal
-     */
-    public static function options(array $pin): array
-    {
-        return ['protocols' => ['https'], 'proxy' => ['no' => ['*']]]
-            + ($pin === [] ? [] : ['curl' => [CURLOPT_RESOLVE => $pin]]);
-    }
-
     /** Every address the name resolves to, v4 and v6. A seam for tests: they have no DNS. */
     protected function addresses(string $host): array
     {
@@ -188,13 +178,30 @@ class Sender
         return array_values(array_unique([...$v4, ...$v6]));
     }
 
-    private function client(): Client
+    /**
+     * An address no push may connect to (Endpoint::isPrivateAddr). A seam for the one test that
+     * sends to a listener of its own on loopback, through the real handler.
+     */
+    protected function refused(string $ip): bool
+    {
+        return Endpoint::isPrivateAddr($ip);
+    }
+
+    /**
+     * The client every push goes through, its rules set once, as Guzzle's own options: Guzzle
+     * manages CURLOPT_PROTOCOLS and CURLOPT_NOPROXY itself and refuses them raw (the lab trial's
+     * every push failed so). https only; no proxy — not even one the environment names, which
+     * would resolve the host itself past the pin; no redirects. Per request, only the pin.
+     */
+    protected function client(): Client
     {
         $options = [
-            'timeout' => self::TIMEOUT,
-            'connect_timeout' => self::TIMEOUT,
+            'timeout' => $this->timeout,
+            'connect_timeout' => $this->timeout,
             'allow_redirects' => false,
             'http_errors' => false,
+            'protocols' => ['https'],
+            'proxy' => ['no' => ['*']],
         ];
 
         return new Client($options + ($this->handler !== null ? ['handler' => $this->handler] : []));
