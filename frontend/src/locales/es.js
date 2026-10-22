@@ -1488,6 +1488,8 @@ export default {
   'Changed a client’s coach': 'Cambió el coach de un cliente',
   'Granted a plan': 'Concedió un plan',
   'Revoked a granted plan': 'Revocó un plan concedido',
+  'Deleted an exercise demo': 'Eliminó una demo de ejercicio',
+  'no such media': 'ese medio no existe',
   'A payment update from Creem': 'Una actualización de pago de Creem',
   'An out-of-date payment update from Creem (ignored)': 'Una actualización de pago obsoleta de Creem (ignorada)',
   'A Creem event with nothing to apply': 'Un evento de Creem sin nada que aplicar',

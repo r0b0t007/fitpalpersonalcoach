@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\Js;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A coach's licence (spec §6). Belongs to the coach by `user_id` and is never tenant-scoped: it is
@@ -53,6 +54,12 @@ class Licence extends Model
     public function canStillBill(): bool
     {
         return $this->source === 'creem' && in_array($this->status, self::CREEM_LIVE, true) && ! $this->isStale();
+    }
+
+    /** The coach this licence is for (the admin panel's columns and filters). */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     protected function casts(): array

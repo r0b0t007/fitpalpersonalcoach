@@ -33,6 +33,7 @@ const LABELS = {
   'admin.user.unassign': () => t('Took a client off their coach’s list'),
   'admin.licence.grant': () => t('Granted a plan'),
   'admin.licence.revoke': () => t('Revoked a granted plan'),
+  'admin.media.delete': () => t('Deleted an exercise demo'),
   'billing.event': () => t('A payment update from Creem'),
   'billing.stale': () => t('An out-of-date payment update from Creem (ignored)'),
   'billing.ignored': () => t('A Creem event with nothing to apply'),

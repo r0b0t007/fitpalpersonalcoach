@@ -49,6 +49,7 @@ final class Request extends BaseRequest
         $path = ltrim($request->getPathInfo(), '/');
         $path = str_starts_with($path, 'api/') ? substr($path, 4) : $path;
 
-        return ! preg_match('#^(admin-panel|livewire)(/|$)#', $path);
+        // Livewire 4 serves its endpoints under `livewire-<8 hex of the app key>` (EndpointResolver).
+        return ! preg_match('#^(admin-panel|livewire(-[0-9a-f]{8})?)(/|$)#', $path);
     }
 }

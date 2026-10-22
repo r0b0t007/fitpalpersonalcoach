@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Tenancy\OwnedByCoach;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A coach's demo media for an exercise. Scoped to the uploading coach on coach routes
@@ -27,6 +28,12 @@ class ExerciseMedia extends Model
     public $timestamps = false;
 
     protected $fillable = ['id', 'ex_id', 'file', 'label', 'bytes', 'mime', 'status', 'created'];
+
+    /** The coach whose demo this is (the admin panel's columns and filters). */
+    public function coach(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'coach_id');
+    }
 
     protected function casts(): array
     {

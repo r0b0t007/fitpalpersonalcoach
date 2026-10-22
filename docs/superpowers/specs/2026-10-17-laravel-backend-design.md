@@ -138,9 +138,13 @@ group also answers the prefix-stripped `/health` in case a proxy strips it.
   `coach` and `self_serve`, no licence (read-only until the checkout), never admin; self-serve
   accounts do not count against the bootstrap code (a stranger signing up first must not kill
   it). The mail is in `lang` (no saved language yet), sent after the response, never blocking.
-- Filament uses its own `web` guard with email + password; the owner account is created with
-  `make:filament-user`; the panel lives under the `/api` mount at `/admin-panel`, restricted to
-  `admin = true`.
+- Filament (5, on Livewire 4) uses its own `web` guard with email + password; the owner's email and
+  password are set on the existing admin account with `php artisan fitpal:panel-login <id>`
+  (`make:filament-user` would create a new account, with an id this table cannot take); the panel
+  lives under the `/api` mount at `/admin-panel`, restricted to admins (`User::canAccessPanel`).
+  Its actions are the admin API's own code (`App\Admin\Accounts`), audited the same. Livewire 4
+  serves its endpoints under `livewire-<8 hex of APP_KEY>`, which `App\Http\Request::isJsonApi`
+  and the exception renderers treat as the panel's, not the JSON API's.
 
 ### 4a. Coach sign-in by email (magic link) — R4
 Passkeys are the primary sign-in and the only one for clients. A coach also has an email, and

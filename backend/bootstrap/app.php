@@ -70,11 +70,15 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // This backend is an API; only the Filament panel renders HTML.
-        $exceptions->shouldRenderJsonWhen(fn (Request $request) => ! $request->is('admin-panel*', 'api/admin-panel*'));
+        $exceptions->shouldRenderJsonWhen(fn (Request $request) => AppRequest::isJsonApi($request));
 
         // A refusal the caller may read: the English sentence (and its template, if any).
         $exceptions->render(fn (ClientSafe $e) => Json::error($e->status, $e->getMessage(), $e->extra, $e->headers)); // relayed: checked where each ClientSafe is thrown
-        $exceptions->render(fn (AuthenticationException $e) => Json::error(401, 'not signed in'));
+        // The admin panel and its Livewire endpoint are Laravel's own pages: a guest is sent to the
+        // panel's sign-in, a form's errors go back to the form, a refusal is an HTML page. These
+        // renderers answer for the JSON API only, and return null (Laravel's default) for them.
+        $panel = fn (Request $request) => ! AppRequest::isJsonApi($request);
+        $exceptions->render(fn (AuthenticationException $e, Request $request) => $panel($request) ? null : Json::error(401, 'not signed in'));
         // PHP refused the body (post_max_size) before any controller ran: say what the sync
         // route would have said. README.md names the ini values production needs.
         // Past post_max_size PHP refuses the body before any route runs: an upload is told its own
@@ -82,19 +86,19 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (PostTooLargeException $e, Request $request) => Upload::tooLargeFor($request) ?? DataController::tooLarge());
         // Unknown path or method: the Node API looked routes up by "METHOD /path" and answered
         // 404 for both, before any other check.
-        $exceptions->render(fn (NotFoundHttpException $e) => Json::error(404, 'not found'));
-        $exceptions->render(fn (MethodNotAllowedHttpException $e) => Json::error(404, 'not found'));
+        $exceptions->render(fn (NotFoundHttpException $e, Request $request) => $panel($request) ? null : Json::error(404, 'not found'));
+        $exceptions->render(fn (MethodNotAllowedHttpException $e, Request $request) => $panel($request) ? null : Json::error(404, 'not found'));
         // Laravel's own framework-level refusals (abort(), the throttler's 429, maintenance's
         // 503, validation) keep their status in the envelope, but never their framework text
         // ("Too Many Attempts.", "Service Unavailable"): the app shows `error` translated, and
         // only the catalogue's sentences can be. Routes refuse through ClientSafe or a literal
         // with a sentence of their own; this is the net under anything that does not.
-        $exceptions->render(fn (HttpExceptionInterface $e) => Json::error($e->getStatusCode(), Json::refusal($e->getStatusCode()), [], $e->getHeaders()));
-        $exceptions->render(fn (ValidationException $e) => Json::error(400, Json::refusal(400)));
+        $exceptions->render(fn (HttpExceptionInterface $e, Request $request) => $panel($request) ? null : Json::error($e->getStatusCode(), Json::refusal($e->getStatusCode()), [], $e->getHeaders()));
+        $exceptions->render(fn (ValidationException $e, Request $request) => $panel($request) ? null : Json::error(400, Json::refusal(400)));
         $exceptions->render(fn (HttpResponseException $e) => $e->getResponse());
         // Everything else is a bug; its message is for the log, not the browser.
-        $exceptions->render(function (Throwable $e, Request $request) {
-            if (config('app.debug') || ! $request->expectsJson() && $request->is('admin-panel*', 'api/admin-panel*')) {
+        $exceptions->render(function (Throwable $e, Request $request) use ($panel) {
+            if (config('app.debug') || $panel($request)) {
                 return null;
             }
 
