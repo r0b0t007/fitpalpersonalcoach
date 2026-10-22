@@ -28,6 +28,25 @@ API_TARGET=http://127.0.0.1:8000 npm run dev
 
 The Vite proxy forwards `/api` and sets the `Origin` header the forgery check expects.
 
+## Admin panel
+
+The owner's console (Filament 5) is at `/admin-panel` — `/api/admin-panel` on the server, where the
+app is mounted at `/api`. Its CSS and JS are published, not committed (`.gitignore`), so every
+deploy runs, after `composer install`:
+
+```sh
+php artisan filament:assets
+```
+
+The owner signs in with an email and a password set on their existing admin account (Filament's
+`make:filament-user` would create a new account instead):
+
+```sh
+php artisan fitpal:panel-login <admin id>   # asks for the email and, hidden, the password
+```
+
+Only admins get in; every other account signs in with a passkey and has no password.
+
 ## Test
 
 ```sh

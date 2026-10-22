@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use App\Support\Js;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laragear\WebAuthn\Contracts\WebAuthnAuthenticatable;
@@ -16,7 +19,7 @@ use Laragear\WebAuthn\WebAuthnData;
  * base64url string the Node API minted (12 random bytes), kept so every reference in the imported
  * data — coachId, invitedBy, media rows, the passkeys' user handles — still points at the row.
  */
-class User extends Authenticatable implements WebAuthnAuthenticatable
+class User extends Authenticatable implements FilamentUser, WebAuthnAuthenticatable
 {
     use HasFactory, Notifiable, WebAuthnAuthentication;
 
@@ -35,6 +38,23 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     ];
 
     protected $hidden = ['password', 'remember_token'];
+
+    /**
+     * The Filament panel (/admin-panel) is the owner's: admins only, never a disabled account. Its
+     * login is email + password on the `web` guard; the owner's password is set on the admin row
+     * with `php artisan fitpal:panel-login <id>` (make:filament-user would create a new account),
+     * and no other account has one.
+     */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->isAdmin() && ! $this->disabled;
+    }
+
+    /** A client's coach (the admin panel's columns); not `coach`, which is the role flag. */
+    public function coachAccount(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'coach_id');
+    }
 
     protected function casts(): array
     {

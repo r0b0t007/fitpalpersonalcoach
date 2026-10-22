@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Admin\Accounts;
 use App\Audit\Audit;
 use App\Auth\CoachSeat;
 use App\Auth\InviteGate;
@@ -201,9 +202,7 @@ final class InviteController
     /** POST /api/admin/invites/new — a general code: it binds nobody. */
     public function adminCreate(Request $request): JsonResponse
     {
-        $admin = $request->user('api');
-        $invite = Invite::mint($admin, Input::jsString($request, 'note'));
-        Audit::record($request, 'admin.invite.create', ['user' => $admin, 'msg' => $invite->code]);
+        $invite = Accounts::mintInvite($request, $request->user('api'), Input::jsString($request, 'note'));
 
         return Json::ok(['invite' => $invite->toNode()]);
     }
@@ -211,7 +210,9 @@ final class InviteController
     /** POST /api/admin/invites/revoke */
     public function adminRevoke(Request $request): JsonResponse
     {
-        return self::revoke($request, 'admin.invite.revoke');
+        Accounts::revokeInvite($request, $request->user('api'), Input::jsString($request, 'code'));
+
+        return Json::ok(['ok' => true]);
     }
 
     /**

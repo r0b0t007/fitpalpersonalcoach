@@ -3,13 +3,11 @@
     "name": "fitpal/coach-backend",
     "type": "project",
     "description": "FitPal Coach API: the Laravel backend behind coach.fitpal.ma/api.",
-    "keywords": [
-        "laravel",
-        "framework"
-    ],
+    "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
         "php": "^8.4",
+        "filament/filament": "^5.0",
         "laragear/webauthn": "^5.0",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0",
