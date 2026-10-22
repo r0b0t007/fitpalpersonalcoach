@@ -211,8 +211,9 @@ final class ImportLegacy extends Command
             }
         }
 
-        $coaching = LegacyCoaching::import($dbo, $dir, array_flip(User::query()->pluck('id')->all()), $skipped);
-        $media = LegacyMedia::import($dbo, $dir, array_flip(User::query()->pluck('id')->all()), $skipped);
+        $accounts = array_flip(User::query()->pluck('id')->all());
+        $coaching = LegacyCoaching::import($dbo, $dir, $accounts, $skipped);
+        $media = LegacyMedia::import($dbo, $dir, $accounts, $skipped);
 
         $this->info("users $users · passkeys $creds · states $states · audit $audit · invites {$coaching['invites']} · programs {$coaching['programs']} · assignments {$coaching['assignments']}"
             ." · push {$media['subs']} · demos {$media['media']} · photos {$media['photos']}");
@@ -222,11 +223,12 @@ final class ImportLegacy extends Command
         if ($media['removed'] > 0) {
             $this->warn("removed {$media['removed']} subscription/demo/photo row(s) the files no longer hold");
         }
-        foreach (LegacyMedia::vapidReport($dir) as $w) {
+        foreach ([...LegacyMedia::dataDirReport($dir), ...LegacyMedia::vapidReport($dir)] as $w) {
             $this->warn($w);
         }
         foreach ($skipped as $s) {
-            $this->warn("skipped $s");
+            // A deliberate change is said as one (`kept: …`); everything else was left out.
+            $this->warn(str_starts_with($s, 'kept: ') ? $s : "skipped $s");
         }
 
         return $this->option('verify') ? $this->verify($db, $dbo, $dir) : self::SUCCESS;
@@ -253,9 +255,9 @@ final class ImportLegacy extends Command
         // unique() keeps the FIRST row per id, as Node's db.users.find does; keyBy alone keeps the last.
         $byId = collect($db['users'] ?? [])->filter(fn ($u) => is_string($u['id'] ?? null))->unique('id')->keyBy('id');
         $adminUids = (array) config('fitpal.admin_uids');
-        $coaching = LegacyCoaching::verifyContext($dbo, $dir, array_flip(User::query()->pluck('id')->all()));
-        $ignored = [];
-        $mediaRows = LegacyMedia::rows($dbo, $dir, array_flip(User::query()->pluck('id')->all()), $ignored);
+        $accounts = array_flip(User::query()->pluck('id')->all());
+        $coaching = LegacyCoaching::verifyContext($dbo, $dir, $accounts);
+        $mediaCtx = LegacyMedia::verifyContext($dbo, $dir, $accounts);
         $problems = [];
         $get = function (User $user, string $path, string $method = 'GET') use ($kernel) {
             $request = Request::create($path, $method, server: ['HTTP_AUTHORIZATION' => 'Bearer '.SessionToken::make($user)]);
@@ -309,7 +311,7 @@ final class ImportLegacy extends Command
 
             // R3: the demo list (with Laravel's visibility), the photo list, every byte stream read
             // back (HEAD: there when Node had the file, a 404 where Node answered one), and push.
-            $node = LegacyMedia::nodeAnswers($mediaRows, $user, $dir);
+            $node = LegacyMedia::nodeAnswers($mediaCtx, $user, $dir);
             foreach (['/api/media/exercises' => 'media', '/api/media/photos' => 'photos'] as $route => $field) {
                 $laravel = json_decode((string) $get($user, $route)->getContent())->{$field} ?? null;
                 if (json_encode(LegacyCoaching::canonical($laravel), Json::FLAGS) !== json_encode(LegacyCoaching::canonical($node[$field]), Json::FLAGS)) {

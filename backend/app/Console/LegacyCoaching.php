@@ -125,10 +125,7 @@ final class LegacyCoaching
             }
         }
 
-        $bySafe = [];
-        foreach (array_keys($accounts) as $id) {
-            $bySafe[Uid::safe((string) $id)] ??= (string) $id;
-        }
+        $bySafe = self::bySafeUid($accounts);
         $libraries = [];
         foreach (self::files($dir, 'coach-') as $uid => $file) {
             $coachId = $bySafe[$uid] ?? null;
@@ -367,17 +364,45 @@ final class LegacyCoaching
      */
     private static function readPrograms(string $file): ?array
     {
+        [$read, $d] = self::readJson($file);
+
+        return ! $read ? null : ($d instanceof stdClass ? Js::list($d->programs ?? null) : []);
+    }
+
+    /**
+     * A data file as Node's JSON.parse read it (Input::parse): [true, the value], or [false, null]
+     * for one that is empty or would have thrown — a torn copy, which an import must not mirror.
+     *
+     * @return array{bool, mixed}
+     */
+    public static function readJson(string $file): array
+    {
         $raw = @file_get_contents($file);
         if (! is_string($raw) || trim($raw) === '') {
-            return null;
+            return [false, null];
         }
         try {
-            $d = Input::parse($raw);
+            return [true, Input::parse($raw)];
         } catch (Throwable) {
-            return null;
+            return [false, null];
+        }
+    }
+
+    /**
+     * Account ids by the name their files carry (Uid::safe, as Node's safeUid named them); the
+     * first account wins a name two ids would share.
+     *
+     * @param  array<string, true>  $accounts
+     * @return array<string, string>
+     */
+    public static function bySafeUid(array $accounts): array
+    {
+        $bySafe = [];
+        foreach (array_keys($accounts) as $id) {
+            $bySafe[Uid::safe((string) $id)] ??= (string) $id;
         }
 
-        return $d instanceof stdClass ? Js::list($d->programs ?? null) : [];
+        return $bySafe;
     }
 
     /**
@@ -387,7 +412,7 @@ final class LegacyCoaching
      *
      * @param  array<string, array{int, bool}>  $fields
      */
-    private static function fits(stdClass $row, array $fields, string $label, array &$skipped): bool
+    public static function fits(stdClass $row, array $fields, string $label, array &$skipped): bool
     {
         foreach ($fields as $field => [$max, $required]) {
             $v = $row->{$field} ?? null;
