@@ -1489,6 +1489,8 @@ export default {
   'Granted a plan': 'Concedió un plan',
   'Revoked a granted plan': 'Revocó un plan concedido',
   'Deleted an exercise demo': 'Eliminó una demo de ejercicio',
+  'Signed in to the admin panel': 'Entró en el panel de administración',
+  'Failed sign-in to the admin panel': 'Intento fallido de entrar en el panel de administración',
   'no such media': 'ese medio no existe',
   'A payment update from Creem': 'Una actualización de pago de Creem',
   'An out-of-date payment update from Creem (ignored)': 'Una actualización de pago obsoleta de Creem (ignorada)',

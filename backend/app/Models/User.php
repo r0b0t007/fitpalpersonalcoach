@@ -41,8 +41,9 @@ class User extends Authenticatable implements FilamentUser, WebAuthnAuthenticata
 
     /**
      * The Filament panel (/admin-panel) is the owner's: admins only, never a disabled account. Its
-     * login is email + password on the `web` guard; the owner's password is set with
-     * `php artisan make:filament-user` on the admin row, and no other account has one.
+     * login is email + password on the `web` guard; the owner's password is set on the admin row
+     * with `php artisan fitpal:panel-login <id>` (make:filament-user would create a new account),
+     * and no other account has one.
      */
     public function canAccessPanel(Panel $panel): bool
     {

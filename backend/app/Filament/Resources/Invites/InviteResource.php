@@ -51,18 +51,18 @@ class InviteResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('state')->options(['open' => 'Open', 'used' => 'Used', 'revoked' => 'Revoked'])
-                    ->query(fn (Builder $q, array $data) => match ($data['value'] ?? null) {
-                        'open' => $q->whereNull('used_by')->where('revoked', false),
-                        'used' => $q->whereNotNull('used_by'),
-                        'revoked' => $q->where('revoked', true),
-                        default => $q,
+                    ->query(fn (Builder $query, array $data) => match ($data['value'] ?? null) {
+                        'open' => $query->whereNull('used_by')->where('revoked', false),
+                        'used' => $query->whereNotNull('used_by'),
+                        'revoked' => $query->where('revoked', true),
+                        default => $query,
                     }),
                 TernaryFilter::make('general')->label('General codes')
-                    ->queries(true: fn (Builder $q) => $q->doesntHave('coach'), false: fn (Builder $q) => $q->has('coach')),
+                    ->queries(true: fn (Builder $query) => $query->doesntHave('coach'), false: fn (Builder $query) => $query->has('coach')),
             ])
             ->headerActions([
                 Action::make('mint')->label('New general code')->icon(Heroicon::OutlinedPlus)
-                    ->schema([TextInput::make('note')->maxLength(80)])
+                    ->schema([TextInput::make('note')->maxLength(60)])   // Invite::mint keeps 60
                     ->action(fn (array $data) => AdminAction::run(fn (Request $r, User $admin) => Accounts::mintInvite($r, $admin, (string) ($data['note'] ?? '')), 'Code created')),
             ])
             ->recordActions([

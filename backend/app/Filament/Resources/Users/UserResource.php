@@ -6,6 +6,7 @@ use App\Admin\Accounts;
 use App\Domain\Entitlement;
 use App\Domain\Plans;
 use App\Filament\AdminAction;
+use App\Filament\Entitlements;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\User;
 use BackedEnum;
@@ -50,17 +51,19 @@ class UserResource extends Resource
                     ->state(fn (User $u) => $u->isAdmin() ? 'admin' : ($u->isCoach() ? 'coach' : 'client')),
                 TextColumn::make('coachAccount.name')->label('Coach')->placeholder('—'),
                 TextColumn::make('plan')->badge()->placeholder('—')
-                    ->state(fn (User $u) => $u->isCoach() && ! $u->isAdmin() ? Entitlement::for($u)->status : null),
+                    ->state(fn (User $u) => $u->isCoach() && ! $u->isAdmin() ? Entitlements::for($u)->status : null),
                 IconColumn::make('disabled')->boolean(),
                 TextColumn::make('created_at')->label('Created')->dateTime()->sortable(),
             ])
             ->filters([
                 SelectFilter::make('role')->options(['coach' => 'Coaches', 'client' => 'Clients', 'admin' => 'Admins'])
-                    ->query(fn (Builder $q, array $data) => match ($data['value'] ?? null) {
-                        'coach' => $q->where('coach', true),
-                        'client' => $q->where('coach', false)->where('admin', false),
-                        'admin' => $q->where('admin', true),
-                        default => $q,
+                    // As id lists, not nested where() closures (the filter's builder carries no model
+                    // for them). An admin, by flag or ADMIN_UIDS, coaches too (isCoach).
+                    ->query(fn (Builder $query, array $data) => match ($data['value'] ?? null) {
+                        'coach' => $query->whereIn('id', self::coachIds()),
+                        'client' => $query->whereNotIn('id', self::coachIds()),
+                        'admin' => $query->whereIn('id', self::adminIds()),
+                        default => $query,
                     }),
                 TernaryFilter::make('disabled'),
             ])
@@ -83,8 +86,7 @@ class UserResource extends Resource
                         ->visible(fn (User $u) => ! $u->isCoach())
                         ->schema([
                             Select::make('coachId')->label('Coach')->placeholder('No coach')
-                                ->options(fn () => User::query()->where('disabled', false)
-                                    ->where(fn ($q) => $q->where('coach', true)->orWhere('admin', true))->orderBy('name')->pluck('name', 'id')),
+                                ->options(fn () => User::query()->where('disabled', false)->whereIn('id', self::coachIds())->orderBy('name')->pluck('name', 'id')),
                         ])
                         ->fillForm(fn (User $u) => ['coachId' => $u->coach_id])
                         ->action(fn (User $u, array $data) => AdminAction::run(fn (Request $r, User $admin) => Accounts::assignCoach($r, $admin, $u->id, (string) ($data['coachId'] ?? '')), 'Coach updated')),
@@ -97,6 +99,18 @@ class UserResource extends Resource
                         ->action(fn (User $u) => AdminAction::run(fn (Request $r, User $admin) => Accounts::revoke($r, $admin, $u->id), 'Granted plan revoked')),
                 ]),
             ]);
+    }
+
+    /** @return list<string> admins as isAdmin() has them: the flag, or ADMIN_UIDS */
+    private static function adminIds(): array
+    {
+        return array_values(array_unique([...User::query()->where('admin', true)->pluck('id')->all(), ...(array) config('fitpal.admin_uids', [])]));
+    }
+
+    /** @return list<string> everyone who may coach (isCoach): the coach flag, or an admin */
+    private static function coachIds(): array
+    {
+        return array_values(array_unique([...User::query()->where('coach', true)->pluck('id')->all(), ...self::adminIds()]));
     }
 
     /** @return array<string, string> */

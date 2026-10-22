@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\AuditEvents;
 
+use App\Audit\Audit;
 use App\Filament\Resources\AuditEvents\Pages\ListAuditEvents;
 use App\Models\AuditEvent;
 use BackedEnum;
@@ -25,6 +26,15 @@ class AuditEventResource extends Resource
 
     protected static ?int $navigationSort = 5;
 
+    /** What retention keeps (AUDIT_DAYS, AUDIT_MAX), as the API serves it — even before the hourly prune. */
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        Audit::kept($query->getQuery());
+
+        return $query;
+    }
+
     public static function canCreate(): bool
     {
         return false;
@@ -46,7 +56,7 @@ class AuditEventResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('category')->options(array_combine($c = ['auth', 'login', 'account', 'admin', 'coach', 'invite', 'billing'], $c))
-                    ->query(fn (Builder $q, array $data) => ($data['value'] ?? null) ? $q->where('ev', 'like', $data['value'].'.%') : $q),
+                    ->query(fn (Builder $query, array $data) => ($data['value'] ?? null) ? $query->where('ev', 'like', $data['value'].'.%') : $query),
                 TernaryFilter::make('ok')->label('Outcome')->trueLabel('Succeeded')->falseLabel('Refused or failed'),
             ]);
     }

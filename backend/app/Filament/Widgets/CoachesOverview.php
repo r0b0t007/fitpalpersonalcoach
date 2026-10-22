@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Domain\Entitlement;
+use App\Filament\Entitlements;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -15,18 +15,31 @@ class CoachesOverview extends StatsOverviewWidget
 {
     protected static ?int $sort = 1;
 
+    /** No polling: each refresh reads every coach's licence; the owner reloads when they want. */
+    protected ?string $pollingInterval = null;
+
     protected function getStats(): array
     {
-        $by = ['writing' => 0, 'trialing' => 0, 'failing' => 0, 'readOnly' => 0];
-        $coaches = User::query()->where('coach', true)->where('admin', false)->where('disabled', false)->get();
+        $by = ['writing' => 0, 'trialing' => 0, 'failing' => 0, 'readOnly' => 0, 'unbilled' => 0];
+        // Admins (by flag or ADMIN_UIDS) run the instance; they are nobody's paying coach.
+        $coaches = User::query()->where('coach', true)->where('disabled', false)->get()->reject(fn (User $u) => $u->isAdmin());
         foreach ($coaches as $coach) {
-            $e = Entitlement::for($coach);
+            $e = Entitlements::for($coach);
             match (true) {
+                // Billing off: every coach writes, and none of them pays.
+                $e->status === 'unlicensed' => $by['unbilled']++,
                 in_array($e->status, ['past_due', 'unpaid', 'paused'], true) => $by['failing']++,
                 ! $e->canWrite => $by['readOnly']++,
                 $e->status === 'trialing' => $by['trialing']++,
                 default => $by['writing']++,
             };
+        }
+
+        if ($by['unbilled'] > 0) {
+            return [
+                Stat::make('Coaches', (string) $coaches->count()),
+                Stat::make('Billing off', (string) $by['unbilled'])->description('no Creem configured: every coach writes, nobody pays'),
+            ];
         }
 
         return [

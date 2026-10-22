@@ -3,14 +3,17 @@
 // The owner's Filament panel (CHW-273, spec §8): admins only, and every action the admin API's own
 // (App\Admin\Accounts), audited as its twin is.
 
+use App\Admin\Accounts;
 use App\Filament\Resources\AuditEvents\Pages\ListAuditEvents;
 use App\Filament\Resources\BillingEvents\Pages\ListBillingEvents;
 use App\Filament\Resources\ExerciseMedia\Pages\ListExerciseMedia;
 use App\Filament\Resources\Invites\Pages\ListInvites;
 use App\Filament\Resources\Licences\Pages\ListLicences;
 use App\Filament\Resources\Users\Pages\ListUsers;
+use App\Filament\Widgets\CoachesOverview;
 use App\Http\Request as AppRequest;
 use App\Media\Paths;
+use App\Models\AuditEvent;
 use App\Models\ExerciseMedia;
 use App\Models\Invite;
 use App\Models\Licence;
@@ -176,4 +179,80 @@ it('sets the owner\'s panel sign-in on the admin account itself, and on no one e
         ->expectsQuestion('Email', 'boss@example.com')
         ->expectsQuestion('Password (at least 12 characters)', 'short')
         ->assertFailed();
+});
+
+// --- review round 1 (#140) ---
+
+it('shows only what retention keeps in the activity log, as the API does', function () {
+    config(['fitpal.audit.days' => 30]);
+    DB::table('audit_events')->insert([
+        ['ts' => now()->subDays(40)->getTimestampMs(), 'ev' => 'auth.login.ok', 'ok' => true, 'name' => 'Old'],
+        ['ts' => now()->subDay()->getTimestampMs(), 'ev' => 'auth.login.ok', 'ok' => true, 'name' => 'Recent'],
+    ]);
+    $this->actingAs($this->f->admin, 'web');
+    Livewire::test(ListAuditEvents::class)
+        ->assertCanSeeTableRecords(AuditEvent::query()->where('name', 'Recent')->get())
+        ->assertCanNotSeeTableRecords(AuditEvent::query()->where('name', 'Old')->get());
+});
+
+it('records every panel sign-in, and every failed one without what was typed', function () {
+    Livewire::test(Login::class)->fillForm(['email' => 'owner@example.com', 'password' => 'not the password'])->call('authenticate');
+    Livewire::test(Login::class)->fillForm(['email' => 'owner@example.com', 'password' => 'a-long-owner-password'])->call('authenticate');
+    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.panel.login.fail', 'ok' => false]);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.panel.login', 'uid' => $this->f->admin->id]);
+    expect(DB::table('audit_events')->where('ev', 'like', 'admin.panel.%')->pluck('msg')->filter()->all())->toBe([]);
+});
+
+it('takes the coach\'s lock before deciding a demo\'s file is no one\'s', function () {
+    $f = $this->f;
+    $this->actingAs($f->admin, 'web');
+    $order = [];
+    DB::listen(function ($q) use (&$order, $f) {
+        if (DB::transactionLevel() >= 2 && str_starts_with($q->sql, 'select * from "users"') && in_array($f->a->id, $q->bindings, true)) {
+            $order[] = 'coach';
+        } elseif (DB::transactionLevel() >= 2 && str_starts_with($q->sql, 'delete from "exercise_media"')) {
+            $order[] = 'delete';
+        }
+    });
+    Livewire::test(ListExerciseMedia::class)->callAction(TestAction::make('delete')->table(ExerciseMedia::query()->find('mediaa')));
+    expect(array_values(array_unique($order)))->toBe(['coach', 'delete']);
+});
+
+it('says billing is off rather than counting coaches as paying, and counts no admin as a coach', function () {
+    $f = $this->f;
+    config(['fitpal.admin_uids' => [$f->b->id]]);   // an owner by ADMIN_UIDS, coach flag on
+    $this->actingAs($f->admin, 'web');
+    Livewire::test(CoachesOverview::class)->assertSee('Billing off')->assertDontSee('Paying or granted');
+    Billing::on();
+    Billing::licence($f->a, ['status' => 'active', 'plan' => 'pro']);
+    $stats = Livewire::test(CoachesOverview::class)->assertSee('Paying or granted')->html();
+    // Coaches: A only — B is an admin by ADMIN_UIDS.
+    expect(preg_match('/Coaches.*?>\s*1\s*</s', $stats))->toBe(1);
+});
+
+it('files an admin by ADMIN_UIDS under Admins, not Clients', function () {
+    $f = $this->f;
+    config(['fitpal.admin_uids' => [$f->u1->id]]);
+    $this->actingAs($f->admin, 'web');
+    Livewire::test(ListUsers::class)->filterTable('role', 'admin')->assertCanSeeTableRecords([$f->u1, $f->admin])
+        ->filterTable('role', 'client')->assertCanNotSeeTableRecords([$f->u1]);
+});
+
+it('filters invites by state and kind, and the log by category and outcome', function () {
+    $f = $this->f;
+    $this->actingAs($f->admin, 'web');
+    Invite::query()->whereKey('INVA0000000000')->update(['revoked' => true]);
+    $general = Accounts::mintInvite(request(), $f->admin, 'general');
+    Livewire::test(ListInvites::class)
+        ->filterTable('state', 'revoked')->assertCanSeeTableRecords(Invite::query()->whereKey('INVA0000000000')->get())->assertCanNotSeeTableRecords(Invite::query()->whereKey('INVB0000000000')->get())
+        ->resetTableFilters()->filterTable('general', true)->assertCanSeeTableRecords([$general])->assertCanNotSeeTableRecords(Invite::query()->whereKey('INVB0000000000')->get());
+    DB::table('audit_events')->insert([
+        ['ts' => now()->getTimestampMs(), 'ev' => 'billing.event', 'ok' => true, 'name' => 'Paid'],
+        ['ts' => now()->getTimestampMs(), 'ev' => 'auth.login.fail', 'ok' => false, 'name' => 'Refused'],
+    ]);
+    $paid = AuditEvent::query()->where('name', 'Paid')->get();
+    $refused = AuditEvent::query()->where('name', 'Refused')->get();
+    Livewire::test(ListAuditEvents::class)
+        ->filterTable('category', 'billing')->assertCanSeeTableRecords($paid)->assertCanNotSeeTableRecords($refused)
+        ->resetTableFilters()->filterTable('ok', false)->assertCanSeeTableRecords($refused)->assertCanNotSeeTableRecords($paid);
 });

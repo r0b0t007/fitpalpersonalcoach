@@ -245,18 +245,23 @@ final class Accounts
      */
     public static function deleteMedia(Request $request, User $admin, string $id): void
     {
-        $file = DB::transaction(function () use ($id): string {
+        DB::transaction(function () use ($id): void {
+            // The coach's row first, the lock an upload of theirs takes (CoachLock): whether the
+            // file is still named by a row is decided, and the file removed, while no upload of the
+            // same bytes can be landing a row on it.
+            $coachId = ExerciseMedia::query()->whereKey($id)->value('coach_id');
+            if ($coachId !== null) {
+                CoachLock::take($coachId);
+            }
             $row = ExerciseMedia::query()->whereKey($id)->lockForUpdate()->first();
             if ($row === null) {
                 throw new ClientSafe(404, 'no such media');
             }
             $row->delete();
-
-            return $row->file;
-        });
-        if (! ExerciseMedia::query()->where('file', $file)->exists()) {
-            @unlink(Paths::root().DIRECTORY_SEPARATOR.'ex'.DIRECTORY_SEPARATOR.basename($file));
-        }
+            if (! ExerciseMedia::query()->where('file', $row->file)->exists()) {
+                @unlink(Paths::root().DIRECTORY_SEPARATOR.'ex'.DIRECTORY_SEPARATOR.basename($row->file));
+            }
+        }, self::ATTEMPTS);
         Audit::record($request, 'admin.media.delete', ['user' => $admin, 'msg' => $id]);
     }
 

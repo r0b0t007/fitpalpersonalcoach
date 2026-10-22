@@ -1507,6 +1507,8 @@ export default {
   'Granted a plan': 'Hat einen Tarif vergeben',
   'Revoked a granted plan': 'Hat einen vergebenen Tarif widerrufen',
   'Deleted an exercise demo': 'Hat eine Übungsdemo gelöscht',
+  'Signed in to the admin panel': 'Hat sich im Admin-Bereich angemeldet',
+  'Failed sign-in to the admin panel': 'Fehlgeschlagene Anmeldung im Admin-Bereich',
   'no such media': 'dieses Medium gibt es nicht',
   'A payment update from Creem': 'Eine Zahlungsmeldung von Creem',
   'An out-of-date payment update from Creem (ignored)': 'Eine veraltete Zahlungsmeldung von Creem (ignoriert)',

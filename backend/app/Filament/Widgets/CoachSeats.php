@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Domain\Entitlement;
+use App\Filament\Entitlements;
 use App\Models\User;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -15,6 +15,8 @@ class CoachSeats extends TableWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    protected ?string $pollingInterval = null;
+
     public function table(Table $table): Table
     {
         return $table
@@ -22,12 +24,12 @@ class CoachSeats extends TableWidget
             ->query(User::query()->where('coach', true)->where('disabled', false)->orderBy('name'))
             ->columns([
                 TextColumn::make('name')->label('Coach'),
-                TextColumn::make('plan')->badge()->state(fn (User $u) => Entitlement::for($u)->status),
+                TextColumn::make('plan')->badge()->state(fn (User $u) => Entitlements::for($u)->status),
                 TextColumn::make('seats')->label('Clients')->state(function (User $u) {
-                    $e = Entitlement::for($u);
+                    $e = Entitlements::for($u);
 
                     return $e->used.' / '.($e->cap ?? '∞');
-                })->color(fn (User $u) => Entitlement::for($u)->overCap ? 'danger' : null),
+                })->color(fn (User $u) => Entitlements::for($u)->overCap ? 'danger' : null),
             ])
             ->paginated([10, 25]);
     }

@@ -2,11 +2,15 @@
 
 namespace App\Providers;
 
+use App\Audit\Audit;
 use App\Auth\TokenGuard;
 use App\Coaching\AssignmentSent;
 use App\Jobs\SendPush;
+use App\Models\User;
 use App\Tenancy\CoachContext;
 use App\WebAuthn\CacheChallengeRepository;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobFailed;
@@ -30,6 +34,22 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // The admin panel's password sign-in, the only one there is (/admin-panel): each attempt
+        // recorded, as every passkey sign-in is. The address typed on a failure is not: a log of
+        // what strangers try is a liability.
+        Event::listen(Login::class, function (Login $event) {
+            if ($event->guard === 'web' && $event->user instanceof User) {
+                $request = request();
+                Audit::record($request, 'admin.panel.login', ['user' => $event->user]);
+            }
+        });
+        Event::listen(Failed::class, function (Failed $event) {
+            if ($event->guard === 'web') {
+                $request = request();
+                Audit::record($request, 'admin.panel.login.fail', ['ok' => false, 'user' => $event->user instanceof User ? $event->user : null]);
+            }
+        });
+
         // The `api` guard: the signed session token, from the cookie or the Bearer header.
         Auth::viaRequest('fitpal-token', fn (Request $request) => TokenGuard::resolve($request));
 

@@ -1489,6 +1489,8 @@ export default {
   'Granted a plan': 'A accordé une formule',
   'Revoked a granted plan': 'A révoqué une formule accordée',
   'Deleted an exercise demo': 'A supprimé une démo d’exercice',
+  'Signed in to the admin panel': 'S’est connecté au panneau d’administration',
+  'Failed sign-in to the admin panel': 'Échec de connexion au panneau d’administration',
   'no such media': 'média introuvable',
   'A payment update from Creem': 'Une mise à jour de paiement de Creem',
   'An out-of-date payment update from Creem (ignored)': 'Une mise à jour de paiement périmée de Creem (ignorée)',
