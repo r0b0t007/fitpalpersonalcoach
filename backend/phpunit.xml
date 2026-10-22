@@ -28,6 +28,10 @@
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Small media caps: the fixtures are small, and the CLI's post_max_size (PHP's 8M default)
+             is not the host's 100M, so the 90 MB default would read as a misconfiguration. -->
+        <env name="MEDIA_MAX_VIDEO_MB" value="1"/>
+        <env name="MEDIA_MAX_PHOTO_MB" value="1"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

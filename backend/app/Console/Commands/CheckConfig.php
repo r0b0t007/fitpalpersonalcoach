@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Auth\Bootstrap;
 use App\Auth\SessionToken;
+use App\Media\Upload;
 use Illuminate\Console\Command;
 
 /**
@@ -22,6 +23,12 @@ final class CheckConfig extends Command
         $warnings = Bootstrap::warnings();
         if (! SessionToken::configured()) {
             $warnings[] = 'SESSION_SECRET is unset or shorter than '.SessionToken::MIN_SECRET_LENGTH.' characters — nobody can sign in. In production it is the contents of the old DATA_DIR/secret.';
+        }
+        // PHP refuses a body over post_max_size before Laravel runs, so a larger media cap is one
+        // nobody can reach: uploads are capped at post_max_size instead (Upload::maxVideo).
+        $post = Upload::postMax();
+        if ($post !== null && (int) config('fitpal.media_max_video_mb') * 1048576 > $post) {
+            $warnings[] = 'MEDIA_MAX_VIDEO_MB ('.config('fitpal.media_max_video_mb').') is above PHP\'s post_max_size ('.Upload::mb($post).' MB) — videos are capped at '.Upload::mb($post).' MB. Raise post_max_size (public/.user.ini, public/.htaccess) or lower the cap; keep both under Cloudflare\'s 100 MB.';
         }
         foreach ($warnings as $w) {
             $this->warn($w);

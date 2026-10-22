@@ -55,8 +55,9 @@ final class Serve
             }
             [$start, $end] = [max(0, $total - $n), $total - 1];
         } else {
-            $start = self::int($m[1]);
-            $end = $m[2] === '' ? $total - 1 : min(self::int($m[2]), $total - 1);
+            // (int) saturates at PHP_INT_MAX on a longer digit string, as JS read it large.
+            $start = (int) $m[1];
+            $end = $m[2] === '' ? $total - 1 : min((int) $m[2], $total - 1);
         }
         // Covers the empty file too: with nothing in it, every range is unsatisfiable.
         if ($start > $end || $start >= $total) {
@@ -83,19 +84,24 @@ final class Serve
             : Json::error(416, 'range not satisfiable', [], $headers);
     }
 
+    /**
+     * The file is opened and positioned BEFORE the response exists: once the status and
+     * Content-Length are sent there is no honest way to say it could not be read, and a 206
+     * promising bytes that never come stalls a <video> until it times out. A file gone or unreadable
+     * between the stat and here is answered as missing.
+     */
     private static function send(Request $request, string $path, int $status, array $headers, int $offset, int $length): Response
     {
         $head = $request->isMethod('HEAD');
+        $f = $head || $length <= 0 ? null : @fopen($path, 'rb');
+        if ($f === false || ($f !== null && fseek($f, $offset) !== 0)) {
+            return Json::error(404, 'not found');
+        }
 
-        return new StreamedResponse(function () use ($path, $offset, $length, $head) {
-            if ($head || $length <= 0) {
+        return new StreamedResponse(function () use ($f, $length) {
+            if ($f === null) {
                 return;
             }
-            $f = fopen($path, 'rb');
-            if ($f === false) {
-                return;
-            }
-            fseek($f, $offset);
             for ($left = $length; $left > 0 && ! feof($f) && ! connection_aborted();) {
                 $chunk = fread($f, min(self::CHUNK, $left));
                 if ($chunk === false || $chunk === '') {
@@ -107,11 +113,5 @@ final class Serve
             }
             fclose($f);
         }, $status, $headers);
-    }
-
-    /** A range bound: digits past PHP's integer range clamp high, as JS's parseInt reads them large. */
-    private static function int(string $digits): int
-    {
-        return strlen(ltrim($digits, '0')) > 18 ? PHP_INT_MAX : (int) $digits;
     }
 }

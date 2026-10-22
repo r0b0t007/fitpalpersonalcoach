@@ -9,6 +9,7 @@ use App\Media\Paths;
 use App\Media\Serve;
 use App\Media\Upload;
 use App\Support\Json;
+use App\Support\Uid;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -95,7 +96,7 @@ function mp4(int $size = 200, string $brand = 'isom'): string
 
 function upload(string $body, string $want = 'video', array $server = []): TestResponse
 {
-    return test()->call('POST', '/api/__upload?want='.$want, [], [], [], ['CONTENT_TYPE' => 'application/octet-stream'] + $server, $body);
+    return test()->call('POST', '/api/__upload?want='.$want, [], [], [], $server + ['CONTENT_TYPE' => 'application/octet-stream'], $body);
 }
 
 function leftovers(string $root): array
@@ -142,6 +143,43 @@ it('refuses a media directory it cannot create before reading anything, closing 
     expect($r->headers->get('Connection'))->toBe('close');
 });
 
-it('names a user\'s photo directory as Node did', function () {
-    expect(Paths::safeUid('ab/c..d_e-F9'))->toBe('abcd_e-F9');
+it('names a user\'s files as Node did', function () {
+    expect(Uid::safe('ab/c..d_e-F9'))->toBe('abcd_e-F9');
+});
+
+it('closes the connection on every refusal of a body still arriving, as Node\'s routes did', function () {
+    foreach ([[str_repeat('junk', 100), 415], ['', 400], [mp4(1024 * 1024 + 1), 413]] as [$body, $status]) {
+        expect(upload($body)->assertStatus($status)->headers->get('Connection'))->toBe('close');
+    }
+});
+
+it('refuses a multipart body as Node did — its bytes were never a picture — leaving nothing behind', function () {
+    upload('', 'video', ['CONTENT_TYPE' => 'multipart/form-data; boundary=x', 'CONTENT_LENGTH' => '3000000'])
+        ->assertStatus(415)->assertExactJson(['error' => 'not a recognised image or video file']);
+    expect(leftovers($this->dataDir))->toBe([]);
+});
+
+it('builds the media disk from the same root the routes write to', function () {
+    expect(Paths::disk()->exists('ex/clip.mp4'))->toBeTrue();
+    config(['fitpal.data_dir' => $this->dataDir.'/elsewhere']);
+    expect(Paths::disk()->exists('ex/clip.mp4'))->toBeFalse();
+});
+
+it('answers a body PHP refused for post_max_size in the upload\'s own words', function () {
+    $r = Upload::tooLargeFor(Request::create('/api/media/exercise?ex=x', 'POST'));
+    expect($r->getStatusCode())->toBe(413)
+        ->and(json_decode($r->getContent(), true)['msg']['k'])->toBe('file is larger than the {0} MB limit')
+        ->and($r->headers->get('Connection'))->toBe('close')
+        ->and(Upload::tooLargeFor(Request::create('/media/photo', 'POST')))->not->toBeNull()
+        ->and(Upload::tooLargeFor(Request::create('/api/data', 'PUT')))->toBeNull();
+});
+
+it('caps uploads at PHP\'s post_max_size, and says so at check-config', function () {
+    $post = Upload::postMax();
+    if ($post === null) {
+        $this->markTestSkipped('post_max_size is unlimited here');
+    }
+    config(['fitpal.media_max_video_mb' => intdiv($post, 1048576) + 10, 'fitpal.session_secret' => str_repeat('ab', 32)]);
+    expect(Upload::maxVideo())->toBe($post);
+    $this->artisan('fitpal:check-config')->assertFailed()->expectsOutputToContain('is above PHP\'s post_max_size');
 });

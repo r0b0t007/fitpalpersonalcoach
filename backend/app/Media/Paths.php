@@ -4,18 +4,30 @@ namespace App\Media;
 
 use App\Support\ClientSafe;
 use App\Support\Json;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Where media lives: `DATA_DIR/media` (Node's MEDIA_DIR), with `ex/` for coach demos and
- * `photo/<safeUid>/` for each client's progress photos. Outside the document root; the bytes only
- * ever leave through Serve, behind a session. The `media` disk (config/filesystems.php) points at
- * the same root for code that wants a Storage disk (the admin panel, R4).
+ * `photo/<Uid::safe>/` for each client's progress photos — where the Node API keeps them, so a
+ * cutover moves no files. Outside the document root; the bytes only ever leave through Serve,
+ * behind a session.
  */
 final class Paths
 {
     public static function root(): string
     {
         return rtrim((string) config('fitpal.data_dir'), '/\\').DIRECTORY_SEPARATOR.'media';
+    }
+
+    /**
+     * The same root as a Storage disk, for code that wants one (the admin panel, R4). Built from
+     * root() each time rather than declared in config/filesystems.php, so the two can never point
+     * at different trees.
+     */
+    public static function disk(): Filesystem
+    {
+        return Storage::build(['driver' => 'local', 'root' => self::root(), 'serve' => false, 'throw' => false]);
     }
 
     /**
@@ -32,11 +44,5 @@ final class Paths
         }
 
         return $dir;
-    }
-
-    /** api/server.js safeUid: how Node named a user's photo directory. */
-    public static function safeUid(string $id): string
-    {
-        return (string) preg_replace('/[^a-zA-Z0-9_-]/', '', $id);
     }
 }
