@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\UserState;
 use App\Support\Js;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use stdClass;
 
 /**
@@ -34,6 +35,18 @@ final class MemberCard
         $state = is_string($raw) ? json_decode($raw) : null;
 
         return $state instanceof stdClass ? $state : new stdClass;
+    }
+
+    /**
+     * The client's `S.lang`, read out of their state without loading it: a push needs two letters,
+     * and a state can be megabytes of workouts. Null when there is none (or it is not text).
+     */
+    public static function lang(string $uid): ?string
+    {
+        $path = DB::getDriverName() === 'sqlite' ? "json_extract(state, '$.lang')" : "JSON_VALUE(state, '$.lang')";
+        $lang = UserState::query()->whereKey($uid)->toBase()->selectRaw($path.' as lang')->first()?->lang;
+
+        return is_string($lang) ? $lang : null;
     }
 
     /**

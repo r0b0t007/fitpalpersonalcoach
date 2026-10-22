@@ -13,6 +13,7 @@ use App\Http\Controllers\InviteController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PairController;
 use App\Http\Controllers\PhotoController;
+use App\Http\Controllers\PushController;
 use App\Http\Middleware\CloseOnRefusal;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireCoach;
@@ -61,8 +62,15 @@ $routes = static function (): void {
     Route::post('/media/photo', [PhotoController::class, 'upload'])
         ->middleware([CloseOnRefusal::class, 'auth:api']);
 
+    // The key a browser subscribes with: asked before anyone signs in, as of Node.
+    Route::get('/push/public-key', [PushController::class, 'publicKey']);
+
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/me', [AuthController::class, 'me']);
+        // Web Push: this browser subscribed or not, and a test push to every browser subscribed.
+        Route::post('/push/subscribe', [PushController::class, 'subscribe']);
+        Route::post('/push/unsubscribe', [PushController::class, 'unsubscribe']);
+        Route::post('/push/test', [PushController::class, 'test']);
         Route::post('/pair/create', [PairController::class, 'create']);
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
         Route::get('/data', [DataController::class, 'show']);
