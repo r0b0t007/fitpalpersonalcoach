@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Audit\Audit;
+use App\Auth\CoachSeat;
 use App\Auth\InviteGate;
+use App\Domain\Entitlement;
+use App\Http\Middleware\RequireWriter;
 use App\Models\Invite;
 use App\Models\User;
 use App\Support\Input;
@@ -43,8 +46,11 @@ final class InviteController
         }
 
         // Judged as registration will judge it, so the screen never promises a coach the signup
-        // would not give them.
-        return Json::ok(['coachName' => InviteGate::coachBinding($invite)?->name]);
+        // would not give them. `full`: that coach takes no more clients now (CoachSeat), which
+        // the landing screen says before the person creates a passkey for nothing.
+        $coach = InviteGate::coachBinding($invite);
+
+        return Json::ok(['coachName' => $coach?->name, 'full' => CoachSeat::reason($coach) !== null]);
     }
 
     /** POST /api/invite/redeem — joining a coach from an account that already exists. */
@@ -77,6 +83,11 @@ final class InviteController
             if ($user->disabled) {
                 return Json::error(403, 'forbidden');
             }
+            // Counted with the coach's row locked (redeemable took it): a sign-up by the same
+            // coach's code waits here, so the two cannot both take the last seat.
+            if ($full = CoachSeat::refusal($coach, lock: true)) {
+                return $full;
+            }
             $user->coach_id = $coach->id;
             $user->save();
             $invite->forceFill(['used_by' => $user->id, 'used_at' => Js::isoNow()])->save();
@@ -93,10 +104,17 @@ final class InviteController
         return $response;
     }
 
-    /** GET /api/coach/invites — the codes minted for this coach. */
+    /**
+     * GET /api/coach/invites — the codes minted for this coach, and whether their LICENCE lets them
+     * take another client: `cap` (null: unlimited) and `used` (active clients), `canInvite`, and
+     * `reason` when it does not — `read_only` (a lapsed licence) or `at_cap`. The open-code limit
+     * is `max`, which the app already counts the listed codes against (the lifetime one is the
+     * mint's 429, an abuse limit no screen offers).
+     */
     public function coachIndex(Request $request): JsonResponse
     {
         $coach = $request->user('api');
+        $entitlement = Entitlement::for($coach);
         $invites = Invite::query()->orderBy('seq')->get();
         $users = User::query()->whereKey($invites->pluck('used_by')->filter()->all())->get()->keyBy('id');
 
@@ -109,6 +127,10 @@ final class InviteController
                 'usedByName' => ($u = $users->get($i->used_by)) && Access::canCoachMember($coach, $u) ? $u->name : null,
             ])->all(),
             'max' => self::COACH_MAX_OPEN,
+            'cap' => $entitlement->cap,
+            'used' => $entitlement->used,
+            'canInvite' => $entitlement->canTakeClient,
+            'reason' => $entitlement->seatRefusal(),
         ]);
     }
 
@@ -130,6 +152,16 @@ final class InviteController
             }
             if (! $me->isCoach()) {
                 return Json::error(403, 'forbidden');
+            }
+            // The licence judged again on the locked row (RequireWriter saw it before the wait).
+            // A code is a promise of a seat: none is minted at the cap — open codes do not count
+            // against it, but redeeming one past the cap is refused (CoachSeat).
+            $entitlement = Entitlement::for($me, lock: true);
+            switch ($entitlement->seatRefusal()) {
+                case 'read_only':
+                    return RequireWriter::refusal();
+                case 'at_cap':
+                    return Json::error(402, Say::f('your plan allows {0} clients — upgrade to invite more', (int) $entitlement->cap));
             }
             if (Invite::query()->whereNull('used_by')->where('revoked', false)->count() >= self::COACH_MAX_OPEN) {
                 return Json::error(429, Say::f('you already have {0} unused codes — revoke one before making another', self::COACH_MAX_OPEN));

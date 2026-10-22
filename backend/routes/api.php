@@ -18,6 +18,7 @@ use App\Http\Controllers\PushController;
 use App\Http\Middleware\CloseOnRefusal;
 use App\Http\Middleware\RequireAdmin;
 use App\Http\Middleware\RequireCoach;
+use App\Http\Middleware\RequireWriter;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -49,14 +50,16 @@ $routes = static function (): void {
     Route::get('/invite', [InviteController::class, 'show']);
 
     // A coach's exercise demo: the file is the body. Outside the groups below so CloseOnRefusal
-    // wraps the sign-in and coach checks too — their refusals must close the connection as well.
+    // wraps the sign-in, coach and licence checks too — their refusals must close the connection
+    // as well.
     Route::post('/media/exercise', [ExerciseMediaController::class, 'upload'])
-        ->middleware([CloseOnRefusal::class, 'auth:api', RequireCoach::class]);
+        ->middleware([CloseOnRefusal::class, 'auth:api', RequireCoach::class, RequireWriter::class]);
     // The same demo in chunks (Laravel only, advertised in /api/config): start, each chunk, finish.
+    // A lapsed licence stops all three; cancelling only frees space, so it stays open.
     Route::middleware([CloseOnRefusal::class, 'auth:api', RequireCoach::class])->group(function (): void {
-        Route::post('/media/exercise/upload', [ChunkUploadController::class, 'start']);
-        Route::put('/media/exercise/upload', [ChunkUploadController::class, 'chunk']);
-        Route::post('/media/exercise/upload/finish', [ChunkUploadController::class, 'finish']);
+        Route::post('/media/exercise/upload', [ChunkUploadController::class, 'start'])->middleware(RequireWriter::class);
+        Route::put('/media/exercise/upload', [ChunkUploadController::class, 'chunk'])->middleware(RequireWriter::class);
+        Route::post('/media/exercise/upload/finish', [ChunkUploadController::class, 'finish'])->middleware(RequireWriter::class);
         Route::delete('/media/exercise/upload', [ChunkUploadController::class, 'cancel']);
     });
     // A client's progress photo, for themselves: the same raw-body upload, any signed-in account.
@@ -93,17 +96,18 @@ $routes = static function (): void {
         Route::post('/assignments/decide', [AssignmentController::class, 'decide']);
 
         // Coach routes act as the coach (CoachContext): every tenant-owned model is scoped to them.
+        // RequireWriter marks the writes a lapsed licence stops (spec §6); the rest stay open.
         Route::middleware(RequireCoach::class)->group(function (): void {
             Route::get('/coach/members', [CoachRosterController::class, 'members']);
             Route::get('/coach/member', [CoachRosterController::class, 'member']);
             Route::post('/coach/member/release', [CoachRosterController::class, 'release']);
             Route::get('/coach/invites', [InviteController::class, 'coachIndex']);
-            Route::post('/coach/invites/new', [InviteController::class, 'coachCreate']);
+            Route::post('/coach/invites/new', [InviteController::class, 'coachCreate'])->middleware(RequireWriter::class);
             Route::post('/coach/invites/revoke', [InviteController::class, 'coachRevoke']);
             Route::get('/coach/programs', [CoachProgramController::class, 'index']);
-            Route::post('/coach/programs/save', [CoachProgramController::class, 'save']);
+            Route::post('/coach/programs/save', [CoachProgramController::class, 'save'])->middleware(RequireWriter::class);
             Route::post('/coach/programs/delete', [CoachProgramController::class, 'delete']);
-            Route::post('/coach/assign', [AssignmentController::class, 'assign']);
+            Route::post('/coach/assign', [AssignmentController::class, 'assign'])->middleware(RequireWriter::class);
             Route::post('/coach/assignments/withdraw', [AssignmentController::class, 'withdraw']);
         });
 

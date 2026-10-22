@@ -19,6 +19,10 @@ use Carbon\CarbonInterface;
  *  5. canTakeClient = writable and under the cap; overCap = more active clients than the cap
  *     (after a downgrade: still writable, but cannot add).
  *
+ * A licence on a plan this instance does not sell (a hand-edited row: grant and the webhook only
+ * write plans that exist) is cap 0 and not writable — failing closed, so every refusal it meets
+ * says "read-only" truthfully — and is not reported as over a cap it does not have.
+ *
  * One safety net beyond the spec: a Creem licence whose period ended more than GRACE_DAYS ago with
  * no event since is not writable, whatever its stored status — a webhook lost for good must not
  * leave a coach licensed for ever.
@@ -44,30 +48,94 @@ final readonly class Entitlement
         public ?CarbonInterface $periodEnd = null,
     ) {}
 
-    public static function for(User $user): self
+    /**
+     * $lock: the client count and the licence are read with locking reads, for a caller that holds
+     * the coach's row (CoachLock) and attaches a client or mints a code on the answer. A plain read
+     * inside a transaction answers from its snapshot (MariaDB's REPEATABLE READ), and a join path
+     * fixes that snapshot BEFORE it waits for the coach — InviteGate::redeemable's peek,
+     * registration's user count — so a join that committed during the wait would go uncounted and
+     * two joins could both take the last seat. A locking read sees the latest commit.
+     */
+    public static function for(User $user, bool $lock = false): self
     {
-        if (! $user->isCoach()) {
+        $exempt = self::exempt($user);
+        if ($exempt === 'client') {
             return new self('client', null, null, 0, true, false, false);
         }
-        $used = User::activeClientsOf($user)->count();
-        if ($user->isAdmin()) {
-            return new self('admin', null, null, $used, true, true, false);
+        $clients = User::activeClientsOf($user);
+        $used = ($lock ? $clients->sharedLock() : $clients)->count();
+        if ($exempt !== null) {
+            return new self($exempt, null, null, $used, true, true, false);
         }
-        if (! Plans::billingOn()) {
-            return new self('unlicensed', null, null, $used, true, true, false);
-        }
-        $licence = $user->licence_id !== null ? Licence::query()->find($user->licence_id) : null;
-        if ($licence === null || $licence->user_id !== $user->id) {
+        $licence = self::licenceOf($user, $lock);
+        if ($licence === null) {
             return new self('none', null, 0, $used, false, false, $used > 0);
         }
-        // A plan this instance does not sell (a hand-edited row; grant refuses one) takes no client,
-        // and is not reported as over a cap it does not have.
         $cap = Plans::cap($licence->plan);
-        $canWrite = (in_array($licence->status, Licence::WRITABLE, true) && ! self::stale($licence))
-            || ($licence->status === 'canceled' && $licence->period_end !== null && $licence->period_end->isFuture());
+        $canWrite = self::writable($licence);
 
-        return new self($licence->status, $licence->plan, $cap ?? 0, $used, $canWrite, $canWrite && $used < ($cap ?? 0), $cap !== null && $used > $cap,
+        return new self($licence->status, $licence->plan, $cap ?? 0, $used, $canWrite, $canWrite && $used < $cap, $cap !== null && $used > $cap,
             $licence->trial_ends_at, $licence->period_end);
+    }
+
+    /**
+     * for()->canWrite without counting the clients: RequireWriter asks it on every gated request,
+     * each chunk of an upload included, and needs nothing else. The same rules, from the same
+     * helpers.
+     */
+    public static function canWrite(User $user): bool
+    {
+        if (self::exempt($user) !== null) {
+            return true;
+        }
+        $licence = self::licenceOf($user);
+
+        return $licence !== null && self::writable($licence);
+    }
+
+    /**
+     * Why this coach takes no more clients, or null when they can — the one reading of it, for
+     * the invite list's `reason` and for every refusal (CoachSeat, the mint): `read_only` for a
+     * licence that does not write, `at_cap` for one that does but has every seat taken.
+     */
+    public function seatRefusal(): ?string
+    {
+        if ($this->canTakeClient) {
+            return null;
+        }
+
+        return $this->canWrite ? 'at_cap' : 'read_only';
+    }
+
+    /** Who no licence limits, by rules 1 and 2 — and a client, whom none ever does. */
+    private static function exempt(User $user): ?string
+    {
+        return match (true) {
+            ! $user->isCoach() => 'client',
+            $user->isAdmin() => 'admin',
+            ! Plans::billingOn() => 'unlicensed',
+            default => null,
+        };
+    }
+
+    /** The user's licence, if it is theirs: a licence_id pointing at someone else's row is none. */
+    private static function licenceOf(User $user, bool $lock = false): ?Licence
+    {
+        if ($user->licence_id === null) {
+            return null;
+        }
+        $query = Licence::query()->whereKey($user->licence_id);
+        $licence = ($lock ? $query->sharedLock() : $query)->first();
+
+        return $licence !== null && $licence->user_id === $user->id ? $licence : null;
+    }
+
+    /** Rule 4, the stale net, and only on a plan this instance sells. */
+    private static function writable(Licence $licence): bool
+    {
+        return Plans::cap($licence->plan) !== null
+            && ((in_array($licence->status, Licence::WRITABLE, true) && ! self::stale($licence))
+                || ($licence->status === 'canceled' && $licence->period_end !== null && $licence->period_end->isFuture()));
     }
 
     /**
