@@ -35,8 +35,9 @@ final class AdminUserController
     public function index(): JsonResponse
     {
         $withPush = PushSubscription::query()->distinct()->pluck('user_id')->flip();
-        $users = User::query()->signupOrder()->get()->map(function (User $u) use ($withPush): array {
-            return self::identity($u) + MemberCard::activity(MemberCard::state($u->id), $u->id) + ['hasPush' => $withPush->has($u->id)];
+        $live = Presence::liveMap();
+        $users = User::query()->signupOrder()->get()->map(function (User $u) use ($withPush, $live): array {
+            return self::identity($u) + MemberCard::activity(MemberCard::state($u->id), $live[$u->id] ?? null) + ['hasPush' => $withPush->has($u->id)];
         });
 
         return Json::ok(['users' => $users->all(), 'invite_only' => (bool) config('fitpal.invite_only'), 'now' => Audit::now()]);
@@ -72,7 +73,7 @@ final class AdminUserController
             // Disabling a coach does what revoking the role does. It used to lock the account and
             // stop there: their members still pointed at them, their offers stayed acceptable, and
             // the admin dropdown — which leaves disabled coaches out — showed those members as
-            // having no coach while they still had one. (Presence is dropped here in R3.)
+            // having no coach while they still had one.
             if ($disabled) {
                 Presence::drop($u->id);   // off "training now" at once
             }

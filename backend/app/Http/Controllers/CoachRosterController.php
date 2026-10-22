@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Coaching\MemberCard;
 use App\Models\Assignment;
+use App\Models\Presence;
 use App\Models\User;
 use App\Support\Input;
 use App\Support\Json;
@@ -37,9 +38,10 @@ final class CoachRosterController
         $members = $query->signupOrder()->get()
             ->filter(fn (User $u) => Access::canCoachMember($coach, $u))->values();
         $offers = Assignment::forMembers($members->pluck('id')->all());
+        $live = Presence::liveMap();
 
         return Json::ok([
-            'members' => $members->map(fn (User $u) => MemberCard::card($u, $coach->id, $offers->get($u->id, collect())))->all(),
+            'members' => $members->map(fn (User $u) => MemberCard::card($u, $coach->id, $offers->get($u->id, collect()), $live[$u->id] ?? null))->all(),
             'now' => Audit::now(),
         ]);
     }
