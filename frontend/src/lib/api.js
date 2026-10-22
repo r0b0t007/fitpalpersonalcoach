@@ -73,11 +73,13 @@ export const fetchMyPhotos = () => api('/api/media/photos').then(d => d.photos |
    caller passes its own, because "too large or not a video" is wrong advice to give someone
    sending a photo.
 
-   Returns a promise with .abort() on it, because cancelling a 90 MB upload is not a luxury. */
-function rawUpload(path, body, onProgress, cutOff) {
+   Returns a promise with .abort() on it, because cancelling a 90 MB upload is not a luxury. A
+   refusal's parsed body rides on the error as `data`, for the one caller that reads more than the
+   sentence (a chunk told where the server is — see uploadExerciseMedia). */
+function rawUpload(path, body, onProgress, cutOff, method = 'POST') {
   const xhr = new XMLHttpRequest()
   const p = new Promise((resolve, reject) => {
-    xhr.open('POST', remoteBase + path)
+    xhr.open(method, remoteBase + path)
     if (remoteToken) xhr.setRequestHeader('Authorization', 'Bearer ' + remoteToken)
     // Advisory only — the server sniffs the first 64 bytes and believes those, not this header.
     // It is still set, because an edge in front of node (Cloudflare, LiteSpeed) reads it, and
@@ -91,7 +93,7 @@ function rawUpload(path, body, onProgress, cutOff) {
       // The server's wording is the instruction — "use MP4 or MOV", "set the camera to Most
       // Compatible". Pass it through, translated but otherwise untouched; a generic "upload failed"
       // throws away the only thing that tells the person what to change.
-      const e = new Error(data.error ? serverText(data) : 'HTTP ' + xhr.status); e.status = xhr.status; reject(e)
+      const e = new Error(data.error ? serverText(data) : 'HTTP ' + xhr.status); e.status = xhr.status; e.data = data; reject(e)
     }
     // A refusal happens while the browser is still sending, and the server closes the socket to
     // get its message out. Usually the response still lands (onload above); when it does not,
@@ -105,9 +107,76 @@ function rawUpload(path, body, onProgress, cutOff) {
   return p
 }
 
-export const uploadExerciseMedia = (exId, label, file, onProgress) => rawUpload(
-  '/api/media/exercise?ex=' + encodeURIComponent(exId) + '&label=' + encodeURIComponent(label || ''),
-  file, onProgress, t('The upload was cut off before the server answered — it may have refused the file for being too large or not a video.'))
+/* Whether this server takes a demo in chunks, and how big each may be: /api/config's `upload`,
+   asked once per server. Cloudflare refuses a body over 100 MB and gives up on a request not sent
+   and answered within about 100 s, so a large video on a slow phone uplink cannot cross it as one
+   request. Only the Laravel API offers chunks; the Node API's config has no `upload` — and so does
+   a config that could not be read — and then the demo goes as the one request it always went as.
+   0 means "one request". */
+let chunkPlan = null
+let chunkPlanFor = null
+function chunkSize() {
+  if (chunkPlan && chunkPlanFor === remoteBase) return chunkPlan
+  chunkPlanFor = remoteBase
+  chunkPlan = api('/api/config')
+    .then(c => (c && c.upload && c.upload.chunked === true && c.upload.chunk_mb > 0 ? c.upload.chunk_mb * 1048576 : 0))
+    .catch(() => 0)
+  return chunkPlan
+}
+// Tests start each case from a server nobody has asked yet.
+export const resetChunkPlan = () => { chunkPlan = null; chunkPlanFor = null }
+
+const cancelled = () => Object.assign(new Error(t('Upload cancelled')), { aborted: true })
+const pause = ms => new Promise(r => setTimeout(r, ms))
+
+/* A coach's demo. Against a server that takes chunks it is sent as start, chunks, finish — each
+   chunk small enough to cross Cloudflare — and otherwise exactly as before, as one rawUpload.
+   Either way the caller sees the same thing: a promise with .abort(), progress from 0 to 1, the
+   server's `{ok, media}`, and the server's sentence (or `cutOff`) on a refusal.
+
+   A chunk whose answer was lost is sent again; the server only ever takes the chunk that starts
+   where it is, and says where that is (409 + `received`) when a retry is a step behind, so the
+   loop resumes rather than duplicating bytes. A network drop is retried a few times with a short
+   pause — the phone moved between masts — before the upload gives up with `cutOff`. */
+export function uploadExerciseMedia(exId, label, file, onProgress) {
+  const query = '?ex=' + encodeURIComponent(exId) + '&label=' + encodeURIComponent(label || '')
+  const cutOff = t('The upload was cut off before the server answered — it may have refused the file for being too large or not a video.')
+  let current = null
+  let aborted = false
+  const step = (req) => { current = req; return req }
+  const p = (async () => {
+    const chunk = await chunkSize()
+    if (aborted) throw cancelled()
+    if (!chunk) return step(rawUpload('/api/media/exercise' + query, file, onProgress, cutOff))
+
+    const start = await step(rawUpload('/api/media/exercise/upload' + query + '&size=' + file.size, null, null, cutOff))
+    const id = encodeURIComponent(start.upload)
+    const each = Math.min(chunk, start.chunk > 0 ? start.chunk : chunk)
+    let offset = 0
+    let drops = 0
+    let resyncs = 0
+    while (offset < file.size) {
+      if (aborted) throw cancelled()
+      const from = offset
+      const piece = file.slice(from, from + each)
+      try {
+        const r = await step(rawUpload('/api/media/exercise/upload?id=' + id + '&offset=' + from, piece,
+          f => onProgress && onProgress(Math.min(1, (from + f * piece.size) / file.size)), cutOff, 'PUT'))
+        offset = r.received
+        drops = 0
+      } catch (e) {
+        if (e.aborted) throw e
+        if (e.status === 409 && e.data && Number.isInteger(e.data.received) && ++resyncs <= 10) { offset = e.data.received; continue }
+        if (!e.status && ++drops <= 3) { await pause(1000 * drops); continue }
+        throw e
+      }
+    }
+    if (onProgress) onProgress(1)
+    return step(rawUpload('/api/media/exercise/upload/finish?id=' + id, null, null, cutOff))
+  })()
+  p.abort = () => { aborted = true; if (current) current.abort() }
+  return p
+}
 
 /* A progress photo. `d` is the check-in period it belongs to (periodStart in lib/checkins.js) and
    `pose` one of POSES in lib/photo.js — together they are the slot, and re-sending replaces it

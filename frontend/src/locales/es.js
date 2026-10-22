@@ -1421,6 +1421,7 @@ export default {
   'server error': 'error del servidor',
   'empty upload': 'archivo vacío',
   'upload interrupted': 'subida interrumpida',
+  'the upload is out of step': 'la subida está desincronizada',
   'could not write the file': 'no se pudo escribir el archivo',
   'endpoint is not a valid URL': 'la dirección de notificación no es una URL válida',
   'endpoint must be an https:// URL': 'la dirección de notificación debe empezar por https://',

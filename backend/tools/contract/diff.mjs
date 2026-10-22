@@ -52,6 +52,7 @@ const MOV_SHA = sha16(MOV);
 
 const INTENDED = {
   'config $.self_serve: only Laravel has it (false)': 'the self-serve coach signup flag for R4 (/#/start); the app ignores unknown keys.',
+  'config $.upload: only Laravel has it ({"chunked":true,"chunk_mb":4})': 'demos may be sent in chunks (CHW-259), a protocol only Laravel speaks; with no `upload` the app sends the one request it sends to Node (frontend/src/lib/api.js uploadExerciseMedia).',
   'login options $.options.allowCredentials: only Node has it ([])': 'Laragear omits an empty list. Same meaning in WebAuthn (any discoverable passkey), and the app reads `(o.allowCredentials || [])` (frontend/src/lib/api.js).',
   'me, admin headers.cache-control: Node "no-store" vs Laravel "no-store, private"': 'Symfony always adds private when neither public nor private is set. no-store already forbids every cache.',
   'preflight headers.cache-control: only Laravel has it ("no-cache, private")': 'browsers cache a preflight by Access-Control-Max-Age (86400 on both), never by Cache-Control.',
