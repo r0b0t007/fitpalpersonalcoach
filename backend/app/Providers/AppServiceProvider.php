@@ -6,6 +6,7 @@ use App\Audit\Audit;
 use App\Auth\TokenGuard;
 use App\Coaching\AssignmentSent;
 use App\Jobs\SendPush;
+use App\Mail\ResendMailer;
 use App\Models\User;
 use App\Tenancy\CoachContext;
 use App\WebAuthn\CacheChallengeRepository;
@@ -17,6 +18,7 @@ use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\ServiceProvider;
 use Laragear\WebAuthn\Contracts\WebAuthnChallengeRepository;
@@ -34,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Mail through Resend's API with time limits the SDK does not set (ResendMailer).
+        Mail::extend('resend', fn (array $config) => ResendMailer::transport($config));
+
         // The admin panel's password sign-in, the only one there is (/admin-panel): each attempt
         // recorded, as every passkey sign-in is. The address typed on a failure is not: a log of
         // what strangers try is a liability.
