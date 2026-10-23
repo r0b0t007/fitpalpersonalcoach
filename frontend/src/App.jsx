@@ -24,6 +24,7 @@ import RestTimer from './components/RestTimer.jsx'
 import TimerFlash from './components/TimerFlash.jsx'
 import Login from './views/Login.jsx'
 import Start, { startOpen } from './views/Start.jsx'
+import Link, { linkOpen } from './views/Link.jsx'
 import MobileOnboarding from './views/MobileOnboarding.jsx'
 import Home from './views/Home.jsx'
 import Plan from './views/Plan.jsx'
@@ -211,7 +212,13 @@ function Shell() {
   // links, on an instance that sells plans (views/Start.jsx). On one that does not (the Node API,
   // which has no `billing` in its config) /start stays the sign-in screen it always was.
   const signedOut = loc.pathname === '/start' && startOpen(config) ? <Start /> : <Login />
-  if (!ready && !authed) return (
+  // An emailed sign-in link (views/Link.jsx) lands here signed in or not — an address change is
+  // confirmed from a signed-in device too — so it comes before either shell, with no tab bar.
+  const onLink = loc.pathname === '/link' && linkOpen(config)
+  // Not before the config is known: a signed-in coach is drawn from the cached user while it is on
+  // its way, and the coach routes' catch-all would bounce /link to /today with the token in it.
+  const linkPending = loc.pathname === '/link' && !config && !ready
+  if ((!ready && !authed) || linkPending) return (
     <div id="app">
       <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center' }}>
         <Logo size={30} />
@@ -225,11 +232,11 @@ function Shell() {
           re-mounts the boundary, so the tab bar is always a way out */}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
-          {!authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <CoachRoutes user={user} /> : <ClientRoutes />}
+          {onLink ? <Link /> : !authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <CoachRoutes user={user} /> : <ClientRoutes />}
         </ErrorBoundary>
       </div>
       {/* The chat owns the bottom of the screen: its composer sits where the tabs would be. */}
-      {(shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
+      {!onLink && (shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
       <RestTimer />
       <Modals />
       <Toast />

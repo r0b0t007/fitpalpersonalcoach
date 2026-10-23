@@ -260,6 +260,23 @@ export const passkeyRegister = (name, code) => registerWith({ name, code: code |
 // The address is kept pending and the server's first mail is the link that confirms it, in
 // `lang` — the account has no saved language yet.
 export const passkeyRegisterCoach = (name, email, lang) => registerWith({ name, email, coach: true, lang })
+// Another passkey for the signed-in account (R4, Laravel only) — offered after a sign-in by email
+// link, on a device that had none. The server wants a session that signed in just now.
+export async function passkeyAdd() {
+  const { cid, options } = await api('/api/passkeys/options', { method: 'POST', body: '{}' })
+  const cred = await navigator.credentials.create({ publicKey: toCreationOptions(options) })
+  await api('/api/passkeys/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
+}
+
+// Sign-in by emailed link (R4, Laravel only; spec §4a). Asking always answers the same, whether or
+// not the address belongs to a coach; redeeming answers {user} for a sign-in (and sets the session
+// cookie) or {email} for a confirmed address change.
+export const requestLoginLink = email => api('/api/login/email', { method: 'POST', body: JSON.stringify({ email }) })
+export const redeemLoginLink = token => api('/api/login/link', { method: 'POST', body: JSON.stringify({ t: token }) })
+// The caller's own address: {email, pendingEmail, verified}. A change is confirmed by a link to the new one.
+export const fetchAccount = () => api('/api/account')
+export const changeEmail = email => api('/api/account/email', { method: 'POST', body: JSON.stringify({ email }) })
+
 export async function passkeyLogin() {
   const { cid, options } = await api('/api/login/options', { method: 'POST', body: '{}' })
   const cred = await navigator.credentials.get({ publicKey: toRequestOptions(options) })

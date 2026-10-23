@@ -54,6 +54,7 @@ const INTENDED = {
   'config $.billing: only Laravel has it (false)': 'licensing (R4): whether Creem is configured; with no `billing` the app shows no billing at all, which is how it reads the Node API.',
   'config $.plans: only Laravel has it ([])': 'licensing (R4): the tiers on sale; none while billing is off.',
   'config $.trial_days: only Laravel has it (14)': 'licensing (R4): the trial the Creem products carry, for the app to say.',
+  'config $.login_email: only Laravel has it (true)': 'sign-in by emailed link (R4, §4a): Node has no such routes, and the app offers the email path only when this is there.',
   'invite, a coach’s code (lower-cased, trailing space) $.full: only Laravel has it (false)': 'licensing (R4): whether that coach takes no more clients now (the cap, or a read-only plan), for the landing screen to say before a passkey is made; always false with billing off.',
   'invite, a general code names nobody $.full: only Laravel has it (false)': 'the same; a code that binds nobody is never full.',
   'invite, a code padded with an NBSP and a BOM $.full: only Laravel has it (false)': 'the same.',

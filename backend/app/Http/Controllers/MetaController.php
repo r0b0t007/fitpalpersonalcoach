@@ -33,6 +33,9 @@ final class MetaController
             'billing' => Plans::billingOn(),
             'plans' => Plans::offered(),
             'trial_days' => Plans::TRIAL_DAYS,
+            // A coach's sign-in by emailed link (spec §4a). The Node API has no such routes and
+            // sends no such key, and the app then offers no email path at all.
+            'login_email' => true,
         ]);
     }
 }

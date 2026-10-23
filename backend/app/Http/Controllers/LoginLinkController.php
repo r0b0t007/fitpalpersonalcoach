@@ -163,6 +163,22 @@ final class LoginLinkController
         return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
     }
 
+    /**
+     * GET /api/account → {email, pendingEmail, verified}: the caller's own address only. A new
+     * self-serve coach has no email yet, just the pending one their first link confirms.
+     */
+    public function account(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user('api');
+
+        return Json::ok([
+            'email' => $user->email ?: null,
+            'pendingEmail' => $user->pending_email ?: null,
+            'verified' => $user->email_verified_at !== null && (bool) $user->email,
+        ]);
+    }
+
     public function changeEmail(Request $request): JsonResponse
     {
         /** @var User $user */

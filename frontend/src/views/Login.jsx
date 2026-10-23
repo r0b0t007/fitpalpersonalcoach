@@ -1,6 +1,7 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { api, webauthnOK, passkeyLogin, passkeyRegister, bioLabel } from '../lib/api.js'
+import { api, webauthnOK, passkeyLogin, passkeyRegister, bioLabel, requestLoginLink } from '../lib/api.js'
+import { useLocation } from 'react-router-dom'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { DEMO, REPO } from '../lib/demo.js'
@@ -11,6 +12,7 @@ import { BRAND } from '../lib/brand.js'
 import Logo from '../components/Logo.jsx'
 import InstallCard from '../components/InstallCard.jsx'
 import { Button } from '../components/ui.jsx'
+import Icon from '../components/Icon.jsx'
 
 // The request-access form ("leave your name and number, the gym sends you a code") is gone: a
 // coach's clients arrive by the coach's own link, and both APIs answer `request_access: false`.
@@ -112,10 +114,50 @@ function RegisterSheet({ close }) {
   </>
 }
 
+/**
+ * S5: a coach's way back in when the passkey is gone — a link by email (R4, Laravel only, where
+ * /api/config says `login_email`). The passkey stays first; this is the fallback under it.
+ *
+ * "Check your inbox" is said the same whether or not the address belongs to anyone: the server
+ * answers alike for both, deliberately, so the screen cannot be used to find out who is a coach.
+ */
+function EmailSignIn({ focus }) {
+  const [email, setEmail] = useState('')
+  const [sent, setSent] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => { if (focus && !sent) setTimeout(() => ref.current?.focus(), 50) }, [focus, sent])
+  const go = async () => {
+    const e = email.trim()
+    if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(e)) { useUI.getState().toast(t('Enter your email address')); return }
+    setBusy(true)
+    try { await requestLoginLink(e); setSent(true) }
+    catch (err) { useUI.getState().toast(err.message || t('Could not send the link')) }
+    finally { setBusy(false) }
+  }
+  if (sent) return <div className="card" role="status" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+    <Icon name="link" size={28} style={{ color: 'var(--acc)' }} />
+    <div style={{ fontWeight: 600, marginTop: 4 }}>{t('Check your inbox')}</div>
+    <div className="small muted" style={{ lineHeight: 1.38 }}>{t('If that address belongs to a coach, a sign-in link is on its way. It works once, for 15 minutes.')}</div>
+    <Button style={{ marginTop: 6 }} onClick={() => { setSent(false); setEmail('') }}>{t('Use another address')}</Button>
+  </div>
+  return <div className="card" style={{ textAlign: 'left' }}>
+    <input ref={ref} className="input" type="email" placeholder={t('Your email')} maxLength={254} autoComplete="email"
+      value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') go() }} />
+    <div style={{ height: 10 }} />
+    <Button variant="primary" onClick={go} disabled={busy}>{busy ? t('Sending…') : t('Send me a link')}</Button>
+  </div>
+}
+
 export default function Login() {
   const { setUser, pullState, setGuest } = useStore()
   const config = useStore(s => s.config)
   const canGuest = guestAllowed(config)
+  // The email path (S5): only where the server has it. Opened straight away when the link page
+  // sent the coach here for a new link (/link → "Get a new link", ?email=1).
+  const loc = useLocation()
+  const emailPath = !!config?.login_email
+  const [emailOpen, setEmailOpen] = useState(() => new URLSearchParams(loc.search).has('email'))
   const invite = useInvite()
   const inviter = invite === undefined ? undefined : invite?.name || null
   const full = !!invite?.full
@@ -171,6 +213,12 @@ export default function Login() {
       {webauthnOK() ? <>
         <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
         <div style={{ height: 10 }} />
+        {emailPath && <>
+          <Button variant="ghost" icon="link" style={{ color: 'var(--label-2)' }} onClick={() => setEmailOpen(o => !o)}
+            aria-expanded={emailOpen}>{t('Sign in with email')}</Button>
+          {emailOpen && <EmailSignIn focus />}
+          <div style={{ height: 10 }} />
+        </>}
         {/* Not while the inviting coach takes nobody on: the sheet would carry their code into a
             refusal that only comes after the passkey prompt. Signing in stays open. */}
         {!full && <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>}

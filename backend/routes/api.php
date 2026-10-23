@@ -91,6 +91,9 @@ $routes = static function (): void {
         Route::post('/activity', [ActivityController::class, 'store']);
         Route::post('/pair/create', [PairController::class, 'create']);
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
+        // The caller's own sign-in address and whether it is confirmed (R4, Laravel only; the
+        // Account email row) — kept out of /api/me, whose shape both APIs share.
+        Route::get('/account', [LoginLinkController::class, 'account']);
         // Another passkey for this account, and a new sign-in address (R4, Laravel only): writes
         // that outlive a session, so they need one that signed in just now (RequireFreshAuth).
         Route::middleware(RequireFreshAuth::class)->group(function (): void {

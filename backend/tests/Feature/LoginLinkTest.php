@@ -368,3 +368,18 @@ it('says everything in every language that it says in English', function () {
         expect(MailCopy::keys($lang))->toBe(MailCopy::keys('en'));
     }
 });
+
+it('tells the caller their own sign-in address and whether it is confirmed, through each stage', function () {
+    $f = $this->f;
+    $account = fn (User $who) => $this->getJson('/api/account', bearer($who));
+    // An older account: the address was set by hand and never confirmed by a link.
+    $account($f->a)->assertOk()->assertExactJson(['email' => 'coach.a@example.com', 'pendingEmail' => null, 'verified' => false]);
+    // A change asked for: still the old address until the link is opened.
+    $this->postJson('/api/account/email', ['email' => 'new.a@example.com'], freshBearer($f->a))->assertOk();
+    $account($f->a)->assertExactJson(['email' => 'coach.a@example.com', 'pendingEmail' => 'new.a@example.com', 'verified' => false]);
+    redeemLink(tokenMailed('new.a@example.com', 'confirm'))->assertOk();
+    $account($f->a)->assertExactJson(['email' => 'new.a@example.com', 'pendingEmail' => null, 'verified' => true]);
+    // No address at all (a client, or a coach from before R4).
+    $account($f->a1)->assertExactJson(['email' => null, 'pendingEmail' => null, 'verified' => false]);
+    $this->getJson('/api/account')->assertStatus(401);
+});
