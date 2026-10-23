@@ -7,6 +7,7 @@ import { compactMeals } from '../lib/nutrition.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
+import { billingOn } from '../lib/billing.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, syncReminder, writeAutoBackup } from '../lib/mobile.js'
 import { loadRemote, chooseLocal, forgetRemote, connect } from '../lib/remote.js'
 import { browserLang } from '../lib/i18n-core.js'
@@ -284,12 +285,31 @@ export const useStore = create((set, get) => {
       catch { return null }
     },
 
+    // The coach's plan, GET /api/billing/me ({entitlement, licence, plans, portal}; lib/billing.js
+    // reads it). Server-owned and never persisted, like `assignments`. Only asked on an instance
+    // that bills (`billing` in /api/config — the Node API has no such route) and only for a coach.
+    billing: null,
+    async loadBilling() {
+      const { config, user } = get()
+      if (!billingOn(config) || !user?.coach) { if (get().billing) set({ billing: null }); return null }
+      // Kept only if the same coach is still signed in when it answers: a reply landing after a
+      // sign-out would otherwise put one coach's plan in front of the next on a shared device.
+      const asked = user.id
+      try {
+        const b = await api('/api/billing/me')
+        if (get().user?.id !== asked) return null
+        set({ billing: b }); return b
+      }
+      // Offline: the last answer is still the best one there is.
+      catch { return get().user?.id === asked ? get().billing : null }
+    },
+
     setUser(u) {
       if (u) { localStorage.setItem('gym_user', JSON.stringify(u)); localStorage.removeItem('gym_guest') }
       else localStorage.removeItem('gym_user')
       // Offers belong to whoever is signed in; leaving them behind would show one profile's
-      // pending program to the next person on a shared device.
-      set({ user: u, ...(u ? null : { assignments: [] }) })
+      // pending program to the next person on a shared device. The plan likewise.
+      set({ user: u, ...(u ? null : { assignments: [], billing: null }) })
     },
 
     async pushState() {

@@ -248,12 +248,18 @@ function credToJSON(cred) {
   }
   return out
 }
-export async function passkeyRegister(name, code) {
-  const { cid, options } = await api('/api/register/options', { method: 'POST', body: JSON.stringify({ name, code: code || '' }) })
+// The registration ceremony, whatever the options were asked with: the ONE copy of it.
+async function registerWith(body) {
+  const { cid, options } = await api('/api/register/options', { method: 'POST', body: JSON.stringify(body) })
   const cred = await navigator.credentials.create({ publicKey: toCreationOptions(options) })
   const res = await api('/api/register/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
   return res.user
 }
+export const passkeyRegister = (name, code) => registerWith({ name, code: code || '' })
+// A coach signing themselves up (R4, Laravel only; /#/start): a coach's account, with no invite.
+// The address is kept pending and the server's first mail is the link that confirms it, in
+// `lang` — the account has no saved language yet.
+export const passkeyRegisterCoach = (name, email, lang) => registerWith({ name, email, coach: true, lang })
 export async function passkeyLogin() {
   const { cid, options } = await api('/api/login/options', { method: 'POST', body: '{}' })
   const cred = await navigator.credentials.get({ publicKey: toRequestOptions(options) })

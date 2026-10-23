@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../../store/useStore.js'
 import { MOBILE } from '../../lib/mobile.js'
@@ -8,6 +9,8 @@ import { ACCENTS, accentName } from '../../lib/format.js'
 import { Row, Section, Segmented } from '../../components/ui.jsx'
 import { confirmSheet } from '../../sheets.jsx'
 import { InviteSheet, MediaSheet } from './sheets.jsx'
+import { PlanBillingSection } from './billing.jsx'
+import { billingOn } from '../../lib/billing.js'
 import { PairSheet } from '../Settings.jsx'
 
 /**
@@ -33,6 +36,13 @@ export default function CoachAccount() {
   const openSheet = useUI(s => s.openSheet)
   const toast = useUI(s => s.toast)
   const syncError = useStore(s => s.syncError)
+  // The plan (R4). loadBilling asks nothing on an instance that bills nobody, and the section draws
+  // nothing until there is an answer, so Account is unchanged on the Node API. Asked again when the
+  // config lands: a returning coach is drawn from the cached user before /api/config answers.
+  const billing = useStore(s => s.billing)
+  const loadBilling = useStore(s => s.loadBilling)
+  const billed = billingOn(useStore(s => s.config))
+  useEffect(() => { loadBilling() }, [billed, user?.id])
 
   // Ends the profile's sessions on every device, this one included, so on success it lands where
   // a plain sign-out lands. On failure nothing local is touched: still signed in here, and say so
@@ -102,6 +112,8 @@ export default function CoachAccount() {
             subtitle={t('Ends this profile’s sessions on all your devices.')} danger onClick={signOutEverywhere} />
         </>}
     </Section>
+
+    <PlanBillingSection billing={billing} />
 
     <Section title={t('Coaching')} footer={t('Everything you do for clients lives on the other three tabs. These are the pieces that belong to you rather than to one of them.')}>
       <Row icon="link" iconTint="var(--acc)" title={t('Invite a client')}
