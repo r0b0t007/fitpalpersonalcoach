@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
 import { api } from '../../lib/api.js'
@@ -123,6 +123,48 @@ export function BillingBanner({ b, billing }) {
       <div className="small muted" style={{ marginTop: 2, lineHeight: 1.38 }}>{copy[1]}</div>
       {label && <Button variant="tinted" size="xs" style={{ marginTop: 10 }} onClick={() => runBillingAction(b.action)}>{label}</Button>}
     </div>
+  </div>
+}
+
+/**
+ * C22: the invite sheet's card when the coach takes no more clients. `reason` is the server's
+ * (coach/invites): `at_cap` — every seat taken; `read_only` — the plan does not write, paused or
+ * none at all, which /billing/me tells apart (its fix is the card, or choosing a plan).
+ */
+export function InviteBlocked({ reason, cap, used, onManageClients }) {
+  const billing = useStore(s => s.billing)
+  const loadBilling = useStore(s => s.loadBilling)
+  useEffect(() => { if (!billing) loadBilling() }, [])
+  const state = billingState(billing)
+  const box = tint => ({ border: '1px solid ' + tint, margin: '0 0 4px', display: 'flex', flexDirection: 'column', gap: 10 })
+  const head = (icon, tint, title, body) => <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+    <Icon name={icon} size={22} style={{ color: tint, flex: 'none', marginTop: 1 }} />
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontWeight: 600 }}>{title}</div>
+      <div className="small muted" style={{ marginTop: 2, lineHeight: 1.38 }}>{body}</div>
+    </div>
+  </div>
+
+  // The same reading as Today's banner (banner(): `granted`, and a portal action only with a
+  // portal), so the two never disagree about one coach. A plan granted by hand has no portal to
+  // upgrade in: the larger plan is the owner's to give. Until /billing/me answers the copy is the
+  // ordinary one, and the button waits for a portal to exist.
+  const granted = state === 'granted'
+  if (reason === 'at_cap') return <div className="card" style={box('var(--yellow)')}>
+    {head('people', 'var(--yellow)', tp(cap, 'Your plan allows {0} client', 'Your plan allows {0} clients'), granted
+      ? tp(used, 'You have {0} active client. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.',
+        'You have {0} active clients. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.')
+      : tp(used, 'You have {0} active client. Upgrade to invite more — or disable a client who has stopped training to free a seat.',
+        'You have {0} active clients. Upgrade to invite more — or disable a client who has stopped training to free a seat.'))}
+    {!granted && billing?.portal && <Button variant="primary" onClick={openPortal}>{t('Upgrade')}</Button>}
+    <Button onClick={onManageClients}>{t('Manage clients')}</Button>
+  </div>
+
+  return <div className="card" style={box('var(--orange)')}>
+    {head('pause', 'var(--orange)', t('Inviting is paused'), t('Inviting opens again once billing is sorted out.'))}
+    {state === 'none'
+      ? <Button variant="primary" onClick={() => runBillingAction('choose')}>{t('Choose a plan')}</Button>
+      : billing?.portal && <Button variant="primary" onClick={openPortal}>{t('Update payment')}</Button>}
   </div>
 }
 

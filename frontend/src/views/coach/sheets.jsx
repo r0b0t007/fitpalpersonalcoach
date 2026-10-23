@@ -11,6 +11,8 @@ import { confirmSheet } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { rel } from './parts.jsx'
+import { InviteBlocked } from './billing.jsx'
+import { nav } from '../../lib/nav.js'
 import { t, tp, exerciseNameFor } from '../../lib/i18n.js'
 
 // The coach's sheets: send a program, invite a client, upload a demo. Opened from Today, Clients
@@ -286,6 +288,10 @@ export function InviteSheet() {
   }
 
   const atCap = !!state && open.length >= state.max
+  // The plan's client cap (R4, Laravel): `reason` says why this coach takes nobody on right now —
+  // `at_cap` or `read_only` — and is null when they can. The Node API sends no such field, so
+  // there the sheet is exactly what it was. Not the open-code quota above, which still applies.
+  const blocked = state?.reason || null
 
   return <>
     <h3>{t('Invite a client')}</h3>
@@ -293,16 +299,19 @@ export function InviteSheet() {
       {t('Send them a link. They open it, make their profile, and arrive already on your roster — nobody has to assign them afterwards. Each link works once.')}
     </div>
 
-    <input className="input" placeholder={t('Who is it for? (optional)')} value={note} maxLength={60}
-      onChange={e => setNote(e.target.value)} style={{ marginBottom: 8 }} />
-    <Button variant="primary" icon="link" disabled={busy || !state || atCap} onClick={mint}>
-      {busy ? t('Making…') : t('Make an invite link')}
-    </Button>
-    {/* Only when it is actually in the way. A quota a coach is nowhere near is noise on the one
-        screen whose whole job is "send this to somebody". */}
-    {atCap && <div className="dim small" style={{ marginTop: 6 }}>
-      {tp(state.max, 'You have {0} link waiting. Revoke one you are not going to use.', 'You have {0} links waiting. Revoke one you are not going to use.')}
-    </div>}
+    {blocked ? <InviteBlocked reason={blocked} cap={state.cap} used={state.used}
+      onManageClients={() => { useUI.getState().closeAll(); nav('/clients') }} /> : <>
+      <input className="input" placeholder={t('Who is it for? (optional)')} value={note} maxLength={60}
+        onChange={e => setNote(e.target.value)} style={{ marginBottom: 8 }} />
+      <Button variant="primary" icon="link" disabled={busy || !state || atCap} onClick={mint}>
+        {busy ? t('Making…') : t('Make an invite link')}
+      </Button>
+      {/* Only when it is actually in the way. A quota a coach is nowhere near is noise on the one
+          screen whose whole job is "send this to somebody". */}
+      {atCap && <div className="dim small" style={{ marginTop: 6 }}>
+        {tp(state.max, 'You have {0} link waiting. Revoke one you are not going to use.', 'You have {0} links waiting. Revoke one you are not going to use.')}
+      </div>}
+    </>}
 
     <h4 className="sec" style={{ marginTop: 18 }}>{t('Waiting')}</h4>
     {failed ? <div className="dim small">{t('Could not load your invites.')}{' '}
@@ -319,17 +328,21 @@ export function InviteSheet() {
                 thing a coach standing in front of someone can dictate. */}
             <div className="dim" style={{ fontSize: '.72rem' }}>
               {t('made {0}', fmtDate(String(i.created).slice(0, 10)))} ·{' '}
-              <button onClick={() => copyCode(i.code)} aria-label={t('Copy the code {0}', i.code)}
-                style={{ font: 'inherit', fontFamily: 'ui-monospace, monospace', color: 'inherit', background: 'none',
-                  border: 0, padding: 0, textDecoration: 'underline', cursor: 'pointer' }}>{i.code}</button>
+              {/* Plain text while nobody can join: copying it is sharing it, by another route. */}
+              {blocked ? <span style={{ fontFamily: 'ui-monospace, monospace' }}>{i.code}</span>
+                : <button onClick={() => copyCode(i.code)} aria-label={t('Copy the code {0}', i.code)}
+                  style={{ font: 'inherit', fontFamily: 'ui-monospace, monospace', color: 'inherit', background: 'none',
+                    border: 0, padding: 0, textDecoration: 'underline', cursor: 'pointer' }}>{i.code}</button>}
             </div>
           </div>
           <div className="row" style={{ gap: 6, flex: 'none' }}>
-            <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => sendLink(i.code)}>{t('Share')}</button>
+            {/* While nobody can join, a link sent now is a sign-up that will be refused. The code
+                stays listed, and revocable, so nothing is lost when the seats open again. */}
+            {!blocked && <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => sendLink(i.code)}>{t('Share')}</button>}
             <button className="iconbtn" aria-label={t('Revoke {0}', i.code)} onClick={() => revoke(i)}><Icon name="trash" /></button>
           </div>
         </div>)}
-      </div> : <div className="dim small">{t('Nothing waiting. Make a link and send it.')}</div>}
+      </div> : <div className="dim small">{blocked ? t('Nothing waiting.') : t('Nothing waiting. Make a link and send it.')}</div>}
 
     {!!dead.length && <>
       <h4 className="sec" style={{ marginTop: 18 }}>{t('Revoked')}</h4>
