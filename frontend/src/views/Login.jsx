@@ -13,6 +13,7 @@ import Logo from '../components/Logo.jsx'
 import InstallCard from '../components/InstallCard.jsx'
 import { Button } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
+import { isEmail } from '../lib/email.js'
 
 // The request-access form ("leave your name and number, the gym sends you a code") is gone: a
 // coach's clients arrive by the coach's own link, and both APIs answer `request_access: false`.
@@ -129,7 +130,7 @@ function EmailSignIn({ focus }) {
   useEffect(() => { if (focus && !sent) setTimeout(() => ref.current?.focus(), 50) }, [focus, sent])
   const go = async () => {
     const e = email.trim()
-    if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(e)) { useUI.getState().toast(t('Enter your email address')); return }
+    if (!isEmail(e)) { useUI.getState().toast(t('Enter your email address')); return }
     setBusy(true)
     try { await requestLoginLink(e); setSent(true) }
     catch (err) { useUI.getState().toast(err.message || t('Could not send the link')) }
@@ -181,6 +182,11 @@ export default function Login() {
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
   }
   const head = <h1 style={{ margin: '10px 0 6px' }}><Logo size={40} /></h1>
+  const emailButton = <>
+    <Button variant="ghost" icon="link" style={{ color: 'var(--label-2)' }} onClick={() => setEmailOpen(o => !o)}
+      aria-expanded={emailOpen}>{t('Sign in with email')}</Button>
+    {emailOpen && <EmailSignIn focus />}
+  </>
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
 
   // Demo build: no backend to sign in against — the only way in is the local guest profile.
@@ -213,12 +219,7 @@ export default function Login() {
       {webauthnOK() ? <>
         <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
         <div style={{ height: 10 }} />
-        {emailPath && <>
-          <Button variant="ghost" icon="link" style={{ color: 'var(--label-2)' }} onClick={() => setEmailOpen(o => !o)}
-            aria-expanded={emailOpen}>{t('Sign in with email')}</Button>
-          {emailOpen && <EmailSignIn focus />}
-          <div style={{ height: 10 }} />
-        </>}
+        {emailPath && <>{emailButton}<div style={{ height: 10 }} /></>}
         {/* Not while the inviting coach takes nobody on: the sheet would carry their code into a
             refusal that only comes after the passkey prompt. Signing in stays open. */}
         {!full && <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>}
@@ -228,6 +229,9 @@ export default function Login() {
         // Without passkeys and without the guest entrance there is no way in from this browser,
         // so say that plainly instead of offering a local profile that cannot be created.
         : t("This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.")}</div>}
+      {/* Without passkeys the email link is the only way in for a coach — the fallback is most
+          needed exactly where the primary cannot run. */}
+      {!webauthnOK() && emailPath && <><div style={{ height: 12 }} />{emailButton}</>}
       {canGuest && <Button variant="ghost" className="dim" onClick={() => setGuest(true)}>{t('Continue without account')}</Button>}
       <InstallCard style={{ marginTop: 20 }} />
       <div className="dim small" style={{ marginTop: 26, lineHeight: 1.5 }}>{t('Passkeys use {0} — no passwords.', bioLabel())}<br />{t('Each profile keeps its own plan, workouts & body weight.')}</div>

@@ -217,6 +217,7 @@ function Shell() {
   const onLink = loc.pathname === '/link' && linkOpen(config)
   // Not before the config is known: a signed-in coach is drawn from the cached user while it is on
   // its way, and the coach routes' catch-all would bounce /link to /today with the token in it.
+  // A config that failed to load counts as "maybe" (linkOpen): the link is tried, not dropped.
   const linkPending = loc.pathname === '/link' && !config && !ready
   if ((!ready && !authed) || linkPending) return (
     <div id="app">

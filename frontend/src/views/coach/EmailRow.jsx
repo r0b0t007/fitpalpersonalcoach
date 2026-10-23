@@ -3,6 +3,7 @@ import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
 import { fetchAccount, changeEmail } from '../../lib/api.js'
 import { t } from '../../lib/i18n.js'
+import { isEmail } from '../../lib/email.js'
 import { Button, Row } from '../../components/ui.jsx'
 
 /**
@@ -28,10 +29,12 @@ export function EmailRow() {
   if (!on || !account) return null
 
   const { email, pendingEmail, verified } = account
-  const change = () => openSheet(close => <ChangeEmailSheet close={close} current={email} onSent={load} />)
+  const change = () => openSheet(close => <ChangeEmailSheet close={close} current={email || pendingEmail} onSent={load} />)
 
+  // Tappable as well as resendable: a sign-up's address may simply be mistyped, and its link then
+  // goes nowhere — the change sheet puts the right one in its place.
   if (!email && pendingEmail) return <Row icon="key" iconTint="var(--grey)" title={pendingEmail}
-    subtitle={t('Not confirmed yet — open the link we sent')}>
+    subtitle={t('Not confirmed yet — open the link we sent')} onClick={change}>
     <ResendButton email={pendingEmail} />
   </Row>
   if (!email) return <Row icon="key" iconTint="var(--acc)" title={t('Add an email')}
@@ -65,7 +68,7 @@ function ChangeEmailSheet({ close, current, onSent }) {
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
   const go = async () => {
     const e = email.trim()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { useUI.getState().toast(t('Enter your email address')); return }
+    if (!isEmail(e)) { useUI.getState().toast(t('Enter your email address')); return }
     setBusy(true)
     try {
       await changeEmail(e)

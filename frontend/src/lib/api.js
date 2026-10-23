@@ -248,25 +248,22 @@ function credToJSON(cred) {
   }
   return out
 }
-// The registration ceremony, whatever the options were asked with: the ONE copy of it.
-async function registerWith(body) {
-  const { cid, options } = await api('/api/register/options', { method: 'POST', body: JSON.stringify(body) })
+// The registration ceremony, whatever it is for — a new account (/api/register) or another
+// passkey for the signed-in one (/api/passkeys) — and whatever the options were asked with: the
+// ONE copy of it.
+async function registerWith(base, body) {
+  const { cid, options } = await api(base + '/options', { method: 'POST', body: JSON.stringify(body) })
   const cred = await navigator.credentials.create({ publicKey: toCreationOptions(options) })
-  const res = await api('/api/register/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
-  return res.user
+  return api(base + '/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
 }
-export const passkeyRegister = (name, code) => registerWith({ name, code: code || '' })
+export const passkeyRegister = (name, code) => registerWith('/api/register', { name, code: code || '' }).then(r => r.user)
 // A coach signing themselves up (R4, Laravel only; /#/start): a coach's account, with no invite.
 // The address is kept pending and the server's first mail is the link that confirms it, in
 // `lang` — the account has no saved language yet.
-export const passkeyRegisterCoach = (name, email, lang) => registerWith({ name, email, coach: true, lang })
+export const passkeyRegisterCoach = (name, email, lang) => registerWith('/api/register', { name, email, coach: true, lang }).then(r => r.user)
 // Another passkey for the signed-in account (R4, Laravel only) — offered after a sign-in by email
 // link, on a device that had none. The server wants a session that signed in just now.
-export async function passkeyAdd() {
-  const { cid, options } = await api('/api/passkeys/options', { method: 'POST', body: '{}' })
-  const cred = await navigator.credentials.create({ publicKey: toCreationOptions(options) })
-  await api('/api/passkeys/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
-}
+export const passkeyAdd = () => registerWith('/api/passkeys', {}).then(() => {})
 
 // Sign-in by emailed link (R4, Laravel only; spec §4a). Asking always answers the same, whether or
 // not the address belongs to a coach; redeeming answers {user} for a sign-in (and sets the session

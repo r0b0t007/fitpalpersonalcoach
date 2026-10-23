@@ -349,6 +349,13 @@ export const useStore = create((set, get) => {
       } catch (e) { /* offline — keep local */ }
     },
 
+    // Another account has just signed in on this device without signing the last one out — an
+    // emailed link opened in a browser where someone else was signed in (views/Link.jsx). The
+    // session cookie is already the new account's, so nothing may be pushed: the old profile's
+    // local state, dirty flag and shell choice are dropped as a sign-out drops them, and its
+    // unsynced edits with them — the alternative is writing them into the new account.
+    forgetLocalSession() { clearLocalSession() },
+
     async signOut() {
       try { await get().pushState(); await api('/api/logout', { method: 'POST', body: '{}' }) } catch (e) { /* */ }
       clearLocalSession()

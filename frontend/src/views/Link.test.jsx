@@ -109,11 +109,35 @@ describe('the link page', () => {
     expect(calls.filter(([p]) => p === '/api/login/link')).toEqual([['/api/login/link', { t: 'tok_signin' }]])
     expect(text()).toContain('You are signed in')
     expect(useStore.getState().user).toMatchObject({ id: 'c1' })
-    // The spent token is out of the address bar.
-    expect(where.search).toBe('')
     await act(async () => { vi.advanceTimersByTime(SIGNED_IN_MS + 50) })
+    // On to Today, which also takes the spent token out of the address.
     expect(where.pathname).toBe('/today')
+    expect(where.search).toBe('')
     expect(useUI.getState().sheets).toHaveLength(1)
+  })
+
+  it('drops the previous profile’s local data when another account signs in by link', async () => {
+    // Someone else was signed in on this device. The session is already the new coach's: their
+    // local state must go, not be pushed into the new account by the sync after sign-in.
+    useStore.setState({ user: { id: 'other', name: 'Someone else', coach: false } })
+    useStore.getState().update(st => { st.workouts = [{ id: 'w1', date: '2026-09-01', ex: [] }] }, false)
+    localStorage.setItem('gym_dirty', '1')
+    REDEEM = { user: COACH }
+    await render(<Link />, '/link?t=tok_switch')
+    expect(useStore.getState().user).toMatchObject({ id: 'c1' })
+    expect(useStore.getState().S.workouts || []).toEqual([])
+    expect(calls.some(([p, b]) => p === '/api/data' && b?.state?.workouts?.length)).toBe(false)
+  })
+
+  it('tries again when the same link is opened after the server could not be reached', async () => {
+    REDEEM = new Error('Failed to fetch')   // no status: never reached the server
+    await render(<Link />, '/link?t=tok_offline')
+    expect(text()).toContain('Could not reach the server')
+    act(() => root.unmount()); root = createRoot(container)
+    REDEEM = { user: COACH }
+    await render(<Link />, '/link?t=tok_offline')
+    expect(text()).toContain('You are signed in')
+    expect(calls.filter(([p]) => p === '/api/login/link')).toHaveLength(2)
   })
 
   it('redeems a token once, however often the page mounts', async () => {
@@ -153,6 +177,14 @@ describe('the link page', () => {
 })
 
 describe('Login’s email path', () => {
+  it('accepts an ordinary address with an "s" in it', async () => {
+    // The regression: a copy of the address check that had lost its backslashes refused these.
+    await render(<Login />, '/home?email=1')
+    await type('input[type="email"]', 'sara@fitness.ma')
+    await click('Send me a link')
+    expect(calls.find(([p]) => p === '/api/login/email')[1]).toEqual({ email: 'sara@fitness.ma' })
+  })
+
   it('sends a link and says the same thing whoever the address belongs to', async () => {
     await render(<Login />, '/home')
     await click('Sign in with email')
@@ -186,6 +218,14 @@ describe('Account › email row', () => {
     await render(<EmailRow />, '/account')
     expect(text()).toContain('a@example.com')
     expect(text()).toContain('Verified · for sign-in links and receipts')
+  })
+
+  it('lets a new sign-up correct a mistyped address', async () => {
+    ACCOUNT = { email: null, pendingEmail: 'ahmed@gmial.com', verified: false }
+    await render(<EmailRow />, '/account')
+    const row = [...container.querySelectorAll('button')].find(b => b.textContent.includes('ahmed@gmial.com'))
+    await act(async () => { row.click() })
+    expect(useUI.getState().sheets).toHaveLength(1)
   })
 
   it('offers to resend the first link to a new sign-up', async () => {

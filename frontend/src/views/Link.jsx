@@ -10,14 +10,23 @@ import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { AddPasskeySheet, shouldOfferPasskey } from '../components/AddPasskeySheet.jsx'
 
-/** Whether /#/link is the email-link landing here: only on a server with sign-in by link. */
-export const linkOpen = config => !!config?.login_email
+/**
+ * Whether /#/link is the email-link landing here: on a server with sign-in by link — and while the
+ * config is unknown (it failed to load), since dropping an emailed link silently is worse than
+ * asking a server that might not have the route. The Node API answers with a config that has no
+ * `login_email`, so there it is never the landing.
+ */
+export const linkOpen = config => (config ? !!config.login_email : true)
 
 // One redemption per token per page load. A link is single-use on the server, so a second POST —
-// a remount, a re-render racing the first — would turn a good sign-in into "already used".
+// a remount, a re-render racing the first — would turn a good sign-in into "already used". Only
+// answers are kept: a request that never reached the server is forgotten, so opening the same
+// link again tries again.
 const redeemed = new Map()
 const redeemOnce = token => {
-  if (!redeemed.has(token)) redeemed.set(token, redeemLoginLink(token))
+  if (!redeemed.has(token)) {
+    redeemed.set(token, redeemLoginLink(token).catch(e => { if (!e.status) redeemed.delete(token); throw e }))
+  }
   return redeemed.get(token)
 }
 
@@ -28,33 +37,51 @@ export const SIGNED_IN_MS = 900
  * S6: where an emailed link lands (/#/link?t=…), signed in or not. Three outcomes from one POST:
  * a sign-in (the server sets the session; on to Today, and the passkey offer), a confirmed address
  * change (S6d), or a link that is spent or expired (S6c) — ordinary, not an error, so no red.
+ *
+ * The token is read from the address each time it changes, not once: another link opened in the
+ * same tab only changes the hash, and must be redeemed rather than ignored.
  */
 export default function Link() {
   const loc = useLocation()
   const nav = useNavigate()
-  const { setUser, pullState } = useStore()
+  const { setUser, pullState, forgetLocalSession } = useStore()
   const signedIn = useStore(s => !!s.user)
-  const [token] = useState(() => new URLSearchParams(loc.search).get('t') || '')
+  const token = new URLSearchParams(loc.search).get('t') || ''
   const [state, setState] = useState(token ? { kind: 'loading' } : { kind: 'expired', message: '' })
 
   useEffect(() => {
+    // No token: either nothing was in the link, or it was spent and taken out of the address
+    // below — the page keeps showing whatever that redemption said.
     if (!token) return
-    let live = true
+    let live = true, tm = null
+    setState({ kind: 'loading' })
+    // The spent token leaves the address bar (and the history entry) as the LAST step of each
+    // outcome: changing the address re-runs this effect, whose cleanup would cancel anything
+    // still to come — the move to Today among it.
+    const tidy = () => nav('/link', { replace: true })
     redeemOnce(token).then(async res => {
       if (!live) return
-      // The token is spent: take it out of the address bar and the history entry.
-      nav('/link', { replace: true })
       if (res.user) {
         setState({ kind: 'signedIn' })
+        // Someone else was signed in here. The session is already the new account's, so their
+        // local data must go, not be pushed into it (useStore.forgetLocalSession).
+        const before = useStore.getState().user
+        if (before && before.id !== res.user.id) forgetLocalSession()
         setUser(res.user)
         await pullState()
-        setTimeout(() => {
-          nav(homeFor(res.user, getShellPref()), { replace: true })
+        if (!live) return
+        tm = setTimeout(() => {
+          nav(homeFor(res.user, getShellPref()), { replace: true })   // replaces /link?t=… as well
           if (shouldOfferPasskey()) useUI.getState().openSheet(close => <AddPasskeySheet close={close} />)
         }, SIGNED_IN_MS)
-      } else setState({ kind: 'emailChanged', email: res.email })
-    }).catch(e => { if (live) setState({ kind: 'expired', message: e.status ? e.message : t('Could not reach the server — try the link again.') }) })
-    return () => { live = false }
+      } else { setState({ kind: 'emailChanged', email: res.email }); tidy() }
+    }).catch(e => {
+      if (!live) return
+      setState({ kind: 'expired', message: e.status ? e.message : t('Could not reach the server — try the link again.') })
+      // Kept in the address when the server was never reached: a reload is then a second try.
+      if (e.status) tidy()
+    })
+    return () => { live = false; clearTimeout(tm) }
   }, [token])
 
   const signInWithPasskey = async () => {
