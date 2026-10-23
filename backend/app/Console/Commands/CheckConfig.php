@@ -41,6 +41,7 @@ final class CheckConfig extends Command
         if (config('fitpal.self_serve_coach') && ! Plans::billingOn()) {
             $warnings[] = 'SELF_SERVE_COACH is on but billing is off: coach sign-up stays closed until CREEM_API_KEY, CREEM_WEBHOOK_SECRET and CREEM_PRODUCTS are set (a self-serve coach is meant to pay).';
         }
+        array_push($warnings, ...self::mailProblems());
         foreach ($warnings as $w) {
             $this->warn($w);
         }
@@ -49,5 +50,52 @@ final class CheckConfig extends Command
         }
 
         return $warnings === [] ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * Mail is how a coach gets back in without a passkey (sign-in links, spec §4a) and how a new
+     * sign-up confirms its address: a mailer that sends nothing fails quietly, link by link.
+     *
+     * @return list<string>
+     */
+    public static function mailProblems(): array
+    {
+        $out = [];
+        $mailer = (string) config('mail.default');
+        $transport = config("mail.mailers.{$mailer}.transport");
+        if (! is_string($transport)) {
+            // A typo (MAIL_MAILER=Resend) throws on every send, and the throw is only logged.
+            return ["MAIL_MAILER is {$mailer}, which config/mail.php does not define — every mail fails. Set MAIL_MAILER=resend."];
+        }
+        if (in_array($transport, ['log', 'array'], true)) {
+            // Fine on a laptop and in tests; on a live instance every link goes nowhere.
+            if (app()->isProduction()) {
+                $out[] = "MAIL_MAILER is {$mailer}: sign-in links and address confirmations are written to the log, not sent. Set MAIL_MAILER=resend and RESEND_API_KEY.";
+            }
+
+            return $out;
+        }
+        // A failover or round-robin mailer sends through its members: one of them is Resend with no
+        // key, and every mail quietly falls through to the next (often the log). The key is the
+        // mailer's own if it has one, as the transport reads it.
+        $members = in_array($transport, ['failover', 'roundrobin'], true) ? (array) config("mail.mailers.{$mailer}.mailers") : [$mailer];
+        $resend = false;
+        foreach ($members as $name) {
+            if (config("mail.mailers.{$name}.transport") !== 'resend') {
+                continue;
+            }
+            $resend = true;
+            if ((string) (config("mail.mailers.{$name}.key") ?? config('services.resend.key')) === '') {
+                $out[] = "MAIL_MAILER is {$mailer} but RESEND_API_KEY is unset — no mail is sent through Resend.";
+            }
+        }
+        // Resend refuses a sender on a domain it has not verified, wherever it runs; a local mail
+        // catcher (Mailpit) takes anything, so the placeholder only matters there in production.
+        $from = (string) config('mail.from.address');
+        if (($resend || app()->isProduction()) && ($from === '' || str_ends_with(strtolower($from), '@example.com'))) {
+            $out[] = 'MAIL_FROM_ADDRESS is '.($from === '' ? '(empty)' : $from).' — set the verified sender (no-reply@fitpal.ma), or the provider refuses every message.';
+        }
+
+        return $out;
     }
 }
