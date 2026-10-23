@@ -22,7 +22,7 @@ async function mountLogin(answer) {
   vi.doMock('../lib/api.js', async orig => ({
     ...(await orig()),
     api: async path => {
-      if (path.startsWith('/api/invite?')) return INVITE
+      if (path.startsWith('/api/invite?')) return INVITE === 'hang' ? new Promise(() => {}) : INVITE
       throw new Error('unexpected ' + path)
     },
     webauthnOK: () => true,
@@ -52,15 +52,31 @@ describe('arriving from an invite link', () => {
     expect(useUI.getState().sheets).toHaveLength(1)
   })
 
-  it('says the list is full, and opens nothing, when it is', async () => {
+  it('says the coach takes nobody on right now, and offers no sign-up, when `full`', async () => {
+    // `full` covers a paused plan too, so the copy names neither reason — as the server's own
+    // refusal does not.
     const useUI = await mountLogin({ coachName: 'Ahmed', full: true })
-    expect(text()).toContain('Ahmed’s client list is full right now')
+    expect(text()).toContain('Ahmed cannot take on new clients right now')
+    expect(text()).not.toMatch(/list is full/)
     expect(useUI.getState().sheets).toHaveLength(0)
+    // Not one tap away either: the sheet would carry the code into a refusal after the passkey.
+    expect(text()).not.toContain('Create new profile')
+    expect(text()).toContain('Sign in with passkey')
+  })
+
+  it('opens the sign-up anyway when the link check hangs', async () => {
+    vi.useFakeTimers()
+    try {
+      const useUI = await mountLogin('hang')
+      expect(useUI.getState().sheets).toHaveLength(0)
+      await act(async () => { vi.advanceTimersByTime(3000) })
+      expect(useUI.getState().sheets).toHaveLength(1)
+    } finally { vi.useRealTimers() }
   })
 
   it('opens the sign-up as before on the Node API, which sends no `full`', async () => {
     const useUI = await mountLogin({ coachName: 'Ahmed' })
-    expect(text()).not.toContain('client list is full')
+    expect(text()).not.toContain('cannot take on new clients')
     expect(useUI.getState().sheets).toHaveLength(1)
   })
 

@@ -27,6 +27,7 @@ import { Button } from '../components/ui.jsx'
  * after the passkey prompt, so the screen says so first. The Node API never sends it.
  */
 let inviterAsked = null
+const INVITE_WAIT_MS = 2500
 function useInvite() {
   const code = pendingInvite()
   const [answer, setAnswer] = useState(undefined)
@@ -88,8 +89,9 @@ function RegisterSheet({ close }) {
         shown rather than hidden, so what is about to happen is visible. */}
     {(inviteOnly || inviter) && <>
       <div style={{ height: 10 }} />
-      {/* `fromLink`, not `code`, whenever a coach was named: this sheet auto-opens the moment
-          config lands, while GET /api/invite is still in flight, so anything typed in that window
+      {/* `fromLink`, not `code`, whenever a coach was named: this sheet can open while GET
+          /api/invite is still in flight (Login's INVITE_WAIT_MS, or a tap on "Create new
+          profile"), so anything typed in that window
           would otherwise be frozen into a read-only field captioned "From your invite link" —
           registration then fails with "invite code is no longer valid" and nothing on the screen
           can put it right. What the link carries is what gets sent. */}
@@ -120,14 +122,18 @@ export default function Login() {
   // Arriving from an invite link means the intent is already clear, so open the sheet rather than
   // leaving a prefilled field behind a button nobody was told to press. Waits for config, since
   // that decides whether the code field renders at all; DEMO has no backend to join. And for the
-  // link's answer: when the coach's list is full the sign-up would be refused after the passkey
-  // prompt, so the screen says that instead of opening a sheet that cannot succeed.
+  // link's answer: when the coach takes nobody on right now the sign-up would be refused after the
+  // passkey prompt, so the screen says that instead of opening a sheet that cannot succeed — but
+  // only for so long: a request that hangs must not leave someone who came to sign up with no
+  // sheet at all, so after INVITE_WAIT_MS it opens anyway and the server decides, as it did before.
   const opened = useRef(false)
+  const [waited, setWaited] = useState(false)
+  useEffect(() => { const tm = setTimeout(() => setWaited(true), INVITE_WAIT_MS); return () => clearTimeout(tm) }, [])
   useEffect(() => {
-    if (DEMO || opened.current || !config || !webauthnOK() || !pendingInvite() || invite === undefined || full) return
+    if (DEMO || opened.current || !config || !webauthnOK() || !pendingInvite() || (invite === undefined && !waited) || full) return
     opened.current = true
     useUI.getState().openSheet(close => <RegisterSheet close={close} />)
-  }, [config, invite])
+  }, [config, invite, waited])
   const signIn = async () => {
     try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
@@ -157,13 +163,17 @@ export default function Login() {
       <div className="muted" style={{ marginBottom: full ? 14 : 34 }}>
         {inviter ? t('{0} invited you to train with them.', inviter) : t('Your coach. Your plan. Your progress.')}
       </div>
+      {/* `full` is either reason the coach takes nobody on — every seat taken, or a plan that is
+          paused — so the copy names neither, as the server's own refusal does. */}
       {full && <div className="card small" role="status" style={{ textAlign: 'left', marginBottom: 20, lineHeight: 1.4 }}>
-        {t('{0}’s client list is full right now. Ask them to make room, then open the link again.', inviter)}
+        {t('{0} cannot take on new clients right now. Ask them about it — this link will work once they can.', inviter)}
       </div>}
       {webauthnOK() ? <>
         <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
         <div style={{ height: 10 }} />
-        <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>
+        {/* Not while the inviting coach takes nobody on: the sheet would carry their code into a
+            refusal that only comes after the passkey prompt. Signing in stays open. */}
+        {!full && <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>}
         {canGuest && <div style={{ height: 10 }} />}
       </> : <div className="card small muted" style={{ textAlign: 'left' }}>{canGuest
         ? t("This browser doesn't support passkeys — you can still use {0} locally on this device.", BRAND)

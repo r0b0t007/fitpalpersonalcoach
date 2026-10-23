@@ -157,6 +157,25 @@ describe('when the plan takes nobody on', () => {
     expect(text()).toContain('WAIT000000000001')
     expect([...container.querySelectorAll('button')].some(b => b.textContent === 'Share')).toBe(false)
     expect(container.querySelector('[aria-label="Revoke WAIT000000000001"]')).toBeTruthy()
+    // Nor copied: the code is plain text, not the copy button.
+    expect(container.querySelector('[aria-label="Copy the code WAIT000000000001"]')).toBe(null)
+  })
+
+  it('does not ask a blocked coach to make a link when nothing is waiting', async () => {
+    useStore.setState({ billing: billingMe('paused') })
+    inviteState = { invites: [], max: 20, cap: 30, used: 12, canInvite: false, reason: 'read_only' }
+    await mount()
+    expect(text()).toContain('Nothing waiting.')
+    expect(text()).not.toContain('Make a link and send it')
+  })
+
+  it('reads a granted plan from the plan, not from a portal that has not loaded yet', async () => {
+    // /billing/me not in yet: the ordinary copy, and no button until there is a portal to open.
+    useStore.setState({ billing: null, config: null })
+    inviteState = { invites: [], max: 20, cap: 10, used: 10, canInvite: false, reason: 'at_cap' }
+    await mount()
+    expect(text()).toContain('Upgrade to invite more')
+    expect(text()).not.toContain('Ask FitPal')
   })
 
   it('at the cap on a granted plan: no upgrade button, there is no portal to upgrade in', async () => {

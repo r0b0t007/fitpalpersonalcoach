@@ -145,14 +145,18 @@ export function InviteBlocked({ reason, cap, used, onManageClients }) {
     </div>
   </div>
 
+  // The same reading as Today's banner (banner(): `granted`, and a portal action only with a
+  // portal), so the two never disagree about one coach. A plan granted by hand has no portal to
+  // upgrade in: the larger plan is the owner's to give. Until /billing/me answers the copy is the
+  // ordinary one, and the button waits for a portal to exist.
+  const granted = state === 'granted'
   if (reason === 'at_cap') return <div className="card" style={box('var(--yellow)')}>
-    {/* A plan granted by hand has no portal to upgrade in: the larger plan is the owner's to give. */}
-    {head('people', 'var(--yellow)', t('Your plan allows {0} clients', cap), billing?.portal
-      ? tp(used, 'You have {0} active client. Upgrade to invite more — or disable a client who has stopped training to free a seat.',
-        'You have {0} active clients. Upgrade to invite more — or disable a client who has stopped training to free a seat.')
-      : tp(used, 'You have {0} active client. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.',
-        'You have {0} active clients. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.'))}
-    {billing?.portal && <Button variant="primary" onClick={openPortal}>{t('Upgrade')}</Button>}
+    {head('people', 'var(--yellow)', tp(cap, 'Your plan allows {0} client', 'Your plan allows {0} clients'), granted
+      ? tp(used, 'You have {0} active client. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.',
+        'You have {0} active clients. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.')
+      : tp(used, 'You have {0} active client. Upgrade to invite more — or disable a client who has stopped training to free a seat.',
+        'You have {0} active clients. Upgrade to invite more — or disable a client who has stopped training to free a seat.'))}
+    {!granted && billing?.portal && <Button variant="primary" onClick={openPortal}>{t('Upgrade')}</Button>}
     <Button onClick={onManageClients}>{t('Manage clients')}</Button>
   </div>
 

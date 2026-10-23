@@ -328,9 +328,11 @@ export function InviteSheet() {
                 thing a coach standing in front of someone can dictate. */}
             <div className="dim" style={{ fontSize: '.72rem' }}>
               {t('made {0}', fmtDate(String(i.created).slice(0, 10)))} ·{' '}
-              <button onClick={() => copyCode(i.code)} aria-label={t('Copy the code {0}', i.code)}
-                style={{ font: 'inherit', fontFamily: 'ui-monospace, monospace', color: 'inherit', background: 'none',
-                  border: 0, padding: 0, textDecoration: 'underline', cursor: 'pointer' }}>{i.code}</button>
+              {/* Plain text while nobody can join: copying it is sharing it, by another route. */}
+              {blocked ? <span style={{ fontFamily: 'ui-monospace, monospace' }}>{i.code}</span>
+                : <button onClick={() => copyCode(i.code)} aria-label={t('Copy the code {0}', i.code)}
+                  style={{ font: 'inherit', fontFamily: 'ui-monospace, monospace', color: 'inherit', background: 'none',
+                    border: 0, padding: 0, textDecoration: 'underline', cursor: 'pointer' }}>{i.code}</button>}
             </div>
           </div>
           <div className="row" style={{ gap: 6, flex: 'none' }}>
@@ -340,7 +342,7 @@ export function InviteSheet() {
             <button className="iconbtn" aria-label={t('Revoke {0}', i.code)} onClick={() => revoke(i)}><Icon name="trash" /></button>
           </div>
         </div>)}
-      </div> : <div className="dim small">{t('Nothing waiting. Make a link and send it.')}</div>}
+      </div> : <div className="dim small">{blocked ? t('Nothing waiting.') : t('Nothing waiting. Make a link and send it.')}</div>}
 
     {!!dead.length && <>
       <h4 className="sec" style={{ marginTop: 18 }}>{t('Revoked')}</h4>
