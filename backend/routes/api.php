@@ -91,12 +91,17 @@ $routes = static function (): void {
         Route::post('/activity', [ActivityController::class, 'store']);
         Route::post('/pair/create', [PairController::class, 'create']);
         Route::post('/logout/all', [AuthController::class, 'logoutAll']);
-        // Another passkey for this account, and a new sign-in address (R4, Laravel only): writes
-        // that outlive a session, so they need one that signed in just now (RequireFreshAuth).
+        // The caller's own sign-in address and whether it is confirmed (R4, Laravel only; the
+        // Account email row) — kept out of /api/me, whose shape both APIs share.
+        Route::get('/account', [LoginLinkController::class, 'account']);
+        // A new sign-in address needs a recent sign-in too — judged in the controller, because
+        // sending the link again to the address ALREADY pending changes nothing and does not.
+        Route::post('/account/email', [LoginLinkController::class, 'changeEmail']);
+        // Another passkey for this account (R4, Laravel only): a write that outlives the session,
+        // so it needs one that signed in just now (RequireFreshAuth).
         Route::middleware(RequireFreshAuth::class)->group(function (): void {
             Route::post('/passkeys/options', [AuthController::class, 'passkeyOptions']);
             Route::post('/passkeys/verify', [AuthController::class, 'passkeyVerify']);
-            Route::post('/account/email', [LoginLinkController::class, 'changeEmail']);
         });
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);

@@ -368,3 +368,32 @@ it('says everything in every language that it says in English', function () {
         expect(MailCopy::keys($lang))->toBe(MailCopy::keys('en'));
     }
 });
+
+it('tells the caller their own sign-in address and whether it is confirmed, through each stage', function () {
+    $f = $this->f;
+    $account = fn (User $who) => $this->getJson('/api/account', bearer($who));
+    // An older account: the address was set by hand and never confirmed by a link.
+    $account($f->a)->assertOk()->assertExactJson(['email' => 'coach.a@example.com', 'pendingEmail' => null, 'verified' => false]);
+    // A change asked for: still the old address until the link is opened.
+    $this->postJson('/api/account/email', ['email' => 'new.a@example.com'], freshBearer($f->a))->assertOk();
+    $account($f->a)->assertExactJson(['email' => 'coach.a@example.com', 'pendingEmail' => 'new.a@example.com', 'verified' => false]);
+    redeemLink(tokenMailed('new.a@example.com', 'confirm'))->assertOk();
+    $account($f->a)->assertExactJson(['email' => 'new.a@example.com', 'pendingEmail' => null, 'verified' => true]);
+    // No address at all (a client, or a coach from before R4).
+    $account($f->a1)->assertExactJson(['email' => null, 'pendingEmail' => null, 'verified' => false]);
+    $this->getJson('/api/account')->assertStatus(401);
+});
+
+it('sends the confirmation again to the pending address from any session, but a new address only from a fresh one', function () {
+    $f = $this->f;
+    $f->a->forceFill(['email' => null, 'pending_email' => 'signup.a@example.com'])->save();
+    // A day after signing up: signed in, but no longer recently.
+    $stale = bearer($f->a);
+    $this->postJson('/api/account/email', ['email' => 'Signup.A@example.com'], $stale)
+        ->assertOk()->assertExactJson(['ok' => true, 'pendingEmail' => 'signup.a@example.com']);
+    Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->kind === 'confirm' && $m->hasTo('signup.a@example.com'));
+    // Pointing the account at another inbox still needs a recent sign-in.
+    $this->postJson('/api/account/email', ['email' => 'elsewhere@example.com'], $stale)
+        ->assertStatus(403)->assertExactJson(['error' => 'sign in again to do this — it needs a recent sign-in']);
+    expect($f->a->fresh()->pending_email)->toBe('signup.a@example.com');
+});

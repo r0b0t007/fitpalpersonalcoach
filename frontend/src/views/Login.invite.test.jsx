@@ -30,8 +30,10 @@ async function mountLogin(answer) {
   const { useStore } = await import('../store/useStore.js')
   const { useUI } = await import('../store/useUI.js')
   const { default: Login } = await import('./Login.jsx')
+  // From the same fresh module graph as Login, or the router context would not match.
+  const { MemoryRouter } = await import('react-router-dom')
   useStore.setState({ config: { invite_only: true, allow_guest: false } })
-  await act(async () => { root.render(<Login />) })
+  await act(async () => { root.render(<MemoryRouter><Login /></MemoryRouter>) })
   await act(async () => {})
   return useUI
 }

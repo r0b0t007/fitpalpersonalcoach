@@ -22,7 +22,7 @@ it('reports the sign-in flags and never offers access requests', function () {
     $this->getJson('/api/config')->assertOk()->assertExactJson([
         'invite_only' => true, 'allow_guest' => false, 'request_access' => false, 'self_serve' => true,
         'upload' => ['chunked' => true, 'chunk_mb' => 4],
-        'billing' => false, 'plans' => [], 'trial_days' => 14,
+        'billing' => false, 'plans' => [], 'trial_days' => 14, 'login_email' => true,
     ]);
 });
 

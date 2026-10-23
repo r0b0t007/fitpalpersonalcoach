@@ -10,6 +10,7 @@ import { Row, Section, Segmented } from '../../components/ui.jsx'
 import { confirmSheet } from '../../sheets.jsx'
 import { InviteSheet, MediaSheet } from './sheets.jsx'
 import { PlanBillingSection } from './billing.jsx'
+import { EmailRow } from './EmailRow.jsx'
 import { billingOn } from '../../lib/billing.js'
 import { PairSheet } from '../Settings.jsx'
 
@@ -41,7 +42,8 @@ export default function CoachAccount() {
   // config lands: a returning coach is drawn from the cached user before /api/config answers.
   const billing = useStore(s => s.billing)
   const loadBilling = useStore(s => s.loadBilling)
-  const billed = billingOn(useStore(s => s.config))
+  const config = useStore(s => s.config)
+  const billed = billingOn(config)
   useEffect(() => { loadBilling() }, [billed, user?.id])
 
   // Ends the profile's sessions on every device, this one included, so on success it lands where
@@ -79,7 +81,10 @@ export default function CoachAccount() {
           the screen someone opens when the app feels wrong. */}
       {syncError && <Row icon="warning" iconTint="var(--red)" title={t('This device could not save to the server')} subtitle={syncError} />}
       <Row icon="personCircle" iconTint="var(--grey)" title={user?.name || t('Signed in')}
-        subtitle={t('Signed in with a passkey.')} />
+        // Where a coach can also sign in by emailed link, "with a passkey" may not be true of
+        // this session; the email row below says how the link side stands.
+        subtitle={config?.login_email ? undefined : t('Signed in with a passkey.')} />
+      <EmailRow />
       {/* Your own training settings — unit, language, notifications, rest timers, export. They are
           the client screen's, because they are the same settings a client has, and the coach shell
           would otherwise have no door to them at all. */}

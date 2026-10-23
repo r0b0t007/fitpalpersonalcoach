@@ -4,6 +4,7 @@ import { useStore, hasData } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { webauthnOK, passkeyRegisterCoach, bioLabel } from '../lib/api.js'
 import { pickPlan } from '../lib/billing.js'
+import { isEmail } from '../lib/email.js'
 import { t, getLang } from '../lib/i18n.js'
 import Logo from '../components/Logo.jsx'
 import { Button } from '../components/ui.jsx'
@@ -43,7 +44,7 @@ export default function Start() {
     const n = name.trim(), e = email.trim()
     if (!n) { toast(t('Enter a name')); return }
     // The server checks it properly; this only saves a passkey prompt over an obvious slip.
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { toast(t('Enter your email address')); return }
+    if (!isEmail(e)) { toast(t('Enter your email address')); return }
     setBusy(true)
     let u
     try { u = await passkeyRegisterCoach(n, e, getLang()) }
