@@ -41,6 +41,7 @@ final class CheckConfig extends Command
         if (config('fitpal.self_serve_coach') && ! Plans::billingOn()) {
             $warnings[] = 'SELF_SERVE_COACH is on but billing is off: coach sign-up stays closed until CREEM_API_KEY, CREEM_WEBHOOK_SECRET and CREEM_PRODUCTS are set (a self-serve coach is meant to pay).';
         }
+        array_push($warnings, ...self::mailProblems());
         foreach ($warnings as $w) {
             $this->warn($w);
         }
@@ -49,5 +50,34 @@ final class CheckConfig extends Command
         }
 
         return $warnings === [] ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * Mail is how a coach gets back in without a passkey (sign-in links, spec §4a) and how a new
+     * sign-up confirms its address: a mailer that sends nothing fails quietly, link by link.
+     *
+     * @return list<string>
+     */
+    public static function mailProblems(): array
+    {
+        $out = [];
+        $mailer = (string) config('mail.default');
+        if (in_array($mailer, ['log', 'array'], true)) {
+            // Fine on a laptop and in tests; on a live instance every link goes nowhere.
+            if (app()->isProduction()) {
+                $out[] = "MAIL_MAILER is {$mailer}: sign-in links and address confirmations are written to the log, not sent. Set MAIL_MAILER=resend and RESEND_API_KEY.";
+            }
+
+            return $out;
+        }
+        if ($mailer === 'resend' && (string) config('services.resend.key') === '') {
+            $out[] = 'MAIL_MAILER is resend but RESEND_API_KEY is unset — no mail is sent.';
+        }
+        $from = (string) config('mail.from.address');
+        if ($from === '' || str_ends_with($from, '@example.com')) {
+            $out[] = "MAIL_FROM_ADDRESS is {$from} — set the verified sender (no-reply@fitpal.ma), or the provider refuses every message.";
+        }
+
+        return $out;
     }
 }
