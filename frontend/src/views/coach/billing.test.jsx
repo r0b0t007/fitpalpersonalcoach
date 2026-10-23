@@ -128,6 +128,13 @@ describe("Today's banner", () => {
     expect(assign).toHaveBeenCalledWith('https://portal.creem.test/c_1')
   })
 
+  it('asks for a bigger grant, with no portal button, when a granted plan is over its cap', async () => {
+    ME = me({ status: 'manual', plan: 'solo', cap: 10, used: 12, overCap: true }, { source: 'manual', period: null }, false)
+    await render(<CoachToday />)
+    expect(text()).toContain('Ask FitPal for a larger plan')
+    expect(container.querySelector('[role="status"] button')).toBe(null)
+  })
+
   it('names the overage on a plan below the roster', async () => {
     ME = me({ status: 'active', plan: 'solo', cap: 10, used: 12, overCap: true })
     await render(<CoachToday />)
@@ -151,6 +158,18 @@ describe("Today's banner", () => {
     expect(text()).not.toContain('Setting up your plan…')
     expect(location.search).toBe('')
     expect(location.hash).toBe('#/today')
+  })
+})
+
+describe('loadBilling', () => {
+  it('drops an answer that lands after the coach signed out', async () => {
+    let answer
+    ME = () => new Promise(r => { answer = r })
+    const pending = useStore.getState().loadBilling()
+    useStore.getState().setUser(null)
+    answer(me({ status: 'active' }))
+    expect(await pending).toBe(null)
+    expect(useStore.getState().billing).toBe(null)
   })
 })
 
@@ -231,6 +250,11 @@ describe('/#/start', () => {
     expect(text()).toContain('Up to 10 active clients')
     expect(container.querySelector('.seg button.on').textContent).toBe('Solo')
     expect([...container.querySelectorAll('.seg button.on')].map(b => b.textContent)).toEqual(['Solo', 'Yearly'])
+  })
+
+  it('keeps the period of a link whose plan is not sold here', async () => {
+    await render(<Start />, '/start?plan=team&period=year')
+    expect([...container.querySelectorAll('.seg button.on')].map(b => b.textContent)).toEqual(['Pro', 'Yearly'])
   })
 
   it('falls back to Pro, monthly, for a link that names nothing', async () => {

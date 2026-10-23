@@ -20,6 +20,7 @@ export const ACTIVATING_MS = 90_000
 export const POLL_MS = 3_000
 
 let cached = null
+let seenAt = 0   // when this page load first read it: the start of the wait, however often Today remounts
 
 const readParam = () => {
   try { return (new URL(location.href).searchParams.get('checkout_id') || '').trim().slice(0, 100) }
@@ -28,9 +29,12 @@ const readParam = () => {
 
 /** The checkout this page load came back from, or ''. Safe to call repeatedly; never mutates the URL. */
 export function pendingCheckout() {
-  if (cached === null) cached = readParam()
+  if (cached === null) { cached = readParam(); seenAt = Date.now() }
   return cached
 }
+
+/** Milliseconds since the return was first read — the wait for the webhook runs from there. */
+export const checkoutAge = (now = Date.now()) => (pendingCheckout() ? now - seenAt : 0)
 
 /** Call once the plan has landed, or the wait has run out: forgets it and strips Creem's parameters. */
 export function clearCheckout() {
@@ -45,4 +49,4 @@ export function clearCheckout() {
 }
 
 /** Tests only: forget what was read, so the next call reads the URL again. */
-export const resetCheckoutForTest = () => { cached = null }
+export const resetCheckoutForTest = () => { cached = null; seenAt = 0 }

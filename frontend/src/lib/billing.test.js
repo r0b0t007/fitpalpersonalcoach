@@ -4,7 +4,8 @@
 import { describe, it, expect } from 'vitest'
 import { billingOn, billingState, banner, daysLeft, checkoutSettled, pickPlan, planName, TRIAL_WARN_DAYS } from './billing.js'
 
-const NOW = Date.parse('2026-09-10T09:00:00Z')
+// Local times: the trial countdown is in calendar days where the coach is.
+const NOW = new Date(2026, 8, 10, 9, 0).getTime()
 const inDays = d => new Date(NOW + d * 86_400_000).toISOString()
 
 // /api/billing/me as the Laravel API sends it, with the entitlement's defaults for a paying coach.
@@ -44,6 +45,8 @@ describe('billingState', () => {
     expect(billingState(me({ status: 'canceled' }))).toBe('cancelling')
     // scheduled_cancel: still `active`, with the date it stops.
     expect(billingState(me({ status: 'active' }, { status: 'active', cancelAt: inDays(20) }))).toBe('cancelling')
+    // A trial cancelled in the portal stays `trialing`: it is not about to "start" anything.
+    expect(billingState(me({ status: 'trialing', trialEndsAt: inDays(2) }, { status: 'trialing', cancelAt: inDays(2) }))).toBe('cancelling')
   })
 
   it('draws a subscription out of retries as paused, not as "no plan"', () => {
@@ -85,7 +88,15 @@ describe('banner', () => {
     expect(at(me({ status: 'none', canWrite: false }))).toEqual({ kind: 'none', action: 'choose' })
     expect(at(me({ status: 'past_due' }))).toEqual({ kind: 'past_due', action: 'update' })
     expect(at(me({ status: 'paused', canWrite: false }))).toEqual({ kind: 'paused', action: 'update' })
-    expect(at(me({ status: 'active', plan: 'solo', cap: 10, used: 12, overCap: true }))).toEqual({ kind: 'over_cap', action: 'upgrade', used: 12, cap: 10 })
+    expect(at(me({ status: 'active', plan: 'solo', cap: 10, used: 12, overCap: true }))).toEqual({ kind: 'over_cap', action: 'upgrade', used: 12, cap: 10, granted: false })
+  })
+
+  it('offers no portal button to a coach with no Creem customer', () => {
+    const noPortal = m => ({ ...m, portal: false })
+    expect(at(noPortal(me({ status: 'past_due' })))).toEqual({ kind: 'past_due', action: null })
+    // A grant over its cap: nothing to buy in the portal, so the card asks for a bigger grant.
+    expect(at(noPortal(me({ status: 'manual', plan: 'solo', cap: 10, used: 12, overCap: true }))))
+      .toEqual({ kind: 'over_cap', action: null, used: 12, cap: 10, granted: true })
   })
 
   it('puts paused, then payment failed, then no plan, before the cap', () => {
@@ -97,7 +108,9 @@ describe('banner', () => {
   it('warns about the trial only in its last days', () => {
     expect(at(me({ status: 'trialing', trialEndsAt: inDays(10) }))).toBe(null)
     expect(at(me({ status: 'trialing', trialEndsAt: inDays(TRIAL_WARN_DAYS) }))).toEqual({ kind: 'trialing', action: 'manage', daysLeft: 3 })
-    expect(at(me({ status: 'trialing', trialEndsAt: inDays(0.2) })).daysLeft).toBe(1)
+    // Tonight is today, and the banner says so before it is over, not after.
+    expect(at(me({ status: 'trialing', trialEndsAt: new Date(2026, 8, 10, 23, 0).toISOString() })).daysLeft).toBe(0)
+    expect(at(me({ status: 'trialing', trialEndsAt: new Date(2026, 8, 11, 8, 0).toISOString() })).daysLeft).toBe(1)
   })
 
   it('says nothing to a paying, cancelling or granted coach, or to anyone exempt', () => {
@@ -109,8 +122,9 @@ describe('banner', () => {
 })
 
 describe('daysLeft', () => {
-  it('rounds up, never goes below zero, and has no answer without a date', () => {
-    expect(daysLeft(inDays(2.1), NOW)).toBe(3)
+  it('counts calendar days, never goes below zero, and has no answer without a date', () => {
+    expect(daysLeft(new Date(2026, 8, 12, 23, 59).toISOString(), NOW)).toBe(2)
+    expect(daysLeft(new Date(2026, 8, 13, 0, 1).toISOString(), NOW)).toBe(3)
     expect(daysLeft(inDays(-1), NOW)).toBe(0)
     expect(daysLeft(null, NOW)).toBe(null)
   })

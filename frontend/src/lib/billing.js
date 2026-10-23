@@ -41,18 +41,23 @@ export function billingState(me) {
   if (!e.canWrite) return 'none'
   if (e.status === 'manual') return 'granted'
   if (e.status === 'past_due') return 'past_due'
-  if (e.status === 'trialing') return 'trialing'
-  // Creem's scheduled cancellation arrives as `active` with a cancel date; a finished one as
-  // `canceled`, which still writes until period_end.
+  // Creem's scheduled cancellation arrives with a cancel date on whatever the status was — a trial
+  // cancelled in the portal stays `trialing` — and a finished one as `canceled`, which still writes
+  // until period_end. Before the trial: a cancelled trial is not about to "start" anything.
   if (e.status === 'canceled' || me.licence?.cancelAt) return 'cancelling'
+  if (e.status === 'trialing') return 'trialing'
   return 'active'
 }
 
-/** Whole days until `iso`, rounded up (so "ends tomorrow evening" is 1, not 0); null without a date. */
+/**
+ * Calendar days from today to `iso`'s day, in the coach's own time zone: a trial that ends tonight
+ * is 0 ("ends today"), tomorrow at any hour 1. Never below 0; null without a date.
+ */
 export function daysLeft(iso, now = Date.now()) {
   const at = Date.parse(iso || '')
   if (Number.isNaN(at)) return null
-  return Math.max(0, Math.ceil((at - now) / DAY))
+  const midnight = ms => { const d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() }
+  return Math.max(0, Math.round((midnight(at) - midnight(now)) / DAY))
 }
 
 /** Back from the payment page and the webhook has landed: the plan is something other than "none". */
@@ -69,20 +74,23 @@ export const checkoutSettled = me => {
  *
  * `action` is what the banner's button does: choose (the plan sheet, then the payment page),
  * manage, update or upgrade (all three are Creem's portal — the card, the invoices and the plan
- * change all live there in v1).
+ * change all live there in v1). A portal action needs a Creem customer (`portal` in billing/me):
+ * without one — a plan granted by hand — there is no button, and the over-cap card says to ask for
+ * a bigger plan instead (`granted`).
  */
 export function banner(me, { activating = false, now = Date.now() } = {}) {
   const state = billingState(me)
   if (activating && (state === null || state === 'none')) return { kind: 'activating', action: null }
   if (state === null || state === 'exempt') return null
   const e = me.entitlement
-  if (state === 'paused') return { kind: 'paused', action: 'update' }
-  if (state === 'past_due') return { kind: 'past_due', action: 'update' }
+  const portal = act => (me.portal ? act : null)
+  if (state === 'paused') return { kind: 'paused', action: portal('update') }
+  if (state === 'past_due') return { kind: 'past_due', action: portal('update') }
   if (state === 'none') return { kind: 'none', action: 'choose' }
-  if (e.overCap) return { kind: 'over_cap', action: 'upgrade', used: e.used, cap: e.cap }
+  if (e.overCap) return { kind: 'over_cap', action: portal('upgrade'), used: e.used, cap: e.cap, granted: state === 'granted' }
   if (state === 'trialing') {
     const d = daysLeft(e.trialEndsAt, now)
-    if (d !== null && d <= TRIAL_WARN_DAYS) return { kind: 'trialing', action: 'manage', daysLeft: d }
+    if (d !== null && d <= TRIAL_WARN_DAYS) return { kind: 'trialing', action: portal('manage'), daysLeft: d }
   }
   return null
 }

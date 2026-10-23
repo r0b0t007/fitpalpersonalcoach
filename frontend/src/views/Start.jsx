@@ -26,15 +26,16 @@ export default function Start() {
   const config = useStore(s => s.config)
   const { setUser, pushState, pullState } = useStore()
   const plans = config?.plans || []
-  const [choice, setChoice] = useState(() => {
-    const q = new URLSearchParams(loc.search)
-    return pickPlan(plans, q.get('plan'), q.get('period'))
-  })
+  const [asked] = useState(() => new URLSearchParams(loc.search))
+  const [choice, setChoice] = useState(() => pickPlan(plans, asked.get('plan'), asked.get('period')))
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
-  // The list is the server's; a link for a plan it stopped selling falls back rather than sticking.
-  useEffect(() => { if (!choice || !plans.some(p => p.plan === choice.plan)) setChoice(pickPlan(plans)) }, [plans])
+  // The list is the server's; a link for a plan it stopped selling falls back rather than sticking —
+  // keeping the period the link asked for, which pickPlan honours on whichever plan it lands.
+  useEffect(() => {
+    if (!choice || !plans.some(p => p.plan === choice.plan)) setChoice(pickPlan(plans, choice?.plan ?? asked.get('plan'), choice?.period ?? asked.get('period')))
+  }, [plans])
   if (!choice) return null
 
   const toast = msg => useUI.getState().toast(msg)

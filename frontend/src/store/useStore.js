@@ -292,9 +292,16 @@ export const useStore = create((set, get) => {
     async loadBilling() {
       const { config, user } = get()
       if (!billingOn(config) || !user?.coach) { if (get().billing) set({ billing: null }); return null }
-      try { const b = await api('/api/billing/me'); set({ billing: b }); return b }
+      // Kept only if the same coach is still signed in when it answers: a reply landing after a
+      // sign-out would otherwise put one coach's plan in front of the next on a shared device.
+      const asked = user.id
+      try {
+        const b = await api('/api/billing/me')
+        if (get().user?.id !== asked) return null
+        set({ billing: b }); return b
+      }
       // Offline: the last answer is still the best one there is.
-      catch { return get().billing }
+      catch { return get().user?.id === asked ? get().billing : null }
     },
 
     setUser(u) {

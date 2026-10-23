@@ -1572,4 +1572,6 @@ export default {
   '{0} / {1} clients': '{0} / {1} clients',
   '{0} active clients on a {1}-client plan': '{0} clients actifs pour une formule à {1} clients',
   '{0} days free, then billed by Creem. Cancel any time from Account.': '{0} jours gratuits, puis facturé par Creem. Résiliable à tout moment depuis Compte.',
+  'Inviting clients and sending programs open as soon as you pick one.': 'Les invitations et l’envoi de programmes s’ouvrent dès que vous en choisissez une.',
+  'Everyone keeps training. Ask FitPal for a larger plan to invite more.': 'Tout le monde continue de s’entraîner. Demandez à FitPal une formule plus grande pour en inviter davantage.',
 }

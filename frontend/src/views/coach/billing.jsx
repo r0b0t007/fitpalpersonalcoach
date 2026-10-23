@@ -14,7 +14,13 @@ import { Button, Row, Section, Segmented } from '../../components/ui.jsx'
 //
 // No prices anywhere: they live on the payment page, so the app can never show a stale one.
 
-const day = iso => (iso ? fmtDate(isoOf(new Date(iso))) : '')
+// With the year when it is more than about half a year away: a yearly plan's "Renews 20 Oct" a
+// year out otherwise reads as next week.
+const day = iso => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return fmtDate(isoOf(d), false, Math.abs(d.getTime() - Date.now()) > 180 * 86_400_000)
+}
 const periodName = p => (p === 'year' ? t('yearly') : t('monthly'))
 
 /** Leaves for Creem's checkout page. The coach comes back to /?checkout_id=… (lib/checkout-return.js). */
@@ -91,14 +97,20 @@ const BANNER_ICON = {
 export function BillingBanner({ b, billing }) {
   const config = useStore(s => s.config)
   const e = billing?.entitlement
+  // The trial is the server's to state (config.trial_days); none promised when it offers none.
+  const trial = config?.trial_days > 0
   const copy = {
     activating: [t('Setting up your plan…'), t('This takes a few seconds.')],
-    none: [t('Choose a plan to start coaching'), t('Inviting clients and sending programs open as soon as you pick one. {0} days free.', config?.trial_days ?? 14)],
+    none: [t('Choose a plan to start coaching'), trial
+      ? t('Inviting clients and sending programs open as soon as you pick one. {0} days free.', config.trial_days)
+      : t('Inviting clients and sending programs open as soon as you pick one.')],
     trialing: [b.daysLeft > 0 ? tp(b.daysLeft, 'Free trial · {0} day left', 'Free trial · {0} days left') : t('Free trial · ends today'),
       t('Your {0} plan starts on {1}.', planName(e?.plan), day(e?.trialEndsAt))],
     past_due: [t('Payment didn’t go through'), t('It will be retried automatically. Everything keeps working meanwhile.')],
     paused: [t('Your plan is paused'), t('Clients can still train. Inviting, sending programs and uploading demos are paused.')],
-    over_cap: [t('{0} active clients on a {1}-client plan', b.used, b.cap), t('Everyone keeps training. Upgrade to invite more.')],
+    over_cap: [t('{0} active clients on a {1}-client plan', b.used, b.cap), b.granted
+      ? t('Everyone keeps training. Ask FitPal for a larger plan to invite more.')
+      : t('Everyone keeps training. Upgrade to invite more.')],
   }[b.kind]
   const label = { choose: t('Choose a plan'), manage: t('Manage billing'), update: t('Update payment'), upgrade: t('Upgrade') }[b.action]
   const [icon, tint] = BANNER_ICON[b.kind] || []
@@ -147,8 +159,10 @@ export function PlanBillingSection({ billing }) {
       <div className="card" style={{ border: '1px solid var(--orange)', margin: 0 }}>
         <div style={{ fontWeight: 600 }}>{t('Billing needs attention')}</div>
         <div className="small muted" style={{ marginTop: 2, lineHeight: 1.38 }}>{t('You can see everything, but inviting, sending programs and uploading demos are paused until the payment goes through.')}</div>
-        <div style={{ height: 10 }} />
-        <Button variant="primary" onClick={openPortal}>{t('Update payment')}</Button>
+        {billing.portal && <>
+          <div style={{ height: 10 }} />
+          <Button variant="primary" onClick={openPortal}>{t('Update payment')}</Button>
+        </>}
       </div>
     </div>
   </Section>
@@ -160,7 +174,7 @@ export function PlanBillingSection({ billing }) {
   const sub = {
     trialing: t('Free trial · ends {0}', day(e.trialEndsAt)),
     active: e.periodEnd ? t('Renews {0}', day(e.periodEnd)) : null,
-    cancelling: t('Ends {0} — you cancelled; everything works until then', day(l?.cancelAt || e.periodEnd)),
+    cancelling: t('Ends {0} — you cancelled; everything works until then', day(l?.cancelAt || e.periodEnd || e.trialEndsAt)),
     past_due: t('Payment didn’t go through — it will be retried automatically'),
   }[state]
   return <Section title={t('Plan & billing')} footer={footer}>

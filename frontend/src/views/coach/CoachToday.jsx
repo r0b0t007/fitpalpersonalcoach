@@ -15,7 +15,7 @@ import { dur, rel } from './parts.jsx'
 import { InviteSheet, MediaSheet } from './sheets.jsx'
 import { BillingBanner } from './billing.jsx'
 import { banner, billingOn, checkoutSettled } from '../../lib/billing.js'
-import { pendingCheckout, clearCheckout, ACTIVATING_MS, POLL_MS } from '../../lib/checkout-return.js'
+import { pendingCheckout, clearCheckout, checkoutAge, ACTIVATING_MS, POLL_MS } from '../../lib/checkout-return.js'
 
 // The coach's landing screen: what needs me, who is training, what happened. A coach opens the
 // app several times a day to triage, so the list of clients who need something comes first and
@@ -56,17 +56,20 @@ export default function CoachToday() {
   const [waiting, setWaiting] = useState(() => !!pendingCheckout())
   const activating = billed && waiting
   useEffect(() => { if (billed && !waiting) loadBilling() }, [billed, user?.id])
+  // The wait is counted from the coach's return (checkoutAge), not from this mount: App re-keys the
+  // view on every tab switch, and a fresh 90 s each time would spin forever for a coach who moves
+  // around. One request at a time — the next is asked POLL_MS after the last one answered.
   useEffect(() => {
     if (!activating) return
-    const started = Date.now()
-    let live = true
+    let live = true, tm = null
     const tick = async () => {
       const b = await loadBilling()
-      if (live && (checkoutSettled(b) || Date.now() - started > ACTIVATING_MS)) { clearCheckout(); setWaiting(false) }
+      if (!live) return
+      if (checkoutSettled(b) || checkoutAge() > ACTIVATING_MS) { clearCheckout(); setWaiting(false); return }
+      tm = setTimeout(tick, POLL_MS)
     }
     tick()
-    const iv = setInterval(tick, POLL_MS)
-    return () => { live = false; clearInterval(iv) }
+    return () => { live = false; clearTimeout(tm) }
   }, [activating])
   const notice = billed ? banner(billing, { activating }) : null
 
