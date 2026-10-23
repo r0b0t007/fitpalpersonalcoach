@@ -383,3 +383,17 @@ it('tells the caller their own sign-in address and whether it is confirmed, thro
     $account($f->a1)->assertExactJson(['email' => null, 'pendingEmail' => null, 'verified' => false]);
     $this->getJson('/api/account')->assertStatus(401);
 });
+
+it('sends the confirmation again to the pending address from any session, but a new address only from a fresh one', function () {
+    $f = $this->f;
+    $f->a->forceFill(['email' => null, 'pending_email' => 'signup.a@example.com'])->save();
+    // A day after signing up: signed in, but no longer recently.
+    $stale = bearer($f->a);
+    $this->postJson('/api/account/email', ['email' => 'Signup.A@example.com'], $stale)
+        ->assertOk()->assertExactJson(['ok' => true, 'pendingEmail' => 'signup.a@example.com']);
+    Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->kind === 'confirm' && $m->hasTo('signup.a@example.com'));
+    // Pointing the account at another inbox still needs a recent sign-in.
+    $this->postJson('/api/account/email', ['email' => 'elsewhere@example.com'], $stale)
+        ->assertStatus(403)->assertExactJson(['error' => 'sign in again to do this — it needs a recent sign-in']);
+    expect($f->a->fresh()->pending_email)->toBe('signup.a@example.com');
+});

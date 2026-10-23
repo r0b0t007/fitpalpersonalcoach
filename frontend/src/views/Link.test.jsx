@@ -119,14 +119,18 @@ describe('the link page', () => {
   it('drops the previous profile’s local data when another account signs in by link', async () => {
     // Someone else was signed in on this device. The session is already the new coach's: their
     // local state must go, not be pushed into the new account by the sync after sign-in.
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     useStore.setState({ user: { id: 'other', name: 'Someone else', coach: false } })
-    useStore.getState().update(st => { st.workouts = [{ id: 'w1', date: '2026-09-01', ex: [] }] }, false)
+    // An edit whose debounced push is still waiting when the link signs the other coach in.
+    useStore.getState().update(st => { st.workouts = [{ id: 'w1', date: '2026-09-01', ex: [] }] })
     localStorage.setItem('gym_dirty', '1')
     REDEEM = { user: COACH }
     await render(<Link />, '/link?t=tok_switch')
+    await act(async () => { vi.advanceTimersByTime(3000) })
     expect(useStore.getState().user).toMatchObject({ id: 'c1' })
     expect(useStore.getState().S.workouts || []).toEqual([])
-    expect(calls.some(([p, b]) => p === '/api/data' && b?.state?.workouts?.length)).toBe(false)
+    // No push at all — neither the old profile's state nor the emptied one — under the new session.
+    expect(calls.some(([p, b]) => p === '/api/data' && b)).toBe(false)
   })
 
   it('tries again when the same link is opened after the server could not be reached', async () => {
@@ -223,9 +227,10 @@ describe('Account › email row', () => {
   it('lets a new sign-up correct a mistyped address', async () => {
     ACCOUNT = { email: null, pendingEmail: 'ahmed@gmial.com', verified: false }
     await render(<EmailRow />, '/account')
-    const row = [...container.querySelectorAll('button')].find(b => b.textContent.includes('ahmed@gmial.com'))
-    await act(async () => { row.click() })
+    await click('Change')
     expect(useUI.getState().sheets).toHaveLength(1)
+    // Two buttons beside the row, not a button inside a button.
+    expect(container.querySelector('button button')).toBe(null)
   })
 
   it('offers to resend the first link to a new sign-up', async () => {

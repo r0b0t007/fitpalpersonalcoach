@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { setShellPref } from '../lib/role.js'
 import { forgetCoachSecrets } from '../lib/forget-coach.js'
-import { api, setRemoteAuth } from '../lib/api.js'
+import { api, setRemoteAuth, passkeyLogin } from '../lib/api.js'
 import { localTZ, todayISO } from '../lib/format.js'
 import { compactMeals } from '../lib/nutrition.js'
 import { registerCustom } from '../lib/exercises.js'
@@ -205,6 +205,10 @@ export const useStore = create((set, get) => {
 
   // Everything a sign-out leaves behind on this device, whichever way it was triggered.
   const clearLocalSession = () => {
+    // A push still waiting on its debounce belongs to the profile leaving. signOut has already
+    // sent it; after an account switch (forgetLocalSession) it would go out under the NEW
+    // session and write the old or the emptied state into that account.
+    clearTimeout(pushTm); pushTm = null
     get().setUser(null)
     setShellPref('coach')   // "Train myself" belonged to the profile leaving, not to the device
     set({ syncError: null })   // whatever the server refused belonged to the profile leaving
@@ -355,6 +359,14 @@ export const useStore = create((set, get) => {
     // local state, dirty flag and shell choice are dropped as a sign-out drops them, and its
     // unsynced edits with them — the alternative is writing them into the new account.
     forgetLocalSession() { clearLocalSession() },
+
+    // A passkey sign-in, as Login and the link page both do it: the user, then their synced state.
+    async passkeySignIn() {
+      const u = await passkeyLogin()
+      get().setUser(u)
+      await get().pullState()
+      return u
+    },
 
     async signOut() {
       try { await get().pushState(); await api('/api/logout', { method: 'POST', body: '{}' }) } catch (e) { /* */ }

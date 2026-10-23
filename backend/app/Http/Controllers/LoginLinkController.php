@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Audit\Audit;
 use App\Audit\ClientIp;
+use App\Auth\FreshAuth;
 use App\Auth\SessionToken;
 use App\Mail\AccountMail;
 use App\Mail\SendAfterResponse;
@@ -33,6 +34,8 @@ use function Illuminate\Support\defer;
  *  - POST /api/account/email {email} (signed in) only writes `pending_email` and mails the new
  *    address, and only from a session that signed in just now (FreshAuth): a live session alone
  *    — a shared laptop, a paired phone — can never point the account's recovery at another inbox.
+ *    Sending the link again to the address already pending is the one exception: it points at
+ *    no inbox the account was not already waiting on.
  */
 final class LoginLinkController
 {
@@ -192,6 +195,14 @@ final class LoginLinkController
         }
         if ($email === LoginLink::normaliseEmail((string) $user->email)) {
             return Json::error(400, 'that is already your sign-in email');
+        }
+        // A new address is a write that outlives the session, so it needs one that signed in just
+        // now (RequireFreshAuth's rule). The address already pending is not new: sending its link
+        // again changes nothing a stolen session could use, and is how a coach whose first mail
+        // went missing gets one — a day after signing up, when no session is fresh any more.
+        $resend = $email === LoginLink::normaliseEmail((string) $user->pending_email);
+        if (! $resend && ! FreshAuth::check($request)) {
+            return Json::error(403, 'sign in again to do this — it needs a recent sign-in');
         }
         // Whether another account has this address is not said here — that would make this a
         // way to look addresses up. The confirmation goes out either way; opening it, which only

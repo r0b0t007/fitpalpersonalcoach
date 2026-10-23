@@ -24,18 +24,29 @@ export function EmailRow() {
   const openSheet = useUI(s => s.openSheet)
   const [account, setAccount] = useState(null)
   const on = !!config?.login_email && !!user?.coach
-  const load = () => fetchAccount().then(setAccount).catch(() => {})
-  useEffect(() => { if (on) load() }, [on, user?.id])
+  // Kept only for the account that asked, while the row is still there: on a shared device a slow
+  // answer for the last coach must not show their address on the next one's Account.
+  const live = useRef(true)
+  useEffect(() => () => { live.current = false }, [])
+  const load = () => {
+    const asked = useStore.getState().user?.id
+    return fetchAccount().then(a => { if (live.current && useStore.getState().user?.id === asked) setAccount(a) }).catch(() => {})
+  }
+  useEffect(() => { setAccount(null); if (on) load() }, [on, user?.id])
   if (!on || !account) return null
 
   const { email, pendingEmail, verified } = account
   const change = () => openSheet(close => <ChangeEmailSheet close={close} current={email || pendingEmail} onSent={load} />)
 
-  // Tappable as well as resendable: a sign-up's address may simply be mistyped, and its link then
-  // goes nowhere — the change sheet puts the right one in its place.
+  // Resendable, and changeable: a sign-up's address may simply be mistyped, and its link then goes
+  // nowhere — the change sheet puts the right one in its place. Two buttons beside a row that is not
+  // itself one: a button inside a button is invalid, and a keypress would fire both.
   if (!email && pendingEmail) return <Row icon="key" iconTint="var(--grey)" title={pendingEmail}
-    subtitle={t('Not confirmed yet — open the link we sent')} onClick={change}>
-    <ResendButton email={pendingEmail} />
+    subtitle={t('Not confirmed yet — open the link we sent')}>
+    <span style={{ display: 'flex', gap: 6, flex: 'none' }}>
+      <ResendButton email={pendingEmail} />
+      <Button size="xs" onClick={change}>{t('Change')}</Button>
+    </span>
   </Row>
   if (!email) return <Row icon="key" iconTint="var(--acc)" title={t('Add an email')}
     subtitle={t('Lets you sign in by link if you lose your passkey')} accessory="chevron" onClick={change} />
@@ -51,8 +62,7 @@ export function EmailRow() {
 /** Sends the confirmation link again — the same request as a change, to the address already pending. */
 function ResendButton({ email }) {
   const [busy, setBusy] = useState(false)
-  const go = async ev => {
-    ev.stopPropagation()
+  const go = async () => {
     setBusy(true)
     try { await changeEmail(email); useUI.getState().toast(t('Link sent to {0}', email)) }
     catch (e) { useUI.getState().toast(e.message || t('Could not send the link')) }

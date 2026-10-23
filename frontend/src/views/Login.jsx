@@ -1,6 +1,6 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { api, webauthnOK, passkeyLogin, passkeyRegister, bioLabel, requestLoginLink } from '../lib/api.js'
+import { api, webauthnOK, passkeyRegister, bioLabel, requestLoginLink } from '../lib/api.js'
 import { useLocation } from 'react-router-dom'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
@@ -151,7 +151,7 @@ function EmailSignIn({ focus }) {
 }
 
 export default function Login() {
-  const { setUser, pullState, setGuest } = useStore()
+  const { passkeySignIn, setGuest } = useStore()
   const config = useStore(s => s.config)
   const canGuest = guestAllowed(config)
   // The email path (S5): only where the server has it. Opened straight away when the link page
@@ -178,7 +178,7 @@ export default function Login() {
     useUI.getState().openSheet(close => <RegisterSheet close={close} />)
   }, [config, invite, waited])
   const signIn = async () => {
-    try { const u = await passkeyLogin(); setUser(u); await pullState(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
+    try { const u = await passkeySignIn(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
   }
   const head = <h1 style={{ margin: '10px 0 6px' }}><Logo size={40} /></h1>

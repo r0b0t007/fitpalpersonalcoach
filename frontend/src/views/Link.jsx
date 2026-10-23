@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
-import { redeemLoginLink, passkeyLogin, webauthnOK } from '../lib/api.js'
+import { redeemLoginLink, webauthnOK } from '../lib/api.js'
 import { homeFor, getShellPref } from '../lib/role.js'
 import { t } from '../lib/i18n.js'
 import Logo from '../components/Logo.jsx'
@@ -44,7 +44,10 @@ export const SIGNED_IN_MS = 900
 export default function Link() {
   const loc = useLocation()
   const nav = useNavigate()
-  const { setUser, pullState, forgetLocalSession } = useStore()
+  const setUser = useStore(s => s.setUser)
+  const pullState = useStore(s => s.pullState)
+  const forgetLocalSession = useStore(s => s.forgetLocalSession)
+  const passkeySignIn = useStore(s => s.passkeySignIn)
   const signedIn = useStore(s => !!s.user)
   const token = new URLSearchParams(loc.search).get('t') || ''
   const [state, setState] = useState(token ? { kind: 'loading' } : { kind: 'expired', message: '' })
@@ -68,8 +71,9 @@ export default function Link() {
         const before = useStore.getState().user
         if (before && before.id !== res.user.id) forgetLocalSession()
         setUser(res.user)
-        await pullState()
-        if (!live) return
+        // Not awaited: the move to Today must not hang on a slow /api/data — the sign-in itself
+        // is done, and a reload here would only find the link spent. The pull lands when it lands.
+        pullState()
         tm = setTimeout(() => {
           nav(homeFor(res.user, getShellPref()), { replace: true })   // replaces /link?t=… as well
           if (shouldOfferPasskey()) useUI.getState().openSheet(close => <AddPasskeySheet close={close} />)
@@ -85,7 +89,7 @@ export default function Link() {
   }, [token])
 
   const signInWithPasskey = async () => {
-    try { const u = await passkeyLogin(); setUser(u); await pullState(); nav(homeFor(u, getShellPref()), { replace: true }) }
+    try { const u = await passkeySignIn(); nav(homeFor(u, getShellPref()), { replace: true }) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
   }
 

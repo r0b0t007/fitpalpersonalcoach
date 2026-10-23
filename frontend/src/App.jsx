@@ -151,7 +151,8 @@ function Shell() {
   // a client who already has a coach is left alone, because redeeming would be refused anyway.
   const sentInvite = useRef(false)
   useEffect(() => {
-    if (sentInvite.current || !ready || !user || user.coachName || !pendingInvite()) return
+    // Not from the email-link page, which moves on by itself and must not be cut short.
+    if (sentInvite.current || !ready || !user || user.coachName || !pendingInvite() || loc.pathname === '/link') return
     sentInvite.current = true
     navigate('/mycoach')
   }, [ready, user, navigate])
@@ -215,10 +216,11 @@ function Shell() {
   // An emailed sign-in link (views/Link.jsx) lands here signed in or not — an address change is
   // confirmed from a signed-in device too — so it comes before either shell, with no tab bar.
   const onLink = loc.pathname === '/link' && linkOpen(config)
-  // Not before the config is known: a signed-in coach is drawn from the cached user while it is on
-  // its way, and the coach routes' catch-all would bounce /link to /today with the token in it.
+  // Not before boot has finished: a signed-in coach is drawn from the cached user while the config
+  // is on its way (the coach routes' catch-all would bounce /link to /today with the token in it),
+  // and boot's own /api/me and sync must not race a redemption that switches the session cookie.
   // A config that failed to load counts as "maybe" (linkOpen): the link is tried, not dropped.
-  const linkPending = loc.pathname === '/link' && !config && !ready
+  const linkPending = loc.pathname === '/link' && !ready
   if ((!ready && !authed) || linkPending) return (
     <div id="app">
       <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center' }}>
