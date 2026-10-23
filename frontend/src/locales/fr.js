@@ -1574,4 +1574,13 @@ export default {
   '{0} days free, then billed by Creem. Cancel any time from Account.': '{0} jours gratuits, puis facturé par Creem. Résiliable à tout moment depuis Compte.',
   'Inviting clients and sending programs open as soon as you pick one.': 'Les invitations et l’envoi de programmes s’ouvrent dès que vous en choisissez une.',
   'Everyone keeps training. Ask FitPal for a larger plan to invite more.': 'Tout le monde continue de s’entraîner. Demandez à FitPal une formule plus grande pour en inviter davantage.',
+  'Inviting is paused': 'Les invitations sont suspendues',
+  'Inviting opens again once billing is sorted out.': 'Les invitations reprennent dès que la facturation est réglée.',
+  'Manage clients': 'Gérer les clients',
+  'You have {0} active client. Upgrade to invite more — or disable a client who has stopped training to free a seat.': 'Vous avez {0} client actif. Passez à une formule supérieure pour en inviter davantage — ou désactivez un client qui a arrêté de s’entraîner pour libérer une place.',
+  'You have {0} active clients. Upgrade to invite more — or disable a client who has stopped training to free a seat.': 'Vous avez {0} clients actifs. Passez à une formule supérieure pour en inviter davantage — ou désactivez un client qui a arrêté de s’entraîner pour libérer une place.',
+  'Your plan allows {0} clients': 'Votre formule permet {0} clients',
+  '{0}’s client list is full right now. Ask them to make room, then open the link again.': 'La liste de clients de {0} est complète pour le moment. Demandez-lui de faire de la place, puis rouvrez le lien.',
+  'You have {0} active client. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.': 'Vous avez {0} client actif. Demandez à FitPal une formule plus grande — ou désactivez un client qui a arrêté de s’entraîner pour libérer une place.',
+  'You have {0} active clients. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.': 'Vous avez {0} clients actifs. Demandez à FitPal une formule plus grande — ou désactivez un client qui a arrêté de s’entraîner pour libérer une place.',
 }

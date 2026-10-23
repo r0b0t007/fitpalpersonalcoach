@@ -41,6 +41,7 @@ vi.mock('../../lib/mobile.js', () => ({
 }))
 
 const { InviteSheet } = await import('./sheets.jsx')
+const { useStore } = await import('../../store/useStore.js')
 
 let container, root
 const text = () => container.textContent
@@ -133,5 +134,62 @@ describe('what the sheet no longer says', () => {
     await mount()
     expect(text()).toContain('Could not load your invites')
     expect(text()).not.toMatch(/0 links waiting/)
+  })
+})
+
+// R4 (Laravel): the plan's client cap. coach/invites says why nobody can be taken on right now
+// (`reason`), and the sheet swaps its link form for the card that says so (design C22). The Node
+// API sends no `reason`, which every test above already covers as "today's sheet".
+describe('when the plan takes nobody on', () => {
+  const waiting = [{ code: 'WAIT000000000001', note: 'Sara', created: '2026-09-11T00:00:00.000Z' }]
+  const billingMe = (status, portal = true) => ({ entitlement: { status, canWrite: status !== 'paused' && status !== 'none' }, licence: null, plans: [], portal })
+
+  it('at the cap: names the plan, offers the upgrade and the roster, and stops sharing links', async () => {
+    useStore.setState({ billing: billingMe('active') })
+    inviteState = { invites: waiting, max: 20, cap: 10, used: 10, canInvite: false, reason: 'at_cap' }
+    await mount()
+    expect(text()).toContain('Your plan allows 10 clients')
+    expect(text()).toContain('You have 10 active clients')
+    expect(text()).toContain('Upgrade')
+    expect(text()).toContain('Manage clients')
+    expect(makeButton()).toBe(undefined)
+    // The waiting code stays listed and revocable, but is not handed out again.
+    expect(text()).toContain('WAIT000000000001')
+    expect([...container.querySelectorAll('button')].some(b => b.textContent === 'Share')).toBe(false)
+    expect(container.querySelector('[aria-label="Revoke WAIT000000000001"]')).toBeTruthy()
+  })
+
+  it('at the cap on a granted plan: no upgrade button, there is no portal to upgrade in', async () => {
+    useStore.setState({ billing: billingMe('manual', false) })
+    inviteState = { invites: [], max: 20, cap: 10, used: 10, canInvite: false, reason: 'at_cap' }
+    await mount()
+    expect(text()).toContain('Ask FitPal for a larger plan')
+    expect([...container.querySelectorAll('button')].some(b => b.textContent === 'Upgrade')).toBe(false)
+  })
+
+  it('paused: says inviting is paused and sends the coach to update the payment', async () => {
+    useStore.setState({ billing: billingMe('paused') })
+    inviteState = { invites: [], max: 20, cap: 30, used: 12, canInvite: false, reason: 'read_only' }
+    await mount()
+    expect(text()).toContain('Inviting is paused')
+    expect(text()).toContain('Update payment')
+    expect(makeButton()).toBe(undefined)
+  })
+
+  it('no plan yet: the same card, offering a plan instead', async () => {
+    useStore.setState({ billing: billingMe('none', false) })
+    inviteState = { invites: [], max: 20, cap: 0, used: 0, canInvite: false, reason: 'read_only' }
+    await mount()
+    expect(text()).toContain('Inviting is paused')
+    expect(text()).toContain('Choose a plan')
+    expect(text()).not.toContain('Update payment')
+  })
+
+  it('with a seat free: the ordinary form', async () => {
+    inviteState = { invites: waiting, max: 20, cap: 30, used: 12, canInvite: true, reason: null }
+    await mount()
+    expect(makeButton()).toBeTruthy()
+    expect(text()).not.toContain('Inviting is paused')
+    expect([...container.querySelectorAll('button')].some(b => b.textContent === 'Share')).toBe(true)
   })
 })

@@ -1574,4 +1574,13 @@ export default {
   '{0} days free, then billed by Creem. Cancel any time from Account.': '{0} días gratis, luego factura Creem. Cancela cuando quieras desde Cuenta.',
   'Inviting clients and sending programs open as soon as you pick one.': 'Invitar clientes y enviar programas se activa en cuanto elijas uno.',
   'Everyone keeps training. Ask FitPal for a larger plan to invite more.': 'Todos siguen entrenando. Pide a FitPal un plan más grande para invitar a más.',
+  'Inviting is paused': 'Las invitaciones están en pausa',
+  'Inviting opens again once billing is sorted out.': 'Las invitaciones vuelven en cuanto se resuelva la facturación.',
+  'Manage clients': 'Gestionar clientes',
+  'You have {0} active client. Upgrade to invite more — or disable a client who has stopped training to free a seat.': 'Tienes {0} cliente activo. Mejora tu plan para invitar a más — o desactiva a un cliente que ya no entrena para liberar una plaza.',
+  'You have {0} active clients. Upgrade to invite more — or disable a client who has stopped training to free a seat.': 'Tienes {0} clientes activos. Mejora tu plan para invitar a más — o desactiva a un cliente que ya no entrena para liberar una plaza.',
+  'Your plan allows {0} clients': 'Tu plan permite {0} clientes',
+  '{0}’s client list is full right now. Ask them to make room, then open the link again.': 'La lista de clientes de {0} está completa ahora mismo. Pídele que haga sitio y vuelve a abrir el enlace.',
+  'You have {0} active client. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.': 'Tienes {0} cliente activo. Pide a FitPal un plan más grande — o desactiva a un cliente que ya no entrena para liberar una plaza.',
+  'You have {0} active clients. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.': 'Tienes {0} clientes activos. Pide a FitPal un plan más grande — o desactiva a un cliente que ya no entrena para liberar una plaza.',
 }

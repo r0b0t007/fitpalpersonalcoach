@@ -1592,4 +1592,13 @@ export default {
   '{0} days free, then billed by Creem. Cancel any time from Account.': '{0} Tage kostenlos, danach rechnet Creem ab. Jederzeit unter Konto kündbar.',
   'Inviting clients and sending programs open as soon as you pick one.': 'Einladen und Programme senden sind frei, sobald du einen wählst.',
   'Everyone keeps training. Ask FitPal for a larger plan to invite more.': 'Alle trainieren weiter. Bitte FitPal um einen größeren Tarif, um mehr einzuladen.',
+  'Inviting is paused': 'Einladungen sind pausiert',
+  'Inviting opens again once billing is sorted out.': 'Einladungen sind wieder möglich, sobald die Abrechnung geklärt ist.',
+  'Manage clients': 'Kunden verwalten',
+  'You have {0} active client. Upgrade to invite more — or disable a client who has stopped training to free a seat.': 'Du hast {0} aktiven Kunden. Wechsle zu einem größeren Tarif, um mehr einzuladen — oder deaktiviere einen Kunden, der nicht mehr trainiert, um einen Platz freizumachen.',
+  'You have {0} active clients. Upgrade to invite more — or disable a client who has stopped training to free a seat.': 'Du hast {0} aktive Kunden. Wechsle zu einem größeren Tarif, um mehr einzuladen — oder deaktiviere einen Kunden, der nicht mehr trainiert, um einen Platz freizumachen.',
+  'Your plan allows {0} clients': 'Dein Tarif erlaubt {0} Kunden',
+  '{0}’s client list is full right now. Ask them to make room, then open the link again.': 'Die Kundenliste von {0} ist gerade voll. Bitte um einen freien Platz und öffne den Link dann noch einmal.',
+  'You have {0} active client. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.': 'Du hast {0} aktiven Kunden. Bitte FitPal um einen größeren Tarif — oder deaktiviere einen Kunden, der nicht mehr trainiert, um einen Platz freizumachen.',
+  'You have {0} active clients. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.': 'Du hast {0} aktive Kunden. Bitte FitPal um einen größeren Tarif — oder deaktiviere einen Kunden, der nicht mehr trainiert, um einen Platz freizumachen.',
 }
