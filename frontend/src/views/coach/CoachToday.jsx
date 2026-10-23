@@ -13,6 +13,9 @@ import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
 import { dur, rel } from './parts.jsx'
 import { InviteSheet, MediaSheet } from './sheets.jsx'
+import { BillingBanner } from './billing.jsx'
+import { banner, billingOn, checkoutSettled } from '../../lib/billing.js'
+import { pendingCheckout, clearCheckout, ACTIVATING_MS, POLL_MS } from '../../lib/checkout-return.js'
 
 // The coach's landing screen: what needs me, who is training, what happened. A coach opens the
 // app several times a day to triage, so the list of clients who need something comes first and
@@ -38,6 +41,35 @@ export default function CoachToday() {
   // owns saving, deleting and the migration of a pre-server library.
   useEffect(() => { fetchPrograms().then(d => setPrograms(d.programs)).catch(() => {}) }, [])
 
+  // The plan (R4; lib/billing.js). Nothing at all on an instance that bills nobody — the Node API
+  // has no billing — so Today is exactly what it was there.
+  const billed = billingOn(useStore(s => s.config))
+  const billing = useStore(s => s.billing)
+  const loadBilling = useStore(s => s.loadBilling)
+  // Back from the payment page (?checkout_id=, lib/checkout-return.js): the webhook usually trails
+  // the redirect by a few seconds, so ask until the plan lands, then tidy the address bar. Given up
+  // after ACTIVATING_MS — a webhook that never comes leaves an ordinary "choose a plan", not a
+  // spinner forever.
+  //
+  // Both read `billed` as it is NOW, not at mount: a coach who was signed in before renders Today
+  // from the cached user while /api/config is still on its way, so billing is off for a moment.
+  const [waiting, setWaiting] = useState(() => !!pendingCheckout())
+  const activating = billed && waiting
+  useEffect(() => { if (billed && !waiting) loadBilling() }, [billed, user?.id])
+  useEffect(() => {
+    if (!activating) return
+    const started = Date.now()
+    let live = true
+    const tick = async () => {
+      const b = await loadBilling()
+      if (live && (checkoutSettled(b) || Date.now() - started > ACTIVATING_MS)) { clearCheckout(); setWaiting(false) }
+    }
+    tick()
+    const iv = setInterval(tick, POLL_MS)
+    return () => { live = false; clearInterval(iv) }
+  }, [activating])
+  const notice = billed ? banner(billing, { activating }) : null
+
   const today = todayISO()
   const roster = (members || []).filter(m => !m.disabled)
   const live = roster.filter(m => m.live)
@@ -59,6 +91,8 @@ export default function CoachToday() {
         <button className="iconbtn" onClick={load} aria-label={t('Refresh')}>↻</button>
       </div>
     </div>
+
+    {notice && <BillingBanner b={notice} billing={billing} />}
 
     <div className="tiles" style={{ marginBottom: 12 }}>
       <div className="tile tappable" onClick={() => nav('/clients')}><div className="l">{t('Clients')}</div><div className="v">{members ? roster.length : '—'}</div></div>
