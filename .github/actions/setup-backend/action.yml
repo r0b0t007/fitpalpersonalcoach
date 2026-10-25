@@ -3,6 +3,10 @@
 # contract diff can never run on two different setups.
 name: Set up the Laravel backend
 description: PHP 8.4 with the backend's extensions, the Composer cache, and composer install in backend/
+inputs:
+  no-dev:
+    description: "'true' installs production dependencies only, optimized (deploy-backend.yml)"
+    default: 'false'
 runs:
   using: composite
   steps:
@@ -22,4 +26,4 @@ runs:
         key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
     - shell: bash
       working-directory: backend
-      run: composer install --no-interaction --prefer-dist --no-progress
+      run: composer install --no-interaction --prefer-dist --no-progress ${{ inputs.no-dev == 'true' && '--no-dev --optimize-autoloader' || '' }}

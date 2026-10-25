@@ -23,12 +23,16 @@ on:
       - '.github/workflows/test.yml'
       - '.github/actions/**'
   workflow_dispatch:
+  # deploy-backend.yml runs this whole workflow as its gate, for the commit it deploys.
+  workflow_call:
 
 permissions:
   contents: read
 
+# github.workflow is the CALLER's name when called, so a deploy's gate never cancels, nor is
+# cancelled by, this workflow's own run of the same push.
 concurrency:
-  group: test-${{ github.ref }}
+  group: test-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
