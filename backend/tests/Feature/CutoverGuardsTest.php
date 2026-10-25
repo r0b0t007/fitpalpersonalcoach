@@ -67,7 +67,7 @@ it('refuses a live import under an origin the imported passkeys would not answer
     'plain http' => [['fitpal.origin' => 'http://coach.example'], 'is not https'],
     'another host' => [['fitpal.origin' => 'https://elsewhere.example'], 'is not the host of ORIGIN'],
     // Valid for a new registration, but Node registered these under the host itself.
-    'a parent domain' => [['fitpal.rp_id' => 'example'], 'is not the host of ORIGIN'],
+    'a parent domain' => [['fitpal.rp_id' => 'example', 'fitpal.origin' => 'https://coach.example'], 'is not the host of ORIGIN'],
 ]);
 
 it('refuses a live import that would sign everyone out, or leave media and push behind', function (array $config, string $said) {
@@ -82,9 +82,40 @@ it('refuses a live import that would sign everyone out, or leave media and push 
     'another VAPID pair' => [['fitpal.vapid.public' => 'envPublic', 'fitpal.vapid.private' => 'envPrivate'], 'VAPID_PUBLIC_KEY'],
 ]);
 
-it('reads the host the way a browser does', function () {
+it('wants ORIGIN written as a browser sends it, since passkeys compare it character for character', function () {
     config(['fitpal.origin' => 'https://Coach.Example']);
-    expect(LiveChecks::origin(true, exact: true))->toBe([]);
+    expect(LiveChecks::origin(true, exact: true)[0])->toContain('not written as a browser sends it (https://coach.example)');
+    config(['fitpal.origin' => 'https://coach.example/app']);
+    expect(LiveChecks::origin(false)[0])->toContain('not written as a browser sends it');
+});
+
+it('refuses a bare top-level label as RP_ID, which browsers refuse', function () {
+    config(['fitpal.rp_id' => 'example']);
+    expect(LiveChecks::origin(false)[0])->toContain('nor a parent domain');
+});
+
+it('refuses a live import that cannot read the Node secret to check it', function () {
+    cutoverLive();
+    unlink($this->dir.'/secret');
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir, '--confirm-live' => true])->assertFailed()
+        ->expectsOutputToContain("cannot read the Node API's secret");
+    expect(User::query()->count())->toBe(0);
+    file_put_contents($this->dir.'/secret', str_repeat('cd', 32));
+});
+
+it('says in check-config when RP_ID no longer reaches the passkeys already here', function () {
+    $pk = new Passkey;
+    $pk->userHandle = Passkey::b64u('cutcoach00000000');
+    file_put_contents($this->dir.'/db.json', json_encode([
+        'users' => [['id' => 'cutcoach00000000', 'name' => 'Coach', 'coach' => true]],
+        'creds' => [['id' => $pk->credentialId, 'userId' => 'cutcoach00000000', 'publicKey' => $pk->coseKey(), 'counter' => 0]],
+    ]));
+    $this->artisan('fitpal:import-legacy', ['dataDir' => $this->dir])->assertSuccessful();
+    expect(LiveChecks::strandedPasskeys())->toBe([]);
+    // A valid parent domain for new passkeys, but not the host these were imported under.
+    config(['fitpal.rp_id' => 'coach.example.org', 'fitpal.origin' => 'https://coach.example.org']);
+    expect(LiveChecks::strandedPasskeys())->toBe(['cutcoach00000000' => 'coach.example']);
+    $this->artisan('fitpal:check-config')->assertFailed()->expectsOutputToContain('1 account(s) hold a passkey bound to coach.example');
 });
 
 it('still only warns on a laptop', function () {
@@ -112,7 +143,7 @@ it('says when the live origin would break passkeys or the session cookie', funct
     config(['fitpal.origin' => 'http://coach.example']);
     expect(LiveChecks::origin(false))->toBe([])
         ->and(LiveChecks::origin(true)[0])->toContain('is not https');
-    config(['fitpal.rp_id' => 'example', 'fitpal.origin' => 'https://coach.example']);
+    config(['fitpal.rp_id' => 'example.org', 'fitpal.origin' => 'https://coach.example.org']);
     expect(LiveChecks::origin(true))->toBe([]);   // a parent domain is a valid RP_ID for a new registration
     config(['fitpal.rp_id' => 'localhost', 'fitpal.origin' => 'http://localhost:5173']);
     expect(LiveChecks::origin(false))->toBe([])
@@ -149,4 +180,20 @@ it('says when a live instance lets anyone register, once', function () {
     config(['fitpal.bootstrap_code' => str_repeat('b', 20)]);
     $this->artisan('fitpal:check-config')->assertFailed()->doesntExpectOutputToContain('INVITE_ONLY is off: anyone')
         ->expectsOutputToContain('BOOTSTRAP_CODE is set but INVITE_ONLY is off');
+});
+
+it('leaves a laptop sharing a data dir under its own secret alone', function () {
+    config(['fitpal.session_secret' => str_repeat('ef', 32)]);
+    $this->artisan('fitpal:check-config')->doesntExpectOutputToContain('SESSION_SECRET is not the secret');
+});
+
+it('names a database it cannot read rather than calling the push keys fine', function () {
+    unlink($this->dir.'/vapid.json');
+    $default = config('database.default');
+    config(['database.default' => 'unreachable', 'database.connections.unreachable' => ['driver' => 'sqlite', 'database' => $this->dir.'/no/such/dir/x.sqlite']]);
+    try {
+        expect(LiveChecks::vapid()[0])->toContain('cannot read the database');
+    } finally {
+        config(['database.default' => $default]);
+    }
 });

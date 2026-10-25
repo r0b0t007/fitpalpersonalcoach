@@ -84,10 +84,10 @@ final class ImportLegacy extends Command
         // what it gets wrong stays wrong: each passkey keeps the RP_ID it was imported under (a
         // rerun only moves its counter), a SESSION_SECRET that is not Node's signs everyone out,
         // and a DATA_DIR or VAPID pair that is not Node's silences media and push. So there these
-        // refuse, before anything is written.
+        // refuse, before anything is written; elsewhere they are said once the import is done.
+        $reports = [...LegacyMedia::dataDirReport($dir), ...LegacyMedia::vapidReport($dir)];
         if (app()->isProduction()) {
-            $refusals = [...LiveChecks::origin(true, exact: true), ...LiveChecks::secret($dir),
-                ...LegacyMedia::dataDirReport($dir), ...LegacyMedia::vapidReport($dir)];
+            $refusals = [...LiveChecks::origin(true, exact: true), ...LiveChecks::secret($dir, required: true), ...$reports];
             if (! $this->option('confirm-live')) {
                 $refusals[] = 'this is a production instance: the import overwrites accounts and mirror-deletes invites, programs, assignments and media rows the files no longer hold. Run it once, at the cutover, with the Node API stopped, and say so with --confirm-live.';
             }
@@ -250,7 +250,7 @@ final class ImportLegacy extends Command
         if ($media['removed'] > 0) {
             $this->warn("removed {$media['removed']} subscription/demo/photo row(s) the files no longer hold");
         }
-        foreach ([...LegacyMedia::dataDirReport($dir), ...LegacyMedia::vapidReport($dir)] as $w) {
+        foreach ($reports as $w) {
             $this->warn($w);
         }
         foreach ($skipped as $s) {
@@ -371,9 +371,8 @@ final class ImportLegacy extends Command
         // replay above signs in by token, never by passkey: checked here, or an import run on the
         // wrong config would verify clean and lock everyone out.
         $rp = (string) config('fitpal.rp_id');
-        $bound = WebAuthnCredential::query()->whereIn('authenticatable_id', $byId->keys()->all())->where('rp_id', '!=', $rp)->get();
-        foreach ($bound as $c) {
-            $problems[] = "{$c->authenticatable_id}: a passkey is bound to {$c->rp_id}, not to RP_ID ($rp) — it cannot sign in here";
+        foreach (LiveChecks::strandedPasskeys($byId->keys()->all()) as $id => $bound) {
+            $problems[] = "$id: a passkey is bound to $bound, not to RP_ID ($rp) — it cannot sign in here";
         }
 
         foreach ($problems as $p) {

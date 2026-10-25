@@ -9,6 +9,7 @@ use App\Console\LiveChecks;
 use App\Domain\Plans;
 use App\Media\Upload;
 use Illuminate\Console\Command;
+use Throwable;
 
 /**
  * The configuration mistakes the Node API printed at boot, as a command a deploy runs (and an
@@ -42,8 +43,19 @@ final class CheckConfig extends Command
         if (config('fitpal.self_serve_coach') && ! Plans::billingOn()) {
             $warnings[] = 'SELF_SERVE_COACH is on but billing is off: coach sign-up stays closed until CREEM_API_KEY, CREEM_WEBHOOK_SECRET and CREEM_PRODUCTS are set (a self-serve coach is meant to pay).';
         }
-        array_push($warnings, ...self::mailProblems(), ...LiveChecks::origin(app()->isProduction()),
-            ...LiveChecks::secret((string) config('fitpal.data_dir')), ...LiveChecks::vapid());
+        array_push($warnings, ...self::mailProblems(), ...LiveChecks::origin(app()->isProduction()), ...LiveChecks::vapid());
+        // Live only: on a laptop the Node API and Laravel may well share a data dir under two secrets.
+        if (app()->isProduction()) {
+            array_push($warnings, ...LiveChecks::secret((string) config('fitpal.data_dir')));
+        }
+        try {
+            $stranded = LiveChecks::strandedPasskeys();
+        } catch (Throwable) {
+            $stranded = [];   // no database: LiveChecks::vapid has said so
+        }
+        if ($stranded !== []) {
+            $warnings[] = count($stranded).' account(s) hold a passkey bound to '.implode(', ', array_unique($stranded)).', not to RP_ID ('.config('fitpal.rp_id').') — those passkeys cannot sign in here. Set RP_ID back to the host they were registered under.';
+        }
         // With BOOTSTRAP_CODE set, Bootstrap::warnings already says this, with its own advice.
         if (app()->isProduction() && ! config('fitpal.invite_only') && (string) config('fitpal.bootstrap_code') === '') {
             $warnings[] = 'INVITE_ONLY is off: anyone who finds the sign-up can create an account with no coach. Set INVITE_ONLY=1 — a coach\'s invite link still works, and SELF_SERVE_COACH opens coach sign-up on its own.';
