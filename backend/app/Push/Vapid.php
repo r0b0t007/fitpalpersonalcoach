@@ -93,7 +93,7 @@ final class Vapid
     }
 
     /** @return array{publicKey: string, privateKey: string}|null */
-    private static function read(string $file): ?array
+    public static function read(string $file): ?array
     {
         $raw = @file_get_contents($file);
         $keys = is_string($raw) ? json_decode($raw, true) : null;

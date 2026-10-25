@@ -6,6 +6,7 @@ use App\Audit\Audit;
 use App\Auth\SessionToken;
 use App\Console\LegacyCoaching;
 use App\Console\LegacyMedia;
+use App\Console\LiveChecks;
 use App\Http\Request;
 use App\Models\PushSubscription;
 use App\Models\User;
@@ -38,7 +39,8 @@ final class ImportLegacy extends Command
     protected $signature = 'fitpal:import-legacy
         {dataDir : The Node API DATA_DIR (holds db.json and state-*.json)}
         {--verify : After importing, read every account back through the API and compare it with the files}
-        {--verify-only : Compare the database with the files without importing (after a cutover, say)}';
+        {--verify-only : Compare the database with the files without importing (after a cutover, say)}
+        {--confirm-live : Required to write on a production instance: once, at the cutover, with the Node API stopped — the import mirror-deletes rows the files no longer hold, so it must never run once Laravel is live}';
 
     protected $description = 'Import accounts, passkeys, training state, the audit log, invites, programs and assignments from a Node API data directory';
 
@@ -77,6 +79,31 @@ final class ImportLegacy extends Command
         // database as it stands.
         if ($this->option('verify-only')) {
             return $this->verify($db, $dbo, $dir);
+        }
+        // On a live instance the import runs once, into an empty database, at the cutover — and
+        // what it gets wrong stays wrong: each passkey keeps the RP_ID it was imported under (a
+        // rerun only moves its counter), a SESSION_SECRET that is not Node's signs everyone out,
+        // and a DATA_DIR or VAPID pair that is not Node's silences media and push. So there these
+        // refuse, before anything is written; elsewhere they are said once the import is done.
+        $reports = [...LegacyMedia::dataDirReport($dir), ...LegacyMedia::vapidReport($dir)];
+        if (app()->isProduction()) {
+            $refusals = [...LiveChecks::origin(true, exact: true), ...LiveChecks::secret($dir, required: true), ...$reports];
+            if (! $this->option('confirm-live')) {
+                $refusals[] = 'this is a production instance: the import overwrites accounts and mirror-deletes invites, programs, assignments and media rows the files no longer hold. Run it once, at the cutover, with the Node API stopped, and say so with --confirm-live.';
+            }
+            // The flag is asked every time, so it cannot tell a cutover from a rerun weeks later
+            // (Node's old passkey counters back, everything made since deleted): the database can.
+            if (User::query()->exists()) {
+                $refusals[] = 'this database already holds accounts: on a live instance the import runs once, into an empty database. To redo a cutover that stopped part-way, empty it first (php artisan migrate:fresh --force).';
+            }
+            if ($refusals !== []) {
+                foreach ($refusals as $r) {
+                    $this->error($r);
+                }
+                $this->error('nothing was imported');
+
+                return self::FAILURE;
+            }
         }
 
         $users = 0;
@@ -223,7 +250,7 @@ final class ImportLegacy extends Command
         if ($media['removed'] > 0) {
             $this->warn("removed {$media['removed']} subscription/demo/photo row(s) the files no longer hold");
         }
-        foreach ([...LegacyMedia::dataDirReport($dir), ...LegacyMedia::vapidReport($dir)] as $w) {
+        foreach ($reports as $w) {
             $this->warn($w);
         }
         foreach ($skipped as $s) {
@@ -340,13 +367,21 @@ final class ImportLegacy extends Command
             }
         }
 
+        // A passkey answers only for the RP_ID it was imported under (LegacyCredential), and the
+        // replay above signs in by token, never by passkey: checked here, or an import run on the
+        // wrong config would verify clean and lock everyone out.
+        $rp = (string) config('fitpal.rp_id');
+        foreach (LiveChecks::strandedPasskeys($byId->keys()->all()) as $id => $bound) {
+            $problems[] = "$id: a passkey is bound to $bound, not to RP_ID ($rp) — it cannot sign in here";
+        }
+
         foreach ($problems as $p) {
             $this->error('verify  '.$p);
         }
         if ($problems !== []) {
             return self::FAILURE;
         }
-        $this->info('verified '.$byId->count().' account(s): /me, /data and the coaching routes match the files, and so do the demos, photos and push');
+        $this->info('verified '.$byId->count().' account(s): /me, /data and the coaching routes match the files, and so do the demos, photos, push and passkeys');
 
         return self::SUCCESS;
     }

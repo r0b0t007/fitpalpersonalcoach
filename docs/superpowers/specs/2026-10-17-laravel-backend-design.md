@@ -414,19 +414,26 @@ category and outcome) · Exercise media (per coach; delete file and row). Dashbo
 coaches by status, clients per coach against cap, failed payments.
 
 ## 9. Data migration
-`php artisan fitpal:import-legacy {dataDir}` is idempotent (upsert by id) and runnable against a
-copy. It imports users (with `sv` and reminder markers), credentials (COSE → PEM, original kept in
-`legacy_cose`), push subscriptions, invites, assignments, media rows, `state-*.json` raw,
-`coach-*.json` programs raw, `media-*.json` photos, `audit.log` rows, `vapid.json` and `secret`
-into `.env` values. Media files are not moved: the `media` disk points at `DATA_DIR/media`. A
+`php artisan fitpal:import-legacy {dataDir}` upserts by id, and off production it can be run again and
+against a copy (the lab rehearsal and the CI `contract` job do). It imports users (with `sv` and
+reminder markers), credentials (COSE → PEM, original kept in `legacy_cose`), push subscriptions,
+invites, assignments, media rows, `state-*.json` raw, `coach-*.json` programs raw, `media-*.json`
+photos and `audit.log` rows. It does **not** write `.env`: `secret` is copied into `SESSION_SECRET`
+by hand and `vapid.json` stays where it is, read through `DATA_DIR`; the import checks both. Media
+files are not moved: the media root is `DATA_DIR/media`.
+
+On a production instance (CHW-297) it writes once, at the cutover: only with `--confirm-live`, only
+into a database with no accounts yet, and only when `RP_ID` is exactly ORIGIN's host (each passkey
+keeps the RP_ID it was imported under), ORIGIN is https, `SESSION_SECRET` is Node's `secret`, and
+`DATA_DIR` and the VAPID pair are Node's. The window stops Node first, then imports. A
 `--verify` mode re-reads every user through the HTTP layer and diffs against the files — `/me`,
 `/data`, and (since CHW-251) the coaching routes: each coach's invites and library, an admin's
 invite list, everyone's inbox and answered offers, as Node answered them from the same files.
 
 Invites, programs and assignments are **mirrored**, not only upserted: a rerun also removes the rows
 the files no longer hold, because Node itself deletes programs and prunes answered offers. So the
-import is run only while Node is the live API; after the cutover, `--verify-only` checks without
-writing. An invite's `requestId` is not kept (access requests are not ported) and is reported.
+import never runs once Laravel is live; `--verify-only` checks without writing, and agrees with the
+files only until Laravel's first write. An invite's `requestId` is not kept (access requests are not ported) and is reported.
 
 ## 10. Testing
 Pest unit tests for the ported pure classes (the `domain.test.mjs` cases); feature tests named
