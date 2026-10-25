@@ -63,7 +63,7 @@ The other keys:
 | `DB_DATABASE` / `DB_USERNAME` | `pawputif_fitpalcoach` / `pawputif_fitpal` |
 | `RP_ID` / `ORIGIN` / `RP_NAME` | `coach.fitpal.ma` / `https://coach.fitpal.ma` / `FitPal Coach` |
 | `INVITE_ONLY` / `ALLOW_GUEST` / `SELF_SERVE_COACH` | `1` / `0` / `0` (as Node runs; billing is R5b) |
-| `BOOTSTRAP_CODE` / `ADMIN_UIDS` | empty (the owner is `admin` in the data itself) |
+| `BOOTSTRAP_CODE` / `ADMIN_UIDS` | empty. The owner is `"admin": true` in `db.json`, which the import copies, and Node's env sets no `ADMIN_UIDS` (checked: its `.htaccess` block has none). The rehearsal's verify compares each account's `admin` in `/me` with the files. |
 | `CREEM_*` | absent (billing off until R5b) |
 | `DATA_DIR` | `/home/pawputif/fitpal-coach-data` |
 | `VAPID_*` | absent, so `DATA_DIR/vapid.json` is used |
@@ -91,16 +91,43 @@ From here on, every merge that touches `backend/` deploys here, unmounted.
 
 ### P3. The import rehearsed on production, unmounted
 This was done on the production instance itself, not on the lab. It runs the same code, `.env`
-and MariaDB as the window, and the lab's test accounts survive. One script did it:
+and MariaDB as the window, and the lab's test accounts survive.
+
+**Only before W1, and only with deploys frozen.** Set `DEPLOY_BACKEND=false` first and back to
+`true` after. Otherwise a backend merge mid-rehearsal would dump the imported production rows
+into `storage/backups`, which outlive the clean-up, and would re-cache the config.
+
+The script refuses to start unless Laravel is unmounted and its database is empty. It removes
+the copy and empties the database only on that condition, so it can never touch a live
+cutover:
 
 ```sh
-cp -a ~/fitpal-coach-data ~/fitpal-coach-rehearsal-data          # an isolated copy (umask 077)
-cd ~/fitpal-coach-backend && php artisan config:clear            # so DATA_DIR below is read
-DATA_DIR=~/fitpal-coach-rehearsal-data php artisan fitpal:import-legacy ~/fitpal-coach-rehearsal-data --verify --confirm-live
-DATA_DIR=~/fitpal-coach-rehearsal-data php artisan fitpal:import-legacy ~/fitpal-coach-rehearsal-data --verify-only
-# then, whatever happened (an EXIT trap):
-php artisan migrate:fresh --force && rm -rf ~/fitpal-coach-rehearsal-data && php artisan optimize
+set -uo pipefail
+cd ~/fitpal-coach-backend || exit 1
+COPY=~/fitpal-coach-rehearsal-data
+# Refuse first, before any clean-up exists that could run: never once Laravel is mounted or holds accounts.
+[ -L ~/coach.fitpal.ma/api ] && { echo "STOP: /api is Laravel's: the cutover is done"; exit 1; }
+[ "$(php artisan tinker --execute 'echo App\Models\User::query()->count();')" = "0" ] || { echo "STOP: the database is not empty"; exit 1; }
+[ -e "$COPY" ] && { echo "STOP: $COPY exists (a failed earlier run?): look, then remove it"; exit 1; }
+cleanup() {   # each step on its own: one failing never keeps the copy on disk
+  php artisan migrate:fresh --force > /dev/null; echo "database emptied: $?"
+  rm -rf "$COPY"; echo "copy deleted: $?"
+}
+trap cleanup EXIT
+mkdir -m 700 "$COPY" && cp -a ~/fitpal-coach-data/. "$COPY"/ && chmod -R go-rwx "$COPY"
+# Config read fresh from .env + this DATA_DIR, never from (or into) the cached config.
+run() { APP_CONFIG_CACHE="/tmp/r5-nocache-$$.php" DATA_DIR="$COPY" php artisan "$@"; }
+run fitpal:import-legacy "$COPY" --verify --confirm-live
+run fitpal:import-legacy "$COPY" --verify-only
+run fitpal:import-legacy "$COPY" --confirm-live    # must be refused: "already holds accounts"
+run tinker --execute 'echo "passkey rp_ids: ", DB::table("webauthn_credentials")->distinct()->pluck("rp_id")->implode(","), PHP_EOL;'
 ```
+Then, after the trap, run `php artisan fitpal:check-config`, which should report `configuration ok`.
+
+The run on 2026-10-25 used an earlier form of this script, with the same steps. It cleared the
+cached config instead of bypassing it, and it set its clean-up trap before its empty-database
+check. The second difference was harmless on an empty database, but it is why that form must
+not be reused.
 
 Result:
 - the import read `users 8 · passkeys 2 · states 7 · audit 27 · invites 1 · programs 1 ·
@@ -110,9 +137,10 @@ Result:
 - `--verify-only` passed;
 - a second `--confirm-live` import was refused ("this database already holds accounts").
 
-**Afterwards:** 0 users, the copy deleted, `configuration ok`.
+**Afterwards:** 0 users, the copy deleted, `configuration ok`, and no `storage/backups` (no deploy
+ran during it).
 
-To repeat it, run the same script. W5 refuses to run unless the database is empty.
+To repeat it before W1, run the script above. W5 refuses to run unless the database is empty.
 
 ## The window (CHW-300)
 
