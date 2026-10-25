@@ -7,6 +7,7 @@ use App\Models\ExerciseMedia;
 use App\Models\ProgressPhoto;
 use App\Models\PushSubscription;
 use App\Models\User;
+use App\Push\Vapid;
 use App\Support\Js;
 use App\Support\Uid;
 use Illuminate\Support\Facades\DB;
@@ -320,14 +321,12 @@ final class LegacyMedia
         return self::pair($own) === $node ? [] : ['DATA_DIR/vapid.json is not the pair in '.$dir.'/vapid.json: no browser subscribed under Node will receive a push. Point DATA_DIR at the Node data, or set the VAPID keys to that pair.'];
     }
 
-    /** @return array{string, string}|null  [public, private] */
+    /** @return array{string, string}|null  [public, private], read as Vapid reads it at runtime */
     private static function pair(string $file): ?array
     {
-        $raw = @file_get_contents($file);
-        $keys = is_string($raw) ? json_decode($raw, true) : null;
+        $keys = Vapid::read($file);
 
-        return is_array($keys) && is_string($keys['publicKey'] ?? null) && is_string($keys['privateKey'] ?? null)
-            ? [$keys['publicKey'], $keys['privateKey']] : null;
+        return $keys === null ? null : [$keys['publicKey'], $keys['privateKey']];
     }
 
     /** Deletes the rows of $query whose $key is not one of $keep; how many went. */

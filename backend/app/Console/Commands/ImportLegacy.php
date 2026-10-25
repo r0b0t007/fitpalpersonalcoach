@@ -6,6 +6,7 @@ use App\Audit\Audit;
 use App\Auth\SessionToken;
 use App\Console\LegacyCoaching;
 use App\Console\LegacyMedia;
+use App\Console\LiveChecks;
 use App\Http\Request;
 use App\Models\PushSubscription;
 use App\Models\User;
@@ -79,14 +80,21 @@ final class ImportLegacy extends Command
         if ($this->option('verify-only')) {
             return $this->verify($db, $dbo, $dir);
         }
-        // On a live instance the import runs once, at the cutover, and what it gets wrong stays
-        // wrong: each passkey keeps the RP_ID it was imported under (a rerun only moves its
-        // counter), and a DATA_DIR or VAPID pair that is not Node's silences media and push. So
-        // there the warnings below refuse, before anything is written.
+        // On a live instance the import runs once, into an empty database, at the cutover — and
+        // what it gets wrong stays wrong: each passkey keeps the RP_ID it was imported under (a
+        // rerun only moves its counter), a SESSION_SECRET that is not Node's signs everyone out,
+        // and a DATA_DIR or VAPID pair that is not Node's silences media and push. So there these
+        // refuse, before anything is written.
         if (app()->isProduction()) {
-            $refusals = [...CheckConfig::originProblems(true), ...LegacyMedia::dataDirReport($dir), ...LegacyMedia::vapidReport($dir)];
+            $refusals = [...LiveChecks::origin(true, exact: true), ...LiveChecks::secret($dir),
+                ...LegacyMedia::dataDirReport($dir), ...LegacyMedia::vapidReport($dir)];
             if (! $this->option('confirm-live')) {
                 $refusals[] = 'this is a production instance: the import overwrites accounts and mirror-deletes invites, programs, assignments and media rows the files no longer hold. Run it once, at the cutover, with the Node API stopped, and say so with --confirm-live.';
+            }
+            // The flag is asked every time, so it cannot tell a cutover from a rerun weeks later
+            // (Node's old passkey counters back, everything made since deleted): the database can.
+            if (User::query()->exists()) {
+                $refusals[] = 'this database already holds accounts: on a live instance the import runs once, into an empty database. To redo a cutover that stopped part-way, empty it first (php artisan migrate:fresh --force).';
             }
             if ($refusals !== []) {
                 foreach ($refusals as $r) {
