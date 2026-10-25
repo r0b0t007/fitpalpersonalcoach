@@ -220,6 +220,9 @@ it('words every push as api/push-messages.js does, in every language', function 
         $this->markTestSkipped('node is not on the PATH');
     }
     $file = realpath(base_path('../api/push-messages.js'));
+    if ($file === false) {
+        $this->markTestSkipped('api/ is retired: there is no Node wording left to match');
+    }
     // A script file, not `node -e`: no shell quoting to get wrong on either OS.
     $script = $this->dataDir.'/copy.cjs';
     @mkdir($this->dataDir, 0777, true);

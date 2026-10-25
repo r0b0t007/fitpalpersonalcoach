@@ -38,7 +38,8 @@ final class ImportLegacy extends Command
     protected $signature = 'fitpal:import-legacy
         {dataDir : The Node API DATA_DIR (holds db.json and state-*.json)}
         {--verify : After importing, read every account back through the API and compare it with the files}
-        {--verify-only : Compare the database with the files without importing (after a cutover, say)}';
+        {--verify-only : Compare the database with the files without importing (after a cutover, say)}
+        {--confirm-live : Required to write on a production instance: once, at the cutover, with the Node API stopped — the import mirror-deletes rows the files no longer hold, so it must never run once Laravel is live}';
 
     protected $description = 'Import accounts, passkeys, training state, the audit log, invites, programs and assignments from a Node API data directory';
 
@@ -77,6 +78,24 @@ final class ImportLegacy extends Command
         // database as it stands.
         if ($this->option('verify-only')) {
             return $this->verify($db, $dbo, $dir);
+        }
+        // On a live instance the import runs once, at the cutover, and what it gets wrong stays
+        // wrong: each passkey keeps the RP_ID it was imported under (a rerun only moves its
+        // counter), and a DATA_DIR or VAPID pair that is not Node's silences media and push. So
+        // there the warnings below refuse, before anything is written.
+        if (app()->isProduction()) {
+            $refusals = [...CheckConfig::originProblems(true), ...LegacyMedia::dataDirReport($dir), ...LegacyMedia::vapidReport($dir)];
+            if (! $this->option('confirm-live')) {
+                $refusals[] = 'this is a production instance: the import overwrites accounts and mirror-deletes invites, programs, assignments and media rows the files no longer hold. Run it once, at the cutover, with the Node API stopped, and say so with --confirm-live.';
+            }
+            if ($refusals !== []) {
+                foreach ($refusals as $r) {
+                    $this->error($r);
+                }
+                $this->error('nothing was imported');
+
+                return self::FAILURE;
+            }
         }
 
         $users = 0;
@@ -340,13 +359,22 @@ final class ImportLegacy extends Command
             }
         }
 
+        // A passkey answers only for the RP_ID it was imported under (LegacyCredential), and the
+        // replay above signs in by token, never by passkey: checked here, or an import run on the
+        // wrong config would verify clean and lock everyone out.
+        $rp = (string) config('fitpal.rp_id');
+        $bound = WebAuthnCredential::query()->whereIn('authenticatable_id', $byId->keys()->all())->where('rp_id', '!=', $rp)->get();
+        foreach ($bound as $c) {
+            $problems[] = "{$c->authenticatable_id}: a passkey is bound to {$c->rp_id}, not to RP_ID ($rp) — it cannot sign in here";
+        }
+
         foreach ($problems as $p) {
             $this->error('verify  '.$p);
         }
         if ($problems !== []) {
             return self::FAILURE;
         }
-        $this->info('verified '.$byId->count().' account(s): /me, /data and the coaching routes match the files, and so do the demos, photos and push');
+        $this->info('verified '.$byId->count().' account(s): /me, /data and the coaching routes match the files, and so do the demos, photos, push and passkeys');
 
         return self::SUCCESS;
     }

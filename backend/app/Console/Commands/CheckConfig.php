@@ -7,7 +7,9 @@ use App\Auth\SessionToken;
 use App\Billing\Creem;
 use App\Domain\Plans;
 use App\Media\Upload;
+use App\Models\PushSubscription;
 use Illuminate\Console\Command;
+use Throwable;
 
 /**
  * The configuration mistakes the Node API printed at boot, as a command a deploy runs (and an
@@ -41,7 +43,10 @@ final class CheckConfig extends Command
         if (config('fitpal.self_serve_coach') && ! Plans::billingOn()) {
             $warnings[] = 'SELF_SERVE_COACH is on but billing is off: coach sign-up stays closed until CREEM_API_KEY, CREEM_WEBHOOK_SECRET and CREEM_PRODUCTS are set (a self-serve coach is meant to pay).';
         }
-        array_push($warnings, ...self::mailProblems());
+        array_push($warnings, ...self::mailProblems(), ...self::originProblems(app()->isProduction()), ...self::dataProblems());
+        if (app()->isProduction() && ! config('fitpal.invite_only')) {
+            $warnings[] = 'INVITE_ONLY is off: anyone who finds the sign-up can create an account with no coach. Set INVITE_ONLY=1 — a coach\'s invite link still works, and SELF_SERVE_COACH opens coach sign-up on its own.';
+        }
         foreach ($warnings as $w) {
             $this->warn($w);
         }
@@ -50,6 +55,66 @@ final class CheckConfig extends Command
         }
 
         return $warnings === [] ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * Passkeys are bound to RP_ID, which must be ORIGIN's host or a parent of it, or every
+     * registration and sign-in fails. On a live instance ORIGIN is also https and not localhost:
+     * WebAuthn wants it, and the session cookie is `__Host-gymsid` only over https — a plain-http
+     * ORIGIN renames it and signs everyone out. fitpal:import-legacy refuses on these, since each
+     * passkey keeps the RP_ID it was imported under.
+     *
+     * @return list<string>
+     */
+    public static function originProblems(bool $live): array
+    {
+        $rp = (string) config('fitpal.rp_id');
+        $origin = (string) config('fitpal.origin');
+        $host = (string) parse_url($origin, PHP_URL_HOST);
+        $out = [];
+        if ($host === '' || ($host !== $rp && ! str_ends_with($host, '.'.$rp))) {
+            $out[] = "RP_ID ($rp) is not the host of ORIGIN ($origin), nor a parent domain of it — every passkey registration and sign-in fails.";
+        }
+        if ($live && ($rp === 'localhost' || $host === 'localhost')) {
+            $out[] = 'RP_ID or ORIGIN is still localhost on a live instance — set both to the address the app is opened at (RP_ID=coach.fitpal.ma, ORIGIN=https://coach.fitpal.ma).';
+        } elseif ($live && ! str_starts_with($origin, 'https://')) {
+            $out[] = "ORIGIN ($origin) is not https — passkeys need it, and the session cookie would change name, signing everyone out.";
+        }
+
+        return $out;
+    }
+
+    /**
+     * What a wrong DATA_DIR or session secret breaks without a word: the Node API's secret signs
+     * every session and paired phone (fitpal.php), and DATA_DIR/vapid.json is the pair every
+     * browser subscribed with — with no pair there and none in .env, Vapid mints a new one and
+     * none of them is reached again.
+     *
+     * @return list<string>
+     */
+    public static function dataProblems(): array
+    {
+        $dir = rtrim((string) config('fitpal.data_dir'), '/\\');
+        $out = [];
+        $secret = @file_get_contents($dir.DIRECTORY_SEPARATOR.'secret');
+        if (is_string($secret) && trim($secret) !== '' && ! hash_equals(trim($secret), (string) config('fitpal.session_secret'))) {
+            $out[] = 'SESSION_SECRET is not the secret in DATA_DIR/secret — every session and paired phone it signed is refused. Copy the file\'s contents into SESSION_SECRET, or remove the file if the secret was changed on purpose.';
+        }
+        $envPair = (string) config('fitpal.vapid.public') !== '' || (string) config('fitpal.vapid.private') !== '';
+        if (! $envPair && ! is_file($dir.DIRECTORY_SEPARATOR.'vapid.json') && self::hasSubscriptions()) {
+            $out[] = "no VAPID pair: VAPID_* are unset and there is no vapid.json in DATA_DIR ($dir), so a new pair would be minted and no browser already subscribed would receive a push. Point DATA_DIR at the data the subscriptions came from, or set the VAPID keys.";
+        }
+
+        return $out;
+    }
+
+    private static function hasSubscriptions(): bool
+    {
+        try {
+            return PushSubscription::query()->exists();
+        } catch (Throwable) {
+            return false;   // no database yet: nothing subscribed to lose
+        }
     }
 
     /**

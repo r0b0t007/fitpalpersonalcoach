@@ -67,7 +67,7 @@ it('imports subscriptions, demos and photos as Node kept them, and verifies them
         ->expectsOutputToContain('kept: media nodeMedia0000002 with no label, listed with an empty one')
         ->expectsOutputToContain('photo nodePhoto0000002 (a second photo for 2026-04-05 front)')
         ->expectsOutputToContain('photo nodePhoto0000003 (not a date and a pose)')
-        ->expectsOutputToContain('and so do the demos, photos and push');
+        ->expectsOutputToContain('and so do the demos, photos, push and passkeys');
 
     expect(PushSubscription::query()->sole()->only(['user_id', 'endpoint', 'p256dh', 'auth']))->toBe(['user_id' => 'mem0000000000000', 'endpoint' => 'https://push.example.com/m1', 'p256dh' => 'BKey', 'auth' => 'auth1'])
         ->and(ExerciseMedia::acrossCoaches()->find('nodeMedia0000001')->toNode())->toBe($this->db['media'][0]) // across coaches: the test reads every row
