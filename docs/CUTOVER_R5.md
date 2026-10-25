@@ -96,13 +96,15 @@ listed takes the default in `config/`.
 ### P3. First deploy, with production unmounted
 GitHub repository variables:
 - `BACKEND_SERVER_DIR=fitpal-coach-backend`
-- `BACKEND_CHECK_URL=https://coach.fitpal.ma/api/config`
+- `BACKEND_CHECK_URL`: leave it **unset** until W9. Node answers on coach.fitpal.ma until the
+  swap, so that check could only be red, and a red that means nothing teaches everyone to
+  ignore red.
 - `DEPLOY_BACKEND=true`
 
-Then dispatch **Deploy backend**. It dumps the (empty) database, syncs, migrates and optimizes.
+Then dispatch **Deploy backend**. A first install has nothing to dump, so it syncs, migrates,
+optimizes and runs `fitpal:check-config`.
 
-**Expect** the "Check Laravel answers" step to be red, because Node still answers on
-coach.fitpal.ma. Check on the server instead:
+**Check:** the run is green. Then check on the server:
 
 ```sh
 cd ~/fitpal-coach-backend
@@ -155,6 +157,13 @@ php artisan fitpal:import-legacy ~/fitpal-coach-data --verify --confirm-live
 read the reason: each refusal names the setting, and nothing has been written. Fix `.env`, run
 `optimize:clear && optimize`, and run it again.
 
+Then, still with nothing mounted, so nothing can have written to Laravel yet:
+- `php artisan fitpal:import-legacy ~/fitpal-coach-data --verify-only` passes;
+- `php artisan fitpal:check-config` prints `configuration ok`.
+
+From W6 on, `--verify-only` differs by design. Any open app can sync to Laravel the moment it
+is mounted, so it is never run as a pass/fail check after this point.
+
 **W6. Swap the mount.**
 ```sh
 ln -s ~/fitpal-coach-backend/public ~/coach.fitpal.ma/api
@@ -169,11 +178,7 @@ diff ~/r5-rollback/crontab.before /tmp/crontab.new    # exactly one added line
 crontab /tmp/crontab.new && crontab -l | grep -c schedule:run
 ```
 
-**W8. Checks.** Run these on the server first, before anything writes to Laravel:
-- `php artisan fitpal:import-legacy ~/fitpal-coach-data --verify-only` passes;
-- `php artisan fitpal:check-config` prints `configuration ok`.
-
-Then the owner, at https://coach.fitpal.ma:
+**W8. Checks.** The owner, at https://coach.fitpal.ma:
 - [ ] signs in with the existing passkey;
 - [ ] sees the roster (6 demo clients) and the program;
 - [ ] plays the exercise demo video;
@@ -182,10 +187,10 @@ Then the owner, at https://coach.fitpal.ma:
 - [ ] Account → adds their email, and the confirm mail arrives and its link redeems;
 - [ ] `php artisan fitpal:panel-login LDH3HiEWUyOzK7tY` (the owner types the password), then signs in at `/api/admin-panel`.
 
-From here on, `--verify-only` differs by design: Laravel now holds newer data than the files.
-
-**W9. Unfreeze.** Set `DEPLOY_BACKEND=true`. Leave `DEPLOY_API=false`, for good. Dispatch
-**Deploy backend**.
+**W9. Unfreeze.**
+- Set `BACKEND_CHECK_URL=https://coach.fitpal.ma/api/config` and `DEPLOY_BACKEND=true`.
+- Leave `DEPLOY_API=false`, for good.
+- Dispatch **Deploy backend**.
 
 **Check:** green, including "Check Laravel answers".
 
@@ -196,9 +201,9 @@ Laravel since the window is lost.**
 
 1. Set `DEPLOY_BACKEND=false`.
 2. Remove the cron line: `crontab -l | grep -v 'fitpal-coach-backend' > /tmp/c && diff <(crontab -l) /tmp/c; crontab /tmp/c`.
-3. Swap the mount back:
+3. Swap the mount back. Before W6 there is no symlink to remove; the first line handles both cases:
    ```sh
-   rm ~/coach.fitpal.ma/api
+   [ -L ~/coach.fitpal.ma/api ] && rm ~/coach.fitpal.ma/api
    mv ~/r5-rollback/api-mount ~/coach.fitpal.ma/api
    ```
 4. Restore the venv if `destroy` removed it:
@@ -214,8 +219,14 @@ Laravel since the window is lost.**
 6. Set `DEPLOY_API=true` and dispatch **Deploy API**, which reinstalls `node_modules`.
 7. **Check:** `curl -s https://coach.fitpal.ma/api/health` shows `"users":8`, and the owner signs in.
 
-If the import refused or failed part-way **before W6**, Node is only stopped. In that case,
-run steps 3–7, and empty the Laravel database with `migrate:fresh --force` before the next try.
+If the import refused or failed part-way **before W6**, Node is only stopped and there is no cron
+line yet. Run steps 3–7, then empty the Laravel database with `migrate:fresh --force` before the
+next try.
+
+Each backend deploy also keeps its own dump in `~/fitpal-coach-backend/storage/backups/`
+(`db-<time>-<commit>.sql.gz`, the newest five), taken in maintenance mode before it changes
+anything. That is the undo for a bad backend deploy after the cutover, which is a different
+case from this rollback to Node.
 
 ## After 7 quiet days (CHW-301)
 

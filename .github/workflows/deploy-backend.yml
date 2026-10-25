@@ -12,10 +12,14 @@
 #   4. The target must already hold a .env. It is written by hand on the server (secrets never pass
 #      through CI), so a first deploy can never boot an app on defaults (sqlite, localhost RP_ID).
 #   5. One deploy at a time, never cancelled mid-upload; a newer push queues behind.
-#   6. The database is dumped before anything changes (storage/backups, the last five kept), the
-#      app is in maintenance mode while files and schema change, and the server's .env and
-#      storage/ are never touched by rsync.
-#   7. The check is Laravel's /api/config carrying `login_email`, not /api/health: the Node API
+#   6. The app goes into maintenance mode, THEN the database is dumped (fitpal:backup-db: the
+#      connection Laravel resolved, timestamped, the last five kept), so the dump is the state the
+#      migration starts from. The server's .env and storage/ are never touched by rsync.
+#   7. The app comes back up only when a deploy completes. A run that fails after the app went
+#      down leaves it in maintenance mode (503, clients retry) and says so loudly: half-synced
+#      code, or new code on a half-migrated schema, is worse than a clear pause. Re-run the
+#      workflow once fixed, or restore the dump.
+#   8. The check is Laravel's /api/config carrying `login_email`, not /api/health: the Node API
 #      answers /api/health with the same {"ok":true}, so a health check alone cannot tell a
 #      deployed Laravel from Node still being mounted. fitpal:check-config then runs regardless,
 #      so a red run always says what is wrong.
@@ -65,15 +69,16 @@ jobs:
       TARGET: ${{ vars.BACKEND_SERVER_DIR }}
     steps:
       - uses: actions/checkout@v7
+      # Production dependencies only; package:discover then lists no dev-only provider.
       - uses: ./.github/actions/setup-backend
+        with:
+          no-dev: 'true'
 
-      # Production dependencies only, and Filament's published assets: they are gitignored
-      # (public/{css,js,fonts}/filament), so without this rsync --delete would remove them.
-      # package:discover runs again here, so bootstrap/cache lists no dev-only provider.
+      # Filament's published assets are gitignored (public/{css,js,fonts}/filament), so without
+      # this rsync --delete would remove them from the server.
       - name: Build
         working-directory: backend
         run: |
-          composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader
           php artisan filament:assets
           test -f public/js/filament/filament/app.js
 
@@ -111,9 +116,12 @@ jobs:
           fi
           echo "SSH=ssh -i $HOME/.ssh/id_deploy -p $SSH_PORT -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" >> "$GITHUB_ENV"
 
-      # Before anything changes: the .env must be there (guardrail 4), the database is dumped, and
-      # the app goes into maintenance mode if it is already installed.
+      # Before anything changes: the .env must be there (guardrail 4); then, if the app is already
+      # installed, maintenance mode and THEN the dump (guardrail 6), by the installed code's own
+      # fitpal:backup-db. A first install has nothing to dump; code from before the command
+      # existed says so instead of skipping quietly.
       - name: Prepare the server
+        id: prepare
         run: |
           $SSH "$SSH_USER@$SSH_HOST" "TARGET='${TARGET%/}' SHA='${GITHUB_SHA::12}' bash -s" <<'REMOTE'
           set -euo pipefail
@@ -123,40 +131,45 @@ jobs:
             exit 1
           fi
           cd "$TARGET"
-          env_get() { php -r '$k=$argv[1]; foreach (file(".env") as $l) { if (preg_match("/^".$k."=(.*)$/", trim($l), $m)) { echo trim($m[1], "\"\x27"); } }' "$1"; }
-          if [ "$(env_get DB_CONNECTION)" = "mysql" ]; then
-            mkdir -p storage/backups
-            MYSQL_PWD="$(env_get DB_PASSWORD)" mariadb-dump --single-transaction --no-tablespaces \
-              -h "$(env_get DB_HOST)" -P "$(env_get DB_PORT)" -u "$(env_get DB_USERNAME)" "$(env_get DB_DATABASE)" \
-              | gzip > "storage/backups/pre-deploy-$SHA.sql.gz"
-            ls -t storage/backups/pre-deploy-*.sql.gz | tail -n +6 | xargs -r rm -f
-            echo "database dumped to storage/backups/pre-deploy-$SHA.sql.gz"
+          if [ ! -f artisan ] || [ ! -d vendor ]; then
+            echo "first install here: nothing to put in maintenance mode or dump"
+            exit 0
           fi
-          if [ -f artisan ] && [ -d vendor ]; then php artisan down --retry=15; fi
+          php artisan down --retry=15
+          if php artisan list --raw | grep '^fitpal:backup-db' > /dev/null; then
+            php artisan fitpal:backup-db --label="$SHA"
+          else
+            echo "::warning::the installed code has no fitpal:backup-db yet, so this deploy takes no dump (the next one will)"
+          fi
           REMOTE
 
       # -K: follow a directory symlink on the server rather than replace it. The anchored excludes
       # keep what the server owns: its .env and storage/ (logs, sessions, cache, backups).
       - name: Sync
-        id: sync
         run: |
           rsync -rlptzK --delete \
             --exclude='/.env' --exclude='/storage/' \
             --exclude='/node_modules/' --exclude='/tests/' --exclude='/database/*.sqlite' \
             -e "$SSH" backend/ "$SSH_USER@$SSH_HOST:${TARGET%/}/"
 
+      # `up` only after the migration and caches succeed (guardrail 7).
       - name: Migrate and come back up
         run: |
           $SSH "$SSH_USER@$SSH_HOST" "TARGET='${TARGET%/}' bash -s" <<'REMOTE'
           set -euo pipefail
           cd ~/"$TARGET"
           mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app
-          # Whatever happens next, the app does not stay in maintenance mode.
-          trap 'php artisan up || true' EXIT
           php artisan migrate --force
           php artisan optimize:clear
           php artisan optimize
+          php artisan up
           REMOTE
+
+      - name: Say the app is left in maintenance mode
+        if: failure() && steps.prepare.outcome != 'skipped'
+        run: |
+          echo "::error::~/${TARGET%/} may be in maintenance mode (503; clients retry). Fix the cause and re-run this workflow, which finishes the deploy and brings it up. To go back instead: restore the newest storage/backups/db-*.sql.gz, sync the previous commit, then php artisan up."
+          exit 1
 
       - name: Check Laravel answers
         if: vars.BACKEND_CHECK_URL != ''
@@ -167,9 +180,9 @@ jobs:
             fi
             echo "not answering as Laravel yet ($i/12)"; sleep 10
           done
-          echo "::error::${{ vars.BACKEND_CHECK_URL }} did not answer as Laravel. Before the cutover this is expected for coach.fitpal.ma (Node still answers there); after it, check storage/logs."
+          echo "::error::${{ vars.BACKEND_CHECK_URL }} did not answer as Laravel: check storage/logs on the server. (Before the cutover, BACKEND_CHECK_URL stays unset for coach.fitpal.ma, where Node answers — docs/CUTOVER_R5.md.)"
           exit 1
 
       - name: Check the configuration
-        if: always() && steps.sync.outcome == 'success'
+        if: always() && steps.prepare.outcome == 'success'
         run: $SSH "$SSH_USER@$SSH_HOST" "cd ~/'${TARGET%/}' && php artisan fitpal:check-config"
