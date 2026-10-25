@@ -32,11 +32,15 @@ final class BackupDb extends Command
         $label = preg_replace('/[^A-Za-z0-9._-]/', '', (string) $this->option('label'));
         $dir = storage_path('backups');
         @mkdir($dir, 0700, true);
-        $base = $dir.DIRECTORY_SEPARATOR.'db-'.now()->format('Ymd-His').($label !== '' ? "-$label" : '');
-        // Never over an earlier dump, even one from the same second.
-        for ($file = "$base.sql.gz", $n = 2; file_exists($file); $n++) {
-            $file = "$base-$n.sql.gz";
+        // Fixed-width time, then a two-digit counter, then the label: names sort in the order the
+        // dumps were taken (prune relies on it), and a re-run never writes over an earlier dump.
+        // The counter continues past the highest already there, never into a gap prune left.
+        $stamp = $dir.DIRECTORY_SEPARATOR.'db-'.now()->format('Ymd-His-u');
+        $n = 1;
+        foreach (glob($stamp.'-*.sql.gz') ?: [] as $taken) {
+            $n = max($n, (int) substr($taken, strlen($stamp) + 1, 2) + 1);
         }
+        $file = sprintf('%s-%02d%s.sql.gz', $stamp, $n, $label !== '' ? "-$label" : '');
 
         $ok = match ($c['driver'] ?? null) {
             'mysql', 'mariadb' => $this->dumpMysql($c, $file),
@@ -58,17 +62,18 @@ final class BackupDb extends Command
     {
         $tool = Process::run(['sh', '-c', 'command -v mariadb-dump || command -v mysqldump'])->output();
         $tool = trim(strtok($tool, "\n") ?: '') ?: 'mariadb-dump';
-        $args = [$tool, '--single-transaction', '--no-tablespaces', '--routines',
+        // utf8mb4 named: an older client's default is the 3-byte utf8, which turns every emoji in a
+        // name or a note into '?' in the dump.
+        $args = [$tool, '--single-transaction', '--no-tablespaces', '--routines', '--default-character-set=utf8mb4',
             '-h', (string) ($c['host'] ?? '127.0.0.1'), '-P', (string) ($c['port'] ?? 3306),
             '-u', (string) ($c['username'] ?? ''), (string) ($c['database'] ?? '')];
         $result = Process::env(['MYSQL_PWD' => (string) ($c['password'] ?? '')])->timeout(600)->run($args);
         if (! $result->successful()) {
             return $this->refuse('the dump failed: '.trim($result->errorOutput()));
         }
-        // Held in memory either way (the process buffers its output); this app's database is small.
-        file_put_contents($file, gzencode($result->output(), 6));
 
-        return true;
+        // Held in memory either way (the process buffers its output); this app's database is small.
+        return $this->write($file, $result->output());
     }
 
     private function copySqlite(array $c, string $file): bool
@@ -78,17 +83,27 @@ final class BackupDb extends Command
             return $this->refuse("the SQLite database ($db) is not a file");
         }
         $tmp = $file.'.sqlite';
-        // VACUUM INTO: a consistent copy, whatever is being written meanwhile.
-        $pdo = new \PDO('sqlite:'.$db);
-        $pdo->exec('VACUUM INTO '.$pdo->quote($tmp));
-        $in = fopen($tmp, 'rb');
-        $gz = gzopen($file, 'wb6');
-        while (! feof($in)) {
-            gzwrite($gz, (string) fread($in, 1 << 20));
+        try {
+            // VACUUM INTO: a consistent copy, whatever is being written meanwhile.
+            $pdo = new \PDO('sqlite:'.$db, options: [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+            $pdo->exec('VACUUM INTO '.$pdo->quote($tmp));
+            $copy = @file_get_contents($tmp);
+
+            return $copy === false ? $this->refuse("cannot read the copy ($tmp)") : $this->write($file, $copy);
+        } catch (\PDOException $e) {
+            return $this->refuse('the copy failed: '.$e->getMessage());
+        } finally {
+            @unlink($tmp);
         }
-        fclose($in);
-        gzclose($gz);
-        @unlink($tmp);
+    }
+
+    /** Gzipped, and all of it: a short write (a full disk) is a failed dump, not a smaller one. */
+    private function write(string $file, string $data): bool
+    {
+        $gz = gzencode($data, 6);
+        if ($gz === false || @file_put_contents($file, $gz) !== strlen($gz)) {
+            return $this->refuse("cannot write $file (is the disk full?)");
+        }
 
         return true;
     }
@@ -96,7 +111,7 @@ final class BackupDb extends Command
     private function prune(string $dir, int $keep): void
     {
         $dumps = glob($dir.DIRECTORY_SEPARATOR.'db-*.sql.gz') ?: [];
-        rsort($dumps);   // the name starts with the time: newest first
+        rsort($dumps);   // fixed-width time and counter first in the name: newest first
         foreach (array_slice($dumps, $keep) as $old) {
             @unlink($old);
         }

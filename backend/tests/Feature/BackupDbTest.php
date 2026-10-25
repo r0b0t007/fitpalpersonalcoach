@@ -39,11 +39,11 @@ it('dumps a MySQL or MariaDB connection with the password in the environment, no
     Process::assertRan(function (PendingProcess $p) {
         $cmd = implode(' ', (array) $p->command);
 
-        return str_contains($cmd, 'dump') && str_contains($cmd, '--single-transaction') && str_contains($cmd, 'pawputif_app')
+        return str_contains($cmd, 'dump') && str_contains($cmd, '--single-transaction') && str_contains($cmd, '--default-character-set=utf8mb4') && str_contains($cmd, 'pawputif_app')
             && ! str_contains($cmd, 's3cret') && ($p->environment['MYSQL_PWD'] ?? null) === 's3cret "quoted" #pw';
     });
     expect(dumps())->toHaveCount(1)
-        ->and(basename(dumps()[0]))->toMatch('/^db-\d{8}-\d{6}-abc123\.sql\.gz$/')
+        ->and(basename(dumps()[0]))->toMatch('/^db-\d{8}-\d{6}-\d{6}-01-abc123\.sql\.gz$/')
         ->and(gzdecode(file_get_contents(dumps()[0])))->toStartWith('-- the dump');
 })->with(['mysql', 'mariadb']);
 
@@ -81,5 +81,22 @@ it('never writes over an earlier dump, and keeps only the newest', function () {
     foreach (range(1, 4) as $i) {
         $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--label' => 'same', '--keep' => 3])->assertSuccessful();
     }
-    expect(dumps())->toHaveCount(3);   // four runs in one second: four names, the oldest pruned
+    // Four runs in one instant: four names, and the three kept are the three NEWEST.
+    expect(array_map(fn ($f) => preg_replace('/^db-[\d-]{22}-(\d\d)-same\.sql\.gz$/', '$1', basename($f)), dumps()))
+        ->toBe(['02', '03', '04']);
+
+    // With --keep=1, the dump just written is the one kept.
+    $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--label' => 'same', '--keep' => 1])
+        ->assertSuccessful();
+    expect(dumps())->toHaveCount(1)->and(dumps()[0])->toEndWith('-05-same.sql.gz');
+});
+
+it('takes a refused or failed SQLite copy as a failed dump', function () {
+    $db = sys_get_temp_dir().'/fitpal-backup-'.bin2hex(random_bytes(4)).'.sqlite';
+    file_put_contents($db, 'not a database at all');
+    config(['database.connections.broken' => ['driver' => 'sqlite', 'database' => $db]]);
+    $this->artisan('fitpal:backup-db', ['--connection' => 'broken'])->assertFailed()->expectsOutputToContain('the copy failed');
+    expect(dumps())->toBe([])
+        ->and(glob(storage_path('backups').'/*.sqlite') ?: [])->toBe([]);   // no temp copy left behind
+    @unlink($db);
 });

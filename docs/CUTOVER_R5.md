@@ -46,7 +46,7 @@ cp -a ~/fitpal-coach-data ~/fitpal-coach-lab/rehearsal-data
 cd ~/fitpal-coach-lab/backend
 # .env: DATA_DIR=/home/pawputif/fitpal-coach-lab/rehearsal-data and
 #       SESSION_SECRET=<contents of rehearsal-data/secret> (by script, see P2).
-php artisan optimize:clear && php artisan migrate:fresh --force && php artisan optimize
+php artisan optimize && php artisan migrate:fresh --force
 php artisan fitpal:import-legacy ~/fitpal-coach-lab/rehearsal-data --verify --confirm-live
 ```
 **Check:** it ends with `verified 8 account(s)`.
@@ -62,7 +62,7 @@ copy's, or `VAPID_*` is set in the lab `.env` (unset it, so the copy's `vapid.js
 1. Run `migrate:fresh --force` again.
 2. `rm -rf ~/fitpal-coach-lab/rehearsal-data`.
 3. Put the lab's own `DATA_DIR` and `SESSION_SECRET` back.
-4. `optimize:clear && optimize`.
+4. `php artisan optimize`.
 
 **Check:** the lab database holds no production rows.
 
@@ -111,7 +111,7 @@ cd ~/fitpal-coach-backend
 php artisan fitpal:check-config         # → configuration ok (the deploy's last step ran it too)
 php artisan route:list --path=api/config
 ```
-After any later edit to `.env`, run `php artisan optimize:clear && php artisan optimize`. The
+After any later edit to `.env`, run `php artisan optimize`, which caches the config again. Never use `optimize:clear`: it also empties the application cache (pending rest-timer pushes, recent-sign-in marks). The
 config is cached, so an edit is not seen until then.
 Nothing runs yet: there is no mount, no cron and no import.
 
@@ -155,7 +155,7 @@ php artisan fitpal:import-legacy ~/fitpal-coach-data --verify --confirm-live
 ```
 **Check:** it ends with `verified 8 account(s)` and prints no `verify` error. If it refuses,
 read the reason: each refusal names the setting, and nothing has been written. Fix `.env`, run
-`optimize:clear && optimize`, and run it again.
+`php artisan optimize`, and run it again.
 
 Then, still with nothing mounted, so nothing can have written to Laravel yet:
 - `php artisan fitpal:import-legacy ~/fitpal-coach-data --verify-only` passes;
