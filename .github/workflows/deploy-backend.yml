@@ -1,0 +1,175 @@
+# Deploys the Laravel backend (backend/) to the cPanel account over rsync + SSH. The cutover (R5,
+# docs/CUTOVER_R5.md) points coach.fitpal.ma/api at its public/ by a symlink; until then the target
+# is unmounted, or the lab.
+#
+# Guardrails, in order:
+#   1. Pest and Pint pass in THIS run — a deploy never rides an old green.
+#   2. Opt-in: the deploy job exists only while the repository variable DEPLOY_BACKEND is 'true'.
+#      It is the kill switch, set to false for the cutover window.
+#   3. BACKEND_SERVER_DIR has no default, and a target that is the account home, any site's
+#      document root or another app's directory is refused — rsync --delete there would wipe it
+#      (two repos and several sites share this account; docs/DEPLOY_COACH_SUBDOMAIN.md).
+#   4. The target must already hold a .env. It is written by hand on the server (secrets never pass
+#      through CI), so a first deploy can never boot an app on defaults (sqlite, localhost RP_ID).
+#   5. One deploy at a time, never cancelled mid-upload; a newer push queues behind.
+#   6. The database is dumped before anything changes (storage/backups, the last five kept), the
+#      app is in maintenance mode while files and schema change, and the server's .env and
+#      storage/ are never touched by rsync.
+#   7. The check is Laravel's /api/config carrying `login_email`, not /api/health: the Node API
+#      answers /api/health with the same {"ok":true}, so a health check alone cannot tell a
+#      deployed Laravel from Node still being mounted. fitpal:check-config then runs regardless,
+#      so a red run always says what is wrong.
+#
+# There are no required reviewers on `production` (they need GitHub Pro on a private repo): the
+# environment is used for its secrets. DEPLOY_BACKEND is the gate.
+name: Deploy backend (Namecheap)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-backend
+      - run: vendor/bin/pint --test
+        working-directory: backend
+      - run: vendor/bin/pest
+        working-directory: backend
+
+  deploy:
+    needs: test
+    if: vars.DEPLOY_BACKEND == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    # A stalled ssh or rsync would otherwise hold the concurrency group to the 6-hour default.
+    timeout-minutes: 30
+    env:
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ vars.SSH_PORT || '21098' }}
+      TARGET: ${{ vars.BACKEND_SERVER_DIR }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-backend
+
+      # Production dependencies only, and Filament's published assets: they are gitignored
+      # (public/{css,js,fonts}/filament), so without this rsync --delete would remove them.
+      # package:discover runs again here, so bootstrap/cache lists no dev-only provider.
+      - name: Build
+        working-directory: backend
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress --no-dev --optimize-autoloader
+          php artisan filament:assets
+          test -f public/js/filament/filament/app.js
+
+      - name: Guard the deploy target
+        run: |
+          t="${TARGET%/}"
+          case "$t" in
+            ""|"."|".."|"~"|"/"|'$HOME'|/*|'~'*)
+              echo "::error::BACKEND_SERVER_DIR='$TARGET' is empty, the account home or absolute. It must be a directory under the home, e.g. fitpal-coach-backend."
+              exit 1 ;;
+          esac
+          # Every component, so a path INSIDE a document root or another app is refused too.
+          IFS=/ read -ra parts <<< "$t"
+          for p in "${parts[@]}"; do
+            case "$p" in
+              ""|"."|"..") echo "::error::BACKEND_SERVER_DIR='$TARGET' has an empty, . or .. component."; exit 1 ;;
+              public_html|opengym-api|opengym-data|fitpal-coach-api|fitpal-coach-data|nodevenv|pawpawcare|mail|.ssh|*.fitpal.ma|fitpal.ma|*.app|*.com)
+                echo "::error::BACKEND_SERVER_DIR='$TARGET' is inside '$p' — a document root or another app. rsync --delete there would wipe it."
+                exit 1 ;;
+            esac
+          done
+          echo "deploy target: ~/$t"
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "${{ vars.SSH_KNOWN_HOSTS }}" ]; then
+            printf '%s\n' "${{ vars.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          fi
+          echo "SSH=ssh -i $HOME/.ssh/id_deploy -p $SSH_PORT -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4" >> "$GITHUB_ENV"
+
+      # Before anything changes: the .env must be there (guardrail 4), the database is dumped, and
+      # the app goes into maintenance mode if it is already installed.
+      - name: Prepare the server
+        run: |
+          $SSH "$SSH_USER@$SSH_HOST" "TARGET='${TARGET%/}' SHA='${GITHUB_SHA::12}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd ~
+          if [ ! -f "$TARGET/.env" ]; then
+            echo "::error::~/$TARGET/.env does not exist. Write it on the server first (docs/CUTOVER_R5.md); nothing was changed."
+            exit 1
+          fi
+          cd "$TARGET"
+          env_get() { php -r '$k=$argv[1]; foreach (file(".env") as $l) { if (preg_match("/^".$k."=(.*)$/", trim($l), $m)) { echo trim($m[1], "\"\x27"); } }' "$1"; }
+          if [ "$(env_get DB_CONNECTION)" = "mysql" ]; then
+            mkdir -p storage/backups
+            MYSQL_PWD="$(env_get DB_PASSWORD)" mariadb-dump --single-transaction --no-tablespaces \
+              -h "$(env_get DB_HOST)" -P "$(env_get DB_PORT)" -u "$(env_get DB_USERNAME)" "$(env_get DB_DATABASE)" \
+              | gzip > "storage/backups/pre-deploy-$SHA.sql.gz"
+            ls -t storage/backups/pre-deploy-*.sql.gz | tail -n +6 | xargs -r rm -f
+            echo "database dumped to storage/backups/pre-deploy-$SHA.sql.gz"
+          fi
+          if [ -f artisan ] && [ -d vendor ]; then php artisan down --retry=15; fi
+          REMOTE
+
+      # -K: follow a directory symlink on the server rather than replace it. The anchored excludes
+      # keep what the server owns: its .env and storage/ (logs, sessions, cache, backups).
+      - name: Sync
+        id: sync
+        run: |
+          rsync -rlptzK --delete \
+            --exclude='/.env' --exclude='/storage/' \
+            --exclude='/node_modules/' --exclude='/tests/' --exclude='/database/*.sqlite' \
+            -e "$SSH" backend/ "$SSH_USER@$SSH_HOST:${TARGET%/}/"
+
+      - name: Migrate and come back up
+        run: |
+          $SSH "$SSH_USER@$SSH_HOST" "TARGET='${TARGET%/}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd ~/"$TARGET"
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs storage/app
+          # Whatever happens next, the app does not stay in maintenance mode.
+          trap 'php artisan up || true' EXIT
+          php artisan migrate --force
+          php artisan optimize:clear
+          php artisan optimize
+          REMOTE
+
+      - name: Check Laravel answers
+        if: vars.BACKEND_CHECK_URL != ''
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 10 "${{ vars.BACKEND_CHECK_URL }}" | grep -q '"login_email"'; then
+              echo "Laravel answers at ${{ vars.BACKEND_CHECK_URL }}."; exit 0
+            fi
+            echo "not answering as Laravel yet ($i/12)"; sleep 10
+          done
+          echo "::error::${{ vars.BACKEND_CHECK_URL }} did not answer as Laravel. Before the cutover this is expected for coach.fitpal.ma (Node still answers there); after it, check storage/logs."
+          exit 1
+
+      - name: Check the configuration
+        if: always() && steps.sync.outcome == 'success'
+        run: $SSH "$SSH_USER@$SSH_HOST" "cd ~/'${TARGET%/}' && php artisan fitpal:check-config"
