@@ -1,6 +1,11 @@
 # Outbound email templates
 
-Branded HTML email for FitPal Coach outreach. Three files, same design, one per language:
+Branded HTML email for FitPal Coach: the outreach templates, and the reference markup of the mail
+the backend sends.
+
+## Outreach
+
+Three files, same design, one per language:
 
 | File | Language | CTA and footer link to |
 |---|---|---|
@@ -8,13 +13,32 @@ Branded HTML email for FitPal Coach outreach. Three files, same design, one per 
 | `coach-intro-en.html` | English | `https://fitpal.ma/en/` |
 | `coach-intro-es.html` | Spanish | `https://fitpal.ma/es/` |
 
-One more is planned, not yet written: the **sign-in link** the backend mails a coach who signs
-in by email (spec §4a, milestone R4). It is transactional, not outreach — sent by the Laravel
-backend through the mail API, text and HTML parts, in the coach's language — but it uses this
-folder's palette so the mail and the app read as one product. It is designed first as `E1 Sign-in
-link` in the Claude Design project, then lands here as `signin-link-{fr,en,es,de}.html` — the
-app's four languages (`frontend/src/lib/i18n-core.js`), with `en` the fallback for anything else
-— beside a Blade view in `backend/resources/views/mail/` that embeds the same markup.
+## The sign-in mail (generated, do not edit by hand)
+
+`signin-link-{fr,en,es,de}.html` is the sign-in link mail exactly as the Laravel backend renders
+it, for a sample coach "Ahmed" and a sample link: the app's four languages
+(`frontend/src/lib/i18n-core.js`), with `en` the fallback for anything else. It is transactional,
+not outreach: sent through Resend, text and HTML parts, in the coach's language. The design is
+`E1 Sign-in mail` in the Claude Design project "FitPal Coach R4 screens" (CHW-234); the backend
+sends the confirm-new-address and address-changed mails in the same markup.
+
+The source is `backend/resources/views/mail/account.blade.php` and the words are
+`backend/app/Mail/MailCopy.php`. `backend/tests/Feature/AccountMailTest.php` fails when these files
+and the view drift apart. After changing either on purpose, regenerate them from `backend/`:
+
+    MAIL_REFERENCE_WRITE=1 php artisan test --filter=AccountMailTest
+
+Differences from the outreach templates, all deliberate:
+
+- **The wordmark is gold, not bone**, as E1 has it.
+- **The gutters are 24px at every width**: built for a phone first, 600px at most, held at 600 in
+  desktop Outlook by an `<!--[if mso]>` table.
+- **No web font.** The mail is about signing in, so opening it requests nothing from anyone else.
+  Archivo shows where it is installed; the system stack stands in everywhere else.
+- **The preheader is the body sentence**, so the inbox preview says what the mail is for rather than
+  repeating the wordmark.
+- **The confirm mail greets no one** ("Bonjour,"): it goes to an address nobody has proven yet,
+  and the name is whatever the account typed.
 
 ## Why this folder is not inside `site-coach/`
 
@@ -35,7 +59,7 @@ putting it there. Hence this directory, one level up.
 The same reasoning applies to anything else that is *about* the site without being *part of* it:
 press kits, ad copy, sales one-pagers. Keep them out of `site-coach/` and `site/`.
 
-## Sending them
+## Sending the outreach templates
 
 These are **templates**, not campaigns. There is no ESP wired up and no tracking pixel.
 

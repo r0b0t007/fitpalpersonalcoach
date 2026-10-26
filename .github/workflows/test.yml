@@ -10,6 +10,8 @@ on:
       - 'backend/**'
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
+      # The backend's mail, rendered (AccountMailTest compares them).
+      - 'email/signin-link-*.html'
       - '.github/workflows/test.yml'
       - '.github/actions/**'
   push:
@@ -20,6 +22,8 @@ on:
       - 'backend/**'
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
+      # The backend's mail, rendered (AccountMailTest compares them).
+      - 'email/signin-link-*.html'
       - '.github/workflows/test.yml'
       - '.github/actions/**'
   workflow_dispatch:

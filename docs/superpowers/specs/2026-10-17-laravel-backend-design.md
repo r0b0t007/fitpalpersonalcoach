@@ -190,8 +190,9 @@ browser must not be a support ticket to the owner. Decided 2026-10-17; no passwo
   link to a coach demoted since is refused as expired; a disabled account gets 403 and the link
   stays unspent. Opening an email-change link swaps the address and answers `{ok, email}` — it does
   not sign anyone in — and only if the address is still the pending one and no other account's
-  (409 `that email address is already used by another account`, checked at request too). Mail
-  copy in fr/en/es/de is provisional until E1; Resend and the DNS are CHW-271.
+  (409 `that email address is already used by another account`, checked at request too). The
+  mails are in the E1 design in fr/en/es/de (CHW-303, `email/README.md`); Resend and the DNS are
+  CHW-271.
 - **A recent sign-in for the lasting writes (#138 review).** Pending-plus-notice alone still let
   anyone holding a session move recovery to an inbox they control, or plant a passkey that
   survives `logout/all`. So `account/email` and `passkeys/options|verify` need a session that
@@ -404,7 +405,8 @@ CLAUDE.md rules, in one session: `S4 Start`, `C20 Account Plan and Billing`, `C2
 `C22 Invite At Cap`, and for §4a `S5 Login – email path` (passkey primary, email secondary, the
 inline form and the inbox state), `S6 Link landing` (loading, signed in, expired), `S7 Add passkey
 sheet`, `C23 Account – Email row`, and the mail itself `E1 Sign-in link` (mobile width, French
-copy, the `email/` palette).
+copy, the `email/` palette). As built, the R4 screens and the mail live in their own project,
+"FitPal Coach R4 screens", the mail as `E1 Sign-in mail`.
 
 ## 8. Filament admin (owner only)
 Users (filters coach/client/disabled; actions disable, make coach, assign coach, grant manual
