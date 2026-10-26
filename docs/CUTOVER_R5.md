@@ -35,85 +35,112 @@ These stay as they are:
 - **Never edit the crontab with `crontab -e` or a full `crontab -` rewrite.** Use the filter
   approach below; a rewrite once dropped the pawpawcare line.
 
-## Before the window (CHW-299)
+## Before the window (CHW-299, done 2026-10-25)
 
-### P1. Rehearse the import on the lab
-The point is to prove the import and `--verify` against a copy of the real data. Use the
-copy only on the lab, and delete it afterwards.
+These steps are done. They are kept here so the state is known, and so a rebuilt instance can
+repeat them.
 
-```sh
-cp -a ~/fitpal-coach-data ~/fitpal-coach-lab/rehearsal-data
-cd ~/fitpal-coach-lab/backend
-# .env: DATA_DIR=/home/pawputif/fitpal-coach-lab/rehearsal-data and
-#       SESSION_SECRET=<contents of rehearsal-data/secret> (by script, see P2).
-php artisan optimize && php artisan migrate:fresh --force
-php artisan fitpal:import-legacy ~/fitpal-coach-lab/rehearsal-data --verify --confirm-live
-```
-**Check:** it ends with `verified 8 account(s)`.
+### P1. The production `.env`, written on the server before any deploy
+One script, run over SSH, writes `~/fitpal-coach-backend/.env` (mode 600). It stops if the file
+already exists. It prints no secret:
+- **`DB_PASSWORD`:** generated on the server (40 letters and digits, so nothing needs quoting)
+  and set with `uapi Mysql set_password user=pawputif_fitpal`. The script checks the login
+  works before writing it.
+- **`APP_KEY`:** `base64:` followed by 32 random bytes.
+- **`SESSION_SECRET`:** the contents of `~/fitpal-coach-data/secret`, which is Node's.
+- **`RESEND_API_KEY`:** a new key, `fitpal-coach-production` (sending only, fitpal.ma). It
+  goes from the Resend dashboard to the clipboard, then through stdin into a one-off helper on
+  the server that checks it looks like `re_…` and sets that one line. The clipboard is cleared
+  afterwards.
 
-Passkeys don't work on the lab, because they are bound to `coach.fitpal.ma`. The lab
-therefore imports with `RP_ID=lab.fitpal.ma` and verifies everything except passkeys.
-
-The lab runs `APP_ENV=production`, so the production guards apply. If the import refuses,
-it names the setting. Expect one of: the database isn't empty, `SESSION_SECRET` isn't the
-copy's, or `VAPID_*` is set in the lab `.env` (unset it, so the copy's `vapid.json` is used).
-
-**Afterwards:**
-1. Run `migrate:fresh --force` again.
-2. `rm -rf ~/fitpal-coach-lab/rehearsal-data`.
-3. Put the lab's own `DATA_DIR` and `SESSION_SECRET` back.
-4. `php artisan optimize`.
-
-**Check:** the lab database holds no production rows.
-
-### P2. Write the production `.env`, before any deploy
-```sh
-mkdir -p ~/fitpal-coach-backend && cd ~/fitpal-coach-backend
-touch .env && chmod 600 .env
-```
-Set these values with `~/lab-env-set.php`, or an editor. Do not echo any of them. Anything not
-listed takes the default in `config/`.
+The other keys:
 
 | Key | Value |
 |---|---|
-| `APP_NAME` / `APP_ENV` / `APP_DEBUG` | `"FitPal Coach"` / `production` / `false` |
-| `APP_KEY` | `base64:` followed by `php -r 'echo base64_encode(random_bytes(32));'`, written by the same script |
+| `APP_NAME` / `APP_ENV` / `APP_DEBUG` / `APP_URL` | `"FitPal Coach"` / `production` / `false` / `https://coach.fitpal.ma` |
 | `LOG_CHANNEL` / `LOG_LEVEL` | `single` / `warning` |
 | `DB_CONNECTION` / `DB_HOST` / `DB_PORT` | `mysql` / `127.0.0.1` / `3306` |
 | `DB_DATABASE` / `DB_USERNAME` | `pawputif_fitpalcoach` / `pawputif_fitpal` |
-| `DB_PASSWORD` | reset on the server: `uapi Mysql set_password user=pawputif_fitpal password=<generated>`, written straight into `.env` by the same script |
 | `RP_ID` / `ORIGIN` / `RP_NAME` | `coach.fitpal.ma` / `https://coach.fitpal.ma` / `FitPal Coach` |
 | `INVITE_ONLY` / `ALLOW_GUEST` / `SELF_SERVE_COACH` | `1` / `0` / `0` (as Node runs; billing is R5b) |
-| `BOOTSTRAP_CODE` | empty (accounts exist) |
-| `CREEM_*` | unset (billing off until R5b) |
+| `BOOTSTRAP_CODE` / `ADMIN_UIDS` | empty. The owner is `"admin": true` in `db.json`, which the import copies, and Node's env sets no `ADMIN_UIDS` (checked: its `.htaccess` block has none). The rehearsal's verify compares each account's `admin` in `/me` with the files. |
+| `CREEM_*` | absent (billing off until R5b) |
 | `DATA_DIR` | `/home/pawputif/fitpal-coach-data` |
-| `SESSION_SECRET` | the contents of `~/fitpal-coach-data/secret`, copied by script: `php -r '…'` reads the file and writes the key |
-| `VAPID_*` | unset, so `DATA_DIR/vapid.json` is used |
-| `MAIL_MAILER` / `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | `resend` / `no-reply@fitpal.ma` / `FitPal Coach` |
-| `RESEND_API_KEY` | a new key, `fitpal-coach-production` (sending only, fitpal.ma), pasted from the clipboard |
+| `VAPID_*` | absent, so `DATA_DIR/vapid.json` is used |
+| `MAIL_MAILER` / `MAIL_FROM_ADDRESS` / `MAIL_FROM_NAME` | `resend` / `no-reply@fitpal.ma` / `"FitPal Coach"` |
 | `QUEUE_CONNECTION` / `CACHE_STORE` / `SESSION_DRIVER` | `database` |
+| `SESSION_DAYS`, `MEDIA_MAX_*`, `AUDIT_*` | `90`; `90` / `12`; `1`, `5000`, `90`, `off` |
 
-### P3. First deploy, with production unmounted
+After any later edit to `.env`, run `php artisan optimize`, which caches the config again. Never
+run `optimize:clear`: it also empties the application cache, losing pending rest-timer pushes and
+recent-sign-in marks.
+
+### P2. First deploy, unmounted
 GitHub repository variables:
-- `BACKEND_SERVER_DIR=fitpal-coach-backend`
-- `BACKEND_CHECK_URL`: leave it **unset** until W9. Node answers on coach.fitpal.ma until the
-  swap, so that check could only be red, and a red that means nothing teaches everyone to
-  ignore red.
-- `DEPLOY_BACKEND=true`
+- `BACKEND_SERVER_DIR=fitpal-coach-backend`;
+- `DEPLOY_BACKEND=true`;
+- **no** `BACKEND_CHECK_URL` until W9. Node answers on coach.fitpal.ma until the swap, so that
+  check could only be red, and a red that means nothing teaches everyone to ignore red.
 
-Then dispatch **Deploy backend**. A first install has nothing to dump, so it syncs, migrates,
-optimizes and runs `fitpal:check-config`.
+**Deploy backend** (run 40225176465) was green. It was a first install, so there was nothing to
+dump; it ran every migration on the production MariaDB, then `optimize` and
+`configuration ok`. On the server afterwards: 23 tables, 0 users, no cron line, and the `/api`
+mount still Node's.
 
-**Check:** the run is green. Then check on the server:
+From here on, every merge that touches `backend/` deploys here, unmounted.
+
+### P3. The import rehearsed on production, unmounted
+This was done on the production instance itself, not on the lab. It runs the same code, `.env`
+and MariaDB as the window, and the lab's test accounts survive.
+
+**Only before W1, and only with deploys frozen.** Set `DEPLOY_BACKEND=false` first and back to
+`true` after. Otherwise a backend merge mid-rehearsal would dump the imported production rows
+into `storage/backups`, which outlive the clean-up, and would re-cache the config.
+
+The script refuses to start unless Laravel is unmounted and its database is empty. It removes
+the copy and empties the database only on that condition, so it can never touch a live
+cutover:
 
 ```sh
-cd ~/fitpal-coach-backend
-php artisan fitpal:check-config         # → configuration ok (the deploy's last step ran it too)
-php artisan route:list --path=api/config
+set -uo pipefail
+cd ~/fitpal-coach-backend || exit 1
+COPY=~/fitpal-coach-rehearsal-data
+# Refuse first, before any clean-up exists that could run: never once Laravel is mounted or holds accounts.
+[ -L ~/coach.fitpal.ma/api ] && { echo "STOP: /api is Laravel's: the cutover is done"; exit 1; }
+[ "$(php artisan tinker --execute 'echo App\Models\User::query()->count();')" = "0" ] || { echo "STOP: the database is not empty"; exit 1; }
+[ -e "$COPY" ] && { echo "STOP: $COPY exists (a failed earlier run?): look, then remove it"; exit 1; }
+cleanup() {   # each step on its own: one failing never keeps the copy on disk
+  php artisan migrate:fresh --force > /dev/null; echo "database emptied: $?"
+  rm -rf "$COPY"; echo "copy deleted: $?"
+}
+trap cleanup EXIT
+mkdir -m 700 "$COPY" && cp -a ~/fitpal-coach-data/. "$COPY"/ && chmod -R go-rwx "$COPY"
+# Config read fresh from .env + this DATA_DIR, never from (or into) the cached config.
+run() { APP_CONFIG_CACHE="/tmp/r5-nocache-$$.php" DATA_DIR="$COPY" php artisan "$@"; }
+run fitpal:import-legacy "$COPY" --verify --confirm-live
+run fitpal:import-legacy "$COPY" --verify-only
+run fitpal:import-legacy "$COPY" --confirm-live    # must be refused: "already holds accounts"
+run tinker --execute 'echo "passkey rp_ids: ", DB::table("webauthn_credentials")->distinct()->pluck("rp_id")->implode(","), PHP_EOL;'
 ```
-After any later edit to `.env`, run `php artisan optimize`, which caches the config again. Never use `optimize:clear`: it also empties the application cache (pending rest-timer pushes, recent-sign-in marks). The
-config is cached, so an edit is not seen until then.
-Nothing runs yet: there is no mount, no cron and no import.
+Then, after the trap, run `php artisan fitpal:check-config`, which should report `configuration ok`.
+
+The run on 2026-10-25 used an earlier form of this script, with the same steps. It cleared the
+cached config instead of bypassing it, and it set its clean-up trap before its empty-database
+check. The second difference was harmless on an empty database, but it is why that form must
+not be reused.
+
+Result:
+- the import read `users 8 · passkeys 2 · states 7 · audit 27 · invites 1 · programs 1 ·
+  assignments 5 · push 0 · demos 1 · photos 0`;
+- the check said `verified 8 account(s): … and so do the demos, photos, push and passkeys`;
+- the stored passkey `rp_id` was `coach.fitpal.ma`;
+- `--verify-only` passed;
+- a second `--confirm-live` import was refused ("this database already holds accounts").
+
+**Afterwards:** 0 users, the copy deleted, `configuration ok`, and no `storage/backups` (no deploy
+ran during it).
+
+To repeat it before W1, run the script above. W5 refuses to run unless the database is empty.
 
 ## The window (CHW-300)
 
