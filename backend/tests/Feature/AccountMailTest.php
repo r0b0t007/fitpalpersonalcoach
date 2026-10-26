@@ -47,20 +47,33 @@ it('renders each mail in each language, the link in both parts where there is on
 
 it('greets the coach by name on its own line, and without one when the account has none', function () {
     expect(accountMail('signin', 'fr')->words['hello'])->toBe('Bonjour Ahmed,')
-        ->and(accountMail('signin', 'es')->words['hello'])->toBe('Hola Ahmed:')
+        ->and(accountMail('changed', 'es')->words['hello'])->toBe('Hola Ahmed:')
         ->and(accountMail('signin', 'de', '  ')->words['hello'])->toBe('Hallo,')
         ->and(accountMail('signin', 'en', '')->words['hello'])->toBe('Hello,')
+        ->and(accountMail('signin', 'en', "Ahmed\n\nChioua")->words['hello'])->toBe('Hello Ahmed Chioua,')
         ->and(accountMailText(accountMail('signin', 'en', '')))->not->toContain(':name');
 });
 
-it('keeps French punctuation and "15 minutes" from breaking onto the next line', function () {
-    $w = accountMail('signin', 'fr')->words;
-    expect($w['footer'])->toContain("demandé\u{00A0}?")
-        ->and($w['fallback'])->toEndWith("navigateur\u{00A0}:")
-        ->and($w['body'])->toContain("15\u{00A0}minutes");
+it('greets no one in a confirm mail, which goes to an address nobody has proven yet', function (string $lang) {
+    $mail = accountMail('confirm', $lang, 'Call +212 600 000000 now');
+    expect($mail->words['hello'])->toBe(MailCopy::words($lang, 'signin', ['name' => ''])['hello'])
+        ->and($mail->render())->not->toContain('+212')
+        ->and(accountMailText($mail))->not->toContain('+212');
+})->with(MailCopy::LANGS);
+
+it('keeps French punctuation and "15 minutes" from breaking onto the next line, in every mail', function () {
     foreach (MailCopy::LANGS as $lang) {
-        expect(accountMail('confirm', $lang)->words['body'])->toMatch("/15\u{00A0}/u");
+        foreach (['signin', 'confirm', 'changed'] as $kind) {
+            foreach (MailCopy::words($lang, $kind, ['name' => 'Ahmed', 'email' => 'new@example.com']) as $part => $text) {
+                expect($text)->not->toMatch('/15 /u', "{$lang} {$kind}.{$part}: \"15\" and its unit must not break");
+                if ($lang === 'fr') {
+                    expect($text)->not->toMatch('/ [?!:;]/u', "fr {$kind}.{$part}: a no-break space goes before ? ! : ;");
+                }
+            }
+        }
     }
+    expect(accountMail('signin', 'fr')->words['body'])->toContain("15\u{00A0}minutes")
+        ->and(accountMail('signin', 'fr')->words['fallback'])->toEndWith("navigateur\u{00A0}:");
 });
 
 it('is the markup of email/signin-link-{lang}.html', function (string $lang) {

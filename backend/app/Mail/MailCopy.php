@@ -105,15 +105,21 @@ final class MailCopy
         return in_array($lang, self::LANGS, true) ? $lang : 'en';
     }
 
-    /** The words for $lang, :name and :email filled in. */
+    /**
+     * The words for $lang, :email filled in, and the greeting. The name is whatever the account typed
+     * at sign-up, so it greets only the address the account has already proven: the sign-in link and
+     * the notice to the old address. A `confirm` mail goes to an address nobody has proven yet (a
+     * self-serve sign-up can name anyone's), so it greets no one, and a name cannot pose as the mail's
+     * own words in someone else's inbox.
+     */
     public static function words(string $lang, string $kind, array $fill): array
     {
         $copy = self::COPY[$lang] ?? self::COPY['en'];
-        $name = trim((string) ($fill['name'] ?? ''));
+        $name = $kind === 'confirm' ? '' : trim((string) preg_replace('/\s+/u', ' ', (string) ($fill['name'] ?? '')));
         $out = ['fallback' => $copy['fallback'], 'hello' => $name === '' ? $copy['hello.anon'] : strtr($copy['hello'], [':name' => $name])];
         foreach (['subject', 'heading', 'body', 'button', 'footer'] as $part) {
             if (isset($copy["{$kind}.{$part}"])) {
-                $out[$part] = strtr($copy["{$kind}.{$part}"], [':name' => $fill['name'] ?? '', ':email' => $fill['email'] ?? '']);
+                $out[$part] = strtr($copy["{$kind}.{$part}"], [':email' => $fill['email'] ?? '']);
             }
         }
 

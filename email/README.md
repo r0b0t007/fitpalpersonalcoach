@@ -28,9 +28,17 @@ and the view drift apart. After changing either on purpose, regenerate them from
 
     MAIL_REFERENCE_WRITE=1 php artisan test --filter=AccountMailTest
 
-Differences from the outreach templates, all deliberate: the wordmark is gold, not bone; the
-gutters are 24px at every width (built for a phone first, 600px at most); and there is no
-preheader, because the heading is what an inbox should preview.
+Differences from the outreach templates, all deliberate:
+
+- **The wordmark is gold, not bone**, as E1 has it.
+- **The gutters are 24px at every width**: built for a phone first, 600px at most, held at 600 in
+  desktop Outlook by an `<!--[if mso]>` table.
+- **No web font.** The mail is about signing in, so opening it requests nothing from anyone else.
+  Archivo shows where it is installed; the system stack stands in everywhere else.
+- **The preheader is the body sentence**, so the inbox preview says what the mail is for rather than
+  repeating the wordmark.
+- **The confirm mail greets no one** ("Bonjour,"): it goes to an address nobody has proven yet,
+  and the name is whatever the account typed.
 
 ## Why this folder is not inside `site-coach/`
 
