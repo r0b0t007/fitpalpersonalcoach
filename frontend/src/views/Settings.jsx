@@ -21,7 +21,6 @@ import { ConnectSheet } from './MobileOnboarding.jsx'
 import { starterPlanSheet, confirmSheet, importFromApp, importFromHevy, equipmentProfileSheet, menuSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
-import { setShellPref } from '../lib/role.js'
 
 const hostOf = url => { try { return new URL(url).host } catch { return url } }
 
@@ -194,8 +193,7 @@ export default function Settings() {
           something else, and this is the screen someone opens when the app feels wrong. */}
       {user && syncError && <Row icon="warning" iconTint="var(--red)" title={t('This device could not save to the server')} subtitle={syncError} />}
       {MOBILE ? (user ? <>
-        <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Synced with your openGym server.')} />
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => { setShellPref('coach'); nav('/admin') }} />}
+        <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Synced with your {0} account.', BRAND)} />
         <Row icon="signOut" iconTint="var(--red)" title={t('Disconnect')} danger onClick={() => confirmSheet({
           title: t('Disconnect from your server?'),
           message: t('Your data is synced to your server first, then this device switches back to local-only.'),
@@ -204,7 +202,7 @@ export default function Settings() {
         })} />
       </> : <>
         <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
-        <Row icon="link" iconTint="var(--indigo)" title={t('Connect to my server')} subtitle={t('Sync this device to your own self-hosted openGym instead.')} accessory="chevron"
+        <Row icon="link" iconTint="var(--indigo)" title={t('Connect to my server')} subtitle={t('Sync this device with your {0} account instead.', BRAND)} accessory="chevron"
           onClick={() => useUI.getState().openSheet(close => <ConnectSheet close={close} />)} />
       </>) : DEMO ? <>
         <Row icon="sparkles" iconTint="var(--acc)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
@@ -214,10 +212,6 @@ export default function Settings() {
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : user ? <>
         <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
-        {/* The operator page has no cell in the coach bar; this row is its one door until the
-            pieces a coach still needs move into Account. It lives in the coach shell, hence the
-            preference reset — from "Train myself" the client table has no /admin. */}
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => { setShellPref('coach'); nav('/admin') }} />}
         <Row icon="link" iconTint="var(--blue)" title={t('Pair the mobile app')} subtitle={t('Connect the app on your phone to this account.')} accessory="chevron"
           onClick={() => useUI.getState().openSheet(close => <PairSheet close={close} />)} />
         <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
