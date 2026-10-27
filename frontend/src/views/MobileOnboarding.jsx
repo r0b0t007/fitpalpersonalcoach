@@ -7,11 +7,13 @@ import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { Button } from '../components/ui.jsx'
 import Logo from '../components/Logo.jsx'
-import { BRAND } from '../lib/brand.js'
+import { BRAND, BRAND_DOMAIN } from '../lib/brand.js'
 
 export function ConnectSheet({ close }) {
   const { connectToServer } = useStore()
-  const [url, setUrl] = useState('')
+  // This build talks to one place, so the address starts filled in; it stays editable for a
+  // self-hosted server.
+  const [url, setUrl] = useState(BRAND_DOMAIN || '')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const ref = useRef(null)
@@ -24,14 +26,14 @@ export function ConnectSheet({ close }) {
     finally { setBusy(false) }
   }
   return <>
-    <h3>{t('Connect to my server')}</h3>
+    <h3>{t('Connect to my account')}</h3>
     <div className="muted small" style={{ marginBottom: 14 }}>
-      {t('Open Settings → “Pair the mobile app” on the {0} site you’re already signed into, then enter its address and the code shown there.', BRAND)}
+      {t('Open Settings → “Pair the mobile app” on the {0} site you’re already signed into, then enter the code shown there.', BRAND)}
     </div>
-    <input ref={ref} className="input" placeholder={t('Server address (e.g. gym.example.com)')} value={url}
+    <input className="input" placeholder={t('Server address (e.g. gym.example.com)')} value={url}
       onChange={e => setUrl(e.target.value)} autoCapitalize="none" autoCorrect="off" inputMode="url" />
     <div style={{ height: 10 }} />
-    <input className="input" placeholder={t('Pairing code')} maxLength={8} value={code}
+    <input ref={ref} className="input" placeholder={t('Pairing code')} maxLength={8} value={code}
       onChange={e => setCode(e.target.value.toUpperCase())} style={{ letterSpacing: '.14em', fontWeight: 600, textAlign: 'center' }} />
     <div style={{ height: 12 }} />
     <Button variant="primary" onClick={go} disabled={busy}>{busy ? t('Connecting…') : t('Connect')}</Button>
@@ -49,9 +51,9 @@ export default function MobileOnboarding() {
       <div className="muted" style={{ marginBottom: 34 }}>{t('How do you want to use {0}?', BRAND)}</div>
       <Button variant="primary" icon="lock" onClick={() => chooseLocalMode()}>{t('Use on this device')}</Button>
       <div style={{ height: 10 }} />
-      <Button icon="rocket" onClick={() => useUI.getState().openSheet(close => <ConnectSheet close={close} />)}>{t('Connect to my server')}</Button>
+      <Button icon="rocket" onClick={() => useUI.getState().openSheet(close => <ConnectSheet close={close} />)}>{t('Connect to my account')}</Button>
       <div className="dim small" style={{ marginTop: 26, lineHeight: 1.5 }}>
-        {t('“Use on this device” keeps everything on this phone. Connecting syncs it with your {0} account instead — you can switch later in Settings.', BRAND)}
+        {t('“{1}” keeps everything on this phone. Connecting syncs it with your {0} account instead — you can switch later in Settings.', BRAND, t('Use on this device'))}
       </div>
     </div>
   )

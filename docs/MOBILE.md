@@ -61,8 +61,8 @@ npx cap open ios            # opens Xcode (Mac only) → set your signing team, 
 
 `npm run build:mobile` bakes the CDN media base into the bundle and copies the web build
 into both native projects — re-run it after every web-code change before building natively.
-On Windows, run it from Git Bash: the script sets its variables POSIX-style, which `cmd`
-rejects ("'VITE_MOBILE' is not recognized").
+It is `frontend/scripts/build-mobile.mjs`, which sets the variables itself, so it runs the same
+from any shell, Windows' `cmd` included.
 
 > **Heads-up:** after `build:mobile`, `frontend/dist` contains the *mobile* bundle.
 > Run a plain `npm run build` again before deploying `dist` to a server.

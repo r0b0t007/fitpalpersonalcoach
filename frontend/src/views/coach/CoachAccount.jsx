@@ -98,8 +98,8 @@ export default function CoachAccount() {
           restarted. disconnectServer is the one that also forgets the pairing. */}
       {MOBILE
         ? <Row icon="signOut" iconTint="var(--red)" title={t('Disconnect from my server')} danger onClick={() => confirmSheet({
-          title: t('Disconnect from your server?'),
-          message: t('Your data is synced to your server first, then this device switches back to local-only. Your clients are not affected.'),
+          title: t('Disconnect this device?'),
+          message: t('Your data is synced to your account first, then this device switches back to local-only. Your clients are not affected.'),
           confirmText: t('Disconnect'), danger: true,
           onConfirm: async () => { await disconnectServer(); nav('/home'); toast(t('Disconnected — back to local-only')) },
         })} />

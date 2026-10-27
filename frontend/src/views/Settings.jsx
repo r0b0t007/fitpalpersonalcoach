@@ -184,7 +184,7 @@ export default function Settings() {
     </div>
 
     {/* ---------- account (demo and mobile builds have nothing to sign in to) ---------- */}
-    <Section title={MOBILE ? (user ? t('Your server') : t('Your data')) : DEMO ? t('Demo') : t('Account')}>
+    <Section title={MOBILE ? (user ? t('Account') : t('Your data')) : DEMO ? t('Demo') : t('Account')}>
       {/* The one place a refused save becomes visible. The server writes this sentence for the
           person, not for the log (PUT /api/data's 413 names the limit and what to do about it),
           so it is passed through untouched the way an upload's refusal is — a generic "sync
@@ -195,14 +195,14 @@ export default function Settings() {
       {MOBILE ? (user ? <>
         <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Synced with your {0} account.', BRAND)} />
         <Row icon="signOut" iconTint="var(--red)" title={t('Disconnect')} danger onClick={() => confirmSheet({
-          title: t('Disconnect from your server?'),
-          message: t('Your data is synced to your server first, then this device switches back to local-only.'),
+          title: t('Disconnect this device?'),
+          message: t('Your data is synced to your account first, then this device switches back to local-only.'),
           confirmText: t('Disconnect'), danger: true,
           onConfirm: async () => { await disconnectServer(); nav('/home'); toast(t('Disconnected — back to local-only')) },
         })} />
       </> : <>
         <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
-        <Row icon="link" iconTint="var(--indigo)" title={t('Connect to my server')} subtitle={t('Sync this device with your {0} account instead.', BRAND)} accessory="chevron"
+        <Row icon="link" iconTint="var(--indigo)" title={t('Connect to my account')} subtitle={t('Sync this device with your {0} account instead.', BRAND)} accessory="chevron"
           onClick={() => useUI.getState().openSheet(close => <ConnectSheet close={close} />)} />
       </>) : DEMO ? <>
         <Row icon="sparkles" iconTint="var(--acc)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
