@@ -184,7 +184,7 @@ export default function Settings() {
     </div>
 
     {/* ---------- account (demo and mobile builds have nothing to sign in to) ---------- */}
-    <Section title={MOBILE ? (user ? t('Account') : t('Your data')) : DEMO ? t('Demo') : t('Account')}>
+    <Section title={MOBILE && !user ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
       {/* The one place a refused save becomes visible. The server writes this sentence for the
           person, not for the log (PUT /api/data's 413 names the limit and what to do about it),
           so it is passed through untouched the way an upload's refusal is — a generic "sync
@@ -627,7 +627,7 @@ function EquipmentCard({ S, update }) {
   </Section>
 }
 
-// Lets the mobile app's "connect to my server" mode (lib/remote.js) authenticate without a
+// Lets the mobile app's "connect to my account" mode (lib/remote.js) authenticate without a
 // WebAuthn ceremony of its own — the code is minted here, from an already signed-in session,
 // and redeemed by the app for a bearer token. See /api/pair/create in api/server.js.
 export function PairSheet({ close }) {
@@ -637,7 +637,7 @@ export function PairSheet({ close }) {
   return <>
     <h3>{t('Pair the mobile app')}</h3>
     <div className="muted small" style={{ marginBottom: 14 }}>
-      {t('In the app on your phone, choose “Connect to my server”, then enter this address and the code below. It expires in 5 minutes.')}
+      {t('In the app on your phone, choose “{0}”. The address is {1}; enter the code below. It expires in 5 minutes.', t('Connect to my account'), location.host)}
     </div>
     {err ? <div className="dim small">{err}</div> : (
       <div className="card" style={{ textAlign: 'center', fontSize: 30, fontWeight: 700, letterSpacing: '.16em', padding: '18px 0' }}>

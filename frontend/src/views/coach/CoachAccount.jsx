@@ -97,7 +97,7 @@ export default function CoachAccount() {
           capacitor://localhost — which cannot sign in to the coach's server — until the app is
           restarted. disconnectServer is the one that also forgets the pairing. */}
       {MOBILE
-        ? <Row icon="signOut" iconTint="var(--red)" title={t('Disconnect from my server')} danger onClick={() => confirmSheet({
+        ? <Row icon="signOut" iconTint="var(--red)" title={t('Disconnect')} danger onClick={() => confirmSheet({
           title: t('Disconnect this device?'),
           message: t('Your data is synced to your account first, then this device switches back to local-only. Your clients are not affected.'),
           confirmText: t('Disconnect'), danger: true,

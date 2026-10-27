@@ -6,6 +6,9 @@
 export const BRAND = 'FitPal Coach'
 export const TAGLINE = 'PERSONAL COACHING'
 export const BRAND_DOMAIN = 'coach.fitpal.ma'   // shown in the plan-PDF footer when set
+// Where the mobile app's pairing sheet points by default. Not BRAND_DOMAIN, which is only a label:
+// this one has to be the host that serves /api, or every pairing fails.
+export const DEFAULT_SERVER = 'coach.fitpal.ma'
 export const FILE_PREFIX = 'fitpal-coach'       // backup / plan-file name prefix
 // The FitPal metallic, taken from fitpal.ma itself — fixed, not the user accent, so the logo
 // never recolours when someone picks a different accent in Settings.

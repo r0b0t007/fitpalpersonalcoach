@@ -7,19 +7,20 @@ import { useUI } from '../store/useUI.js'
 import { t } from '../lib/i18n.js'
 import { Button } from '../components/ui.jsx'
 import Logo from '../components/Logo.jsx'
-import { BRAND, BRAND_DOMAIN } from '../lib/brand.js'
+import { BRAND, DEFAULT_SERVER } from '../lib/brand.js'
 
 export function ConnectSheet({ close }) {
   const { connectToServer } = useStore()
   // This build talks to one place, so the address starts filled in; it stays editable for a
   // self-hosted server.
-  const [url, setUrl] = useState(BRAND_DOMAIN || '')
+  const [url, setUrl] = useState(DEFAULT_SERVER || '')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const ref = useRef(null)
   useEffect(() => { setTimeout(() => ref.current?.focus(), 250) }, [])
   const go = async () => {
-    if (!url.trim() || !code.trim()) { useUI.getState().toast(t('Enter your server address and the code')); return }
+    if (!url.trim()) { useUI.getState().toast(t('Enter the server address')); return }
+    if (!code.trim()) { useUI.getState().toast(t('Enter the pairing code')); return }
     setBusy(true)
     try { await connectToServer(url.trim(), code.trim()); close(); useUI.getState().toast(t('Connected')) }
     catch (e) { useUI.getState().toast(e.message || t('Could not connect')) }
