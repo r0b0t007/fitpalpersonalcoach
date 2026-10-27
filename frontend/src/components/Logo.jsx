@@ -13,10 +13,19 @@ const SYMBOL = 'M48 89.3H89.2C89.2 52.3 119.2 22.3 156.1 22.3V61.5C140.8 61.5 12
  * the kit's horizontal lockup, so "FitPal Coach" reads as one name.
  * Uses the brand's fixed gold, not the user accent: the logo is the one thing that
  * must not recolour when someone picks a different accent in Settings.
+ *
+ * `heading` makes the lockup the page's <h1>, as the entry screens (sign-in, start, link, the
+ * mobile first launch) open with it. Everything inside is a <span>, because a heading may only
+ * hold phrasing content, and the tagline is hidden from screen readers so the heading is read as
+ * the name alone, not "FitPal Coach PERSONAL COACHING". The symbol is already aria-hidden.
  */
-export default function Logo({ size = 34, subtitle = true }) {
+export default function Logo({ size = 34, subtitle = true, heading = false }) {
+  const Root = heading ? 'h1' : 'div'
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(size * .22) }}>
+    <Root style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(size * .22),
+      ...(heading && { margin: '10px 0 6px' }),
+    }}>
       {/* At full size the row is too wide for a 320px phone (Login uses size 40), so it shrinks
           rather than overflowing — full `size` from 430px up, 75% of it at 320px, and never
           below 70%. Everything inside is in em so it all shrinks together: symbol 0.96em wide,
@@ -25,7 +34,7 @@ export default function Logo({ size = 34, subtitle = true }) {
           The symbol's width is explicit (viewBox 160×208 at 1.25em tall) rather than auto:
           older WebKit, including the iOS app's WebView, can size an auto-width SVG flex item
           to 300px or to nothing. */}
-      <div style={{
+      <span style={{
         display: 'flex', alignItems: 'center', gap: '.3em', color: GOLD,
         fontSize: `clamp(${(size * .7).toFixed(1)}px, ${(size / 4.4).toFixed(2)}vw + ${(size * .023).toFixed(2)}px, ${size}px)`,
         fontWeight: 800, letterSpacing: '.04em', lineHeight: 1, whiteSpace: 'nowrap', maxWidth: '100%',
@@ -35,13 +44,13 @@ export default function Logo({ size = 34, subtitle = true }) {
           <path fill="currentColor" fillRule="evenodd" d={SYMBOL} />
         </svg>
         <span>{BRAND}</span>
-      </div>
+      </span>
       {subtitle && (
-        <div style={{
-          fontSize: Math.max(10, Math.round(size * .3)), fontWeight: 500, color: 'var(--label)',
+        <span aria-hidden={heading || undefined} style={{
+          display: 'block', fontSize: Math.max(10, Math.round(size * .3)), fontWeight: 500, color: 'var(--label)',
           letterSpacing: '.42em', textIndent: '.42em', textTransform: 'uppercase',
-        }}>{TAGLINE}</div>
+        }}>{TAGLINE}</span>
       )}
-    </div>
+    </Root>
   )
 }

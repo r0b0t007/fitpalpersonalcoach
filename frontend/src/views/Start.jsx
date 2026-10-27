@@ -64,7 +64,7 @@ export default function Start() {
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
   return (
     <div className="narrow" style={wrap}>
-      <h1 style={{ margin: '10px 0 6px' }}><Logo size={40} /></h1>
+      <Logo size={40} heading />
       <div className="muted" style={{ marginBottom: 26 }}>{t('Coach your clients from one app.')}</div>
       <div className="card" style={{ textAlign: 'left' }}>
         <h2 style={{ margin: '0 0 10px' }}>{t('Your plan')}</h2>

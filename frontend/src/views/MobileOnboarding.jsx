@@ -44,7 +44,7 @@ export function ConnectSheet({ close }) {
 export default function MobileOnboarding() {
   const { chooseLocalMode } = useStore()
   // The same lockup the web sign-in opens with (Login.jsx).
-  const head = <h1 style={{ margin: '10px 0 6px' }}><Logo size={40} /></h1>
+  const head = <Logo size={40} heading />
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
   return (
     <div className="narrow" style={wrap}>
