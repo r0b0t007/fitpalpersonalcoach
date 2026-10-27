@@ -21,7 +21,6 @@ import { ConnectSheet } from './MobileOnboarding.jsx'
 import { starterPlanSheet, confirmSheet, importFromApp, importFromHevy, equipmentProfileSheet, menuSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
-import { setShellPref } from '../lib/role.js'
 
 const hostOf = url => { try { return new URL(url).host } catch { return url } }
 
@@ -185,7 +184,7 @@ export default function Settings() {
     </div>
 
     {/* ---------- account (demo and mobile builds have nothing to sign in to) ---------- */}
-    <Section title={MOBILE ? (user ? t('Your server') : t('Your data')) : DEMO ? t('Demo') : t('Account')}>
+    <Section title={MOBILE && !user ? t('Your data') : DEMO ? t('Demo') : t('Account')}>
       {/* The one place a refused save becomes visible. The server writes this sentence for the
           person, not for the log (PUT /api/data's 413 names the limit and what to do about it),
           so it is passed through untouched the way an upload's refusal is — a generic "sync
@@ -194,17 +193,16 @@ export default function Settings() {
           something else, and this is the screen someone opens when the app feels wrong. */}
       {user && syncError && <Row icon="warning" iconTint="var(--red)" title={t('This device could not save to the server')} subtitle={syncError} />}
       {MOBILE ? (user ? <>
-        <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Synced with your openGym server.')} />
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => { setShellPref('coach'); nav('/admin') }} />}
+        <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Synced with your {0} account.', BRAND)} />
         <Row icon="signOut" iconTint="var(--red)" title={t('Disconnect')} danger onClick={() => confirmSheet({
-          title: t('Disconnect from your server?'),
-          message: t('Your data is synced to your server first, then this device switches back to local-only.'),
+          title: t('Disconnect this device?'),
+          message: t('Your data is synced to your account first, then this device switches back to local-only.'),
           confirmText: t('Disconnect'), danger: true,
           onConfirm: async () => { await disconnectServer(); nav('/home'); toast(t('Disconnected — back to local-only')) },
         })} />
       </> : <>
         <Row icon="lock" iconTint="var(--acc)" title={t('All data stays on this phone')} subtitle={t('No account, no cloud — back it up anytime with Export below.')} />
-        <Row icon="link" iconTint="var(--indigo)" title={t('Connect to my server')} subtitle={t('Sync this device to your own self-hosted openGym instead.')} accessory="chevron"
+        <Row icon="link" iconTint="var(--indigo)" title={t('Connect to my account')} subtitle={t('Sync this device with your {0} account instead.', BRAND)} accessory="chevron"
           onClick={() => useUI.getState().openSheet(close => <ConnectSheet close={close} />)} />
       </>) : DEMO ? <>
         <Row icon="sparkles" iconTint="var(--acc)" title={t('You’re in the demo')} subtitle={t('Example data, stored only in this browser — change anything you like.')} />
@@ -214,10 +212,6 @@ export default function Settings() {
           onClick={() => window.open(REPO, '_blank', 'noopener')} />
       </> : user ? <>
         <Row icon="personCircle" iconTint="var(--grey)" title={user.name} subtitle={t('Signed in with passkey — data syncs to this profile.')} />
-        {/* The operator page has no cell in the coach bar; this row is its one door until the
-            pieces a coach still needs move into Account. It lives in the coach shell, hence the
-            preference reset — from "Train myself" the client table has no /admin. */}
-        {user.admin && <Row icon="wrench" iconTint="var(--indigo)" title={t('Admin dashboard')} accessory="chevron" onClick={() => { setShellPref('coach'); nav('/admin') }} />}
         <Row icon="link" iconTint="var(--blue)" title={t('Pair the mobile app')} subtitle={t('Connect the app on your phone to this account.')} accessory="chevron"
           onClick={() => useUI.getState().openSheet(close => <PairSheet close={close} />)} />
         <Row icon="signOut" iconTint="var(--red)" title={t('Sign out')} danger onClick={() => confirmSheet({ title: t('Sign out?'), message: t('Your data is synced to your profile first, then cleared from this device.'), confirmText: t('Sign out'), danger: true, onConfirm: () => { signOut(); nav('/home') } })} />
@@ -633,7 +627,7 @@ function EquipmentCard({ S, update }) {
   </Section>
 }
 
-// Lets the mobile app's "connect to my server" mode (lib/remote.js) authenticate without a
+// Lets the mobile app's "connect to my account" mode (lib/remote.js) authenticate without a
 // WebAuthn ceremony of its own — the code is minted here, from an already signed-in session,
 // and redeemed by the app for a bearer token. See /api/pair/create in api/server.js.
 export function PairSheet({ close }) {
@@ -643,7 +637,7 @@ export function PairSheet({ close }) {
   return <>
     <h3>{t('Pair the mobile app')}</h3>
     <div className="muted small" style={{ marginBottom: 14 }}>
-      {t('In the app on your phone, choose “Connect to my server”, then enter this address and the code below. It expires in 5 minutes.')}
+      {t('In the app on your phone, choose “{0}”. The address is {1}; enter the code below. It expires in 5 minutes.', t('Connect to my account'), location.host)}
     </div>
     {err ? <div className="dim small">{err}</div> : (
       <div className="card" style={{ textAlign: 'center', fontSize: 30, fontWeight: 700, letterSpacing: '.16em', padding: '18px 0' }}>
