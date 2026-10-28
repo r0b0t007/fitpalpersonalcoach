@@ -43,12 +43,10 @@ export function ConnectSheet({ close }) {
 
 export default function MobileOnboarding() {
   const { chooseLocalMode } = useStore()
-  // The same lockup the web sign-in opens with (Login.jsx).
-  const head = <h1 style={{ margin: '10px 0 6px' }}><Logo size={40} /></h1>
   const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
   return (
     <div className="narrow" style={wrap}>
-      {head}
+      <Logo size={40} heading />
       <div className="muted" style={{ marginBottom: 34 }}>{t('How do you want to use {0}?', BRAND)}</div>
       <Button variant="primary" icon="lock" onClick={() => chooseLocalMode()}>{t('Use on this device')}</Button>
       <div style={{ height: 10 }} />

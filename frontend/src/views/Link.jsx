@@ -96,7 +96,7 @@ export default function Link() {
   const wrap = { display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', paddingTop: '26vh', minHeight: '78vh' }
   const state1 = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '100%', marginTop: 40 }
   return <div className="narrow" style={wrap}>
-    <h1 style={{ margin: '10px 0 6px' }}><Logo size={40} /></h1>
+    <Logo size={40} heading />
     {state.kind === 'loading' && <div style={{ ...state1, gap: 12 }} role="status">
       <span className="spin" aria-hidden="true" style={{ width: 28, height: 28 }} />
       <div className="muted">{t('Signing you in…')}</div>

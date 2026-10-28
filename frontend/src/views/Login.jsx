@@ -181,7 +181,7 @@ export default function Login() {
     try { const u = await passkeySignIn(); useUI.getState().toast(t('Welcome back, {0}', u.name)) }
     catch (e) { if (e.name !== 'NotAllowedError' && e.name !== 'AbortError') useUI.getState().toast(e.message || t('Sign-in failed')) }
   }
-  const head = <h1 style={{ margin: '10px 0 6px' }}><Logo size={40} /></h1>
+  const head = <Logo size={40} heading />
   const emailButton = <>
     <Button variant="ghost" icon="link" style={{ color: 'var(--label-2)' }} onClick={() => setEmailOpen(o => !o)}
       aria-expanded={emailOpen}>{t('Sign in with email')}</Button>
