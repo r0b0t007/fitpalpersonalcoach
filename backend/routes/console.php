@@ -47,3 +47,20 @@ if ($connection !== 'sync') {
 // and temp files. In the background: at the top of the hour, the most usual reminder time, the
 // reminders must not wait behind it.
 Schedule::command('fitpal:prune')->hourly()->withoutOverlapping(10)->runInBackground();
+
+// A database dump every night (app/Console/Commands/BackupDb.php), the only copy of what was
+// written since the last deploy: deploy-backend.yml dumps before each deploy, and nothing else
+// did. Into storage/backups/nightly, so the deploy's own dumps keep their count and are never
+// mixed with these. Two weeks kept, tens of KB each today — which also means a deleted account or
+// a pruned audit row survives up to two weeks in these copies (docs/DEPLOY_COACH_SUBDOMAIN.md).
+// 03:00 UTC is the middle of the night in Morocco; in the background, so the reminders due that
+// minute do not wait. The command's own output (what it dumped, or why it could not) goes to
+// logs/backup.log, since a background event's output is otherwise thrown away. The failure
+// message repeats the whole command: a hand run without --keep=14 would prune the folder to 5.
+$nightly = 'fitpal:backup-db --into=nightly --keep=14';
+Schedule::command($nightly)
+    ->dailyAt('03:00')
+    ->withoutOverlapping(30)
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/backup.log'))
+    ->onFailure(fn () => Log::error("the nightly database dump failed (the reason is in storage/logs/backup.log); retry it by hand with: php artisan $nightly"));

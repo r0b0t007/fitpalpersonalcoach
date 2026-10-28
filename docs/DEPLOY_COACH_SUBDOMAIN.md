@@ -325,6 +325,23 @@ Verified on the lab: a normal `schedule:run -q` writes zero bytes, so `cron.log`
 all is well and only grows when the scheduler itself cannot run — the one failure no Laravel hook
 can report, since Laravel never boots.
 
+**Backups**: two kinds, both `fitpal:backup-db` (gzipped `mariadb-dump --single-transaction`), both
+in `~/fitpal-coach-backend/storage/backups`, which no deploy touches:
+
+- `db-<time>-<NN>-<commit>.sql.gz`, the newest five: `deploy-backend.yml` takes one in maintenance
+  mode before each deploy, labelled with the commit it deploys. The undo for a bad deploy is the
+  first one with that commit's label (a retried run takes another, of the half-migrated state).
+- `nightly/db-<time>-<NN>.sql.gz`, the newest fourteen: the schedule takes one at 03:00 UTC
+  (CHW-306). The copy of everything written since the last deploy. Each run's own output is in
+  `storage/logs/backup.log`; a failed one also logs an error to `laravel.log`. Retry by hand with
+  `php artisan fitpal:backup-db --into=nightly --keep=14` — without `--keep=14` the folder is
+  pruned to five.
+
+`<NN>` is a counter, so two dumps in the same microsecond never share a name. Both kinds are on the
+same cPanel account as the database, so they cover a bad deploy or a bad write, not the loss of
+the account. They are also full copies: an account deleted, or audit rows and IPs pruned past
+`AUDIT_DAYS`, live on in them for up to two weeks (nightly) or until five more deploys (deploy).
+
 `/usr/local/bin/php` is cPanel's `ea_php_cli` wrapper, which runs the PHP the selector picks for
 the account: verified `8.5.11`, `PHP_BINARY=/opt/alt/php85/usr/bin/php`, the same binary the
 scheduler then hands its background worker. If the account's PHP is ever changed below 8.4, every

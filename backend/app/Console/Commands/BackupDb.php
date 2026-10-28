@@ -15,22 +15,33 @@ use Illuminate\Support\Facades\Process;
  * the environment, never on the command line; a SQLite file is copied through VACUUM INTO, which
  * gives a consistent copy while the app runs. Files are named by time, then label, so a re-run
  * never replaces an earlier dump, and only the newest `--keep` stay.
+ *
+ * `--into` puts the dump in a subdirectory of storage/backups and counts `--keep` there alone. The
+ * nightly schedule (routes/console.php) uses it so that its dumps never push out a deploy's, and
+ * never become "the newest db-*.sql.gz" that the undo for a bad deploy restores.
  */
 final class BackupDb extends Command
 {
     protected $signature = 'fitpal:backup-db
         {--connection= : The connection to dump (default: database.default)}
         {--label= : Added to the file name, e.g. the commit being deployed}
-        {--keep=5 : How many dumps to keep in storage/backups}';
+        {--keep=5 : How many dumps to keep in storage/backups (or in the --into subdirectory)}
+        {--into= : A subdirectory of storage/backups to dump into, e.g. nightly}';
 
-    protected $description = 'Dump the database to storage/backups before a deploy';
+    protected $description = 'Dump the database to storage/backups (before a deploy, and nightly into storage/backups/nightly)';
 
     public function handle(): int
     {
         $name = (string) ($this->option('connection') ?: config('database.default'));
         $c = (array) config("database.connections.$name");
         $label = preg_replace('/[^A-Za-z0-9._-]/', '', (string) $this->option('label'));
-        $dir = storage_path('backups');
+        $into = (string) $this->option('into');
+        if ($into !== '' && ! preg_match('/^[A-Za-z0-9_-]+$/', $into)) {
+            $this->error("--into takes one folder name (letters, digits, - and _), not '$into'");
+
+            return self::FAILURE;
+        }
+        $dir = storage_path('backups'.($into !== '' ? DIRECTORY_SEPARATOR.$into : ''));
         @mkdir($dir, 0700, true);
         // Fixed-width time, then a two-digit counter, then the label: names sort in the order the
         // dumps were taken (prune relies on it), and a re-run never writes over an earlier dump.

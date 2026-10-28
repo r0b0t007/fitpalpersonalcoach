@@ -171,7 +171,7 @@ jobs:
       - name: Say the app is left in maintenance mode
         if: failure() && steps.prepare.outputs.down == '1'
         run: |
-          echo "::error::~/${TARGET%/} is in maintenance mode (503; clients retry). Fix the cause and re-run this workflow, which finishes the deploy and brings it up. To go back instead: restore the newest storage/backups/db-*.sql.gz, sync the previous commit, then php artisan up."
+          echo "::error::~/${TARGET%/} is in maintenance mode (503; clients retry). Fix the cause and re-run this workflow, which finishes the deploy and brings it up. To go back instead: restore the dump this commit's first deploy run took, the first of: ls storage/backups/db-*-${GITHUB_SHA::12}.sql.gz; then sync the previous commit, then php artisan up."
           exit 1
 
       - name: Check Laravel answers

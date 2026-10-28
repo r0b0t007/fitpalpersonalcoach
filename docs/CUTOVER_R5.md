@@ -251,9 +251,15 @@ line yet. Run steps 3–7, then empty the Laravel database with `migrate:fresh -
 next try.
 
 Each backend deploy also keeps its own dump in `~/fitpal-coach-backend/storage/backups/`
-(`db-<time>-<commit>.sql.gz`, the newest five), taken in maintenance mode before it changes
+(`db-<time>-<NN>-<commit>.sql.gz`, the newest five), taken in maintenance mode before it changes
 anything. That is the undo for a bad backend deploy after the cutover, which is a different
 case from this rollback to Node.
+
+Since CHW-306 the schedule also takes a dump every night at 03:00 UTC into
+`storage/backups/nightly/` (the newest fourteen), kept apart so the two never prune each other.
+To undo a bad deploy, restore the dump named for its commit (`db-*-<commit>.sql.gz`, the first one
+if the run was retried), which is what the failed deploy's error message names, never simply the
+newest file: a nightly one may have been taken after the schema changed.
 
 ## After 7 quiet days (CHW-301)
 
