@@ -249,37 +249,20 @@ The full HTTP API is documented as an OpenAPI spec in [`backend/openapi.yaml`](b
 
 ## Your data
 
-Lives in `./data` on your host: `db.json` (profiles + public passkeys), `state-<user>.json`
-(each user's plan, workouts, body weight, settings), `audit.log` (the admin activity log — sign-ins
-and admin actions, no IP addresses unless you ask for them) and `secret` (the session-cookie key).
-**Back up `./data` and you've backed up everything.** Passkey private keys never touch the
-server — they stay in your phone's secure hardware / your password manager.
+Accounts, passkeys' public halves, plans, workouts, body weight and the activity log live in the
+backend's database (SQLite or MySQL/MariaDB). Uploaded exercise demos and progress photos live in
+`DATA_DIR/media/`, and the push keys in `DATA_DIR/vapid.json` unless you set `VAPID_*`. **Back up
+the database, `DATA_DIR` and `backend/.env`** — `php artisan fitpal:backup-db` dumps the database,
+and the scheduler takes a dump every night. Passkey private keys never touch the server — they stay
+in your phone's secure hardware / your password manager. Details: [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 
 ## Configuration
 
-All via `.env` (see `.env.example`):
-
-| Variable      | What it is                                           | Default                 |
-|---------------|------------------------------------------------------|-------------------------|
-| `RP_ID`       | Hostname passkeys are bound to                       | `localhost`             |
-| `ORIGIN`      | Full URL the app is served from                      | `http://localhost:5173` |
-| `PORT`        | Port the API listens on; your web server proxies `/api` to it | `3000`  |
-| `RP_NAME`     | Name shown in the passkey prompt                     | `openGym`               |
-| `SESSION_DAYS`| How long a sign-in lasts, in days                    | `90`                    |
-| `ADMIN_UIDS`  | User ids that get the admin dashboard (comma-separated) | *(none)*             |
-| `INVITE_ONLY` | Require an invite code to create a profile           | *(off)*                 |
-| `BOOTSTRAP_CODE` | One-shot code that lets the **first** account in and makes it an admin; ignored under 16 chars, and inert once any user exists | *(none)* |
-| `REQUEST_ACCESS` | Let visitors without a code request one from the sign-in screen (FIT'ONE) | *(off)* |
-| `ALLOW_GUEST` | Offer "Continue without account" — set `0` to require a profile | *(on)*       |
-| `AUDIT_LOG`   | Record sign-ins and admin actions — set `0` to record nothing | *(on)*        |
-| `AUDIT_MAX`   | Events kept in the activity log; `0` for no limit    | `5000`                  |
-| `AUDIT_DAYS`  | Days kept in the activity log; `0` to keep until `AUDIT_MAX` | `90`            |
-| `AUDIT_IP`    | Record the caller's address: `off`, `net` (network only) or `full` | `off`     |
-| `VAPID_SUBJECT` | Contact URL sent with push notifications           | your `ORIGIN`           |
-
-Push notification keys are generated on first run and saved to `./data/vapid.json` — nothing to set.
-`DATA_DIR` defaults to `data/` at the repo root, whatever directory you started the API from.
-Point it wherever you back up.
+All in `backend/.env` (see `backend/.env.example`): the hostname passkeys are bound to (`RP_ID`,
+`ORIGIN`), the session key (`SESSION_SECRET`), who gets in (`INVITE_ONLY`, `BOOTSTRAP_CODE`,
+`ALLOW_GUEST`, `ADMIN_UIDS`), the activity log (`AUDIT_*`), push, mail, media limits and the
+database. [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) has every variable with its default, and
+`php artisan fitpal:check-config` checks a deployment's values.
 
 ## Roadmap
 

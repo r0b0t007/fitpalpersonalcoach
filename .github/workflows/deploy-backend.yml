@@ -1,11 +1,11 @@
-# Deploys the Laravel backend (backend/) to the cPanel account over rsync + SSH. The cutover (R5,
-# docs/CUTOVER_R5.md) points coach.fitpal.ma/api at its public/ by a symlink; until then the target
-# is unmounted, or the lab.
+# Deploys the Laravel backend (backend/) to the cPanel account over rsync + SSH. Since the cutover
+# (R5, docs/CUTOVER_R5.md) coach.fitpal.ma/api is a symlink to its public/.
 #
 # Guardrails, in order:
 #   1. The whole of test.yml passes in THIS run, for this commit (it is called, not copied): Pest
-#      and Pint, the migrations on a MyISAM-default MariaDB like the host's, the error strings, the
-#      contract. A deploy never rides an old green, nor a thinner one.
+#      and Pint, the migrations on a MyISAM-default MariaDB like the host's, the error strings and
+#      audit labels. A deploy never rides an old green, nor a thinner one. (Until CHW-301 it also
+#      diffed every route against the Node API, the "contract"; that went with api/.)
 #   2. Opt-in: the deploy job exists only while the repository variable DEPLOY_BACKEND is 'true'.
 #      It is the kill switch, set to false for the cutover window.
 #   3. BACKEND_SERVER_DIR must be one of the two directories this app deploys to, and on the server

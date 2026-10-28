@@ -269,8 +269,11 @@ app moved to `backend/` (CLAUDE.md lists them).
 
 **The owner's edits**, which this repo's edit rules keep from anyone else:
 
-- delete `.github/workflows/deploy-api.yml`, then the repository variables `DEPLOY_API`,
-  `API_SERVER_DIR` and `API_HEALTH_URL`;
+- delete `.github/workflows/deploy-api.yml` **before the CHW-301 PR merges** (on main, or as a
+  commit on that PR), then the repository variables `DEPLOY_API`, `API_SERVER_DIR` and
+  `API_HEALTH_URL`. Order matters: the workflow runs on any push touching `api/**`, its `test` job
+  is not gated by `DEPLOY_API`, and with `api/` gone it fails at `npm ci` — a red run on main from
+  the merge itself;
 - in `deploy-web.yml`, the `/api/` exclude (a directory: the Node mount) can go, but the `/api`
   exclude **must stay**: it is what keeps a frontend deploy's `--delete` off the symlink. Correct
   the comments that describe the Node mount;

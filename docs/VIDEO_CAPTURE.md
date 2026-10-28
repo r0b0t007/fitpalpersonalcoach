@@ -93,6 +93,12 @@ out, and that only shows up in the final render.
 
 ## Seeding what is on screen
 
+> **Out of date since CHW-301.** This section describes the Node API's seeder (`api/seed-demo.mjs`)
+> and editing its JSON files with the API stopped. Both are gone: the backend keeps its data in a
+> database. Until `fitpal:seed-demo` exists (CHW-307), read the old script with
+> `git show 5d0c52f4:api/seed-demo.mjs` for what it seeded, and capture against an instance whose
+> demo clients already exist (production's were imported at the cutover).
+
 The captures are filmed against `api/seed-demo.mjs`'s six demo clients. Some states cannot be
 reached by clicking — a used invite in the sheet's **Joined** section needs a real passkey
 registration, which no automation can drive — so those rows are written into the capture
