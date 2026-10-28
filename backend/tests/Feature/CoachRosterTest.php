@@ -131,7 +131,7 @@ it('answers a client with no state yet with the defaults Node gave', function ()
 
 it('sends at least one day more than the app\'s adherence window', function () {
     // frontend/src/lib/adherence.js scores ADHERENCE_WINDOW_DAYS on the browser's local date; this
-    // trims on UTC. The Node side has api/scripts/check-adherence-window.mjs for the same tie.
+    // trims on UTC, so it must send a day more than the app scores.
     $js = file_get_contents(base_path('../frontend/src/lib/adherence.js'));
     expect(preg_match('/export const ADHERENCE_WINDOW_DAYS = (\d+)/', $js, $m))->toBe(1)
         ->and(MemberCard::ADHERENCE_SEND_DAYS)->toBeGreaterThanOrEqual((int) $m[1] + 1);

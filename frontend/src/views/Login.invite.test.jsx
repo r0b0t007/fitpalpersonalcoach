@@ -76,7 +76,7 @@ describe('arriving from an invite link', () => {
     } finally { vi.useRealTimers() }
   })
 
-  it('opens the sign-up as before on the Node API, which sends no `full`', async () => {
+  it('opens the sign-up as before when the server sends no `full`', async () => {
     const useUI = await mountLogin({ coachName: 'Ahmed' })
     expect(text()).not.toContain('cannot take on new clients')
     expect(useUI.getState().sheets).toHaveLength(1)

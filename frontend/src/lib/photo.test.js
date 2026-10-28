@@ -4,7 +4,7 @@ import { PHOTO_MAX_EDGE, POSES, fitWithin, photoSrc, photosByPeriod, posesFor } 
 // preparePhoto/decode are deliberately absent from this file. There is no canvas in this repo's
 // test environment — no jsdom toBlob, no 2d context — so a test of them would be a test of a
 // mock. The arithmetic they depend on is `fitWithin`, which is why it is exported, and the
-// route they feed is covered from the server side by api/coach-smoke.sh.
+// route they feed is covered from the server side by backend/tests/Feature/PhotoTest.php.
 
 const row = (id, d, pose) => ({ id, d, pose })
 

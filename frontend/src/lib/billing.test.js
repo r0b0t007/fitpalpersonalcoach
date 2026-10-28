@@ -15,7 +15,7 @@ const me = (entitlement = {}, licence = null) => ({
 })
 
 describe('billingOn', () => {
-  it('is off for the Node API, whose /api/config has no billing at all', () => {
+  it('is off when /api/config has no billing at all (or could not be read)', () => {
     expect(billingOn({ invite_only: false })).toBe(false)
     expect(billingOn(null)).toBe(false)
   })

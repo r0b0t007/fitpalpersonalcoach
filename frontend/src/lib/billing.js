@@ -4,9 +4,8 @@
 // Nothing here decides what a coach may do: a refused request is refused by the server whatever
 // this says, and the worst a wrong answer here can do is show the wrong card.
 //
-// Off entirely on an instance without billing. The Node API has no `billing` in /api/config at
-// all, and production runs it until R5, so every caller asks billingOn() first and the app is
-// exactly what it was.
+// Off entirely on an instance without billing: its /api/config has no `billing` (nor had the Node
+// API's), so every caller asks billingOn() first and the app is exactly what it was without it.
 
 /** The trial banner only shows in its last days: a coach two weeks out has nothing to do yet. */
 export const TRIAL_WARN_DAYS = 3

@@ -244,7 +244,7 @@ mobile app is the install-and-done flavor.
 - **api/** — Node with no framework, two dependencies (`@simplewebauthn/server` for passkeys, `web-push` for notifications), storing everything as plain JSON files under `./data`
 - Whatever serves it — Apache, nginx, Caddy — hands out `dist/` and proxies `/api` to the API, so it is all **one origin**. Passkeys require that.
 
-The full HTTP API is documented as an OpenAPI spec in [`api/openapi.yaml`](api/openapi.yaml) — browsable at [opengym.duarte-santos.ch/api.html](https://opengym.duarte-santos.ch/api.html).
+The full HTTP API is documented as an OpenAPI spec in [`backend/openapi.yaml`](backend/openapi.yaml) — browsable at [opengym.duarte-santos.ch/api.html](https://opengym.duarte-santos.ch/api.html).
 
 ## Your data
 

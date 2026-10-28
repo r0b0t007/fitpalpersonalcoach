@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Builds website/api.html — the static API reference — from api/openapi.yaml.
+// Builds website/api.html — the static API reference — from backend/openapi.yaml (api/openapi.yaml
+// until the Node API was retired in CHW-301; website/ is upstream's site, so its page still links
+// to upstream's copy).
 //
 //   node scripts/build-api-docs.mjs
 //
@@ -16,7 +18,7 @@ import { fileURLToPath } from 'node:url'
 import yaml from 'js-yaml'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
-const specPath = path.join(root, 'api', 'openapi.yaml')
+const specPath = path.join(root, 'backend', 'openapi.yaml')
 const outPath = path.join(root, 'website', 'api.html')
 const spec = yaml.load(fs.readFileSync(specPath, 'utf8'))
 
@@ -458,7 +460,7 @@ document.querySelectorAll('[data-xall]').forEach(b => b.addEventListener('click'
 
 const html = `<!DOCTYPE html>
 <!-- GENERATED FILE - do not edit by hand.
-     Built by scripts/build-api-docs.mjs from api/openapi.yaml (openGym API v${spec.info.version}).
+     Built by scripts/build-api-docs.mjs from backend/openapi.yaml (openGym API v${spec.info.version}).
      Regenerate with: node scripts/build-api-docs.mjs -->
 <html lang="en">
 <head>

@@ -1,6 +1,6 @@
 // The real packs, not stand-ins: what is under test is that a refusal as the API actually sends
-// it comes out in the user's language. api/scripts/check-error-strings.mjs keeps the packs
-// complete; api/domain.test.mjs covers the server half (say → msg).
+// it comes out in the user's language. backend/scripts/check-error-strings.mjs keeps the packs
+// complete; backend/tests/Unit/SayTest.php covers the server half (say → msg).
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import fr from '../locales/fr.js'
 import es from '../locales/es.js'

@@ -7,7 +7,7 @@
 //
 // Labels and reasons are functions, so they are read in the viewer's language at render while the
 // stored event names stay English (data/audit.log is a server artifact, not UI). Literal t() calls,
-// so check-source-strings sees every key; api/scripts/check-audit-labels.mjs reads only the keys.
+// so check-source-strings sees every key; backend/scripts/check-audit-labels.mjs reads only the keys.
 import { dateLocale, t } from './i18n-core.js'
 
 // The first segment of an event name is also the filter chip it belongs to.
@@ -50,8 +50,8 @@ const LABELS = {
   'admin.denied': () => t('Blocked from the admin dashboard'),
   // Pairing the phone app. These three were emitted unlabelled from the day they were added —
   // the dashboard printed "auth.pair.ok" at whoever read it — because the only guard was a
-  // hand-typed copy of the event names in a test. api/scripts/check-audit-labels.mjs reads both
-  // files now, and found them.
+  // hand-typed copy of the event names in a test. A script reading both sides found them; it is
+  // backend/scripts/check-audit-labels.mjs now.
   'auth.pair.create': () => t('Started pairing a phone'),
   'auth.pair.ok': () => t('Paired a phone'),
   'auth.pair.fail': () => t('Phone pairing failed'),

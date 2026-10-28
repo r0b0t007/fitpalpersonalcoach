@@ -70,7 +70,7 @@ export const PHOTOS_REACHABLE = (import.meta.env || {}).VITE_MOBILE !== '1'
 /**
  * Fit w×h inside a box of `max` on the long edge. Pure, and the only part of this module a unit
  * test can reach — there is no canvas in this repo's test environment, so the draw and the
- * encode are covered from the other side, by api/coach-smoke.sh.
+ * encode are covered from the other side, by backend/tests/Feature/PhotoTest.php.
  *
  * Never scales UP: a photo someone sent from an old phone at 900 px is stored at 900 px rather
  * than interpolated to 1600 and made to look worse at a larger file size.

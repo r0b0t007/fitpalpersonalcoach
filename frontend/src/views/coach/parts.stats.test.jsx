@@ -356,7 +356,7 @@ describe('check-ins in the coach view', () => {
 })
 
 // The third of step 8's scope is "let the coach see it", and it is the third with no test. The
-// server sends meals/mealDays/nutriTarget and coach-smoke asserts they are on the wire; nothing
+// server sends meals/mealDays/nutriTarget and CoachRosterTest (backend) asserts they are on the wire; nothing
 // asserted the coach VIEW draws them. That gap matters more here than elsewhere, because the card
 // is gated on hasNutrition(S): drop the field on the wire or in memberState and the card simply
 // does not render. No error, no empty state — it looks exactly like a client who never logged a

@@ -1362,7 +1362,7 @@ export default {
   'unknown passkey': 'passkey inconnue',
   'wrong or already-used invite code': 'code d’invitation erroné ou déjà utilisé',
   'you': 'vous',
-  // Server refusals (api/scripts/check-error-strings.mjs) and the app's own upload failures.
+  // Server refusals (backend/scripts/check-error-strings.mjs) and the app's own upload failures.
   'not found': 'introuvable',
   'range not satisfiable': 'plage demandée invalide',
   'not signed in': 'vous n’êtes pas connecté',

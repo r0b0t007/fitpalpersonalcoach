@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { auditCat, auditLabel, auditReason, auditLine, fmtWhen } from './audit.js'
 
-// Every event name and reason code the server can emit (api/server.js, the audit block).
+// Every event name and reason code the server can emit (Audit::record in backend/app).
 //
 // This list is a hand-typed COPY, so it can only ever test the names somebody remembered to copy —
-// it does NOT catch a new event added to server.js, whatever an earlier version of this comment
+// it does NOT catch a new event added to the backend, whatever an earlier version of this comment
 // claimed. It had been stale long enough that auth.pair.{create,ok,fail} shipped unlabelled and
-// nothing went red. **api/scripts/check-audit-labels.mjs is the guard that actually reads both
-// files**; this list stays for the rendering assertions below.
+// nothing went red. **backend/scripts/check-audit-labels.mjs is the guard that actually reads both
+// sides**; this list stays for the rendering assertions below.
 const EVENTS = [
   'auth.login.ok', 'auth.login.fail', 'auth.register.ok', 'auth.register.fail',
   'auth.register.denied', 'auth.logout', 'auth.logout.all',

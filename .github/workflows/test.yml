@@ -6,7 +6,6 @@ on:
   pull_request:
     paths:
       - 'frontend/**'
-      - 'api/**'
       - 'backend/**'
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
@@ -18,7 +17,6 @@ on:
     branches: [main, coach]
     paths:
       - 'frontend/**'
-      - 'api/**'
       - 'backend/**'
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
@@ -44,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # Node 22 — the version the Namecheap cPanel app runs. CI must match production.
+      # Node 22, the version deploy-web.yml builds the app with.
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -73,77 +71,6 @@ jobs:
       # pronoun ("ton", "veux-tu", "Crées-en") into locales/fr.js. A bare UI imperative ("Entre
       # un nom") it cannot tell from a preposition or a description — review those by eye.
       - run: node scripts/french-vous.mjs --check
-
-  api:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      # Node 22, matching the Namecheap cPanel app this deploys to. This used to carry a
-      # warning that newer Node broke the frontend suite via its localStorage global; that is
-      # fixed at the source now (frontend/test/setup.js) and verified by frontend-next-node
-      # below, so the pin here is production parity and nothing more.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: api/package-lock.json
-      - run: npm ci
-        working-directory: api
-      # Parse gate for the server itself — the unit suite imports only the pure helpers,
-      # so a syntax error in server.js would otherwise ride a green run to a dead deploy.
-      - run: node --check server.js
-        working-directory: api
-      - run: npm test
-        working-directory: api
-      # ADHERENCE_SEND_DAYS in the api and ADHERENCE_WINDOW_DAYS in the frontend sit either side
-      # of a boundary neither can import across. Breaking their relationship does not error --
-      # a trimmed date is indistinguishable from a day nobody trained, so every member's
-      # adherence just quietly drops.
-      - run: node api/scripts/check-adherence-window.mjs
-      # Every audit event server.js emits must have a human label in frontend/src/lib/audit.js, or
-      # the admin activity log prints a dotted identifier at whoever is reading it. audit.test.js
-      # claims to guard this and cannot — its event list is a hand-typed copy, so it only ever
-      # tests the names somebody remembered to copy, and three auth.pair.* events had been
-      # shipping unlabelled because of it. This reads both files.
-      - run: node api/scripts/check-audit-labels.mjs
-      # DEFAULT_CHECKIN_DAY lives on both sides of the api/frontend boundary — the member's screen
-      # decides which day starts a period, the server decides which day it pushes about one. A
-      # drift does not error: the card says a check-in is owed while the push arrives a day later.
-      - run: node api/scripts/check-checkin-day.mjs
-      # The app translates the server's English refusals by their text (frontend/src/lib/
-      # server-messages.js). A new message with no pack key does not error; a French coach just
-      # reads English at sign-in or when sync fails. This reads every refusal in the api source
-      # and checks each one is translated, and that the app's template list matches the api's.
-      - run: node api/scripts/check-error-strings.mjs
-
-  # The unit suite imports domain.mjs and nothing else, so until this job existed no HTTP route,
-  # cookie check or permission boundary was covered by any automated run: canCoachMember was
-  # tested, the /api/coach/member route that depends on it was not. These two suites boot a
-  # throwaway server and exercise the routes as a black box, refusals included (401 vs 403,
-  # no-enumeration, mixed-batch rejection, the disabled-coach display rules).
-  #
-  # Its own job rather than steps on `api` above: it runs in parallel so it costs no wall clock,
-  # and the checks list names which suite broke. timeout-minutes because this is the only job
-  # that backgrounds a long-lived process — a server that hangs should not hold a runner.
-  api-smoke:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: api/package-lock.json
-      - run: npm ci
-        working-directory: api
-      # Separate steps, not `npm run smoke`, so a failure is attributable at a glance.
-      - name: Coach role smoke
-        run: npm run smoke:coach
-        working-directory: api
-      - name: Timetable smoke (29 checks)
-        run: npm run smoke:sessions
-        working-directory: api
 
   # The localStorage repair in frontend/test/setup.js is guarded by a feature check, so on the
   # pinned Node 22 above it never executes — leaving the fix for "green in CI, red locally" itself
@@ -187,9 +114,9 @@ jobs:
       - run: npm run check:node-loadable
         working-directory: mcp
 
-  # The Laravel port (backend/), not yet deployed. PHP 8.4 is the floor (composer.json; Laravel 13,
-  # Pest 5 and Symfony 8 all need it) and the cPanel host runs 8.5. Pest runs the feature tests on
-  # an in-memory SQLite. pint --test parses every file, so there is no separate syntax step.
+  # The backend (Laravel), which serves coach.fitpal.ma/api since the R5 cutover. PHP 8.4 is the
+  # floor (composer.json; Laravel 13, Pest 5 and Symfony 8 all need it) and the cPanel host runs
+  # 8.5. Pest runs the feature tests on an in-memory SQLite. pint --test parses every file, so there is no separate syntax step.
   #
   # Then the migrations against the database production runs, which SQLite cannot stand in for:
   # the cPanel MariaDB defaults to MyISAM (1000-byte key limit) and latin1, and failed the first
@@ -264,70 +191,11 @@ jobs:
           test ! -s /tmp/padded-columns
           test "$(tr -s '[:space:]' ' ' < /tmp/pad-match | xargs)" = "0 0"
       # Every message the backend can send must be a key in every locale pack, or the app shows
-      # English to a French or Spanish coach. The PHP side of api/scripts/check-error-strings.mjs.
+      # English to a French or Spanish coach.
       - name: Backend error strings are translated
         run: node backend/scripts/check-error-strings.mjs
-
-  # Does the Laravel backend answer like the Node API? Both servers run on the same seeded data
-  # (backend/tools/contract/seed.mjs → Node's DATA_DIR as-is, Laravel through
-  # `fitpal:import-legacy --verify`), with the same session secret, and every ported route is called on
-  # both: status, error strings and envelopes, bodies (exactly, or by shape where values must
-  # differ) and the headers the app relies on. Intended differences are listed, with reasons, in
-  # the tool; anything else fails the build.
-  contract:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      DATA: ${{ github.workspace }}/contract-data
-      RP_ID: localhost
-      ORIGIN: http://localhost:5173
-      INVITE_ONLY: '1'
-      ALLOW_GUEST: '0'
-      # Small enough for the media cases' fixtures to cross it, as api/coach-smoke.sh runs.
-      MEDIA_MAX_VIDEO_MB: '1'
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: api/package-lock.json
-      - uses: ./.github/actions/setup-backend
-      - run: npm ci
-        working-directory: api
-      - name: Seed one data directory for both servers
-        run: node backend/tools/contract/seed.mjs "$DATA"
-      - name: Node API on the seed
-        run: |
-          DATA_DIR="$DATA" PORT=3101 nohup node server.js > /tmp/node.log 2>&1 &
-        working-directory: api
-      - name: Laravel on the same seed, imported and verified
-        working-directory: backend
-        run: |
-          cp .env.example .env && php artisan key:generate --quiet
-          touch database/contract.sqlite
-          # DATA_DIR as in production: Laravel's media root is Node's DATA_DIR/media. Both servers write
-          # uploads there; the names cannot collide (Laravel's carry the uploading coach).
-          export DB_CONNECTION=sqlite DB_DATABASE="$PWD/database/contract.sqlite" SESSION_SECRET="$(cat "$DATA/secret")" CACHE_STORE=file APP_DEBUG=false DATA_DIR="$DATA"
-          php artisan migrate --force
-          php artisan fitpal:import-legacy "$DATA" --verify
-          # php -S, not artisan serve, so the ini limits the contract needs reach the server. From
-          # public/: Laravel's router script loads index.php from the current directory.
-          cd public
-          nohup php -d post_max_size=100M -d memory_limit=768M -S localhost:3102 \
-            ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php > /tmp/laravel.log 2>&1 &
-      - name: Wait for both
-        run: |
-          # `|| true`: until a server listens, curl exits 7, and under bash -e that would end the
-          # step on the first try instead of retrying.
-          for i in $(seq 1 30); do
-            a=$(curl -s -o /dev/null -w '%{http_code}' localhost:3101/api/health || true)
-            b=$(curl -s -o /dev/null -w '%{http_code}' localhost:3102/api/health || true)
-            [ "$a$b" = 200200 ] && exit 0; sleep 1
-          done
-          echo "node $a laravel $b"; cat /tmp/node.log /tmp/laravel.log; exit 1
-      - name: Diff every ported route
-        run: node backend/tools/contract/diff.mjs --node http://localhost:3101 --laravel http://localhost:3102 --data "$DATA"
-      - name: Server logs
-        if: failure()
-        run: cat /tmp/node.log /tmp/laravel.log; tail -50 backend/storage/logs/laravel.log || true
+      # Every audit event the backend writes must have a label in frontend/src/lib/audit.js, or the
+      # admin activity log prints a dotted identifier at whoever reads it. A test cannot see this:
+      # audit.test.js's event list is a hand-typed copy. This reads both sides.
+      - name: Audit events are labelled
+        run: node backend/scripts/check-audit-labels.mjs

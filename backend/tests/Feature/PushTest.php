@@ -214,22 +214,9 @@ it('says in the admin list who can be reached by push', function () {
     expect($users[$this->f->a1->id]['hasPush'])->toBeTrue()->and($users[$this->f->a2->id]['hasPush'])->toBeFalse();
 });
 
-it('words every push as api/push-messages.js does, in every language', function () {
-    $node = trim((string) shell_exec('node --version'));
-    if (! str_starts_with($node, 'v')) {
-        $this->markTestSkipped('node is not on the PATH');
-    }
-    $file = realpath(base_path('../api/push-messages.js'));
-    if ($file === false) {
-        $this->markTestSkipped('api/ is retired: there is no Node wording left to match');
-    }
-    // A script file, not `node -e`: no shell quoting to get wrong on either OS.
-    $script = $this->dataDir.'/copy.cjs';
-    @mkdir($this->dataDir, 0777, true);
-    file_put_contents($script, 'import(require("url").pathToFileURL(process.argv[2]).href).then(m => process.stdout.write(JSON.stringify(m.COPY)))');
-    $copy = json_decode((string) shell_exec('node '.escapeshellarg($script).' '.escapeshellarg($file)), true);
-    expect(Messages::COPY)->toBe($copy);
-    // The builders, against Node's: the fallback per key, the routine title, the coach's name.
+it('words every push in the language asked for, falling back to English', function () {
+    // The builders: the fallback per key, the routine title, the coach's name. Their wording was
+    // matched against api/push-messages.js until the Node API was retired (CHW-301).
     expect(Messages::restTimer('xx'))->toBe(['title' => 'Rest over 💪', 'body' => 'Time for your next set.', 'tag' => 'rest-timer'])
         ->and(Messages::dayReminder('de', (object) ['name' => 'Push', 'emoji' => '']))->toMatchArray(['title' => '🏋️ Push heute'])
         ->and(Messages::dayReminder('es', null)['title'])->toBe('Entrenamiento previsto para hoy')
