@@ -101,8 +101,9 @@ php artisan fitpal:seed-demo --list                   # what is there
 php artisan fitpal:seed-demo --remove                 # exactly what it added, and nothing else
 ```
 
-The same run always produces the same histories, so a `--remove` and a re-seed film the same
-roster. `--tz` matters: the dates are calendar days, and seeded in UTC a check-in filed "today"
+The histories are counted back from the day it runs: re-seeded the same day, the roster comes out
+the same; on another day the same six people have the same shape (who stopped, who is new, whose
+program is pending), on dates that moved with today. Re-seed on the day you film. `--tz` matters: the dates are calendar days, and seeded in UTC a check-in filed "today"
 reads as yesterday for a coach east of Greenwich in the first hours after midnight. The demo
 clients have no passkey, so nobody can sign in as one. On a production instance the command asks
 for `--force`.

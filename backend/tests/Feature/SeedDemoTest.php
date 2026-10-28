@@ -4,11 +4,13 @@
 // one coach's roster, read back through the same routes the coach app reads; --remove takes out
 // exactly what it added, and --list changes nothing.
 
+use App\Console\Commands\SeedDemo;
 use App\Models\Assignment;
 use App\Models\User;
 use App\Models\UserState;
 use Illuminate\Support\Carbon;
 use Laragear\WebAuthn\Models\WebAuthnCredential;
+use Tests\Support\Billing;
 
 const DEMO_IDS = ['demo-karim', 'demo-lina', 'demo-nadia', 'demo-omar', 'demo-sara', 'demo-youssef'];
 
@@ -132,4 +134,54 @@ it('refuses to seed or remove on production without --force, but lists', functio
     $this->artisan('fitpal:seed-demo', ['--force' => true])->assertSuccessful();
     $this->artisan('fitpal:seed-demo', ['--remove' => true, '--force' => true])->assertSuccessful();
     expect(User::query()->count())->toBe(1);
+});
+
+it('counts back in calendar days across a DST change, and dates no session before its account', function () {
+    // 23:30 in Paris, three days after the clocks went back (2026-10-25): 24-hour blocks put two
+    // weigh-ins on the 25th and none on the 24th.
+    $this->travelTo(Carbon::parse('2026-10-28T22:30:00Z'));
+    $this->artisan('fitpal:seed-demo', ['--tz' => 'Europe/Paris'])->assertSuccessful();
+    $weighIns = array_column(demoState('demo-karim')->bodyweight, 'd');
+    expect($weighIns)->toBe(array_values(array_unique($weighIns)))
+        ->and($weighIns)->toContain('2026-10-27')->toContain('2026-10-20')->not->toContain('2026-10-21');
+    $checkins = array_column(demoState('demo-nadia')->checkins, 'd');
+    foreach (array_slice($checkins, 1) as $i => $d) {
+        expect((new DateTime($checkins[$i]))->diff(new DateTime($d))->days)->toBe(7);
+    }
+    foreach (DEMO_IDS as $id) {
+        $created = User::query()->find($id)->created_at->getTimestampMs();
+        foreach (demoState($id)->workouts as $w) {
+            expect($w->start)->toBeGreaterThanOrEqual($created);
+        }
+    }
+});
+
+it('logs pull-ups as the Node seeder did: 20 kg, a kilo a session', function () {
+    $this->artisan('fitpal:seed-demo')->assertSuccessful();
+    $pullups = collect(demoState('demo-karim')->workouts)->flatMap(fn ($w) => $w->entries)->where('id', '0652')->values();
+    expect($pullups->first()->sets[0]->w)->toBe(20)
+        ->and($pullups->last()->sets[0]->w)->toBe(20 + $pullups->count() - 1);
+});
+
+it('refuses to seed past a paying coach\'s seats', function () {
+    Billing::on();
+    Billing::licence($this->coach, ['plan' => 'solo', 'status' => 'active']);   // 10 seats
+    foreach (range(1, 5) as $i) {
+        account("tClient{$i}00000000", ['coach_id' => $this->coach->id]);
+    }
+    $this->artisan('fitpal:seed-demo')->assertFailed()->expectsOutputToContain('has 5 of 10 client seat(s) taken');
+    expect(SeedDemo::demoUsers()->count())->toBe(0);
+
+    User::query()->whereKey('tClient500000000')->update(['disabled' => true]);   // a disabled client frees a seat
+    $this->artisan('fitpal:seed-demo')->assertSuccessful();
+});
+
+it('takes the timezone names Carbon takes, keeps Demo- accounts, and runs one action at a time', function () {
+    $this->artisan('fitpal:seed-demo', ['--tz' => 'Etc/UTC'])->assertSuccessful();
+    account('Demo-mine', ['coach_id' => $this->coach->id]);
+    $this->artisan('fitpal:seed-demo', ['--remove' => true, '--list' => true])->assertFailed()->expectsOutputToContain('one of:');
+    $this->artisan('fitpal:seed-demo', ['--remove' => true, '--tz' => 'UTC'])->assertFailed();
+    expect(SeedDemo::demoUsers()->count())->toBe(6);
+    $this->artisan('fitpal:seed-demo', ['--remove' => true])->assertSuccessful()->expectsOutputToContain('6 demo client(s) removed');
+    expect(User::query()->whereKey('Demo-mine')->exists())->toBeTrue();
 });

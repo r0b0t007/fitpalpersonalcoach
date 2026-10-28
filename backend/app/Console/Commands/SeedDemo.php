@@ -2,11 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Entitlement;
 use App\Models\Assignment;
 use App\Models\User;
 use App\Models\UserState;
 use App\Support\Js;
 use Carbon\Carbon;
+use DateTimeZone;
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +62,14 @@ final class SeedDemo extends Command
 
     public function handle(): int
     {
+        // One action per run: `--remove --list` doing only one of the two, silently, would leave
+        // demo clients on a roster whoever typed it thought were gone.
+        $seedOnly = $this->option('coach') !== null || $this->option('tz') !== null;
+        if (($this->option('list') && $this->option('remove')) || (($this->option('list') || $this->option('remove')) && $seedOnly)) {
+            $this->error('one of: a seed (with --coach and --tz), --remove, or --list');
+
+            return self::FAILURE;
+        }
         if ($this->option('list')) {
             return $this->list();
         }
@@ -71,10 +82,13 @@ final class SeedDemo extends Command
         return $this->option('remove') ? $this->remove() : $this->seed();
     }
 
-    /** The demo accounts: the prefix, and shorter than a minted id (rule 2 above). */
+    /**
+     * The demo accounts: the prefix, and shorter than a minted id (rule 2 above). Compared with `=`,
+     * not LIKE: SQLite's LIKE ignores case, and `Demo-…` is not ours.
+     */
     public static function demoUsers(): Builder
     {
-        return User::query()->where('id', 'like', self::DEMO_PREFIX.'%')->whereRaw('length(id) < 16');
+        return User::query()->whereRaw('substr(id, 1, ?) = ?', [strlen(self::DEMO_PREFIX), self::DEMO_PREFIX])->whereRaw('length(id) < 16');
     }
 
     private function list(): int
@@ -127,7 +141,9 @@ final class SeedDemo extends Command
             return self::FAILURE;
         }
         $tz = (string) ($this->option('tz') ?: config('app.timezone'));
-        if (! in_array($tz, timezone_identifiers_list(), true)) {
+        try {
+            new DateTimeZone($tz);   // what Carbon takes: Etc/UTC and the old aliases too
+        } catch (Exception) {
             $this->error("--tz takes a timezone name, like Africa/Casablanca; {$tz} is not one");
 
             return self::FAILURE;
@@ -136,18 +152,31 @@ final class SeedDemo extends Command
         if ($coach === null) {
             return self::FAILURE;
         }
+        // The demo clients take seats like any client. Past a paying coach's cap they would refuse
+        // the coach's real invites (402) until someone ran --remove; an admin, or an instance with
+        // billing off, has no cap.
+        $seats = Entitlement::for($coach);
+        $people = count(self::people());
+        if ($seats->cap !== null && $seats->used + $people > $seats->cap) {
+            $this->error("{$coach->name} has {$seats->used} of {$seats->cap} client seat(s) taken: {$people} demo clients would take them past the plan's cap. Seed onto an admin, or a coach with room.");
+
+            return self::FAILURE;
+        }
 
         $now = Js::nowMs();
         $workouts = $checkins = 0;
-        DB::transaction(function () use ($coach, $tz, $now, &$workouts, &$checkins): void {
+        $today = Carbon::createFromTimestampMs($now, $tz)->startOfDay();
+        DB::transaction(function () use ($coach, $now, $today, &$workouts, &$checkins): void {
             foreach (self::people() as $p) {
                 $id = self::DEMO_PREFIX.$p['key'];
-                $s = self::state($p, $now, $tz);
+                $s = self::state($p, $now, $today);
                 $workouts += count($s->workouts);
                 $checkins += count($s->checkins);
                 // forceFill: coach_id is not mass-assignable, as everywhere a request could reach.
+                // Joined at the start of their first day, so no session that day predates the account
+                // (the roster sends `created`, and adherence clamps its window to it).
                 (new User)->forceFill(['id' => $id, 'name' => $p['name'], 'coach_id' => $coach->id,
-                    'created_at' => Carbon::createFromTimestampMs($now - $p['joined'] * self::DAY)])->save();
+                    'created_at' => $today->copy()->subDays($p['joined'])])->save();
                 UserState::query()->create(['user_id' => $id, 'state' => Js::stringify($s), 'ts' => $s->_ts]);
 
                 // An accepted assignment is what gives the client page a "Current program".
@@ -166,7 +195,7 @@ final class SeedDemo extends Command
             }
         });
         $this->info(sprintf('Seeded %d clients onto %s (%s): %d workouts, %d check-ins, dated in %s.',
-            count(self::people()), $coach->name, $coach->id, $workouts, $checkins, $tz));
+            $people, $coach->name, $coach->id, $workouts, $checkins, $tz));
         $this->line('None of them can sign in. To undo: php artisan fitpal:seed-demo --remove');
 
         return self::SUCCESS;
@@ -186,7 +215,10 @@ final class SeedDemo extends Command
 
             return $coach;
         }
-        $coaches = User::query()->where('disabled', false)->signupOrder()->get()->filter->isCoach()->values();
+        // isCoach() as a query: the coach and admin flags, and the admins named in ADMIN_UIDS.
+        $coaches = User::query()->where('disabled', false)
+            ->where(fn (Builder $q) => $q->where('coach', true)->orWhere('admin', true)->orWhereIn('id', config('fitpal.admin_uids', [])))
+            ->signupOrder()->get();
         if ($coaches->count() === 1) {
             return $coaches->first();
         }
@@ -256,6 +288,9 @@ final class SeedDemo extends Command
      * Opening working weight per exercise, in kg, and what it climbs by each time it is trained.
      * Deliberately unequal: a roster where everyone adds 2.5 kg a week reads as generated.
      *
+     * Read as the Node script read them, with `||`: the pull-up's 0 falls through to 20 kg and
+     * 1 kg a session. That is what the filmed episodes show, and a re-seed must match them.
+     *
      * @return array{0: array<string, float>, 1: array<string, float>}
      */
     private static function weights(): array
@@ -294,7 +329,7 @@ final class SeedDemo extends Command
     /**
      * One persona's S, as the app would have synced it.
      *
-     * Dates are calendar days in $tz, not UTC: a client's device stamps `d` with its own local day
+     * Dates are calendar days in $today's timezone, not UTC: a client's device stamps `d` with its own local day
      * (lib/format.js todayISO) and the coach's screens compare against local today, so a seed
      * written in UTC reads as "yesterday" for the first hours after midnight anywhere east of
      * Greenwich — which turns every fresh check-in into "overdue" on the dashboard.
@@ -302,17 +337,19 @@ final class SeedDemo extends Command
      * Times are that day's clock time, and never later than now: nothing seeded may sit in the
      * future (the Node script dated today's session, and _ts, hours ahead).
      */
-    private static function state(array $p, int $now, string $tz): stdClass
+    private static function state(array $p, int $now, Carbon $today): stdClass
     {
         $rand = self::rng($p['key']);
         [$startW, $stepW] = self::weights();
-        $day = fn (int $back) => Carbon::createFromTimestampMs($now - $back * self::DAY, $tz)->startOfDay();
+        // Calendar days back from today, not 24-hour blocks: across a DST change those land on the
+        // wrong date (one day twice, the day before it skipped).
+        $day = fn (int $back) => $today->copy()->subDays($back);
         $at = fn (int $back, int $hour) => min($now, $day($back)->addHours($hour)->getTimestampMs());
 
         $routines = [];
         foreach (self::plans()[$p['plan']] ?? [] as $i => [$name, $emoji, $ex]) {
             $routines[] = (object) ['id' => self::DEMO_PREFIX."{$p['key']}-r{$i}", 'name' => $name, 'emoji' => $emoji,
-                'ex' => array_map(fn ($e) => (object) ['id' => $e[0], 'sets' => $e[1], 'reps' => $e[2], 'weight' => $startW[$e[0]] ?? 20], $ex)];
+                'ex' => array_map(fn ($e) => (object) ['id' => $e[0], 'sets' => $e[1], 'reps' => $e[2], 'weight' => ($startW[$e[0]] ?? 0) ?: 20], $ex)];
         }
         // Weekday -> [routine id]. S.week is day -> ARRAY everywhere (the P0 bug was code reading it
         // as a scalar), and an object even when empty.
@@ -339,7 +376,7 @@ final class SeedDemo extends Command
             $entries = [];
             foreach ($routine->ex as $e) {
                 $n = $done[$e->id] = ($done[$e->id] ?? 0) + 1;
-                $w = round((($startW[$e->id] ?? 20) + ($stepW[$e->id] ?? 1) * ($n - 1)) * 2) / 2;
+                $w = round(((($startW[$e->id] ?? 0) ?: 20) + (($stepW[$e->id] ?? 0) ?: 1) * ($n - 1)) * 2) / 2;
                 $sets = [];
                 for ($s = 0; $s < $e->sets; $s++) {
                     // The last set drops a rep or two, the way a real one does.
@@ -353,7 +390,7 @@ final class SeedDemo extends Command
             // with enough jitter that six clients do not all train for exactly as long.
             $setCount = array_sum(array_map(fn ($e) => count($e->sets), $entries));
             $minutes = 4 + $setCount * 2.3 + ($rand() - 0.5) * 6;
-            $start = $day($d)->addHours(18)->getTimestampMs();
+            $start = $date->copy()->addHours(18)->getTimestampMs();
             $end = $start + (int) round($minutes) * 60_000;
             if ($end > $now) {
                 continue;   // today's session, still to come
