@@ -92,8 +92,23 @@ out, and that only shows up in the final render.
 
 ## Seeding what is on screen
 
-The captures are filmed against `api/seed-demo.mjs`'s six demo clients. Some states cannot be
-reached by clicking — a used invite in the sheet's **Joined** section needs a real passkey
-registration, which no automation can drive — so those rows are written into the capture
-instance's `db.json` directly, with the API stopped so `saveDb()` cannot overwrite them. Keep
-them consistent with what the other episodes already filmed.
+The captures are filmed against six demo clients, seeded onto the capture instance's coach:
+
+```bash
+cd backend
+php artisan fitpal:seed-demo --tz=Africa/Casablanca   # the coach's calendar; --coach <id> if there are several
+php artisan fitpal:seed-demo --list                   # what is there
+php artisan fitpal:seed-demo --remove                 # exactly what it added, and nothing else
+```
+
+The same run always produces the same histories, so a `--remove` and a re-seed film the same
+roster. `--tz` matters: the dates are calendar days, and seeded in UTC a check-in filed "today"
+reads as yesterday for a coach east of Greenwich in the first hours after midnight. The demo
+clients have no passkey, so nobody can sign in as one. On a production instance the command asks
+for `--force`.
+
+Some states cannot be reached by clicking — a used invite in the sheet's **Joined** section
+needs a real passkey registration, which no automation can drive — so those rows are written
+into the capture instance's database directly (`php artisan tinker`; an `invites` row with
+`used_by` and `used_at` set). Nothing needs restarting: the backend reads the database on every
+request. Keep them consistent with what the other episodes already filmed.
