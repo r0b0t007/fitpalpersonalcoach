@@ -2,18 +2,22 @@
 
 // fitpal:backup-db, the dump deploy-backend.yml takes before it changes anything (CHW-298): of
 // the connection Laravel resolved, whatever it is called; the password never on a command line;
-// a re-run never over an earlier dump; only the newest few kept.
+// a re-run never over an earlier dump; only the newest few kept. Also the nightly dump the
+// schedule takes into its own folder (CHW-306).
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Process;
 
-beforeEach(function () {
-    array_map('unlink', glob(storage_path('backups').'/db-*') ?: []);
-});
+function clearDumps(): void
+{
+    foreach (['', '/nightly'] as $sub) {
+        array_map('unlink', glob(storage_path('backups').$sub.'/db-*') ?: []);
+    }
+}
 
-afterEach(function () {
-    array_map('unlink', glob(storage_path('backups').'/db-*') ?: []);
-});
+beforeEach(fn () => clearDumps());
+afterEach(fn () => clearDumps());
 
 function dumps(): array
 {
@@ -99,4 +103,33 @@ it('takes a refused or failed SQLite copy as a failed dump', function () {
     expect(dumps())->toBe([])
         ->and(glob(storage_path('backups').'/*.sqlite') ?: [])->toBe([]);   // no temp copy left behind
     @unlink($db);
+});
+
+it('dumps --into a folder of its own, and keeps and prunes there alone', function () {
+    liveDb();
+    Process::fake(['*dump*' => Process::result('-- dump'), '*' => Process::result('')]);
+    $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--label' => 'deploy', '--keep' => 2])->assertSuccessful();
+    foreach (range(1, 3) as $i) {
+        $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--into' => 'nightly', '--keep' => 2])->assertSuccessful();
+    }
+    // The deploy's dump is untouched by three nightly ones, and the nightly folder holds its two newest.
+    expect(dumps())->toHaveCount(1)->and(dumps()[0])->toEndWith('-deploy.sql.gz')
+        ->and(glob(storage_path('backups').'/nightly/db-*.sql.gz') ?: [])->toHaveCount(2);
+});
+
+it('refuses an --into that is not one plain folder name', function (string $into) {
+    liveDb();
+    Process::fake();
+    $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--into' => $into])
+        ->assertFailed()->expectsOutputToContain('--into takes one folder name');
+    Process::assertNothingRan();
+})->with(['../escape', 'a/b', '.', 'night ly']);
+
+it('is scheduled nightly into its own folder, in the background', function () {
+    $nightly = collect(app(Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'fitpal:backup-db'));
+    expect($nightly)->not->toBeNull()
+        ->and((string) $nightly->command)->toContain('--into=nightly')->toContain('--keep=14')
+        ->and($nightly->expression)->toBe('0 3 * * *')
+        ->and($nightly->runInBackground)->toBeTrue()
+        ->and($nightly->withoutOverlapping)->toBeTrue();
 });

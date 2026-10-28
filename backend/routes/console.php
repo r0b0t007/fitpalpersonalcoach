@@ -47,3 +47,15 @@ if ($connection !== 'sync') {
 // and temp files. In the background: at the top of the hour, the most usual reminder time, the
 // reminders must not wait behind it.
 Schedule::command('fitpal:prune')->hourly()->withoutOverlapping(10)->runInBackground();
+
+// A database dump every night (app/Console/Commands/BackupDb.php), the only copy of what was
+// written since the last deploy: deploy-backend.yml dumps before each deploy, and nothing else
+// did. Into storage/backups/nightly, so the deploy's own dumps keep their count and the undo for
+// a bad deploy ("restore the newest storage/backups/db-*.sql.gz") never picks up a nightly dump
+// taken after a schema change. Two weeks kept, tens of KB each today. 03:00 UTC is the middle of
+// the night in Morocco; in the background, so the reminders due that minute do not wait.
+Schedule::command('fitpal:backup-db --into=nightly --keep=14')
+    ->dailyAt('03:00')
+    ->withoutOverlapping(30)
+    ->runInBackground()
+    ->onFailure(fn () => Log::error('the nightly database dump failed: run php artisan fitpal:backup-db --into=nightly by hand to see why'));

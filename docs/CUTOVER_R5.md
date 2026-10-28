@@ -255,6 +255,11 @@ Each backend deploy also keeps its own dump in `~/fitpal-coach-backend/storage/b
 anything. That is the undo for a bad backend deploy after the cutover, which is a different
 case from this rollback to Node.
 
+Since CHW-306 the schedule also takes a dump every night at 03:00 UTC into
+`storage/backups/nightly/` (the newest fourteen). Those are kept apart on purpose: "restore the
+newest `db-*.sql.gz`" above must find the deploy's dump, never a nightly one taken after a schema
+change.
+
 ## After 7 quiet days (CHW-301)
 
 Retire `api/` and its CI. Delete `~/fitpal-coach-api` and `~/r5-rollback`, and the Node files in

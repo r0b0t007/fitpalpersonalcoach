@@ -325,6 +325,17 @@ Verified on the lab: a normal `schedule:run -q` writes zero bytes, so `cron.log`
 all is well and only grows when the scheduler itself cannot run — the one failure no Laravel hook
 can report, since Laravel never boots.
 
+**Backups**: two kinds, both `fitpal:backup-db` (gzipped `mariadb-dump --single-transaction`), both
+in `~/fitpal-coach-backend/storage/backups`, which no deploy touches:
+
+- `db-<time>-<commit>.sql.gz`, the newest five: `deploy-backend.yml` takes one in maintenance mode
+  before each deploy. The undo for a bad deploy.
+- `nightly/db-<time>.sql.gz`, the newest fourteen: the schedule takes one at 03:00 UTC (CHW-306).
+  The copy of everything written since the last deploy. A failed one logs an error to `laravel.log`.
+
+Both are on the same cPanel account as the database, so they cover a bad deploy or a bad write,
+not the loss of the account.
+
 `/usr/local/bin/php` is cPanel's `ea_php_cli` wrapper, which runs the PHP the selector picks for
 the account: verified `8.5.11`, `PHP_BINARY=/opt/alt/php85/usr/bin/php`, the same binary the
 scheduler then hands its background worker. If the account's PHP is ever changed below 8.4, every
