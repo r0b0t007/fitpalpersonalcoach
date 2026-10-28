@@ -28,7 +28,7 @@ final class BackupDb extends Command
         {--keep=5 : How many dumps to keep in storage/backups (or in the --into subdirectory)}
         {--into= : A subdirectory of storage/backups to dump into, e.g. nightly}';
 
-    protected $description = 'Dump the database to storage/backups before a deploy';
+    protected $description = 'Dump the database to storage/backups (before a deploy, and nightly into storage/backups/nightly)';
 
     public function handle(): int
     {

@@ -115,6 +115,11 @@ it('dumps --into a folder of its own, and keeps and prunes there alone', functio
     // The deploy's dump is untouched by three nightly ones, and the nightly folder holds its two newest.
     expect(dumps())->toHaveCount(1)->and(dumps()[0])->toEndWith('-deploy.sql.gz')
         ->and(glob(storage_path('backups').'/nightly/db-*.sql.gz') ?: [])->toHaveCount(2);
+
+    // And the other way: a deploy's dump with --keep=1 prunes its own folder, not the nightly one.
+    $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--label' => 'next', '--keep' => 1])->assertSuccessful();
+    expect(dumps())->toHaveCount(1)->and(dumps()[0])->toEndWith('-next.sql.gz')
+        ->and(glob(storage_path('backups').'/nightly/db-*.sql.gz') ?: [])->toHaveCount(2);
 });
 
 it('refuses an --into that is not one plain folder name', function (string $into) {
@@ -131,5 +136,7 @@ it('is scheduled nightly into its own folder, in the background', function () {
         ->and((string) $nightly->command)->toContain('--into=nightly')->toContain('--keep=14')
         ->and($nightly->expression)->toBe('0 3 * * *')
         ->and($nightly->runInBackground)->toBeTrue()
-        ->and($nightly->withoutOverlapping)->toBeTrue();
+        ->and($nightly->withoutOverlapping)->toBeTrue()
+        ->and($nightly->output)->toBe(storage_path('logs/backup.log'))
+        ->and($nightly->shouldAppendOutput)->toBeTrue();
 });
