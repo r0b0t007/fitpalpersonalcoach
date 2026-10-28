@@ -32,8 +32,8 @@ The Vite proxy forwards `/api` and sets the `Origin` header the forgery check ex
 ## Scheduler
 
 One cron line drives everything that runs on its own (`routes/console.php`): the reminders every
-minute, the queue worker (pushes, mail) every minute, the hourly prune and the nightly database
-dump into `storage/backups/nightly`. Shared hosting has no supervisor, so the worker lives at most
+minute, the queue worker (pushes; mail goes out after the response instead) every minute, the
+hourly prune and the nightly database dump into `storage/backups/nightly`. Shared hosting has no supervisor, so the worker lives at most
 about a minute and the next one carries on.
 
 ```

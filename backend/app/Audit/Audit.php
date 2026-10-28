@@ -14,7 +14,7 @@ use Throwable;
 /**
  * The audit log: who signed in, who was refused, what an admin changed. Read by the owner's
  * Business › Audit screen through GET /api/admin/audit; event names are labelled for people in
- * frontend/src/lib/audit.js (api/scripts/check-audit-labels.mjs keeps the two in step), and `msg`
+ * frontend/src/lib/audit.js (backend/scripts/check-audit-labels.mjs keeps the two in step), and `msg`
  * carries reason codes, never sentences.
  *
  * Writing never throws: a log that cannot be written must not break signing in.

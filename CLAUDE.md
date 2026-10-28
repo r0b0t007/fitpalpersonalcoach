@@ -175,8 +175,8 @@ phone signed in. The same token is the cookie for browsers and the Bearer token 
 mobile app. Env-gated as before: `ADMIN_UIDS`, `INVITE_ONLY`, `ALLOW_GUEST`, `SELF_SERVE_COACH`,
 billing (`CREEM_*`). The audit log is the `audit_events` table. Shared hosting has no supervisor,
 so one cron line runs `schedule:run` every minute (`routes/console.php`): reminders, the queue
-worker (pushes, mail), the hourly prune and the nightly database dump. Filament serves the
-operator panel at `/api/admin-panel`.
+worker (pushes; mail is sent after the response, not queued), the hourly prune and the nightly
+database dump. Filament serves the operator panel at `/api/admin-panel`.
 
 ### MCP server (`mcp/src`)
 
