@@ -35,8 +35,8 @@ or Settings → **"Connect to my server"** later) to finish. Notes:
   a cookie, and that token would otherwise cross the network in plain text.
 - "Sign out everywhere" (Settings → Account, in the browser) revokes a paired app's access
   too — it's the same signed session token either way, just delivered over a header instead
-  of a cookie. See `/api/pair/create` and `/api/pair/redeem` in `api/server.js` for the
-  exchange itself.
+  of a cookie. See `/api/pair/create` and `/api/pair/redeem`
+  (`backend/app/Http/Controllers/PairController.php`) for the exchange itself.
 - Settings → "Disconnect" syncs one last time, then drops the device cleanly back to local
   mode.
 

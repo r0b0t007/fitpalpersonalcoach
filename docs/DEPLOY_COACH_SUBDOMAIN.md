@@ -5,13 +5,14 @@ This product shares a cPanel account with FIT'ONE, which deploys from
 `rsync --delete`, which removes everything at the target that is not in the source. A wrong
 directory value does not fail — it deletes the other product.
 
-**That danger is real but narrow. It applies to `deploy-web.yml` and `deploy-api.yml` only**,
-the two workflows that reach the cPanel box over SSH. The marketing sites are not on that box.
+**That danger is real but narrow. It applies to `deploy-web.yml` and `deploy-backend.yml` only**,
+the two workflows that reach the cPanel box over SSH (and `deploy-api.yml`, the retired Node
+deploy, until the owner deletes it; it is switched off with `DEPLOY_API=false`). The marketing sites are not on that box.
 
 | | FIT'ONE (`opengym-fitone`) | FitPal Coach (this repo) |
 |---|---|---|
 | Frontend | `public_html/` → app.fitpal.ma | `coach.fitpal.ma/` (cPanel, rsync) |
-| API | `opengym-api/` | `fitpal-coach-api/` (cPanel, rsync) |
+| API | `opengym-api/` | `fitpal-coach-backend/` (cPanel, rsync; `coach.fitpal.ma/api` is a symlink to its `public/`) |
 | Marketing site | — | `site-coach/` → **fitpal.ma**, Cloudflare Pages project `fitpal-coach` |
 | Gym marketing site | — | `site/` → **gym.fitpal.ma**, Cloudflare Pages project `fitpal` |
 
@@ -22,11 +23,15 @@ No cPanel path is shared.
 Worth stating here because the guard section below lists `mail/` among the directories an
 `rsync --delete` accident could take: that directory is not where `@fitpal.ma` mail lives.
 
-`fitpal.ma`'s `MX` records point at `mx1/2/3-hosting.jellyfish.systems` (162.255.118.28/29),
-which is **Namecheap Private Email**, a separate product from this cPanel account. Mailboxes,
-aliases and forwarders for the domain are managed at `privateemail.com`, and a forwarder
-created in cPanel for `fitpal.ma` never fires. cPanel's Email Routing screen reports the
-domain as *Automatically Detect Configuration : Remote*, which is correct.
+**Inbound:** `fitpal.ma`'s `MX` records are `route1/2/3.mx.cloudflare.net`, which is
+**Cloudflare Email Routing**. Addresses and where they forward to are managed in the Cloudflare
+dashboard (fitpal.ma → Email → Email Routing), and a forwarder created in cPanel for `fitpal.ma`
+never fires. (An earlier version of this section said Namecheap Private Email; the `MX` has moved
+since. Check the records, not this paragraph, before changing anything: `dig MX fitpal.ma`.)
+
+**Outbound:** the backend sends its own mail (sign-in links, account emails) through **Resend**
+(`MAIL_MAILER=resend`, from `no-reply@fitpal.ma`), with the domain verified there. Nothing sends
+from this box.
 
 `pawpawcare.app`, on the same cPanel account, is the contrast: its `MX` is
 `mail.pawpawcare.app`, which resolves to the hosting box, so cPanel forwarders do work there.
@@ -58,46 +63,55 @@ here is the only one.
    Not under `public_html/`: the other repo mirrors that directory with `--delete`, so a doc
    root inside it is deleted on FIT'ONE's next frontend deploy.
 
-2. **Node.js app** — Setup Node.js App → application root `~/fitpal-coach-api`, Node 22,
-   startup file `server.js`, application URL `coach.fitpal.ma/api`.
-
-   What that last field actually does is create **`~/coach.fitpal.ma/api/`** holding a single
-   `.htaccess` with the Passenger directives and every environment variable. The directory *is*
-   the mount. The frontend build has nothing to put there, so `deploy-web.yml` excludes `/api/`
-   from its `rsync --delete` — without that exclude the first frontend deploy silently unmounts
-   the API and `/api/health` starts answering **404**, which reads like DNS or a dead app rather
-   than a frontend deploy that reached too far. If it ever goes missing, `cloudlinux-selector`
-   will not rebuild it (it reports `No such application` precisely because the file is gone);
-   copy the block from `~/app.fitpal.ma/api/.htaccess`, swap in this app's root, node path and
-   env vars, then `cloudlinux-selector restart --interpreter nodejs --app-root fitpal-coach-api`.
-
-3. **Environment variables** — set in the Node.js app's own *Environment variables* panel, not
-   a `.env` file. The API has no `dotenv` dependency, so a `.env` would be read by nothing;
-   under Passenger the panel *is* `process.env`. Mirrors how `app.fitpal.ma/api` is configured:
+2. **The backend** — `~/fitpal-coach-backend/`, a sibling of the docroot. `deploy-backend.yml`
+   fills it (source and `vendor/`), but refuses a target with no `.env`: the first one is written
+   by hand on the server, so a deploy can never boot on defaults (`docs/CUTOVER_R5.md` has how,
+   with no secret echoed). The API is mounted by a symlink:
 
    ```
-   RP_ID           coach.fitpal.ma
-   ORIGIN          https://coach.fitpal.ma
-   RP_NAME         FitPal Coach
-   DATA_DIR        /home/pawputif/fitpal-coach-data
-   INVITE_ONLY     1
-   ALLOW_GUEST     0
-   REQUEST_ACCESS  0
-   BOOTSTRAP_CODE  <32 hex chars, unique to this instance>
+   ~/coach.fitpal.ma/api  ->  ~/fitpal-coach-backend/public
    ```
 
-   `RP_ID` is load-bearing. WebAuthn passkeys are bound to an exact hostname, so a passkey
-   created on `app.fitpal.ma` cannot sign in here and vice versa. That is correct — these are
-   separate products with separate accounts — but it means everyone enrols here fresh.
-   `BOOTSTRAP_CODE` is what lets the very first account be created on an `INVITE_ONLY`
-   instance; it stops working once a user exists. Never reuse the other instance's.
+   `deploy-web.yml` excludes `/api` both as a directory and as a symlink, so a frontend deploy's
+   `--delete` cannot take the mount. Without that, `/api/config` starts answering **404**, which
+   reads like DNS or a dead app rather than a frontend deploy that reached too far. One cron line
+   runs the scheduler (the reminders, the queue, the prune and the nightly database dump; see
+   **Cron** below).
 
-4. **`~/fitpal-coach-data/`** — a **sibling** of the app root, not a directory inside it. That
-   is how `opengym-api` does it (`DATA_DIR=/home/pawputif/opengym-data`), and the reason is
-   `rsync --delete`: a data directory inside the deploy target is one exclude away from being
-   erased, whereas one outside it cannot be reached at all. It holds users, passkey
-   credentials, the session secret and every client's training. **This is the directory to
-   back up.**
+   Until the R5 cutover (2026-10-26) the API was a Node.js app under Passenger, registered in
+   Setup Node.js App, whose `.htaccess` in `~/coach.fitpal.ma/api/` *was* the mount and held its
+   environment. That registration is gone (CHW-300) and the Node files go in CHW-301.
+
+3. **Environment** — in `~/fitpal-coach-backend/.env` (mode 600), never in the repo. The values
+   that are not secret:
+
+   ```
+   APP_ENV           production
+   APP_DEBUG         false
+   RP_ID             coach.fitpal.ma
+   ORIGIN            https://coach.fitpal.ma
+   RP_NAME           FitPal Coach
+   DATA_DIR          /home/pawputif/fitpal-coach-data
+   INVITE_ONLY       1
+   ALLOW_GUEST       0
+   SELF_SERVE_COACH  0
+   DB_CONNECTION     mariadb
+   MAIL_MAILER       resend
+   ```
+
+   plus the secrets (`APP_KEY`, `SESSION_SECRET`, the database password, the Resend key). `RP_ID`
+   and `SESSION_SECRET` are load-bearing: passkeys are bound to the exact hostname, and the
+   session secret signs every cookie and every paired phone's token, so changing either signs
+   everyone out for good. `php artisan fitpal:check-config` checks the file, and every deploy
+   runs it.
+
+4. **`~/fitpal-coach-data/`** — a **sibling** of the app, not inside it: a data directory inside
+   the deploy target is one exclude away from being erased, whereas one outside it cannot be
+   reached at all. Since the cutover it holds only what Laravel reads from disk: `media/` (the
+   exercise demos and progress photos), `vapid.json` (the push keys, unless `VAPID_*` is set) and
+   `secret` (where `SESSION_SECRET` came from). Accounts and training are in the MariaDB database
+   `pawputif_fitpalcoach`, dumped into `~/fitpal-coach-backend/storage/backups` (**Backups**
+   below). **Back up both: the database and `media/`.**
 
 5. **DNS** — `fitpal.ma` is on Cloudflare (`braden`/`natasha.ns.cloudflare.com`), so cPanel's
    own zone is not authoritative. Add the record in Cloudflare:
@@ -113,11 +127,11 @@ here is the only one.
 Already set as repository variables:
 
 ```
-WEB_SERVER_DIR    coach.fitpal.ma/
-API_SERVER_DIR    fitpal-coach-api/
-WEB_URL           https://coach.fitpal.ma
-API_HEALTH_URL    https://coach.fitpal.ma/api/health
-SSH_PORT          21098
+WEB_SERVER_DIR      coach.fitpal.ma/
+BACKEND_SERVER_DIR  fitpal-coach-backend
+WEB_URL             https://coach.fitpal.ma
+BACKEND_CHECK_URL   https://coach.fitpal.ma/api/config
+SSH_PORT            21098
 SSH_KNOWN_HOSTS   (copied from opengym-fitone)
 ```
 
@@ -143,24 +157,28 @@ gh secret set SSH_KEY --repo r0b0t007/fitpalpersonalcoach --env production < ~/.
 `gh secret set` reports success even when its input was empty, and an empty `SSH_KEY` fails later
 and obscurely — if a deploy dies at "Set up SSH", suspect that before anything else.
 
-Deploys are on:
+Deploys:
 
 ```
 DEPLOY_WEB=true
-DEPLOY_API=true
+DEPLOY_BACKEND=true     the kill switch: false stops every backend deploy, merges included
+DEPLOY_API=false        the retired Node deploy; goes with deploy-api.yml
 ```
+
+`API_SERVER_DIR` and `API_HEALTH_URL` were the Node deploy's and can be deleted with it.
 
 ## The guard
 
-`deploy-web.yml` and `deploy-api.yml` each refuse a target of `""`, `.`, `./`, `..`, `~`, `/`
+`deploy-web.yml` and `deploy-backend.yml` each refuse a target of `""`, `.`, `./`, `..`, `~`, `/`
 or `$HOME` before rsync runs. Any of those resolves to the account home, where `--delete`
 would take `public_html/`, `opengym-api/`, `fitpal.ma/`, `mail/` and `.ssh/` with it. The
-failure mode is a red build rather than a restore from backup.
+failure mode is a red build rather than a restore from backup. `deploy-backend.yml` also refuses
+a target naming another product's or the data's directory, one reached through a symlink, and one
+with no `.env` (its header lists every rule).
 
-Two related fixes live alongside it: the excludes are anchored (`/data/`, not `data/`, which
-rsync would otherwise match at every depth including inside `node_modules/`), and the api sync
-passes `-K` so cPanel's `node_modules` symlink into the Node venv is written *through* rather
-than replaced with a real directory.
+The excludes are anchored (`/.env`, `/storage/`, not `storage/`, which rsync would otherwise match
+at every depth), and the backend sync passes `-K` so a directory symlink on the server is followed
+rather than replaced.
 
 ## `~/coach.fitpal.ma/.htaccess` — the shell must not be cached
 
@@ -219,10 +237,11 @@ holding the pre-fix copy: Caching → Configuration → Custom Purge → **URL**
 serves `fitpal.ma`, `gym.fitpal.ma` and `app.fitpal.ma`. No purge is needed after later
 deploys; that is the whole point of `REVALIDATED`.
 
-## Laravel backend (draft — measured in CHW-227, finalised at cutover in R5)
+## Laravel backend (measured in CHW-227; live since the R5 cutover)
 
-The Laravel port (`backend/`) replaces the Node API at cutover. Everything below was measured on
-a scratch subdomain of this account, **`lab.fitpal.ma`**, never on `coach.fitpal.ma`.
+The backend has served `coach.fitpal.ma/api` since 2026-10-26. The measurements below were taken
+before that, on a scratch subdomain of this account, **`lab.fitpal.ma`**, never on
+`coach.fitpal.ma`.
 
 **Layout on the box** (scratch names; production in brackets):
 
@@ -234,8 +253,7 @@ a scratch subdomain of this account, **`lab.fitpal.ma`**, never on `coach.fitpal
 **The mount works as a plain symlink.** `<docroot>/api` → `backend/public`, with Laravel's own
 `public/.htaccess`: LiteSpeed follows it, rewrites to `index.php`, and the app answers under
 `/api` (`/api/health` 200, `/api/config` 200, unknown route `404 {"error":"not found"}`, preflight
-`204` with the reflected origin). The lab never had a Node app registered, so it does not show
-what the coach subdomain's registration will do; see the cutover steps below.
+`204` with the reflected origin). Production is mounted the same way.
 
 **PHP**: CLI and web both `8.5.11` (`/opt/alt/php85`, CloudLinux alt-php, LiteSpeed SAPI under
 the web server). Extensions present: pdo_mysql, pdo_sqlite, sodium, intl, gd, mbstring,
@@ -307,11 +325,11 @@ to MyISAM + latin1, migrates up, down and up, and fails on any table that is not
 `utf8mb4` (the step runs with `pipefail`, so a failing query cannot pass as "no bad tables").
 
 Two databases on the account, each with its own user, passwords only in each app's `.env` (mode
-600): **production** `pawputif_fitpalcoach` / `pawputif_fitpal` — empty, never touched by the lab
-(it was briefly used for the first migration and then wiped); **lab** `pawputif_fitlab` /
-`pawputif_fitlab`. The lab runs `APP_ENV=production`, `APP_DEBUG=false`, and has no production
-credential. **Tear the lab down before the cutover** (the app directory, the `lab` symlink, its
-database and user), so nothing scratch is reachable once real data exists.
+600): **production** `pawputif_fitpalcoach` / `pawputif_fitpal` — the live data since the
+cutover, never touched by the lab; **lab** `pawputif_fitlab` / `pawputif_fitlab`. The lab runs
+`APP_ENV=production`, `APP_DEBUG=false`, and has no production credential. It stays up for the
+Creem test store until billing goes live, then is torn down (the app directory, the `lab` symlink,
+its database and user, its DNS record; CHW-302).
 
 **Cron**: one line. cPanel mails any cron output to the account contact, so normal runs must print
 nothing — `-q` silences `schedule:run` itself — while anything that still prints (PHP failing to
@@ -399,33 +417,20 @@ script — in `public/`, the web root. The host answers 403 for it, and `public/
 as well; it contained only the stack traces from the deliberate out-of-memory tests, and was
 deleted.
 
-### Cutover steps this section adds (R5)
+### The cutover (R5, done)
 
-In this order; each one closes a way the old mount could come back or the new one could vanish.
-
-1. **`DEPLOY_API=false`** (repository variable) so a push to `api/**` cannot redeploy Node.
-2. **Exclude `/api` as a symlink in `deploy-web.yml`**: today it has `--exclude='/api/'`, and an
-   rsync rule ending in `/` matches directories only. Once `api` is a symlink the next frontend
-   deploy's `--delete` removes it and the API is gone. Add `--exclude='/api'` beside the existing
-   rule **before** the symlink exists. (Not changed in CHW-227: deploy workflows are edited by the
-   owner.)
-3. **Delete the Node.js app registration** for `coach.fitpal.ma/api` in cPanel → Setup Node.js
-   App (or `cloudlinux-selector destroy --json --interpreter nodejs --app-root
-   fitpal-coach-api`). Left registered, a restart or reconfigure rewrites `<docroot>/api/.htaccess`
-   with its Passenger block — which, through the symlink, is `backend/public/.htaccess`.
-4. **Move the Passenger directory outside the docroot**, not beside it:
-   `mv ~/coach.fitpal.ma/api ~/fitpal-coach-api-mount.bak`. Anything left inside
-   `~/coach.fitpal.ma/` other than the excluded paths is deleted by the next web deploy, and with
-   it the rollback.
-5. `ln -s ~/fitpal-coach-backend/public ~/coach.fitpal.ma/api`, then the checks below.
-
-Rollback: remove the symlink, `mv ~/fitpal-coach-api-mount.bak ~/coach.fitpal.ma/api`,
-re-register the Node app with the same app root and URI, `DEPLOY_API=true`.
+The swap from the Node mount to the symlink was done on 2026-10-26 (CHW-300), in the order and
+with the checks in `docs/CUTOVER_R5.md`: deploys frozen, the Node.js app registration destroyed
+(left registered, a restart would have rewritten `<docroot>/api/.htaccess` with its Passenger
+block, which through the symlink is `backend/public/.htaccess`), its mount moved out of the
+docroot, the data imported once, then the symlink. Rolling back to Node stops being possible once
+CHW-301 deletes `api/` and the server's Node files; the undo for a bad backend deploy is its own
+database dump (**Backups**).
 
 ## Checking it worked
 
 ```
-curl -fsS https://coach.fitpal.ma/api/health     # {"ok":true,...}
+curl -fsS https://coach.fitpal.ma/api/config | grep -o '"login_email":[a-z]*'   # Laravel answering
 curl -fsS https://coach.fitpal.ma | grep '<title'
 
 # Did the release actually reach the browser? Three different answers are possible, so read all
@@ -442,16 +447,16 @@ curl -s https://coach.fitpal.ma | grep -o 'assets/index-[^"]*\.js'
 [...document.querySelectorAll('script[src]')].map(s => s.src.split('/').pop())
 ```
 
-A `525` immediately after a deploy is Cloudflare failing its TLS handshake to the origin while
-Passenger restarts. It clears within seconds, so trust the workflow over a single `curl` — but
+A `525` immediately after a deploy is Cloudflare failing its TLS handshake to a slow origin. It
+clears within seconds, so trust the workflow over a single `curl` — but
 know how much patience each one has, because they differ:
 
 | | retries | total |
 |---|---|---|
-| `deploy-api.yml` | 12 × 10s | ~2 min |
+| `deploy-backend.yml` | 12 × 10s | ~2 min |
 | `deploy-web.yml` | 6 × 5s | **30 s** |
 
-Two minutes is comfortably longer than a Passenger restart; thirty seconds is not always. A red
+Two minutes is comfortably long; thirty seconds is not always. A red
 `deploy-web` right after a frontend-only push is more likely a slow origin than a bad build —
 re-run it before going looking for the bug.
 

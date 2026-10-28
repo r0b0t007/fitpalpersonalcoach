@@ -186,16 +186,16 @@ as a home-screen app, passkey sign-in, offline support, sync across your phone a
 
 ## Quick start (self-host)
 
-You need Node 22 or newer.
+You need PHP 8.4 or newer with Composer for the API, and Node 22 or newer to build the app.
+(This fork's API is a Laravel backend; upstream openGym's is a Node server.)
 
 ```bash
-git clone https://gitlab.com/DuarteSantos8/opengym
-cd openGym
-cp .env.example .env
 ./scripts/fetch-media.sh                     # exercise media (~140 MB), once
 
-cd api      && npm ci && node server.js &    # the API, on :3000
-cd frontend && npm install && npm run dev    # the app, on :5173
+cd backend  && cp .env.example .env          # set SESSION_SECRET to 64 hex characters
+composer install && php artisan key:generate && php artisan migrate
+php artisan serve &                          # the API, on :8000
+cd ../frontend && npm install && npm run dev # the app, on :5173
 ```
 
 Open **http://localhost:5173**, tap **Create profile**, and you're in.
@@ -208,7 +208,7 @@ Open **http://localhost:5173**, tap **Create profile**, and you're in.
 > openGym ships none of it: your instance downloads it from upstream. Reusing it yourself,
 > commercially or not, means clearing it with the rights holder — see [NOTICE.md](NOTICE.md).
 > Want it reachable from your phone over the internet with passkeys? You'll need an HTTPS
-> domain — a two-line change in `.env`. See **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
+> domain — a two-line change in `backend/.env`. See **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
 
 ## Mobile app (no server at all)
 
@@ -235,14 +235,15 @@ mobile app is the install-and-done flavor.
                        └──────────────────────────────┘│
                                                         ▼
                                         ┌──────────────────────────┐
-                                        │  api  (Node + WebAuthn)  │
-                                        │   └─ ./data (JSON files) │
+                                        │  backend (Laravel, PHP)  │
+                                        │   ├─ database            │
+                                        │   └─ DATA_DIR/media      │
                                         └──────────────────────────┘
 ```
 
 - **frontend/** — React + Vite (React Router + Zustand), built with `npm run build` to static files in `dist/`
-- **api/** — Node with no framework, two dependencies (`@simplewebauthn/server` for passkeys, `web-push` for notifications), storing everything as plain JSON files under `./data`
-- Whatever serves it — Apache, nginx, Caddy — hands out `dist/` and proxies `/api` to the API, so it is all **one origin**. Passkeys require that.
+- **backend/** — Laravel (PHP 8.4+): passkeys, sync, coaching, push, an operator panel, storing accounts and training in SQLite or MySQL/MariaDB and uploaded media under `DATA_DIR/media`; one cron line runs its reminders and queue
+- Whatever serves it — Apache, nginx, Caddy, LiteSpeed — hands out `dist/` and sends `/api` to Laravel, so it is all **one origin**. Passkeys require that.
 
 The full HTTP API is documented as an OpenAPI spec in [`backend/openapi.yaml`](backend/openapi.yaml) — browsable at [opengym.duarte-santos.ch/api.html](https://opengym.duarte-santos.ch/api.html).
 
@@ -292,11 +293,11 @@ waiting for a test on the staging instance.
 
 ## Tech
 
-React 19 + Vite (React Router, Zustand) · Node (no framework) · WebAuthn · exercise data from
+React 19 + Vite (React Router, Zustand) · Laravel (PHP) · WebAuthn · exercise data from
 [hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset)
 (MIT metadata and instructions; media © Gym visual — see [NOTICE.md](NOTICE.md)).
-No database server, no cloud dependencies, and no container runtime: the API is a Node process and
-the frontend is a folder of static files, which is all the shared hosting this deploys to allows.
+No cloud dependencies and no container runtime: the API is a PHP app with one cron line and the
+frontend is a folder of static files, which is all the shared hosting this deploys to allows.
 
 The training logic — progression rules, 1RM estimation, how a logged session is read back —
 lives in pure functions under `frontend/src/lib/` with tests next to them: `npm test` in

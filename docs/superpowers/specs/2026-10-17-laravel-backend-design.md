@@ -3,6 +3,13 @@
 Design spec, 2026-10-17. Decided with the owner; executed across Linear milestones R0–R5 in the
 "FitPal Coach" project.
 
+**Status (2026-10-28):** R0–R4 done. The cutover (§11) was done on 2026-10-26 (CHW-300): Laravel
+serves `coach.fitpal.ma/api`, with billing off and self-signup closed, and `api/` is retired
+(CHW-301). Still open: billing live on Creem, self-serve sign-up and the lab teardown (R5b,
+CHW-302). The rest of this document is the design as decided; where the cutover differed from
+§11 (no licence grant: the owner is an admin, and admins are exempt; Creem stays in test mode
+until R5b), `docs/CUTOVER_R5.md` is the record.
+
 ## 1. Why
 
 FitPal Coach is a React PWA (`frontend/`) on a single-file Node API (`api/server.js`, 2,585
