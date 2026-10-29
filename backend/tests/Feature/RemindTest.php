@@ -1,7 +1,8 @@
 <?php
 
 // fitpal:remind and fitpal:prune (CHW-263): the reminders at the member's own time and zone, the
-// previous-minute tolerance for a late cron run, never twice; and the hourly housekeeping.
+// look-back that covers the host's 5-minute cron ticks (CHW-311), never twice; and the hourly
+// housekeeping.
 
 use App\Jobs\SendPush;
 use App\Models\MediaUpload;
@@ -63,6 +64,34 @@ it('reminds at the member\'s own time in their own zone, and on a late cron run 
     $this->travelTo('2026-10-19T07:00:05Z');
     $this->artisan('fitpal:remind');
     Queue::assertNothingPushed();
+});
+
+it('sends every minute of a 5-minute cron cycle exactly once, a skipped tick included', function () {
+    $a1 = $this->f->a1;
+    // Monday 2026-10-19, in UTC. Ticks at 18:00, 18:05, 18:10 and 18:15, each 40 s late.
+    $ticks = fn (array $at) => array_map(fn ($t) => '2026-10-19T'.$t.':40Z', $at);
+    $remindAt = fn (string $time) => UserState::query()->updateOrCreate(['user_id' => $a1->id], ['state' => json_encode(PLAN + ['reminder' => ['on' => true, 'time' => $time]])]);
+    remindable($a1, []);
+    foreach (['17:59', '18:00', '18:01', '18:02', '18:03', '18:04', '18:05', '18:06', '18:09', '18:10'] as $time) {
+        $remindAt($time);
+        foreach ([['18:00', '18:05', '18:10', '18:15'], ['18:00', '18:10', '18:15']] as $run) {   // the second skips 18:05
+            User::query()->whereKey($a1->id)->update(['last_reminder' => null]);
+            $before = Queue::pushed(SendPush::class)->count();
+            foreach ($ticks($run) as $at) {
+                $this->travelTo($at);
+                $this->artisan('fitpal:remind')->assertSuccessful();
+            }
+            $new = Queue::pushed(SendPush::class)->slice($before)->map(fn (SendPush $j) => [$j->userId, $j->kind, $j->args[0]->name])->values()->all();
+            expect($new)->toBe([[$a1->id, 'day-reminder', 'Pull']], "$time, ticks ".implode(' ', $run));
+        }
+    }
+    // And no further back than two ticks: a time 11 minutes before the only run is not sent.
+    $remindAt('17:49');
+    User::query()->whereKey($a1->id)->update(['last_reminder' => null]);
+    $before = Queue::pushed(SendPush::class)->count();
+    $this->travelTo('2026-10-19T18:00:40Z');
+    $this->artisan('fitpal:remind');
+    expect(Queue::pushed(SendPush::class)->count())->toBe($before);
 });
 
 it('sends the check-in nudge on the check-in day, once a period, even on a rest day', function () {

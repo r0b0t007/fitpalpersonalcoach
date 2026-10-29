@@ -16,7 +16,7 @@ path below is relative to the account home.
 | API code | `~/fitpal-coach-api` (Node 22) | `~/fitpal-coach-backend` (Laravel, PHP 8.5) |
 | Data | JSON files in `~/fitpal-coach-data` | MariaDB `pawputif_fitpalcoach`. `DATA_DIR` still points at `~/fitpal-coach-data` for `media/`, `vapid.json` and `secret`. |
 | Deploys | `deploy-api.yml` (`DEPLOY_API`) | `deploy-backend.yml` (`DEPLOY_BACKEND`, `BACKEND_SERVER_DIR`, `BACKEND_CHECK_URL`) |
-| Cron | none for this app | `schedule:run` every minute: queue, reminders, prune |
+| Cron | none for this app | `schedule:run` (the host runs it every 5 minutes, CHW-311): queue, reminders, prune, nightly dump |
 
 These stay as they are:
 - `~/coach.fitpal.ma/` and its `deploy-web.yml`, which already excludes `/api`;

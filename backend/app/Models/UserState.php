@@ -10,9 +10,9 @@ use stdClass;
 /**
  * The raw JSON of one account's training state; see DataController for why it stays raw.
  *
- * Beside it, the two values fitpal:remind reads every minute for every member — S.reminder and
+ * Beside it, the two values fitpal:remind reads on every scheduler run for every member — S.reminder and
  * S.checkinDay — kept in columns of their own, derived whenever the state is saved: reading them
- * out of every member's state each minute would parse megabytes of workouts 1,440 times a day.
+ * out of every member's state on each run would parse megabytes of workouts 288 times a day.
  */
 class UserState extends Model
 {

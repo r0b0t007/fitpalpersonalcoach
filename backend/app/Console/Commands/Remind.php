@@ -14,25 +14,30 @@ use Illuminate\Support\Facades\DB;
 use stdClass;
 
 /**
- * The two reminders, every minute from the scheduler (api/server.js's 10 s loop): "workout planned
- * today" and the weekly check-in nudge, each at the time the member chose, on their own clock, for
- * members a browser is subscribed for who turned reminders on.
+ * The two reminders, on every scheduler run (api/server.js's 10 s loop): "workout planned today"
+ * and the weekly check-in nudge, each at the time the member chose, on their own clock, for members
+ * a browser is subscribed for who turned reminders on.
  *
- * Cron fires every minute but up to ~51 s late (measured, docs/DEPLOY_COACH_SUBDOMAIN.md), so the
- * day reminder is due when its time is this minute OR the one before. The check-in nudge is owed
- * for the whole check-in day from its time on, until sent: a missed minute (a deploy, a DST jump
+ * The host runs cron every 5 minutes, not every minute, and each run starts up to ~51 s late
+ * (docs/DEPLOY_COACH_SUBDOMAIN.md, CHW-311). So the day reminder is due when its time is any of
+ * the last LOOKBACK_MINUTES minutes: two runs' worth, so a skipped run (a deploy's maintenance
+ * window) still loses nothing. It arrives up to about 5 minutes late. The check-in nudge is owed
+ * for the whole check-in day from its time on, until sent: a missed run (a deploy, a DST jump
  * over 02:30) costs it a few minutes, not the week — Node's exact-minute match lost the week.
  * last_reminder / last_checkin_reminder, written under the account's row lock before the push is
  * queued, are what make each never doubled.
  *
- * Read every minute for everyone: only the small reminder columns (UserState::derived). A
+ * Read on every run for everyone: only the small reminder columns (UserState::derived). A
  * member's whole state only once something of theirs is due.
  */
 final class Remind extends Command
 {
+    /** Two 5-minute cron ticks: the minutes since the run before last. */
+    public const LOOKBACK_MINUTES = 10;
+
     protected $signature = 'fitpal:remind';
 
-    protected $description = 'Queue the reminder pushes due this minute';
+    protected $description = 'Queue the reminder pushes due since the last runs';
 
     public function handle(): int
     {
@@ -65,15 +70,15 @@ final class Remind extends Command
     }
 
     /**
-     * The member's local minute their reminder time names — now, or a minute ago for a cron run
-     * that started late — or null.
+     * The member's local minute their reminder time names, if it is one of the last
+     * LOOKBACK_MINUTES (the most recent first), or null.
      *
      * @return array{date: string, hhmm: string}|null
      */
     public static function dueMinute(mixed $time, string $tz, DateTimeImmutable $now): ?array
     {
-        foreach ([$now, $now->modify('-1 minute')] as $instant) {
-            $local = Reminders::localNow($tz, $instant);
+        for ($back = 0; $back <= self::LOOKBACK_MINUTES; $back++) {
+            $local = Reminders::localNow($tz, $now->modify("-{$back} minutes"));
             if ($local === null) {
                 return null;   // not a zone: skipped, not guessed
             }
@@ -121,7 +126,7 @@ final class Remind extends Command
                 $period = Reminders::checkinPeriodStart($s, $checkin['date']);
                 if ($u->last_checkin_reminder !== $period) {
                     // Handled for this period either way: nudged now, or already checked in — so
-                    // the rest of the day does not read their state again each minute.
+                    // the rest of the day does not read their state again on each run.
                     $u->forceFill(['last_checkin_reminder' => $period]);
                     if (Reminders::checkinReminderDue($s, $checkin['date'])) {
                         $pushes[] = ['checkin-reminder', []];
