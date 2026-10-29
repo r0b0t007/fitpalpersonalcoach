@@ -47,6 +47,17 @@ php artisan fitpal:panel-login <admin id>   # asks for the email and, hidden, th
 
 Only admins get in; every other account signs in with a passkey and has no password.
 
+## Demo clients
+
+Six clients with months of history, on one coach's roster, for looking at the coach screens with
+data in them (and filming them: docs/VIDEO_CAPTURE.md). Nobody can sign in as one.
+
+```sh
+php artisan fitpal:seed-demo [--coach=<id>] [--tz=Africa/Casablanca]   # --force on production
+php artisan fitpal:seed-demo --list
+php artisan fitpal:seed-demo --remove      # exactly what it added
+```
+
 ## Test
 
 ```sh

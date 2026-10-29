@@ -91,19 +91,20 @@ To refilm them, see `docs/VIDEO_CAPTURE.md`. Two things that are specific to the
   client's state. Set it before capturing:
 
   ```bash
-  node -e "const fs=require('fs'),p=process.argv[1];
-    const s=JSON.parse(fs.readFileSync(p,'utf8')); s.lang='fr';
-    fs.writeFileSync(p, JSON.stringify(s))" "$DATA_DIR/state-demo-karim.json"
+  cd backend && php artisan tinker --execute '$r = App\Models\UserState::find("demo-karim");
+    $s = json_decode($r->state); $s->lang = "fr"; $r->state = App\Support\Js::stringify($s); $r->save();'
   ```
 
-  Restart the API afterwards — it holds state in memory. The coach screens follow the same rule
+  No restart: the backend reads the database on every request. The coach screens follow the same rule
   (CHW-212): the coach's own `S.lang` sets their language. Set it from the app, signed in as
   the capture instance's coach (Account → Training settings → Language), before each language's
-  pair of shots. Not by editing a file: the coach's id is whatever `seed-demo.mjs` found in
-  db.json, and a coach who never changed a setting has no state file yet.
-- **"Training now" cannot be seeded.** It reads in-memory presence with a ~70 second TTL, so
-  `seed-demo.mjs` cannot fake it. Have a demo client POST `/api/activity` immediately before the
-  capture and the live state on the screenshot is genuinely real.
+  pair of shots. Not by editing the database: the coach's id is whichever coach
+  `php artisan fitpal:seed-demo` seeded onto, and a coach who never changed a setting has no
+  state row yet.
+- **"Training now" cannot be seeded.** It reads the `presence` table, whose rows go stale after
+  70 seconds, so `fitpal:seed-demo` cannot fake it. A demo client cannot sign in to send the
+  heartbeat (`POST /api/activity`, `ActivityController`), so write its row by hand immediately
+  before the capture, in the shape that heartbeat writes.
 - **Always verify which screen you actually captured.** A capture can silently land on the app's
   default route instead of the one you asked for, and the resulting PNG looks perfectly fine
   until someone reads it. This shipped a dashboard crop labelled as the client roster once.
