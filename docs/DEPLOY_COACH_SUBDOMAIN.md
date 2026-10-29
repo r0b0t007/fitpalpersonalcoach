@@ -318,12 +318,29 @@ nothing — `-q` silences `schedule:run` itself — while anything that still pr
 boot, a composer platform check, a fatal error) is appended to a log instead of being thrown away:
 
 ```
-* * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run -q >> storage/logs/cron.log 2>&1
+0,5,10,15,20,25,30,35,40,45,50,55 * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run -q >> storage/logs/cron.log 2>&1
 ```
+
+(Every 5 minutes is what the host keeps; see below.)
 
 Verified on the lab: a normal `schedule:run -q` writes zero bytes, so `cron.log` stays empty while
 all is well and only grows when the scheduler itself cannot run — the one failure no Laravel hook
 can report, since Laravel never boots.
+
+**The host runs it every 5 minutes, not every minute.** The line was installed as `* * * * *` at
+the cutover; on 2026-10-29 it read `0,5,10,15,20,25,30,35,40,45,50,55 * * * *`, like every other
+line on the account (pawpawcare's and the lab's already did before it), and the spool file had
+been rewritten that day by something other than us. The host appears to enforce a 5-minute
+minimum, so installing `* * * * *` again does not stick. The schedule is built for it (CHW-311):
+the reminders look back over two ticks' minutes, so none is missed, and arrive up to about 5
+minutes late; a queued push waits for the next tick, up to about 5 minutes; and the rest-timer
+push, which is no use late, is dropped when it runs more than 30 s past the rest's end
+(`RestTimerPush::LATE_SECONDS`). The app's own timer and the phone app's local notification do not
+depend on it.
+
+`-q` has a side effect: it puts `SHELL_VERBOSITY=-1` in the environment, which every scheduled
+command inherits, so a command's own output is silenced even where the schedule appends it to a
+log. A scheduled command whose output matters passes `-v` (the nightly dump does).
 
 **Backups**: two kinds, both `fitpal:backup-db` (gzipped `mariadb-dump --single-transaction`), both
 in `~/fitpal-coach-backend/storage/backups`, which no deploy touches:
@@ -348,15 +365,15 @@ scheduler then hands its background worker. If the account's PHP is ever changed
 run dies at boot; that lands in `storage/logs/cron.log` (above), not in `laravel.log`. Check
 `php -v` after any change in the selector.
 
-Over 131 consecutive minutes it fired in **every minute (0 missed)**, but not on the minute: the
-start is spread across the minute (2 s to 51 s, median 23 s) — the host staggers user crons. A job
-"every minute" can therefore run up to ~50 s late; reminders keyed on `hh:mm` are unaffected, and
-rest-timer pushes keep the spec's fallback (a client-side timer with a local notification).
+Measured on the lab in CHW-227, over 131 consecutive minutes it fired in **every minute (0
+missed)**, but not on the minute: the start is spread across the minute (2 s to 51 s, median 23 s)
+— the host staggers user crons. That was before the host's 5-minute rewrite above; each tick still
+starts that late.
 
 **Queue under LVE**: `queue:work database --max-time=55 --sleep=1 --stop-when-empty` from the
 scheduler, `runInBackground()`. Six 20-second jobs: the first worker ran three (55 s budget) and
 exited cleanly, the next minute's worker ran the other three; no LVE kill, no failed job, 26 MB per
-worker. **This schedule is in the repo** (`backend/routes/console.php`), hardened over two reviews:
+worker. (With the 5-minute tick, "the next minute's worker" is now the next tick's.) **This schedule is in the repo** (`backend/routes/console.php`), hardened over two reviews:
 - `withoutOverlapping(2)`: the overlap lock is released by the background process's finish
   callback, which never runs if the host kills the worker, and Laravel's default expiry is 24
   hours — every push and reminder would silently wait until tomorrow.

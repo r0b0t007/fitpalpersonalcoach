@@ -3,17 +3,24 @@
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
-// The reminders, every minute (app/Console/Commands/Remind.php), BEFORE the worker below starts:
-// schedule:run goes in order, and a worker started first would find the queue empty and exit
-// before these pushes were queued — a minute late, on top of cron's own lateness. In the
-// foreground and short (it reads only the reminder columns); what it sends is recorded, so a
-// cron run that starts late and looks at the minute before sends nothing twice.
+// The host runs cron, and so this scheduler, every 5 minutes: it rewrites a crontab's
+// `* * * * *` to `0,5,10,…` (CHW-311, docs/DEPLOY_COACH_SUBDOMAIN.md). The everyMinute() events
+// below run on each of those ticks; nothing here may assume a run every minute.
+//
+// The reminders (app/Console/Commands/Remind.php), BEFORE the worker below starts: schedule:run
+// goes in order, and a worker started first would find the queue empty and exit before these
+// pushes were queued — a whole tick late. In the foreground and short (it reads only the reminder
+// columns); it looks back over the last two ticks' minutes, and what it sends is recorded, so no
+// minute is missed and none is sent twice.
 Schedule::command('fitpal:remind')->everyMinute()->withoutOverlapping(2);
 
-// The queue, drained from the scheduler: shared hosting has no supervisor, so a worker lives at
-// most about one cron minute. Measured on the cPanel host in CHW-227 (docs/DEPLOY_COACH_SUBDOMAIN.md):
-// cron fires every minute but 2-51 s late, a 55 s worker exits cleanly, and the next minute's
-// worker picks up the rest.
+// The queue, drained from the scheduler: shared hosting has no supervisor, so a worker lives about
+// a minute per tick. Measured on the cPanel host in CHW-227 (docs/DEPLOY_COACH_SUBDOMAIN.md): a run
+// starts 2-51 s late and a 55 s worker exits cleanly. With a tick every 5 minutes a push waits for
+// the next one, up to about 5 minutes. A longer-lived worker would cover the gap but make this
+// shared account (which also runs FIT'ONE) host a near-permanent process; it is not done
+// (CHW-311). The rest timer, the one push that must be on time, drops what is late instead
+// (RestTimerPush::LATE_SECONDS).
 //
 // The bounds fit together: --max-time is only checked BETWEEN jobs, so a worker lives up to
 // max-time + timeout = 105 s, which stays under the 2-minute overlap lock (a second worker never
@@ -36,7 +43,7 @@ if ($connection !== 'sync') {
         ->runInBackground()
         // Exit codes, not job failures (those are logged one by one: AppServiceProvider's
         // Queue::failing). A non-zero exit is a worker that could not start, or a job that hit
-        // --timeout and took the worker down; the next minute's worker carries on either way.
+        // --timeout and took the worker down; the next tick's worker carries on either way.
         ->onFailure(fn () => Log::warning('queue worker exited non-zero: a job hit --timeout, or the worker could not start'));
 }
 
@@ -55,9 +62,12 @@ Schedule::command('fitpal:prune')->hourly()->withoutOverlapping(10)->runInBackgr
 // a pruned audit row survives up to two weeks in these copies (docs/DEPLOY_COACH_SUBDOMAIN.md).
 // 03:00 UTC is the middle of the night in Morocco; in the background, so the reminders due that
 // minute do not wait. The command's own output (what it dumped, or why it could not) goes to
-// logs/backup.log, since a background event's output is otherwise thrown away. The failure
-// message repeats the whole command: a hand run without --keep=14 would prune the folder to 5.
-$nightly = 'fitpal:backup-db --into=nightly --keep=14';
+// logs/backup.log, since a background event's output is otherwise thrown away. -v because the cron
+// line runs schedule:run -q, and -q puts SHELL_VERBOSITY=-1 in the environment every scheduled
+// command inherits: without an explicit verbosity of its own the dump prints nothing, failures
+// included, and the log stays empty (CHW-311). The failure message repeats the whole command: a
+// hand run without --keep=14 would prune the folder to 5.
+$nightly = 'fitpal:backup-db --into=nightly --keep=14 -v';
 Schedule::command($nightly)
     ->dailyAt('03:00')
     ->withoutOverlapping(30)
