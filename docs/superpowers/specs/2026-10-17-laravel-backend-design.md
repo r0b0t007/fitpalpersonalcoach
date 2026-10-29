@@ -249,8 +249,9 @@ applied to the assembled file — and `MEDIA_MAX_VIDEO_MB` stays below 100. Deta
 `docs/DEPLOY_COACH_SUBDOMAIN.md` → "Laravel backend".
 
 ### Background work
-One cron line runs the scheduler every minute: `fitpal:remind` (day and check-in reminders;
-minute granularity matches `reminder.time === hh:mm`), `queue:work database --max-time=55
+One cron line runs the scheduler every minute (on the cPanel host it turned out to be every 5
+minutes, so the reminders look back over the last 10 minutes: CHW-311): `fitpal:remind` (day and
+check-in reminders; minute granularity matches `reminder.time === hh:mm`), `queue:work database --max-time=55
 --sleep=1 --stop-when-empty` with `withoutOverlapping` (rest-timer pushes are delayed jobs,
 assignment pushes are jobs), `fitpal:prune` hourly (assignments, audit retention, expired
 challenges and presence, `login_links` older than 24 hours). Push goes through `minishlink/web-push` with the imported VAPID keys;

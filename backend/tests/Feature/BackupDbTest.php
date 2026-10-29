@@ -133,7 +133,7 @@ it('refuses an --into that is not one plain folder name', function (string $into
 it('is scheduled nightly into its own folder, in the background', function () {
     $nightly = collect(app(Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'fitpal:backup-db'));
     expect($nightly)->not->toBeNull()
-        ->and((string) $nightly->command)->toContain('--into=nightly')->toContain('--keep=14')
+        ->and((string) $nightly->command)->toContain('--into=nightly')->toContain('--keep=14')->toContain(' -v')
         ->and($nightly->expression)->toBe('0 3 * * *')
         ->and($nightly->runInBackground)->toBeTrue()
         ->and($nightly->withoutOverlapping)->toBeTrue()

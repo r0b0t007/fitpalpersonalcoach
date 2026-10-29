@@ -174,9 +174,10 @@ kept byte for byte and keyed with `SESSION_SECRET`, so the cutover kept every se
 phone signed in. The same token is the cookie for browsers and the Bearer token for the paired
 mobile app. Env-gated as before: `ADMIN_UIDS`, `INVITE_ONLY`, `ALLOW_GUEST`, `SELF_SERVE_COACH`,
 billing (`CREEM_*`). The audit log is the `audit_events` table. Shared hosting has no supervisor,
-so one cron line runs `schedule:run` every minute (`routes/console.php`): reminders, the queue
-worker (pushes; mail is sent after the response, not queued), the hourly prune and the nightly
-database dump. Filament serves the operator panel at `/api/admin-panel`.
+so one cron line runs `schedule:run` (`routes/console.php`): reminders, the queue worker (pushes;
+mail is sent after the response, not queued), the hourly prune and the nightly database dump. The
+host runs it every 5 minutes, not every minute (CHW-311): nothing scheduled may assume a run every
+minute, and a test fails an event set to a minute off those ticks. Filament serves the operator panel at `/api/admin-panel`.
 
 ### MCP server (`mcp/src`)
 

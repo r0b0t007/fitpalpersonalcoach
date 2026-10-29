@@ -31,13 +31,17 @@ The Vite proxy forwards `/api` and sets the `Origin` header the forgery check ex
 
 ## Scheduler
 
-One cron line drives everything that runs on its own (`routes/console.php`): the reminders every
-minute, the queue worker (pushes; mail goes out after the response instead) every minute, the
-hourly prune and the nightly database dump into `storage/backups/nightly`. Shared hosting has no supervisor, so the worker lives at most
-about a minute and the next one carries on.
+One cron line drives everything that runs on its own (`routes/console.php`): the reminders and
+the queue worker (pushes; mail goes out after the response instead) on every run, the hourly prune
+and the nightly database dump into `storage/backups/nightly`. Shared hosting has no supervisor, so
+the worker lives at most about a minute and the next run's carries on.
+
+The cPanel host runs the line every 5 minutes and rewrites `* * * * *` to that (CHW-311), so the
+reminders look back over the last two runs and a queued push waits up to about 5 minutes; see
+`docs/DEPLOY_COACH_SUBDOMAIN.md` → Cron.
 
 ```
-* * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run -q >> storage/logs/cron.log 2>&1
+0,5,10,15,20,25,30,35,40,45,50,55 * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run -q >> storage/logs/cron.log 2>&1
 ```
 
 ## Admin panel
@@ -58,6 +62,17 @@ php artisan fitpal:panel-login <admin id>   # asks for the email and, hidden, th
 ```
 
 Only admins get in; every other account signs in with a passkey and has no password.
+
+## Demo clients
+
+Six clients with months of history, on one coach's roster, for looking at the coach screens with
+data in them (and filming them: docs/VIDEO_CAPTURE.md). Nobody can sign in as one.
+
+```sh
+php artisan fitpal:seed-demo [--coach=<id>] [--tz=Africa/Casablanca]   # --force on production
+php artisan fitpal:seed-demo --list
+php artisan fitpal:seed-demo --remove      # exactly what it added
+```
 
 ## Test
 

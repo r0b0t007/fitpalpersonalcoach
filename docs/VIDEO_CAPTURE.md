@@ -93,14 +93,24 @@ out, and that only shows up in the final render.
 
 ## Seeding what is on screen
 
-> **Out of date since CHW-301.** This section describes the Node API's seeder (`api/seed-demo.mjs`)
-> and editing its JSON files with the API stopped. Both are gone: the backend keeps its data in a
-> database. Until `fitpal:seed-demo` exists (CHW-307), read the old script with
-> `git show 5d0c52f4:api/seed-demo.mjs` for what it seeded, and capture against an instance whose
-> demo clients already exist (production's were imported at the cutover).
+The captures are filmed against six demo clients, seeded onto the capture instance's coach:
 
-The captures are filmed against `api/seed-demo.mjs`'s six demo clients. Some states cannot be
-reached by clicking — a used invite in the sheet's **Joined** section needs a real passkey
-registration, which no automation can drive — so those rows are written into the capture
-instance's `db.json` directly, with the API stopped so `saveDb()` cannot overwrite them. Keep
-them consistent with what the other episodes already filmed.
+```bash
+cd backend
+php artisan fitpal:seed-demo --tz=Africa/Casablanca   # the coach's calendar; --coach <id> if there are several
+php artisan fitpal:seed-demo --list                   # what is there
+php artisan fitpal:seed-demo --remove                 # exactly what it added, and nothing else
+```
+
+The histories are counted back from the day it runs: re-seeded the same day, the roster comes out
+the same; on another day the same six people have the same shape (who stopped, who is new, whose
+program is pending), on dates that moved with today. Re-seed on the day you film. `--tz` matters: the dates are calendar days, and seeded in UTC a check-in filed "today"
+reads as yesterday for a coach east of Greenwich in the first hours after midnight. The demo
+clients have no passkey, so nobody can sign in as one. On a production instance the command asks
+for `--force`.
+
+Some states cannot be reached by clicking — a used invite in the sheet's **Joined** section
+needs a real passkey registration, which no automation can drive — so those rows are written
+into the capture instance's database directly (`php artisan tinker`; an `invites` row with
+`used_by` and `used_at` set). Nothing needs restarting: the backend reads the database on every
+request. Keep them consistent with what the other episodes already filmed.

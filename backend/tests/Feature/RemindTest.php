@@ -1,7 +1,8 @@
 <?php
 
 // fitpal:remind and fitpal:prune (CHW-263): the reminders at the member's own time and zone, the
-// previous-minute tolerance for a late cron run, never twice; and the hourly housekeeping.
+// look-back that covers the host's 5-minute cron ticks (CHW-311), never twice; and the hourly
+// housekeeping.
 
 use App\Jobs\SendPush;
 use App\Models\MediaUpload;
@@ -63,6 +64,34 @@ it('reminds at the member\'s own time in their own zone, and on a late cron run 
     $this->travelTo('2026-10-19T07:00:05Z');
     $this->artisan('fitpal:remind');
     Queue::assertNothingPushed();
+});
+
+it('sends every minute of a 5-minute cron cycle exactly once, a skipped tick included', function () {
+    $a1 = $this->f->a1;
+    // Monday 2026-10-19, in UTC. Ticks at 18:00, 18:05, 18:10 and 18:15, each 40 s late.
+    $ticks = fn (array $at) => array_map(fn ($t) => '2026-10-19T'.$t.':40Z', $at);
+    $remindAt = fn (string $time) => UserState::query()->updateOrCreate(['user_id' => $a1->id], ['state' => json_encode(PLAN + ['reminder' => ['on' => true, 'time' => $time]])]);
+    remindable($a1, []);
+    foreach (['17:59', '18:00', '18:01', '18:02', '18:03', '18:04', '18:05', '18:06', '18:09', '18:10'] as $time) {
+        $remindAt($time);
+        foreach ([['18:00', '18:05', '18:10', '18:15'], ['18:00', '18:10', '18:15']] as $run) {   // the second skips 18:05
+            User::query()->whereKey($a1->id)->update(['last_reminder' => null]);
+            $before = Queue::pushed(SendPush::class)->count();
+            foreach ($ticks($run) as $at) {
+                $this->travelTo($at);
+                $this->artisan('fitpal:remind')->assertSuccessful();
+            }
+            $new = Queue::pushed(SendPush::class)->slice($before)->map(fn (SendPush $j) => [$j->userId, $j->kind, $j->args[0]->name])->values()->all();
+            expect($new)->toBe([[$a1->id, 'day-reminder', 'Pull']], "$time, ticks ".implode(' ', $run));
+        }
+    }
+    // And no further back than two ticks: a time 11 minutes before the only run is not sent.
+    $remindAt('17:49');
+    User::query()->whereKey($a1->id)->update(['last_reminder' => null]);
+    $before = Queue::pushed(SendPush::class)->count();
+    $this->travelTo('2026-10-19T18:00:40Z');
+    $this->artisan('fitpal:remind');
+    expect(Queue::pushed(SendPush::class)->count())->toBe($before);
 });
 
 it('sends the check-in nudge on the check-in day, once a period, even on a rest day', function () {
@@ -159,6 +188,23 @@ it('still nudges for the check-in later on the day when its minute was missed â€
     Queue::assertNothingPushed();
 });
 
+it('sends a check-in nudge timed in the check-in day\'s last minutes on the first run after midnight', function () {
+    $a1 = $this->f->a1;
+    // Sunday 2026-10-25 at 23:57: the 23:55 run is before it, and the next run is already Monday.
+    remindable($a1, ['reminder' => ['on' => true, 'time' => '23:57', 'tz' => 'UTC']]);
+    $this->travelTo('2026-10-25T23:55:40Z');
+    $this->artisan('fitpal:remind');
+    Queue::assertNothingPushed();
+    $this->travelTo('2026-10-26T00:00:40Z');
+    $this->artisan('fitpal:remind');
+    expect(pushed())->toBe([[$a1->id, 'checkin-reminder', null]])
+        ->and($a1->fresh()->last_checkin_reminder)->toBe('2026-10-25');
+    Queue::fake();
+    $this->travelTo('2026-10-26T00:05:40Z');
+    $this->artisan('fitpal:remind');
+    Queue::assertNothingPushed();
+});
+
 it('marks a member who already checked in as handled, so their state is not read all day', function () {
     $a1 = $this->f->a1;
     remindable($a1, PLAN + ['reminder' => ['on' => true, 'time' => '08:00', 'tz' => 'UTC'], 'checkins' => [['d' => '2026-10-25']]]);
@@ -194,6 +240,14 @@ it('runs the reminders before the worker starts, and the prune in the background
     $prune = collect(app(Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'fitpal:prune'));
     expect(strpos($schedule, "Schedule::command('fitpal:remind')"))->toBeLessThan(strpos($schedule, 'Schedule::command("queue:work'))
         ->and($prune->runInBackground)->toBeTrue();
+});
+
+it('schedules nothing off the host\'s 5-minute ticks', function () {
+    // The host runs cron at :00, :05, â€¦ (CHW-311): an event due at any other minute never runs.
+    $onTick = fn (string $m) => $m === '*' || (ctype_digit($m) && (int) $m % 5 === 0) || (preg_match('#^\*/(\d+)$#D', $m, $x) && (int) $x[1] % 5 === 0);
+    foreach (app(Schedule::class)->events() as $e) {
+        expect(collect(explode(',', explode(' ', $e->expression)[0]))->every($onTick))->toBeTrue("{$e->command}: {$e->expression}");
+    }
 });
 
 it('keeps an upload a chunk revived while the prune ran, and clears expired cache rows', function () {

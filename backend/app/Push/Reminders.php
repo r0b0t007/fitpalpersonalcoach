@@ -21,20 +21,27 @@ final class Reminders
     public const DEFAULT_CHECKIN_DAY = 0;
 
     /**
-     * `userNow(tz)` at $instant: the date and hh:mm on the member's own clock, or null for a zone
-     * that is not one (that member is skipped rather than guessed for).
+     * `userNow(tz)` at $now and at each of the $back minutes before it, the most recent first: the
+     * date and hh:mm on the member's own clock, or null for a zone that is not one (that member is
+     * skipped rather than guessed for). The zone is read once; the minutes are counted on UTC and
+     * only then put on the member's clock, so a DST change cannot bend them.
      *
-     * @return array{date: string, hhmm: string}|null
+     * @return list<array{date: string, hhmm: string}>|null
      */
-    public static function localNow(string $tz, DateTimeImmutable $instant): ?array
+    public static function localMinutes(string $tz, DateTimeImmutable $now, int $back): ?array
     {
         try {
-            $local = $instant->setTimezone(new DateTimeZone($tz));
+            $zone = new DateTimeZone($tz);
         } catch (Throwable) {
             return null;
         }
+        $minutes = [];
+        for ($i = 0; $i <= $back; $i++) {
+            $local = $now->modify("-{$i} minutes")->setTimezone($zone);
+            $minutes[] = ['date' => $local->format('Y-m-d'), 'hhmm' => $local->format('H:i')];
+        }
 
-        return ['date' => $local->format('Y-m-d'), 'hhmm' => $local->format('H:i')];
+        return $minutes;
     }
 
     /** Weekday of an ISO date, read at midday UTC so no zone moves it (`new Date(iso+'T12:00:00Z')`). */
