@@ -188,6 +188,23 @@ it('still nudges for the check-in later on the day when its minute was missed â€
     Queue::assertNothingPushed();
 });
 
+it('sends a check-in nudge timed in the check-in day\'s last minutes on the first run after midnight', function () {
+    $a1 = $this->f->a1;
+    // Sunday 2026-10-25 at 23:57: the 23:55 run is before it, and the next run is already Monday.
+    remindable($a1, ['reminder' => ['on' => true, 'time' => '23:57', 'tz' => 'UTC']]);
+    $this->travelTo('2026-10-25T23:55:40Z');
+    $this->artisan('fitpal:remind');
+    Queue::assertNothingPushed();
+    $this->travelTo('2026-10-26T00:00:40Z');
+    $this->artisan('fitpal:remind');
+    expect(pushed())->toBe([[$a1->id, 'checkin-reminder', null]])
+        ->and($a1->fresh()->last_checkin_reminder)->toBe('2026-10-25');
+    Queue::fake();
+    $this->travelTo('2026-10-26T00:05:40Z');
+    $this->artisan('fitpal:remind');
+    Queue::assertNothingPushed();
+});
+
 it('marks a member who already checked in as handled, so their state is not read all day', function () {
     $a1 = $this->f->a1;
     remindable($a1, PLAN + ['reminder' => ['on' => true, 'time' => '08:00', 'tz' => 'UTC'], 'checkins' => [['d' => '2026-10-25']]]);
@@ -223,6 +240,14 @@ it('runs the reminders before the worker starts, and the prune in the background
     $prune = collect(app(Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'fitpal:prune'));
     expect(strpos($schedule, "Schedule::command('fitpal:remind')"))->toBeLessThan(strpos($schedule, 'Schedule::command("queue:work'))
         ->and($prune->runInBackground)->toBeTrue();
+});
+
+it('schedules nothing off the host\'s 5-minute ticks', function () {
+    // The host runs cron at :00, :05, â€¦ (CHW-311): an event due at any other minute never runs.
+    $onTick = fn (string $m) => $m === '*' || (ctype_digit($m) && (int) $m % 5 === 0) || (preg_match('#^\*/(\d+)$#D', $m, $x) && (int) $x[1] % 5 === 0);
+    foreach (app(Schedule::class)->events() as $e) {
+        expect(collect(explode(',', explode(' ', $e->expression)[0]))->every($onTick))->toBeTrue("{$e->command}: {$e->expression}");
+    }
 });
 
 it('keeps an upload a chunk revived while the prune ran, and clears expired cache rows', function () {

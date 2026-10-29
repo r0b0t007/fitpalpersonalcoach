@@ -57,9 +57,13 @@ final class Remind extends Command
                 continue;
             }
             $tz = Js::truthy($reminder->tz ?? null) ? Js::string($reminder->tz) : 'UTC';
+            $minutes = Reminders::localMinutes($tz, $now, self::LOOKBACK_MINUTES);
+            if ($minutes === null) {
+                continue;   // not a zone: skipped, not guessed
+            }
             $time = $reminder->time ?? null;
-            $day = self::dueMinute($time, $tz, $now);
-            $checkin = self::checkinOwed($time, $tz, $now, $row->checkin_day ?? Reminders::DEFAULT_CHECKIN_DAY, $row->last_checkin_reminder);
+            $day = self::dueMinute($time, $minutes);
+            $checkin = self::checkinOwed($time, $minutes, $row->checkin_day ?? Reminders::DEFAULT_CHECKIN_DAY, $row->last_checkin_reminder);
             if ($day !== null || $checkin !== null) {
                 $sent += $this->remind($row->id, $day, $checkin);
             }
@@ -70,18 +74,16 @@ final class Remind extends Command
     }
 
     /**
-     * The member's local minute their reminder time names, if it is one of the last
-     * LOOKBACK_MINUTES (the most recent first), or null.
+     * The member's local minute their reminder time names, if it is one of $minutes (the last
+     * LOOKBACK_MINUTES, Reminders::localMinutes), or null. Its date is the minute's own: a time
+     * just before midnight is sent on the first run after it, naming that evening's routine.
      *
+     * @param  list<array{date: string, hhmm: string}>  $minutes
      * @return array{date: string, hhmm: string}|null
      */
-    public static function dueMinute(mixed $time, string $tz, DateTimeImmutable $now): ?array
+    public static function dueMinute(mixed $time, array $minutes): ?array
     {
-        for ($back = 0; $back <= self::LOOKBACK_MINUTES; $back++) {
-            $local = Reminders::localNow($tz, $now->modify("-{$back} minutes"));
-            if ($local === null) {
-                return null;   // not a zone: skipped, not guessed
-            }
+        foreach ($minutes as $local) {
             if ($time === $local['hhmm']) {
                 return $local;
             }
@@ -91,21 +93,28 @@ final class Remind extends Command
     }
 
     /**
-     * Today on the member's clock when the check-in nudge may be owed: their check-in day, at or
-     * past their time, this period not yet handled. Whether one is actually owed (no check-in yet
-     * this period) needs the state; that is remind()'s to read.
+     * The member's check-in day when the check-in nudge may be owed: one of $minutes falls on it at
+     * or past their time, and this period is not yet handled. Read over the whole look-back, not
+     * only now: a time in a check-in day's last minutes comes after its last run, and the next run
+     * is already on the next day. Whether one is actually owed (no check-in yet this period) needs
+     * the state; that is remind()'s to read.
      *
+     * @param  list<array{date: string, hhmm: string}>  $minutes
      * @return array{date: string, hhmm: string}|null
      */
-    public static function checkinOwed(mixed $time, string $tz, DateTimeImmutable $now, int $checkinDay, ?string $handled): ?array
+    public static function checkinOwed(mixed $time, array $minutes, int $checkinDay, ?string $handled): ?array
     {
-        $local = Reminders::localNow($tz, $now);
-        if ($local === null || ! is_string($time) || ! preg_match('/^\d\d:\d\d$/D', $time) || strcmp($local['hhmm'], $time) < 0
-            || Reminders::weekday($local['date']) !== $checkinDay) {
+        if (! is_string($time) || ! preg_match('/^\d\d:\d\d$/D', $time)) {
             return null;
         }
+        $weekday = [];
+        foreach ($minutes as $local) {
+            if (strcmp($local['hhmm'], $time) >= 0 && ($weekday[$local['date']] ??= Reminders::weekday($local['date'])) === $checkinDay) {
+                return $handled === $local['date'] ? null : $local;   // the period starts on the check-in day itself
+            }
+        }
 
-        return $handled === $local['date'] ? null : $local;   // the period starts on the check-in day itself
+        return null;
     }
 
     /**

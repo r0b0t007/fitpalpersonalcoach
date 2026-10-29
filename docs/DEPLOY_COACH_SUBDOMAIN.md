@@ -318,8 +318,10 @@ nothing — `-q` silences `schedule:run` itself — while anything that still pr
 boot, a composer platform check, a fatal error) is appended to a log instead of being thrown away:
 
 ```
-* * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run -q >> storage/logs/cron.log 2>&1
+0,5,10,15,20,25,30,35,40,45,50,55 * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run -q >> storage/logs/cron.log 2>&1
 ```
+
+(Every 5 minutes is what the host keeps; see below.)
 
 Verified on the lab: a normal `schedule:run -q` writes zero bytes, so `cron.log` stays empty while
 all is well and only grows when the scheduler itself cannot run — the one failure no Laravel hook

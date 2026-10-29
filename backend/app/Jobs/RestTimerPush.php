@@ -30,7 +30,9 @@ final class RestTimerPush implements ShouldQueue
      * so most of these run minutes late — and "rest over" minutes after the rest ended buzzes in the
      * middle of the next set, which is worse than no push: the app's own timer is on screen anyway,
      * and the phone app schedules its own notification (lib/mobile.js). What is left on time is a
-     * rest that ends just before a cron tick. On time for everyone needs the timer off this host.
+     * rest that ends in the 30 s before a tick's worker starts (the worker stops at its first empty
+     * poll, so a rest ending after that waits for the next tick): about one rest in ten. On time for
+     * everyone needs the timer off this host (CHW-312).
      */
     public const LATE_SECONDS = 30;
 
