@@ -11,8 +11,8 @@ frontend/  React + Vite app (src/views, src/components, src/store, src/lib). Bui
 backend/   the API — Laravel, PHP 8.4+ (backend/README.md). It replaced upstream's Node API.
 media/     exercise img/gif (gitignored, fetched at runtime).
 docs/      self-hosting guide.
-mcp/       upstream's Model Context Protocol server. It reads the Node API's JSON files, so it
-           does not work against this backend yet. See mcp/README.md.
+mcp/       upstream's Model Context Protocol server. Against this backend it runs in remote
+           mode: GET /api/data with a paired token. See mcp/README.md.
 ```
 
 ## Running for development

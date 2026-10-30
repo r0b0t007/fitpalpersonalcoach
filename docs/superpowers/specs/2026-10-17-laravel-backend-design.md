@@ -465,7 +465,8 @@ licence; switch Creem to live keys. Rollback: restore the Passenger mount and re
 files on disk are untouched for seven days. Then retire `api/`, its workflows and CI jobs, and
 rewrite the docs (`SELF_HOSTING.md`: PHP 8.4 with SQLite or MySQL and one cron line;
 `DEPLOY_COACH_SUBDOMAIN.md`; `CLAUDE.md`). The MCP server, which reads the JSON files, needs a
-database adapter before it works again; it is not deployed.
+database adapter before it works again; it is not deployed. (Done as a remote mode instead, CHW-316:
+it reads `GET /api/data` with a paired token, so the backend needed no route of its own.)
 
 ## 12. Risks
 The WebAuthn import is the largest unknown and is settled first (R0). Shared-hosting limits (raw

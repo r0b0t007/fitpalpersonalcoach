@@ -1,11 +1,9 @@
 # openGym MCP server
 
-> **Not supported in FitPal Coach.** This server reads the `state-<uid>.json` files the Node API
-> wrote into `DATA_DIR`. The Laravel backend that replaced it (CHW-301) keeps that data in its
-> database, so pointed at a FitPal Coach instance this reads nothing, or a stale copy from before
-> the cutover. It stays in the repo, and its tests still run in CI, because it is upstream's and the
-> pure helpers it shares with the app are worth keeping importable from a bare Node process. Making
-> it work again needs a database adapter in `mcp/src/state.js` — a follow-up, not done.
+> **In FitPal Coach, use remote mode** (below). The file mode reads the `state-<uid>.json` files
+> upstream's Node API wrote into `DATA_DIR`; the Laravel backend that replaced it (CHW-301) keeps
+> that data in its database, so there are no such files. Remote mode (CHW-316) reads the same state
+> from the server's own `GET /api/data`, with a token you pair once like the mobile app.
 
 A [Model Context Protocol](https://modelcontextprotocol.io) bridge that lets an external LLM
 application (Claude Desktop, Cursor, Cline, Continue, etc.) read your openGym profile —
@@ -24,7 +22,42 @@ The numbers it answers with are computed by the **same pure functions the React 
 > Phase 1 of a multi-phase plan. Read-only today; long-lived token auth + write tools are
 > planned but not shipped yet. See **Roadmap** below.
 
-## Quick start
+## Remote mode: a running server (FitPal Coach)
+
+```bash
+cd mcp && npm install
+
+# Once: in a browser signed in as you, Settings → "Pair the mobile app" shows a code (5 minutes).
+node scripts/pair.mjs https://coach.fitpal.ma <code>
+# → paired as <you> (<id>); token saved to ~/.opengym-mcp/token.json
+```
+
+Then register it with `OPENGYM_URL` instead of `OPENGYM_DATA`:
+
+```jsonc
+{
+  "mcpServers": {
+    "fitpal": {
+      "command": "node",
+      "args": ["/absolute/path/to/fitpal-coach/mcp/src/index.js"],
+      "env": { "OPENGYM_URL": "https://coach.fitpal.ma" }
+    }
+  }
+}
+```
+
+- **What the token is.** The same session a paired phone holds: your whole account, not a
+  read-only key. It is kept in `~/.opengym-mcp/token.json` (owner-only; `OPENGYM_TOKEN_FILE`
+  moves it), never in the client config and never printed. The server only ever GETs `/api/me` and
+  `/api/data` with it.
+- **When it stops working.** It expires after the server's `SESSION_DAYS` (90 by default), and
+  Settings → "Sign out everywhere" ends it at once. A tool call then says so; run `pair.mjs`
+  again, no restart needed.
+- **Fresh on every call.** Each tool call reads `/api/data` again, so a session the phone just
+  synced is in the next answer. https only, except `localhost` for a dev server.
+- **Whose data.** Yours, as your app syncs it. A coach's clients are not readable this way.
+
+## File mode: upstream's Node API
 
 ### 1. Install
 
@@ -113,13 +146,14 @@ dependencies landed in `frontend/`, no public exports changed.
 
 ## Design constraints honoured
 
-- **One runtime dependency beyond the MCP SDK:** none. No database driver, no HTTP framework.
+- **One runtime dependency beyond the MCP SDK:** none. No database driver, no HTTP framework:
+  remote mode uses Node's own `fetch`, through the API's own sign-in and tenancy.
 - **No new process to run.** stdio transport is spawned by the LLM client; nothing extra to
   deploy or keep alive.
 - **No new auth.** The filesystem is the boundary — same as the API running on the
   user's box. No passkey material, VAPID keys, or session secrets ever cross it.
-- **No telemetry, no network.** Reads `./data/*.json` and exits when the LLM client
-  disconnects.
+- **No telemetry.** File mode makes no network call: it reads `./data/*.json` and exits when the
+  LLM client disconnects. Remote mode calls the one server you paired with, and nothing else.
 
 ## Tests
 
@@ -133,6 +167,10 @@ missing routine, zero-workout history, no synced state, superset links, three 1R
 "Today" is pinned via `vi.useFakeTimers({ now: ..., toFake: ['Date'] })` so date-dependent
 tools see consistent values regardless of when the suite runs. The pure lib functions have
 their own 92 tests in `frontend/src/lib/*.test.js`.
+
+`test/remote.test.js` covers remote mode against a fake server that checks the bearer token:
+pairing, the token file, a refused or foreign token, a fresh read on every call, an account
+that never synced, and re-pairing without a restart.
 
 ## Roadmap
 
