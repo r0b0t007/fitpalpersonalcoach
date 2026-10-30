@@ -59,8 +59,7 @@ We configure the proxy to forward requests to our individual services like so:
 ```mermaid
 graph TD
     A[proxy]
-    A <-->B[openGym :8080]
-    A <-->C[openGym-api :3000]
+    A <-->B[FitPal Coach: the app and its /api :8080]
     A <-->D[Nextcloud :8081]
 ```
 Now we have a nice URL and can forget about the ports. The proxy reads the URL request and forwards it to the target service/host.

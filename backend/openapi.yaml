@@ -12,11 +12,12 @@ info:
   summary: Passkey (WebAuthn) auth + per-user state storage for openGym
   description: |
     The backend of [openGym](https://opengym.duarte-santos.ch) — a free, open-source
-    gym & body-weight tracker. One Node file, no framework, JSON-file storage,
-    HMAC-signed session cookies.
+    gym & body-weight tracker. This fork (FitPal Coach) serves it from a Laravel backend
+    on a SQL database, with HMAC-signed session cookies; the paths and shapes are the
+    ones upstream's single Node file served.
 
     ### Authentication
-    Sign-in is **passkey only** (WebAuthn, via `@simplewebauthn/server`). A successful
+    Sign-in is **passkey only** (WebAuthn, via `laragear/webauthn`). A successful
     `register/verify` or `login/verify` sets the session cookie; every authenticated
     route then works with that cookie. The paired mobile app has no shared cookie jar,
     so it redeems a short pairing code (`/api/pair/redeem`) for the *same* signed token
@@ -42,7 +43,7 @@ info:
       server merely reports the flag via `GET /api/config` (guest mode never talks to
       this API at all).
     - `ADMIN_UIDS=<uid>,<uid>` — user ids treated as admins (a `"admin": true` flag on
-      the user record in `db.json` works too). Admins get the `/api/admin/*` routes.
+      the user record works too). Admins get the `/api/admin/*` routes.
     - `AUDIT_LOG` (default on), `AUDIT_MAX` (default 5000 events), `AUDIT_DAYS`
       (default 90), `AUDIT_IP` (`off` | `net` | `full`, default off) — shape the audit
       log served by `GET /api/admin/audit`.
@@ -158,8 +159,7 @@ paths:
       operationId: registerOptions
       summary: 'Start passkey registration (WebAuthn ceremony, step 1)'
       description: |
-        Returns `PublicKeyCredentialCreationOptions` (from
-        `@simplewebauthn/server`'s `generateRegistrationOptions`) plus a challenge id
+        Returns `PublicKeyCredentialCreationOptions` (the W3C JSON form) plus a challenge id
         `cid`. The client passes `options` to
         `navigator.credentials.create()` (or `@simplewebauthn/browser`'s
         `startRegistration`) and sends the result to `/api/register/verify` together
@@ -1041,8 +1041,8 @@ components:
       example: { id: "Zk3q9XyPbA2LmN0v", name: "Ada", admin: false }
 
     # ------------------------------------------------------------------ WebAuthn
-    # These mirror @simplewebauthn/server v13's JSON shapes (themselves the W3C
-    # WebAuthn Level 3 JSON serialization). Clients normally never build them by
+    # These are the W3C WebAuthn Level 3 JSON serialization (the shapes the Node API's
+    # @simplewebauthn/server v13 produced, kept by the Laravel backend). Clients normally never build them by
     # hand — @simplewebauthn/browser converts them to/from the navigator.credentials
     # calls. Documented loosely on purpose; the library owns the details.
     WebAuthnRegistrationOptions:
@@ -1311,9 +1311,8 @@ components:
     CoachProgram:
       type: object
       description: >
-        A saved program in a coach's library. Stored server-side in `coach-<uid>.json`, not in the
-        coach's own state blob: a bundle is large, `db.json` is rewritten whole on every save, and
-        the server never writes a member's `state-<uid>.json`.
+        A saved program in a coach's library. Stored server-side in its own table, not in the
+        coach's own state blob: a bundle is large, and the server never writes a member's state.
       properties:
         id: { type: string }
         name: { type: string, maxLength: 60 }

@@ -32,13 +32,22 @@ const EVENT = /'([a-z][a-z0-9]*(?:\.[a-z0-9]+)+)'/g
 //     literal in the argument counts;
 //   - a parameter ($event): the event names are the literals the same file passes to the
 //     enclosing method (self::revoke($request, 'coach.invite.revoke')), so those count;
-//   - anything else (a concatenation, a variable from elsewhere) fails, naming the line.
+//   - anything else (a concatenation, an array lookup, a variable from elsewhere) fails, naming
+//     the line — and so does a call this cannot even take apart (a first argument that is not a
+//     plain variable, say): every `Audit::record(` is read, not only the ones the pattern fits.
+const CALL = /\bAudit::record\(\s*\$\w+\s*,\s*([^,\[]+?)\s*(?:,|\))/y
 const emitted = new Set()
 for (const { f, src } of files) {
-  for (const call of src.matchAll(/\bAudit::record\(\s*\$\w+\s*,\s*([^,\[]+?)\s*(?:,|\))/g)) {
-    const arg = call[1]
-    const line = src.slice(0, call.index).split('\n').length
+  for (const at of src.matchAll(/\bAudit::record\(/g)) {
+    const line = src.slice(0, at.index).split('\n').length
     const where = `${relative(root, f).split(sep).join('/')}:${line}`
+    CALL.lastIndex = at.index
+    const call = CALL.exec(src)
+    if (!call) {
+      fail(`${where}: an Audit::record call this check cannot read. Write it as Audit::record($request, <event>, …).`)
+      continue
+    }
+    const arg = call[1]
     const literals = [...arg.matchAll(EVENT)].map(m => m[1])
     if (literals.length) { literals.forEach(e => emitted.add(e)); continue }
     const param = arg.match(/^\$(\w+)$/)

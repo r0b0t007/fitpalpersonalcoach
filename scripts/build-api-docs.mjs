@@ -558,8 +558,8 @@ ${railTags}
   <p class="lead">Every route the openGym backend serves — passkey auth, state sync,
      push, pairing, admin — as one hand-written
      OpenAPI&nbsp;spec. The same file lives
-     <a href="https://gitlab.com/DuarteSantos8/opengym/-/blob/main/api/openapi.yaml" rel="noopener">in the repository</a>
-     at <code>api/openapi.yaml</code>, next to the one server file it documents.</p>
+     <a href="https://github.com/r0b0t007/fitpalpersonalcoach/blob/main/backend/openapi.yaml" rel="noopener">in the repository</a>
+     at <code>backend/openapi.yaml</code>, beside the backend it documents.</p>
   <div class="actions api-actions">
     <a class="btn" href="openapi.yaml" download>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 19h16"/></svg>
