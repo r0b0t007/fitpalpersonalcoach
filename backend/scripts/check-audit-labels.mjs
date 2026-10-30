@@ -28,27 +28,47 @@ const EVENT = /'([a-z][a-z0-9]*(?:\.[a-z0-9]+)+)'/g
 // Audit::record($request, <event>, …). The event is usually a literal, but not always, and each
 // shape this cannot read must fail rather than be skipped — skipping is how three events went
 // unchecked in the first version of this file:
-//   - a ternary of literals ($u->disabled ? 'admin.user.disable' : 'admin.user.enable'): every
-//     literal in the argument counts;
-//   - a parameter ($event): the event names are the literals the same file passes to the
-//     enclosing method (self::revoke($request, 'coach.invite.revoke')), so those count;
-//   - anything else (a concatenation, a variable from elsewhere) fails, naming the line.
+//   - a literal, or a ternary of two ($u->disabled ? 'admin.user.disable' : 'admin.user.enable');
+//   - a parameter ($event) of a private method: the event names are the literals the same file
+//     passes to it (self::revoke($request, 'coach.invite.revoke')), and being private, no other
+//     file can pass it anything;
+//   - anything else (a concatenation, even one with a literal in it, an array lookup, a call, a
+//     variable from elsewhere) fails, naming the line — and so does a call this cannot even take
+//     apart (a first argument that is not a plain variable, say): every `Audit::record(` outside
+//     a comment is read, not only the ones the pattern fits.
+const LITERAL = `'[a-z][a-z0-9]*(?:\\.[a-z0-9]+)+'`
+const READABLE = new RegExp(`^(?:${LITERAL}|[^'"?]+\\?\\s*${LITERAL}\\s*:\\s*${LITERAL})$`)
+const CALL = /\bAudit::record\s*\(\s*\$\w+\s*,\s*([^,\[]+?)\s*(?:,|\))/y
 const emitted = new Set()
 for (const { f, src } of files) {
-  for (const call of src.matchAll(/\bAudit::record\(\s*\$\w+\s*,\s*([^,\[]+?)\s*(?:,|\))/g)) {
+  const file = relative(root, f).split(sep).join('/')
+  // The other ways to reach Audit::record, which the scan below would not see.
+  const indirect = /\buse\s+App\\Audit\\Audit\s+as\b/.test(src) || /\bAudit::class\b/.test(src)
+    || (file === 'backend/app/Audit/Audit.php' && /\b(?:self|static)::record\s*\(/.test(src))
+  if (indirect) fail(`${file}: reaches Audit::record by an alias, Audit::class or self::record, which this check `
+    + 'cannot follow. Call it as Audit::record($request, <event>, …).')
+  let line = 1, seen = 0
+  for (const at of src.matchAll(/\bAudit::record\s*\(/g)) {
+    for (; seen < at.index; seen++) if (src[seen] === '\n') line++
+    const where = `${file}:${line}`
+    const before = src.slice(src.lastIndexOf('\n', at.index) + 1, at.index)
+    if (/^\s*(?:\*|\/\*)/.test(before) || before.includes('//')) continue   // a comment names it
+    CALL.lastIndex = at.index
+    const call = CALL.exec(src)
+    if (!call) {
+      fail(`${where}: an Audit::record call this check cannot read. Write it as Audit::record($request, <event>, …).`)
+      continue
+    }
     const arg = call[1]
-    const line = src.slice(0, call.index).split('\n').length
-    const where = `${relative(root, f).split(sep).join('/')}:${line}`
-    const literals = [...arg.matchAll(EVENT)].map(m => m[1])
-    if (literals.length) { literals.forEach(e => emitted.add(e)); continue }
+    if (READABLE.test(arg)) { [...arg.matchAll(EVENT)].forEach(m => emitted.add(m[1])); continue }
     const param = arg.match(/^\$(\w+)$/)
-    // The method this call sits in, and the literals passed to it from the same file.
-    const fn = param && [...src.slice(0, call.index).matchAll(/function\s+(\w+)\s*\(([^)]*)\)/g)].pop()
-    const index = fn ? fn[2].split(',').findIndex(a => new RegExp(`\\$${param[1]}\\b`).test(a)) : -1
-    const passed = index < 0 ? [] : [...src.matchAll(new RegExp(`(?:self|static|\\$this)(?:::|->)${fn[1]}\\(([^)]*)\\)`, 'g'))]
+    // The private method this call sits in, and the literals passed to it from the same file.
+    const fn = param && [...src.slice(0, call.index).matchAll(/((?:\w+\s+)*)function\s+(\w+)\s*\(([^)]*)\)/g)].pop()
+    const index = fn && /\bprivate\b/.test(fn[1]) ? fn[3].split(',').findIndex(a => new RegExp(`\\$${param[1]}\\b`).test(a)) : -1
+    const passed = index < 0 ? [] : [...src.matchAll(new RegExp(`(?:self|static|\\$this)(?:::|->)${fn[2]}\\(([^)]*)\\)`, 'g'))]
       .map(c => c[1].split(',')[index]?.trim().match(/^'([a-z][a-z0-9]*(?:\.[a-z0-9]+)+)'$/)?.[1])
     if (passed.length && passed.every(Boolean)) { passed.forEach(e => emitted.add(e)); continue }
-    fail(`${where}: Audit::record with an event this check cannot read (${arg.trim()}). Pass a literal, a ternary of literals, or a parameter the same file fills with literals.`)
+    fail(`${where}: Audit::record with an event this check cannot read (${arg.trim()}). Pass a literal, a ternary of two literals, or a parameter of a private method the same file fills with literals.`)
   }
 }
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /* Can the app say every refusal the Laravel backend sends, in the user's language?
  *
- * The PHP side of api/scripts/check-error-strings.mjs, for the same reason: the API refuses in
- * English, English is the translation key, and the app translates what arrives
+ * Started as the PHP side of the Node API's api/scripts/check-error-strings.mjs, and the only one
+ * since that API was retired (CHW-301). The reason is unchanged: the API refuses in English,
+ * English is the translation key, and the app translates what arrives
  * (frontend/src/lib/server-messages.js). A message missing from a pack reaches a French- or
  * Spanish-speaking coach as English, and nothing else notices.
  *

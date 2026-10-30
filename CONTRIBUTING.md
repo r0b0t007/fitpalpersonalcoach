@@ -33,7 +33,8 @@ cd frontend && npm test
 
 - **Keep it dependency-light.** The frontend uses React + Router + Zustand and nothing else;
   new deps (front or back) are a hard sell. The backend's Composer dependencies are few and each
-  one is justified (Laravel, Filament, `laragear/webauthn`, `minishlink/web-push`) — keep it so.
+  one is justified (Laravel, Filament, `laragear/webauthn`, `minishlink/web-push`,
+  `resend/resend-php`, `laravel/tinker`) — keep it so.
 - **Match the style.** Small components, clear names, comments only where the "why" isn't obvious.
   State lives in the Zustand store (`src/store`); pure helpers in `src/lib`.
 - **Don't commit** the exercise media (`media/`) or `data/` — they're gitignored.

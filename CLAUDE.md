@@ -218,7 +218,8 @@ it, so two hostnames or two ports breaks both.
 
 - **Dependency-light is a hard constraint, not a preference.** Frontend: React + Router + Zustand
   and nothing else. The backend keeps its Composer dependencies few and justified (Laravel,
-  Filament, `laragear/webauthn`, `minishlink/web-push`). New dependencies are a hard sell either
+  Filament, `laragear/webauthn`, `minishlink/web-push`, `resend/resend-php` for mail, and
+  `laravel/tinker`, which the operator's one-off fixes use). New dependencies are a hard sell either
   side.
 - Don't commit `media/` or `data/` (gitignored).
 - Training-logic changes (progression, 1RM, session read-back) need a unit test in `src/lib`
