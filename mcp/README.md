@@ -1,5 +1,12 @@
 # openGym MCP server
 
+> **Not supported in FitPal Coach.** This server reads the `state-<uid>.json` files the Node API
+> wrote into `DATA_DIR`. The Laravel backend that replaced it (CHW-301) keeps that data in its
+> database, so pointed at a FitPal Coach instance this reads nothing, or a stale copy from before
+> the cutover. It stays in the repo, and its tests still run in CI, because it is upstream's and the
+> pure helpers it shares with the app are worth keeping importable from a bare Node process. Making
+> it work again needs a database adapter in `mcp/src/state.js` — a follow-up, not done.
+
 A [Model Context Protocol](https://modelcontextprotocol.io) bridge that lets an external LLM
 application (Claude Desktop, Cursor, Cline, Continue, etc.) read your openGym profile —
 routines, workouts, body-weight log, estimated 1RMs, and muscle balance — directly from your

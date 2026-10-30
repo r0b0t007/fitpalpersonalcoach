@@ -1,7 +1,7 @@
 # Dependency updates, deliberately quiet.
 #
-# openGym is dependency-light on purpose: the frontend is React + Router + Zustand, and api/
-# has two runtime dependencies. A default Dependabot setup would still open a PR per package
+# The frontend is dependency-light on purpose (React + Router + Zustand), and the backend keeps
+# its Composer dependencies few. A default Dependabot setup would still open a PR per package
 # per week, which on a solo project means the alerts stop being read — the opposite of what
 # this is for. So: monthly, everything in an ecosystem grouped into a single PR, and a low
 # cap on open PRs. Security advisories are unaffected by any of this; GitHub raises those
@@ -59,19 +59,19 @@ updates:
       - dependency-name: '@aparajita/*'
         update-types: ['version-update:semver-major']
 
-  # Backend — api/package.json (@simplewebauthn/server, web-push)
-  - package-ecosystem: npm
-    directory: /api
+  # Backend — backend/composer.json (Laravel, Filament, the passkey and push libraries). It took
+  # over from api/package.json when the Node API was retired (CHW-301). Majors apart, as for the
+  # frontend: a Laravel or Filament major is a migration, not a bump.
+  - package-ecosystem: composer
+    directory: /backend
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
     groups:
-      api:
+      backend:
         patterns: ['*']
         update-types: ['minor', 'patch']
-      # Two dependencies, but one of them verifies passkeys — a major there is worth reading on
-      # its own rather than alongside anything else.
-      api-major:
+      backend-major:
         patterns: ['*']
         update-types: ['major']
 

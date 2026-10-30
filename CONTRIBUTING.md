@@ -8,22 +8,23 @@ to keep it that way — easy to read, easy to self-host.
 ```
 frontend/  React + Vite app (src/views, src/components, src/store, src/lib). Builds to static files.
            android/ + ios/ are the Capacitor shells for the standalone mobile app (docs/MOBILE.md).
-api/       backend — server.js (Node, no framework), one dependency (@simplewebauthn/server).
+backend/   the API — Laravel, PHP 8.4+ (backend/README.md). It replaced upstream's Node API.
 media/     exercise img/gif (gitignored, fetched at runtime).
 docs/      self-hosting guide.
-mcp/       optional Model Context Protocol server — read-only stdio bridge for LLM apps
-           (Claude Desktop, Cursor, …) to query a user's workouts/1RM/muscle balance. Not part
-           of a deploy; only runs when an LLM client spawns it. See mcp/README.md.
+mcp/       upstream's Model Context Protocol server. It reads the Node API's JSON files, so it
+           does not work against this backend yet. See mcp/README.md.
 ```
 
 ## Running for development
 
 ```bash
-cp .env.example .env
 ./scripts/fetch-media.sh          # exercise images/GIFs, once
-cd api && npm ci && node server.js       # the API on :3000
-# frontend hot reload, in another terminal (proxies /api to :3000):
+# the API on :8000 (first time: backend/README.md — .env, key, migrate)
+cd backend && composer install && php artisan serve
+# frontend hot reload, in another terminal (proxies /api to :8000):
 cd frontend && npm install && npm run dev
+# the API's tests:
+cd backend && ./vendor/bin/pest
 # training logic (progression rules, 1RM, how a session is read back):
 cd frontend && npm test
 ```
@@ -31,8 +32,8 @@ cd frontend && npm test
 ## Guidelines
 
 - **Keep it dependency-light.** The frontend uses React + Router + Zustand and nothing else;
-  new deps (front or back) are a hard sell. `api/` has two (`@simplewebauthn/server` for passkeys,
-  `web-push` for notifications) — keep it near that.
+  new deps (front or back) are a hard sell. The backend's Composer dependencies are few and each
+  one is justified (Laravel, Filament, `laragear/webauthn`, `minishlink/web-push`) — keep it so.
 - **Match the style.** Small components, clear names, comments only where the "why" isn't obvious.
   State lives in the Zustand store (`src/store`); pure helpers in `src/lib`.
 - **Don't commit** the exercise media (`media/`) or `data/` — they're gitignored.

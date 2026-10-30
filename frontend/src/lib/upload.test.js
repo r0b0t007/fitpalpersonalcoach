@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-// uploadExerciseMedia (CHW-259): one request against a server that does not take chunks — the
-// Node API, which production still runs, so this path must stay exactly what it was — and start,
-// chunks, finish against one that does (the Laravel API, which says so in /api/config).
+// uploadExerciseMedia (CHW-259): one request against a server that does not take chunks — one
+// whose /api/config says nothing about uploads, or could not be read, as the Node API's never did —
+// so that path must stay exactly what it was; and start, chunks, finish against one that does (the
+// backend, which says so in /api/config).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetChunkPlan, uploadExerciseMedia } from './api.js'
 
@@ -45,7 +46,7 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers() })
 
-describe('against a server that does not take chunks (the Node API)', () => {
+describe('against a server that does not take chunks (no upload in /api/config)', () => {
   it('sends the whole file as the one request it always sent', async () => {
     config({ invite_only: true, allow_guest: false })
     on('POST', '/api/media/exercise?', [200, { ok: true, media: { id: 'm1' } }])

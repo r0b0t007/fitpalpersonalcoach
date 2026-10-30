@@ -1,6 +1,8 @@
 # openGym HTTP API — hand-written OpenAPI 3.1 spec.
-# Source of truth: api/server.js (a single framework-free Node file). Every route the
-# server registers is documented here; if you add a route there, add it here too.
+# Written against upstream's Node API (api/server.js, retired here in CHW-301), whose routes the
+# Laravel backend kept with the same paths and shapes. The source of truth is now
+# backend/routes/api.php. NOT yet documented here: the routes the backend added (billing and the
+# Creem webhook, sign-in by email link, chunked uploads). Add a route there, add it here too.
 # Browsable version: https://opengym.duarte-santos.ch/api.html
 openapi: 3.1.0
 

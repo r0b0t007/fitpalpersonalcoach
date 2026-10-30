@@ -29,5 +29,3 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# keys of the software passkey used for manual spikes (tools/passkey-sim.mjs)
-tools/.passkey-sim.json

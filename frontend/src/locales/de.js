@@ -1380,7 +1380,7 @@ export default {
   'unknown passkey': 'unbekannter Passkey',
   'wrong or already-used invite code': 'falscher oder schon benutzter Einladungscode',
   'you': 'du',
-  // Server refusals (api/scripts/check-error-strings.mjs) and the app's own upload failures.
+  // Server refusals (backend/scripts/check-error-strings.mjs) and the app's own upload failures.
   'not found': 'nicht gefunden',
   'range not satisfiable': 'Bereich nicht erfüllbar',
   'not signed in': 'nicht angemeldet',

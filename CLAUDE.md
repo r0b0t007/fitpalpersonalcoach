@@ -35,8 +35,9 @@ Upstream's description of the product follows, and still holds for the shared pa
 
 ## What this is
 
-openGym is a self-hosted gym & body-weight tracker PWA. A Node API and a folder of static files, plus a
-`./data` folder the user owns — no third-party account, no telemetry. Passkey (WebAuthn) login,
+openGym is a self-hosted gym & body-weight tracker PWA. An API and a folder of static files, plus a
+`./data` folder the user owns — no third-party account, no telemetry. (Upstream's API is Node;
+this fork's is the Laravel backend, which replaced it at the R5 cutover.) Passkey (WebAuthn) login,
 installable as a home-screen app, optional Capacitor shells for standalone Android/iOS builds.
 
 ## Project layout
@@ -44,16 +45,15 @@ installable as a home-screen app, optional Capacitor shells for standalone Andro
 ```
 frontend/  React 19 + Vite app (src/views, src/components, src/store, src/lib). Builds to static files.
            android/ + ios/ are the Capacitor shells for the standalone mobile app (docs/MOBILE.md).
-api/       backend — server.js (Node, no framework), deps: @simplewebauthn/server, web-push.
-           STILL WHAT PRODUCTION RUNS. Being replaced by backend/ (below); see the spec.
-backend/   the Laravel port of the API, built milestone by milestone (Linear R0–R5) and not yet
-           deployed. Same paths, same shapes, same English error strings (they are the app's
-           translation keys). Design: docs/superpowers/specs/2026-10-17-laravel-backend-design.md.
-           Run: backend/README.md. The "two dependencies" rule below is the Node API's; the Laravel
-           side keeps Composer dependencies few and justified, not minimal.
-mcp/       optional MCP server — read-only stdio bridge exposing a user's workouts/1RM/muscle
-           balance to LLM clients (Claude Desktop, Cursor…). Not part of a deploy; only
-           runs when an LLM client spawns it.
+backend/   the API — Laravel 13, PHP 8.4+, MariaDB in production (SQLite locally). What
+           coach.fitpal.ma/api runs since the R5 cutover (2026-10-26); it replaced the Node API
+           (`api/`, deleted in CHW-301) with the same paths, shapes and English error strings
+           (they are the app's translation keys). Design: docs/superpowers/specs/2026-10-17-
+           laravel-backend-design.md. Run: backend/README.md. Composer dependencies few and
+           justified, not minimal.
+mcp/       upstream's MCP server — read-only stdio bridge to a user's workouts for LLM clients.
+           It reads the Node API's JSON files, so it does NOT work against this fork's backend
+           until it has a database adapter (mcp/README.md). Its tests still run in CI.
 media/     exercise img/gif, gitignored, fetched by scripts/fetch-media.sh.
 site-coach/ THIS product's marketing site → **fitpal.ma** (the apex), Cloudflare Pages
            project `fitpal-coach`, gated by DEPLOY_SITE_COACH. Plain HTML/CSS/JS.
@@ -70,14 +70,16 @@ docs/      SELF_HOSTING.md, MOBILE.md.
 
 ```bash
 # Exercise media (~140 MB, once)
-cp .env.example .env
 ./scripts/fetch-media.sh
 
-# The API
-cd api && npm ci && node server.js       # :3000
+# The API (backend/README.md for the first-time setup: .env, key, migrate)
+cd backend && composer install && php artisan serve      # :8000
 
-# Frontend dev server (hot reload), proxies /api to :3000
+# Frontend dev server (hot reload), proxies /api to :8000 (API_TARGET to change it)
 cd frontend && npm install && npm run dev
+
+# Backend tests and style
+cd backend && ./vendor/bin/pest && ./vendor/bin/pint --test
 
 # Frontend tests (training logic: progression, 1RM, session read-back)
 cd frontend && npm test            # vitest run
@@ -102,32 +104,31 @@ merge from. The paragraph upstream has here — that GitLab is canonical and the
 are dormant mirrors — is false for this repo and inverted: nothing runs on GitLab, and GitHub is
 both the test gate and the deploy path.
 
-Seven jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `api`, `api-smoke`
-(`coach-smoke.sh`), `mcp`, `backend` (PHP 8.4, `pint --test`, Pest on in-memory SQLite, the
-migrations on a MyISAM-default MariaDB, `backend/scripts/check-error-strings.mjs`) and `contract`
-(the Node API and Laravel side by side on one seeded data dir, every ported route diffed by
-`backend/tools/contract/diff.mjs`; intended differences are listed in it with reasons). There
-used to be `api-image` and `web-image` too, which built and booted the Docker images; those images
-were never part of how this deploys and are gone. **`test.yml` has path filters**; anything outside
-`frontend/`, `api/`, `mcp/`, `backend/` and those two scripts runs no checks at all, and GitHub
-reports "no checks" rather than failing.
+Four jobs: `test` (frontend, incl. `check:i18n`), `frontend-next-node`, `mcp` and `backend`
+(PHP 8.4, `pint --test`, Pest on in-memory SQLite, the migrations on a MyISAM-default MariaDB, and
+the two backend scripts below). `deploy-backend.yml` runs this whole workflow as its gate. The
+Node jobs (`api`, `api-smoke`, and `contract`, which diffed every route against Laravel) went
+with `api/` in CHW-301. **`test.yml` has path filters**; anything outside `frontend/`, `mcp/`,
+`backend/`, `scripts/french-vous.mjs` and the sign-in mail templates runs no checks at all, and
+GitHub reports "no checks" rather than failing.
 
-Several `check-*.mjs` scripts guard things a test cannot see, and are wired into CI:
+Some guards check what a test cannot see, because the two values sit either side of a boundary
+neither runtime can import across:
 
-- `api/scripts/check-bundle-complete.mjs` — walks the import graph *inside the built deploy
-  bundle*. A module missing from the bundle exists in the repo, so CI running from the repo can
-  never see it; this has taken the API down twice.
-- `api/scripts/check-adherence-window.mjs` — ties `ADHERENCE_SEND_DAYS` (api) to
-  `ADHERENCE_WINDOW_DAYS` (frontend) across a boundary neither side can import across.
-- `api/scripts/check-error-strings.mjs` — the API refuses in English and the app translates it
-  (`lib/server-messages.js`). A message with a value in it is written as a `say` template
-  (`api/domain.mjs`); `json()` then sends its key and values beside the text as `msg: { k, v }`.
-  Every `error: '…'` literal and every `say` message must be a key in every pack, and the check
-  fails on the known ways of building one outside `say` — a helper returning a bare string
-  literal is the one it cannot see, so wrap those in `say('…')`.
+- `backend/scripts/check-error-strings.mjs` — the API refuses in English and the app translates
+  it (`lib/server-messages.js`). Every `Json::error(status, '…')`, `new ClientSafe(status, '…')`
+  and `Say::f('…')` template must be a key in every pack; a message with a value in it is a
+  `Say::f` template, sent as its key with the values beside it (`msg: { k, v }`). The check fails
+  on a message built any other way (a concatenation, a variable).
+- `backend/scripts/check-audit-labels.mjs` — every `Audit::record` event needs a label in
+  `frontend/src/lib/audit.js`. Its floors are today's counts: raise them when events are added.
+- Pest ties the rest: `CoachRosterTest` keeps `MemberCard::ADHERENCE_SEND_DAYS` a day above the
+  app's `ADHERENCE_WINDOW_DAYS`, and `tests/Unit/CheckinDayTest.php` keeps
+  `Reminders::DEFAULT_CHECKIN_DAY` equal to `lib/checkins.js`'s.
 
-Node in the images is **26** (`node:26-alpine`), but the live cPanel deployment runs Node 22 —
-they are separate paths and do not have to match.
+Comments across `backend/` and `frontend/` still cite `api/server.js` and `api/domain.mjs`: the
+Node API each piece was ported from, or matched against. The backend kept its names. Read them at
+the last commit that had them: `git show 5d0c52f4:api/server.js`.
 
 ## Architecture
 
@@ -161,25 +162,29 @@ they are separate paths and do not have to match.
   `frontend/ios` (see `docs/MOBILE.md`); `mobile.js` in `lib/` gates native-only behavior (file
   persistence, local notifications, wake lock) behind a `MOBILE` flag.
 
-### API (`api/server.js`)
+### API (`backend/`, Laravel)
 
-Single file, no framework, plain `node:http`. Requests are dispatched through a `routes` object
-keyed by `'METHOD /path'` (e.g. `routes['GET /api/health']`) matched against `req.method + ' ' +
-url.pathname` — add a new endpoint by adding a key here. State is two flat JSON files under
-`DATA_DIR` (`db.json`: users/credentials/subscriptions/invites; `state-<uid>.json`: per-user
-workout data), written with a write-temp-then-rename atomic pattern (`atomicWrite`). Auth is
-WebAuthn passkeys (`@simplewebauthn/server`) plus a signed session cookie (HMAC'd with a
-`DATA_DIR/secret` generated on first boot) — no JWT/session-store dependency. Optional pieces
-gated by env vars: `ADMIN_UIDS` (admin dashboard), `INVITE_ONLY` (signup needs a code),
-`ALLOW_GUEST` (client-only guest mode never hits the server at all), plus a rotating
-`data/audit.log` (JSONL) for sign-in/admin events. Web Push (`web-push`, VAPID keys
-auto-generated into `data/vapid.json`) drives rest-timer-over and day-reminder notifications.
+Routes are in `backend/routes/api.php`, one controller each under `app/Http/Controllers`, with the
+domain in `app/Coaching`, `app/Push`, `app/Media`, `app/Billing`, `app/Auth`. The app always calls
+`/api/...`; on the server `coach.fitpal.ma/api` is a symlink to `backend/public`. Data is in the
+database (MariaDB in production, SQLite locally); `DATA_DIR` still holds what Laravel reads from
+disk: exercise demos and photos under `media/`, and `vapid.json` unless `VAPID_*` is set. Auth is
+WebAuthn passkeys plus a signed session token (`app/Auth/SessionToken.php`), the Node API's format
+kept byte for byte and keyed with `SESSION_SECRET`, so the cutover kept every session and paired
+phone signed in. The same token is the cookie for browsers and the Bearer token for the paired
+mobile app. Env-gated as before: `ADMIN_UIDS`, `INVITE_ONLY`, `ALLOW_GUEST`, `SELF_SERVE_COACH`,
+billing (`CREEM_*`). The audit log is the `audit_events` table. Shared hosting has no supervisor,
+so one cron line runs `schedule:run` (`routes/console.php`): reminders, the queue worker (pushes;
+mail is sent after the response, not queued), the hourly prune and the nightly database dump. The
+host runs it every 5 minutes, not every minute (CHW-311): nothing scheduled may assume a run every
+minute, and a test fails an event set to a minute off those ticks. Filament serves the operator panel at `/api/admin-panel`.
 
 ### MCP server (`mcp/src`)
 
-Read-only stdio MCP bridge (`@modelcontextprotocol/sdk`) that lets an LLM client read a single
-user's routines/workouts/body-weight/1RM/muscle-balance directly from the same `DATA_DIR` the API
-writes to — no network call, no extra process to run. `state.js` loads/derives the data, `tools.js`
+Upstream's read-only stdio MCP bridge (`@modelcontextprotocol/sdk`): it reads a user's
+routines/workouts/body-weight/1RM/muscle-balance from the `state-<uid>.json` files the Node API
+wrote to `DATA_DIR`. Laravel keeps that data in its database, so it reads nothing useful here until
+it has a database adapter (mcp/README.md). `state.js` loads/derives the data, `tools.js`
 defines the exposed MCP tools (zod-validated schemas), `labels.js` maps internal keys to
 human-readable labels, `index.js` wires it together. See `mcp/README.md` for the client-config
 side (Claude Desktop / Cursor).
@@ -189,27 +194,32 @@ side (Claude Desktop / Cursor).
 WebAuthn passkeys are bound to an exact hostname (`RP_ID`) and require HTTPS (localhost excepted)
 — this shapes a lot of the API and Settings code (`RP_ID`/`ORIGIN` env vars, guest-mode fallback
 when neither is available). Read `docs/SELF_HOSTING.md` before touching auth, session, or
-notification code; it documents the exact env-var contract (`RP_ID`, `ORIGIN`, `PORT`,
-`DATA_DIR`, `SESSION_DAYS`, `ADMIN_UIDS`, `INVITE_ONLY`, `ALLOW_GUEST`,
-`AUDIT_*`, `VAPID_SUBJECT`) that real deployments depend on.
+notification code; it documents the env-var contract (`RP_ID`, `ORIGIN`, `DATA_DIR`,
+`SESSION_SECRET`, `SESSION_DAYS`, `ADMIN_UIDS`, `INVITE_ONLY`, `ALLOW_GUEST`, `AUDIT_*`,
+`VAPID_*`) that real deployments depend on; `backend/.env.example` has every variable.
+`fitpal:check-config` checks a deployment's values.
 
 ### Deploy
 
-Two rsync workflows onto one cPanel account: `deploy-api.yml` sends the API as source plus
-`node_modules`, `deploy-web.yml` sends `frontend/dist/`. There is no container runtime anywhere in
-this — shared hosting does not offer one, which is why the Docker images that used to live here
-were built by CI, published, and never run. `docs/DEPLOY_COACH_SUBDOMAIN.md` is required reading
-before touching either workflow.
+Two rsync workflows onto one cPanel account. `deploy-backend.yml` runs `test.yml` as its gate,
+then sends `backend/` (with `vendor/` built in CI) to `~/fitpal-coach-backend`, dumping the
+database and migrating in maintenance mode; it runs on every merge that touches `backend/`, behind
+the `DEPLOY_BACKEND` kill switch. `deploy-web.yml` sends `frontend/dist/`. There is no container
+runtime anywhere in this — shared hosting does not offer one. `docs/DEPLOY_COACH_SUBDOMAIN.md` is
+required reading before touching either workflow, and `docs/CUTOVER_R5.md` has the backend's
+runbook. (`deploy-api.yml`, the Node deploy, is switched off with `DEPLOY_API=false` and is the
+owner's to delete: it is under this repo's edit deny rules.)
 
-The app and the API must be served from ONE origin: Apache hands out `dist/` and proxies `/api` to
-the Node process. Passkeys are bound to the origin and the session cookie is scoped to it, so two
-hostnames or two ports breaks both.
+The app and the API must be served from ONE origin: LiteSpeed serves `dist/`, and `/api` is a
+symlink into `backend/public`. Passkeys are bound to the origin and the session cookie is scoped to
+it, so two hostnames or two ports breaks both.
 
 ## Guidelines from CONTRIBUTING.md worth knowing before changing code
 
 - **Dependency-light is a hard constraint, not a preference.** Frontend: React + Router + Zustand
-  and nothing else. `api/`: two dependencies total (`@simplewebauthn/server`, `web-push`). `undici` was the
-  third until the AI Coach went — its only callers were that feature's HTTP adapters. New dependencies are a hard sell either side.
+  and nothing else. The backend keeps its Composer dependencies few and justified (Laravel,
+  Filament, `laragear/webauthn`, `minishlink/web-push`). New dependencies are a hard sell either
+  side.
 - Don't commit `media/` or `data/` (gitignored).
 - Training-logic changes (progression, 1RM, session read-back) need a unit test in `src/lib`
   beside the code, not just manual clicking-through.

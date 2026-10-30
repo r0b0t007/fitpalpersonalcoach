@@ -223,8 +223,9 @@ crontab /tmp/crontab.new && crontab -l | grep -c schedule:run
 
 ## Rollback
 
-This is possible for 7 days. It puts Node back on its untouched files. **Anything written in
-Laravel since the window is lost.**
+This was possible for 7 days, and stops being possible when CHW-301 merges: the steps below
+need `api/` on main and the Node files on the server, and that ticket removes both. It puts Node
+back on its untouched files. **Anything written in Laravel since the window is lost.**
 
 1. Set `DEPLOY_BACKEND=false`.
 2. Remove the cron line: `crontab -l | grep -v 'fitpal-coach-backend' > /tmp/c && diff <(crontab -l) /tmp/c; crontab /tmp/c`.
@@ -263,6 +264,37 @@ newest file: a nightly one may have been taken after the schema changed.
 
 ## After 7 quiet days (CHW-301)
 
-Retire `api/` and its CI. Delete `~/fitpal-coach-api` and `~/r5-rollback`, and the Node files in
-`~/fitpal-coach-data`. **Keep `secret`, `vapid.json` and `media/`**, which Laravel reads at
-runtime.
+**In the repo** (the CHW-301 PR): `api/` and its CI jobs are gone; the checks that tied it to the
+app moved to `backend/` (CLAUDE.md lists them).
+
+**The owner's edits**, which this repo's edit rules keep from anyone else:
+
+- delete `.github/workflows/deploy-api.yml` **before the CHW-301 PR merges** (on main, or as a
+  commit on that PR), then the repository variables `DEPLOY_API`, `API_SERVER_DIR` and
+  `API_HEALTH_URL`. Order matters: the workflow runs on any push touching `api/**`, its `test` job
+  is not gated by `DEPLOY_API`, and with `api/` gone it fails at `npm ci` — a red run on main from
+  the merge itself;
+- in `deploy-web.yml`, the `/api/` exclude (a directory: the Node mount) can go, but the `/api`
+  exclude **must stay**: it is what keeps a frontend deploy's `--delete` off the symlink. Correct
+  the comments that describe the Node mount;
+- the "required reviewers" comments, which closes CHW-237 (required reviewers need GitHub Pro);
+- `.claude/hooks/guards.mjs` still lists the three `api/scripts` guards. With the scripts gone it
+  skips them quietly; point it at `backend/scripts/check-audit-labels.mjs` or remove the table.
+
+**On the server**, each step approved by the owner, and only once a nightly dump exists in
+`~/fitpal-coach-backend/storage/backups/nightly/` (CHW-306) — the tarballs in `~/r5-rollback` are
+the last other copy of the data:
+
+```sh
+rm -rf ~/fitpal-coach-api                 # the Node app (8.9 MB)
+rm -rf ~/r5-rollback                      # the mount, its .htaccess (Node's env, secrets
+                                          # included), the data tarball, the crontab copies
+cd ~/fitpal-coach-data && rm -f db.json db.json.bak-* state-*.json coach-*.json audit.log
+ls ~/fitpal-coach-data                    # must still show: media/  secret  vapid.json
+```
+
+**Keep `secret`, `vapid.json` and `media/`**, which Laravel reads at runtime: `media/` is every
+exercise demo and photo, `vapid.json` the push keys every subscription is bound to (a new pair
+would silently orphan them all), and `secret` is where `SESSION_SECRET` came from. Afterwards:
+`php artisan fitpal:check-config` says configuration ok, `/api/config` answers, and a test push
+arrives.

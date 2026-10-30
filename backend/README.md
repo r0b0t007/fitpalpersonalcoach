@@ -1,10 +1,11 @@
 # FitPal Coach API (Laravel)
 
-The backend behind `coach.fitpal.ma/api`, being ported from `../api/server.js` (Node) milestone
-by milestone. Design and decisions: `../docs/superpowers/specs/2026-10-17-laravel-backend-design.md`.
-Until the cutover (milestone R5) the Node API is still what production runs.
+The backend behind `coach.fitpal.ma/api` since the R5 cutover (2026-10-26). It was ported from
+the Node API (`api/server.js`, deleted in CHW-301; `git show 5d0c52f4:api/server.js` to read it)
+milestone by milestone. Design and decisions: `../docs/superpowers/specs/2026-10-17-laravel-backend-design.md`.
+Deploying: `../docs/DEPLOY_COACH_SUBDOMAIN.md` and `../docs/CUTOVER_R5.md`.
 
-The React app in `../frontend` is unchanged by the port: this backend answers the same paths with
+The React app in `../frontend` was unchanged by the port: this backend answers the same paths with
 the same shapes, including the error envelope `{error, msg?}` whose English sentences are the
 app's translation keys. Do not reword an error string without changing its key in
 `frontend/src/locales/{fr,es,de}.js`.
@@ -23,10 +24,25 @@ php artisan serve               # http://127.0.0.1:8000
 Against the React dev server, from `../frontend`:
 
 ```sh
-API_TARGET=http://127.0.0.1:8000 npm run dev
+npm run dev                     # proxies /api to 127.0.0.1:8000; API_TARGET=… for another address
 ```
 
 The Vite proxy forwards `/api` and sets the `Origin` header the forgery check expects.
+
+## Scheduler
+
+One cron line drives everything that runs on its own (`routes/console.php`): the reminders and
+the queue worker (pushes; mail goes out after the response instead) on every run, the hourly prune
+and the nightly database dump into `storage/backups/nightly`. Shared hosting has no supervisor, so
+the worker lives at most about a minute and the next run's carries on.
+
+The cPanel host runs the line every 5 minutes and rewrites `* * * * *` to that (CHW-311), so the
+reminders look back over the last two runs and a queued push waits up to about 5 minutes; see
+`docs/DEPLOY_COACH_SUBDOMAIN.md` → Cron.
+
+```
+0,5,10,15,20,25,30,35,40,45,50,55 * * * * cd ~/fitpal-coach-backend && /usr/local/bin/php artisan schedule:run -q >> storage/logs/cron.log 2>&1
+```
 
 ## Admin panel
 
@@ -65,8 +81,12 @@ php artisan fitpal:seed-demo --remove      # exactly what it added
 ./vendor/bin/pint --test         # formatting
 ```
 
-Feature tests are named after the sections of `../api/coach-smoke.sh`, so the port's coverage can be
-read against the Node suite it replaces.
+Feature tests were named after the sections of the Node API's `coach-smoke.sh` (deleted with
+`api/` in CHW-301), so the port's coverage could be read against the suite it replaced.
+
+Two checks a test cannot make run in CI beside Pest, without PHP: `node scripts/check-error-strings.mjs`
+(every message the API can send is translated) and `node scripts/check-audit-labels.mjs` (every
+audit event has a label in the app).
 
 ## PHP settings production needs
 
@@ -101,7 +121,7 @@ every string (skipped for this route in `bootstrap/app.php`).
   (a 4xx the caller may read; anything else is `500 {error:'server error'}`).
 - `app/Audit/` — the audit log (`Audit::record`, never throws) and `ClientIp` (`AUDIT_IP`
   off/net/full). Event names must be labelled in `frontend/src/lib/audit.js`;
-  `api/scripts/check-audit-labels.mjs` reads both APIs and fails on a missing label.
+  `scripts/check-audit-labels.mjs` reads both sides and fails on a missing label.
 - `config/fitpal.php` — the environment contract, names kept from the Node API.
 - `routes/api.php` — every route registered under `/api` and bare, because the production mount
   is AT `/api` and strips the prefix before Laravel sees the path.

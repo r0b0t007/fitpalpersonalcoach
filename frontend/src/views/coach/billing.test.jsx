@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 //
 // The coach's plan on screen (R4): Today's banner, Account's Plan & billing and the sign-up at
-// /#/start. Production runs the Node API until R5, and its /api/config has no `billing` — the
-// first thing pinned here is that none of this shows, or even asks, there.
+// /#/start. An instance that bills nobody sends no `billing` in /api/config (production until
+// R5b; the Node API never did) — the first thing pinned here is that none of this shows, or even
+// asks, there.
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
@@ -41,7 +42,7 @@ const PLANS = [
   { plan: 'pro', cap: 30, periods: ['month', 'year'] },
   { plan: 'studio', cap: 75, periods: ['month', 'year'] },
 ]
-const NODE_CONFIG = { invite_only: true, allow_guest: false }   // what the Node API sends: no billing at all
+const NODE_CONFIG = { invite_only: true, allow_guest: false }   // no billing at all, as the Node API sent
 const BILLED = { invite_only: true, billing: true, self_serve: true, plans: PLANS, trial_days: 14 }
 const COACH = { id: 'me', name: 'Ahmed', coach: true }
 const inDays = d => new Date(Date.now() + d * 86_400_000).toISOString()
@@ -78,7 +79,7 @@ beforeEach(() => {
 })
 afterEach(() => { act(() => root.unmount()); container.remove(); assign.mockRestore() })
 
-describe('on the Node API (no billing in /api/config)', () => {
+describe('on an instance without billing (none in /api/config)', () => {
   it('Today asks nothing about a plan and shows no banner', async () => {
     useStore.setState({ config: NODE_CONFIG })
     ME = me({ status: 'none', canWrite: false })

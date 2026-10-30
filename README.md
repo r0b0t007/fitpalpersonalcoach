@@ -186,16 +186,16 @@ as a home-screen app, passkey sign-in, offline support, sync across your phone a
 
 ## Quick start (self-host)
 
-You need Node 22 or newer.
+You need PHP 8.4 or newer with Composer for the API, and Node 22 or newer to build the app.
+(This fork's API is a Laravel backend; upstream openGym's is a Node server.)
 
 ```bash
-git clone https://gitlab.com/DuarteSantos8/opengym
-cd openGym
-cp .env.example .env
 ./scripts/fetch-media.sh                     # exercise media (~140 MB), once
 
-cd api      && npm ci && node server.js &    # the API, on :3000
-cd frontend && npm install && npm run dev    # the app, on :5173
+cd backend  && cp .env.example .env          # set SESSION_SECRET to 64 hex characters
+composer install && php artisan key:generate && php artisan migrate
+php artisan serve &                          # the API, on :8000
+cd ../frontend && npm install && npm run dev # the app, on :5173
 ```
 
 Open **http://localhost:5173**, tap **Create profile**, and you're in.
@@ -208,7 +208,7 @@ Open **http://localhost:5173**, tap **Create profile**, and you're in.
 > openGym ships none of it: your instance downloads it from upstream. Reusing it yourself,
 > commercially or not, means clearing it with the rights holder — see [NOTICE.md](NOTICE.md).
 > Want it reachable from your phone over the internet with passkeys? You'll need an HTTPS
-> domain — a two-line change in `.env`. See **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
+> domain — a two-line change in `backend/.env`. See **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
 
 ## Mobile app (no server at all)
 
@@ -235,50 +235,34 @@ mobile app is the install-and-done flavor.
                        └──────────────────────────────┘│
                                                         ▼
                                         ┌──────────────────────────┐
-                                        │  api  (Node + WebAuthn)  │
-                                        │   └─ ./data (JSON files) │
+                                        │  backend (Laravel, PHP)  │
+                                        │   ├─ database            │
+                                        │   └─ DATA_DIR/media      │
                                         └──────────────────────────┘
 ```
 
 - **frontend/** — React + Vite (React Router + Zustand), built with `npm run build` to static files in `dist/`
-- **api/** — Node with no framework, two dependencies (`@simplewebauthn/server` for passkeys, `web-push` for notifications), storing everything as plain JSON files under `./data`
-- Whatever serves it — Apache, nginx, Caddy — hands out `dist/` and proxies `/api` to the API, so it is all **one origin**. Passkeys require that.
+- **backend/** — Laravel (PHP 8.4+): passkeys, sync, coaching, push, an operator panel, storing accounts and training in SQLite or MySQL/MariaDB and uploaded media under `DATA_DIR/media`; one cron line runs its reminders and queue
+- Whatever serves it — Apache, nginx, Caddy, LiteSpeed — hands out `dist/` and sends `/api` to Laravel, so it is all **one origin**. Passkeys require that.
 
-The full HTTP API is documented as an OpenAPI spec in [`api/openapi.yaml`](api/openapi.yaml) — browsable at [opengym.duarte-santos.ch/api.html](https://opengym.duarte-santos.ch/api.html).
+The full HTTP API is documented as an OpenAPI spec in [`backend/openapi.yaml`](backend/openapi.yaml) — browsable at [opengym.duarte-santos.ch/api.html](https://opengym.duarte-santos.ch/api.html).
 
 ## Your data
 
-Lives in `./data` on your host: `db.json` (profiles + public passkeys), `state-<user>.json`
-(each user's plan, workouts, body weight, settings), `audit.log` (the admin activity log — sign-ins
-and admin actions, no IP addresses unless you ask for them) and `secret` (the session-cookie key).
-**Back up `./data` and you've backed up everything.** Passkey private keys never touch the
-server — they stay in your phone's secure hardware / your password manager.
+Accounts, passkeys' public halves, plans, workouts, body weight and the activity log live in the
+backend's database (SQLite or MySQL/MariaDB). Uploaded exercise demos and progress photos live in
+`DATA_DIR/media/`, and the push keys in `DATA_DIR/vapid.json` unless you set `VAPID_*`. **Back up
+the database, `DATA_DIR` and `backend/.env`** — `php artisan fitpal:backup-db` dumps the database,
+and the scheduler takes a dump every night. Passkey private keys never touch the server — they stay
+in your phone's secure hardware / your password manager. Details: [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 
 ## Configuration
 
-All via `.env` (see `.env.example`):
-
-| Variable      | What it is                                           | Default                 |
-|---------------|------------------------------------------------------|-------------------------|
-| `RP_ID`       | Hostname passkeys are bound to                       | `localhost`             |
-| `ORIGIN`      | Full URL the app is served from                      | `http://localhost:5173` |
-| `PORT`        | Port the API listens on; your web server proxies `/api` to it | `3000`  |
-| `RP_NAME`     | Name shown in the passkey prompt                     | `openGym`               |
-| `SESSION_DAYS`| How long a sign-in lasts, in days                    | `90`                    |
-| `ADMIN_UIDS`  | User ids that get the admin dashboard (comma-separated) | *(none)*             |
-| `INVITE_ONLY` | Require an invite code to create a profile           | *(off)*                 |
-| `BOOTSTRAP_CODE` | One-shot code that lets the **first** account in and makes it an admin; ignored under 16 chars, and inert once any user exists | *(none)* |
-| `REQUEST_ACCESS` | Let visitors without a code request one from the sign-in screen (FIT'ONE) | *(off)* |
-| `ALLOW_GUEST` | Offer "Continue without account" — set `0` to require a profile | *(on)*       |
-| `AUDIT_LOG`   | Record sign-ins and admin actions — set `0` to record nothing | *(on)*        |
-| `AUDIT_MAX`   | Events kept in the activity log; `0` for no limit    | `5000`                  |
-| `AUDIT_DAYS`  | Days kept in the activity log; `0` to keep until `AUDIT_MAX` | `90`            |
-| `AUDIT_IP`    | Record the caller's address: `off`, `net` (network only) or `full` | `off`     |
-| `VAPID_SUBJECT` | Contact URL sent with push notifications           | your `ORIGIN`           |
-
-Push notification keys are generated on first run and saved to `./data/vapid.json` — nothing to set.
-`DATA_DIR` defaults to `data/` at the repo root, whatever directory you started the API from.
-Point it wherever you back up.
+All in `backend/.env` (see `backend/.env.example`): the hostname passkeys are bound to (`RP_ID`,
+`ORIGIN`), the session key (`SESSION_SECRET`), who gets in (`INVITE_ONLY`, `BOOTSTRAP_CODE`,
+`ALLOW_GUEST`, `ADMIN_UIDS`), the activity log (`AUDIT_*`), push, mail, media limits and the
+database. [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) has every variable with its default, and
+`php artisan fitpal:check-config` checks a deployment's values.
 
 ## Roadmap
 
@@ -292,11 +276,11 @@ waiting for a test on the staging instance.
 
 ## Tech
 
-React 19 + Vite (React Router, Zustand) · Node (no framework) · WebAuthn · exercise data from
+React 19 + Vite (React Router, Zustand) · Laravel (PHP) · WebAuthn · exercise data from
 [hasaneyldrm/exercises-dataset](https://github.com/hasaneyldrm/exercises-dataset)
 (MIT metadata and instructions; media © Gym visual — see [NOTICE.md](NOTICE.md)).
-No database server, no cloud dependencies, and no container runtime: the API is a Node process and
-the frontend is a folder of static files, which is all the shared hosting this deploys to allows.
+No cloud dependencies and no container runtime: the API is a PHP app with one cron line and the
+frontend is a folder of static files, which is all the shared hosting this deploys to allows.
 
 The training logic — progression rules, 1RM estimation, how a logged session is read back —
 lives in pure functions under `frontend/src/lib/` with tests next to them: `npm test` in

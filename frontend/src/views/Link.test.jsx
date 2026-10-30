@@ -2,8 +2,8 @@
 //
 // Sign-in by emailed link (R4, Laravel only): the landing page's three outcomes, the Login form's
 // "Check your inbox", the Account email row and the passkey offer after a link sign-in. And the
-// line every one of them holds first: on the Node API, which has no `login_email` in its config,
-// none of it shows.
+// line every one of them holds first: on a server with no `login_email` in its config (mail not
+// set up, or the Node API it replaced), none of it shows.
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
@@ -84,7 +84,7 @@ beforeEach(() => {
 })
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimers() })
 
-describe('on the Node API (no login_email)', () => {
+describe('without login_email in /api/config', () => {
   it('the link page is not one, and Login offers no email path', async () => {
     expect(linkOpen(NODE)).toBe(false)
     expect(linkOpen(LARAVEL)).toBe(true)

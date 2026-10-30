@@ -71,13 +71,14 @@ Four flags matter and each one was learned by getting a blank PNG:
 
 ## Getting a session
 
-The API signs its cookie as `<uid>:<expiry>:<sv>` HMAC-SHA256 with `DATA_DIR/secret`
-(`makeSession` in `api/server.js`). For a local capture instance, mint one directly:
+The API signs its cookie as `<uid>:<expiry>:<sv>` HMAC-SHA256, keyed with the 64-hex text of
+`SESSION_SECRET` from `backend/.env` (`backend/app/Auth/SessionToken.php`, the Node API's format
+kept byte for byte). For a local capture instance, mint one directly:
 
 ```js
 const payload = uid + ':' + (Date.now() + 90 * 86400000) + ':0'
-const mac = crypto.createHmac('sha256', readFileSync(DATA_DIR + '/secret')).update(payload).digest('base64url')
-// cookie value: 'gymsid=' + payload + '.' + mac
+const mac = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url')
+// cookie value over http: 'gymsid=' + payload + '.' + mac   (over https it is __Host-gymsid)
 ```
 
 Only ever against a throwaway local `DATA_DIR`. Never against production.
