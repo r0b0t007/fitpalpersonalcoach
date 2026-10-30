@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Builds website/api.html — the static API reference — from backend/openapi.yaml (api/openapi.yaml
-// until the Node API was retired in CHW-301; website/ is upstream's site, so its page still links
-// to upstream's copy).
+// until the Node API was retired in CHW-301). The page links the spec it was built from, this
+// repo's backend/openapi.yaml; upstream's link pointed at its api/openapi.yaml, which this fork no
+// longer has.
 //
 //   node scripts/build-api-docs.mjs
 //

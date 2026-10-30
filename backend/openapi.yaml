@@ -1041,10 +1041,12 @@ components:
       example: { id: "Zk3q9XyPbA2LmN0v", name: "Ada", admin: false }
 
     # ------------------------------------------------------------------ WebAuthn
-    # These are the W3C WebAuthn Level 3 JSON serialization (the shapes the Node API's
-    # @simplewebauthn/server v13 produced, kept by the Laravel backend). Clients normally never build them by
-    # hand — @simplewebauthn/browser converts them to/from the navigator.credentials
-    # calls. Documented loosely on purpose; the library owns the details.
+    # These are the W3C WebAuthn Level 3 JSON serialization (the shapes the Node
+    # API's @simplewebauthn/server v13 produced, kept by the Laravel backend). A
+    # client converts them to/from the navigator.credentials calls: the app does
+    # it by hand (frontend/src/lib/api.js), and a library such as
+    # @simplewebauthn/browser can. Documented loosely on purpose; the spec owns
+    # the details.
     WebAuthnRegistrationOptions:
       type: object
       description: >-
