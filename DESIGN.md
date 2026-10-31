@@ -131,13 +131,23 @@ Visible structure is the grammar. Rules and numbered sections are load-bearing, 
   is pill-shaped. **One deliberate exception: the device frame** (`--dev-radius: 30px`,
   `--dev-screen-radius: 19px`). It is an exception because it DEPICTS AN OBJECT rather than
   styling a surface, and a phone with 6px corners is not a phone. Do not "fix" it back.
-- Sections are numbered `01` to `06` in gold, set in `--t-label`, sitting on a full-width rule.
+- Sections are numbered `01` to `06` in gold, set in `--t-label`, sitting on a full-width rule:
+  the week, pricing, spec sheet, getting set up, questions, book.
+- **Page shape: Narrative Workflow** (CHW-318, stamped in `styles.css`). The problem and the
+  product used to be two sections that said the same four things twice, four complaints and then
+  four screens, and left the reader to pair them. Section 01 is now "the week": four stages in
+  the order a coach's week meets them, each pairing the chore it removes ("Avant") with the real
+  capture that removes it. The stages hang on one spine, a left rule with a gold tick at each
+  stage's time label. They do not alternate sides: a timeline reads down one line. The time
+  labels name moments ("before your first client"), not weekdays, because the captures carry
+  their own dates and a label must not contradict its picture.
 - Asymmetric by default, with one deliberate exception. The hero **stacks**: left-aligned copy
   on a text measure, then the film beneath it at the container's full width. It was a two-column
   grid with the film in the narrow right track, which is what a portrait cut wanted; a 16:9 film
   in that track resolves to about 530px wide, and the on-screen type IS the film's script, so
-  that was a film nobody could read. Stacking roughly doubles it. Everything below the hero keeps
-  the asymmetry — feature rows alternate rather than sitting in an even card grid.
+  that was a film nobody could read. Stacking roughly doubles it. From 1040px the price list
+  sits beside the copy, in the column a stock portrait used to fill.
+- Pricing and the spec sheet share the one bone run: two numbered heads on one printed sheet.
 
 Cards are used once, for the spec block, because a spec sheet is genuinely tabular. Feature
 content is laid out as ruled rows, not as a repeating icon-heading-text grid.
@@ -154,6 +164,14 @@ content is laid out as ruled rows, not as a repeating icon-heading-text grid.
 - **Spec row.** Label left in `--t-label` `--muted`, value right in tabular numerals. Separated
   by a `--mute-bone` tint at 28%, not by boxes. The light section needs its own value; the
   dark-ground rule token would be invisible on bone.
+- **Plan table.** Three plans as three columns of the same spec rows on bone, not three cards:
+  name, the monthly price at display size (`wght` 800, `wdth` 68, tabular), then clients, yearly
+  price and trial as label/value rows. The middle plan is marked by a 3px `--gold-deep` rule along
+  its top, never a "recommended" badge. Monthly and yearly are both printed, not toggled. Below
+  760px the columns stack. Every number on it is a real price; nothing is "from" or "contact us".
+- **Hero price list.** The same three prices as label/value rows on the dark ground, closing on
+  the trial terms and a link down to the table. It is an excerpt of the sheet, not a promotion:
+  no strike-through prices, no badge, no "most popular".
 - **Device frame.** Every app screen on the site sits inside a phone: a 1px `--rule-strong`
   outline, an `--ink` bezel, `--dev-radius` corners, a small speaker slot, and a screen at
   `aspect-ratio: 9 / 19.5`. That ratio is the app's own phone viewport, so the body shape is
@@ -211,9 +229,11 @@ in the header; the app's `Logo.jsx` and `frontend/resources/icon.svg` use the th
 drawing. Copy paths from `brand/logo-kit/master`, not from one surface to another. It replaced
 the bolt that used to be shared with the sibling brand.
 
-**Photography is illustrative, and is marked as such.** Two stock photographs appear on the
-site: the portrait beside the hero headline, and the full-bleed band between the argument and
-the ask. Both carry a visible caption saying so.
+**Photography is illustrative, and is marked as such.** One stock photograph appears on the
+site: the full-bleed band between the argument and the ask. It carries a visible caption saying
+so. A second, a portrait beside the hero headline, was removed in CHW-318: its column now holds
+the price list, a fact where there was decoration. Its files stay in `img/` and `NOTICE.md` in
+case it returns; if it does, everything below applies to it too.
 
 The signature at the ask names a real person but shows no photograph of him. A portrait was
 tried there and removed. If one ever returns, two things learned the first time: it must be
@@ -221,26 +241,20 @@ graded so its background lands on `--ink`, or a light studio backdrop reads as a
 in the gold band, and it must be square, because a circular avatar is the most template-looking
 object a landing page can carry and nothing else here is pill-shaped.
 
-Neither carries a name, a quote, a claimed result or a product claim: a stock portrait captioned
+A photograph carries no name, quote, claimed result or product claim: a stock portrait captioned
 as a named customer would be fabricated social proof, and a photograph is the easiest place to do
-that by accident. Both are licensed stock, recorded in `NOTICE.md` with source and licence.
+that by accident. Stock is licensed and recorded in `NOTICE.md` with source and licence.
 
-The hero portrait exists because the copy runs to a text measure and left the right half of the
-hero empty. It is the only human face above the fold, which is what keeps a field-manual layout
-from reading as machinery — so it earns its place, but it stays decoration: it is not rendered
-below 1040px, where it would cost a screen of scrolling ahead of the film.
-
-Both are presented **unframed** — the band full-bleed, the hero portrait filling its column —
-which is the deliberate inverse of the device treatment. Evidence sits inside a phone body with a "real capture" caption under it; atmosphere
+The band is presented **unframed** and full-bleed, which is the deliberate inverse of the device
+treatment. Evidence sits inside a phone body with a "real capture" caption under it; atmosphere
 gets the full width, no frame and a "stock photograph" caption. That contrast is how a reader
 tells the two apart without being told which is which, and it is why the photograph sits in an
 **unnumbered** band: `01` to `06` is a declared system, and a "07" would give a stock photograph
 the same standing as the spec sheet.
 
-A visible caption states that it is a stock photograph, in the page's own language, on **both**.
-The disclosure is visible rather than hidden in the `alt` attribute, because a sighted reader
-needs it as much as a screen-reader user does. On the hero portrait it is overlaid on the image
-rather than set beneath it, so the figure adds no height and the film below it does not move.
+The caption states that it is a stock photograph, in the page's own language. The disclosure is
+visible rather than hidden in the `alt` attribute, because a sighted reader needs it as much as
+a screen-reader user does.
 
 **A photograph must never contain a legible app screen.** Invented UI is still forbidden when it
 arrives inside a photo.

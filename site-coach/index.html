@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Logiciel pour coach sportif au Maroc | FitPal Coach</title>
-<meta name="description" content="Application pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une vraie app pour vos clients. Appel de 20 min sur WhatsApp.">
+<meta name="description" content="Application pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une vraie app pour vos clients. Dès 19 € par mois. Appel de 20 min sur WhatsApp.">
 <meta name="theme-color" content="#1C1A17">
 
 <link rel="canonical" href="https://fitpal.ma/">
@@ -34,7 +34,7 @@
 
 <link rel="preload" as="image" href="img/promo-poster-fr.jpg" fetchpriority="high">
 <link rel="preload" as="font" type="font/woff2" href="fonts/archivo-latin.woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=16">
+<link rel="stylesheet" href="styles.css?v=17">
 
 <script>
 /* Pre-paint: arm the intro before first paint so the hero never shows and then hides.
@@ -87,10 +87,29 @@
         "@type": "Country",
         "name": "Maroc"
       },
-      "offers": {
-        "@type": "Offer",
-        "description": "Forfait mensuel fixe plus une mise en place payée une seule fois, sans abonnement par client. Prix sur demande, fixé pendant l'appel."
-      }
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Solo",
+          "price": "19",
+          "priceCurrency": "EUR",
+          "description": "Jusqu'à 10 clients actifs, par mois, TTC. 190 € à l'année. 14 jours d'essai."
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro",
+          "price": "39",
+          "priceCurrency": "EUR",
+          "description": "Jusqu'à 30 clients actifs, par mois, TTC. 390 € à l'année. 14 jours d'essai."
+        },
+        {
+          "@type": "Offer",
+          "name": "Studio",
+          "price": "79",
+          "priceCurrency": "EUR",
+          "description": "Jusqu'à 75 clients actifs, par mois, TTC. 790 € à l'année. 14 jours d'essai."
+        }
+      ]
     },
     {
       "@type": "Person",
@@ -131,8 +150,8 @@
     </button>
 
     <nav class="nav" id="nav" aria-label="Principal">
-      <a href="#probleme">Le problème</a>
-      <a href="#produit">Le produit</a>
+      <a href="#semaine">La semaine</a>
+      <a href="#tarifs">Tarifs</a>
       <a href="#fiche">Fiche technique</a>
       <a href="#demarrage">Mise en route</a>
       <a href="#questions">Questions</a>
@@ -159,25 +178,23 @@
         </p>
         <div class="actions">
           <a class="btn primary" href="#appel">Réserver un appel</a>
-          <a class="btn ghost" href="#produit">Voir le produit</a>
+          <a class="btn ghost" href="#semaine">Voir le produit</a>
         </div>
         <p class="note">Appel de 20 minutes. Pas de démo automatisée, pas de carte bancaire.</p>
       </div>
 
-      <figure class="hero-portrait">
-        <!-- Desktop only, and eager. The figure is display:none under 1040px, and it is in the
-             first viewport above that, so loading="lazy" only delayed a likely LCP element on
-             desktop. Every source is gated on the same 1040px query, and the <img> falls back to
-             an inline 1x1 GIF, so a phone fetches nothing for a figure it never shows. -->
-        <picture>
-            <source media="(min-width: 1040px)" type="image/avif" srcset="img/coach-hero-400w.avif 400w, img/coach-hero-800w.avif 800w, img/coach-hero-1100w.avif 1100w" sizes="40vw">
-            <source media="(min-width: 1040px)" type="image/webp" srcset="img/coach-hero-400w.webp 400w, img/coach-hero-800w.webp 800w, img/coach-hero-1100w.webp 1100w" sizes="40vw">
-            <source media="(min-width: 1040px)" srcset="img/coach-hero.jpg">
-            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Une coach et sa cliente en pleine séance, dans une salle de sport."
-             width="1100" height="1375" decoding="async">
-          </picture>
-        <figcaption class="label">Photo d'illustration</figcaption>
-      </figure>
+      <!-- The price, beside the headline. This column held a stock portrait; a fact fills it
+           better than decoration, and "le montant est fixé pendant l'appel" was the one answer
+           this buyer could not get without picking up the phone. -->
+      <aside class="hero-plans" aria-labelledby="hero-plans-h">
+        <p class="label" id="hero-plans-h">Tarifs, par mois</p>
+        <dl>
+          <div><dt>Solo <span>10 clients</span></dt><dd class="num">19&nbsp;€</dd></div>
+          <div><dt>Pro <span>30 clients</span></dt><dd class="num">39&nbsp;€</dd></div>
+          <div><dt>Studio <span>75 clients</span></dt><dd class="num">79&nbsp;€</dd></div>
+        </dl>
+        <p class="hero-plans-foot"><span>14 jours d'essai · TTC</span><a href="#tarifs">Le détail</a></p>
+      </aside>
 
       <div class="hero-stage">
         <div class="hero-media">
@@ -194,134 +211,164 @@
     </div>
   </section>
 
-  <!-- 01 -->
-  <section class="sec wrap" id="probleme">
+  <!-- 01 · The week. Problem and product used to be two sections: four complaints, then four
+       screens, so the reader matched them up alone. Here each admin chore sits beside the real
+       capture that removes it, in the order a coach's week meets them. -->
+  <section class="sec wrap" id="semaine">
     <div class="sec-head rv">
-      <div class="rule label"><span class="n num">01</span><span class="k">Le problème</span></div>
-      <h2>Ce que l'admin vous prend</h2>
+      <div class="rule label"><span class="n num">01</span><span class="k">La semaine</span></div>
+      <h2>Quatre moments où l'admin disparaît</h2>
+      <p class="lead">
+        Vous travaillez dans le tableau de bord coach, vos clients dans l'app d'entraînement.
+        Chaque écran ci-dessous est une capture du produit tel qu'il tourne, pas une maquette.
+      </p>
     </div>
 
-    <ol class="rows rv">
-      <li class="row">
-        <span class="n label num">01</span>
-        <div><h3>Le programme vit dans un tableur</h3></div>
-        <p>Vous le refaites à la main pour chaque client, puis vous l'envoyez en capture d'écran. Une correction et tout recommence.</p>
+    <ol class="week">
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">Le matin, chez le client</p>
+          <h3>Leur séance les attend</h3>
+          <p class="before"><span class="label">Avant</span>Un tableur refait à la main pour chaque client, envoyé en capture d'écran. Une correction et tout recommence.</p>
+          <p>Une vraie app, installable sur l'écran d'accueil. Pas un PDF, pas un lien vers un tableur.</p>
+          <ul>
+            <li><span>La séance du jour, et la semaine devant</span></li>
+            <li><span>Son poids et sa courbe, contre son objectif</span></li>
+            <li><span>Fonctionne hors-ligne, se synchronise après</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="img/screens/client-home-fr-360w.avif 360w, img/screens/client-home-fr-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="img/screens/client-home-fr-360w.webp 360w, img/screens/client-home-fr-720w.webp 720w" sizes="360px">
+              <img src="img/screens/client-home-fr.png" alt="Accueil côté client, en français : la bande de la semaine, la séance du jour marquée « Terminé », puis le poids corporel à 83,5 kg et sa courbe sur cinq mois." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Accueil client</span><span class="num">Capture réelle</span></p>
+        </figure>
       </li>
-      <li class="row">
-        <span class="n label num">02</span>
-        <div><h3>Le suivi vit dans les DM</h3></div>
-        <p>Un client envoie une note vocale à 22h. Elle est enterrée trois jours plus tard, sous vingt autres conversations.</p>
+
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">Avant votre premier client</p>
+          <h3>Vous voyez qui a besoin de vous</h3>
+          <p class="before"><span class="label">Avant</span>Une note vocale à 22h, enterrée trois jours plus tard sous vingt autres conversations.</p>
+          <p>Une page qui répond à la seule question qui compte avant votre premier client : qui a besoin de vous aujourd'hui.</p>
+          <ul>
+            <li><span>Qui s'entraîne en ce moment, en direct</span></li>
+            <li><span>Qui n'a rien fait depuis sept jours</span></li>
+            <li><span>Qui attend une réponse de votre part</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="img/screens/coach-today-fr-360w.avif 360w, img/screens/coach-today-fr-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="img/screens/coach-today-fr-360w.webp 360w, img/screens/coach-today-fr-720w.webp 720w" sizes="360px">
+              <img src="img/screens/coach-today-fr.png" alt="Tableau de bord coach : les compteurs Clients 6, En séance 2 et Actifs 7 j 5, une carte « à traiter » nommant trois clients, puis la carte « en séance » avec la progression en direct de deux clients." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Tableau de bord</span><span class="num">Capture réelle</span></p>
+        </figure>
       </li>
-      <li class="row">
-        <span class="n label num">03</span>
-        <div><h3>Le décrochage se voit trop tard</h3></div>
-        <p>Quand vous réalisez qu'un client ne s'entraîne plus, il a déjà décidé d'arrêter. Le mois est perdu.</p>
+
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">En cours de semaine</p>
+          <h3>Celui qui décroche se voit avant qu'il parte</h3>
+          <p class="before"><span class="label">Avant</span>Quand vous réalisiez qu'un client ne s'entraînait plus, il avait déjà décidé d'arrêter.</p>
+          <p>L'assiduité de chaque client sur 28 jours, la couleur avant le chiffre, tout le roster sur une page.</p>
+          <ul>
+            <li><span>Assiduité sur 28 jours, client par client</span></li>
+            <li><span>Point vert : en séance en ce moment</span></li>
+            <li><span>Programme envoyé, accepté, ou resté sans réponse</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="img/screens/coach-clients-fr-360w.avif 360w, img/screens/coach-clients-fr-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="img/screens/coach-clients-fr-360w.webp 360w, img/screens/coach-clients-fr-720w.webp 720w" sizes="360px">
+              <img src="img/screens/coach-clients-fr.png" alt="Liste des clients : six fiches ; les cinq clients qui ont un programme affichent leur taux d'assiduité sur 28 jours en couleur, de 42 % en rouge à 100 % en vert, et une pastille verte marque les deux clients en séance." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Liste des clients</span><span class="num">Capture réelle</span></p>
+        </figure>
       </li>
-      <li class="row">
-        <span class="n label num">04</span>
-        <div><h3>Vous plafonnez</h3></div>
-        <p>Ce n'est pas le nombre d'heures de coaching qui limite votre roster. C'est tout le reste.</p>
+
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">Fin du mois</p>
+          <h3>Le bilan se fait avec des faits</h3>
+          <p class="before"><span class="label">Avant</span>Une impression, et un client qui se souvient surtout des séances qu'il a faites.</p>
+          <p>L'assiduité par rapport au plan, pas une moyenne flatteuse. De quoi tenir une conversation difficile avec des faits.</p>
+          <ul>
+            <li><span>Assiduité mesurée contre les jours prévus</span></li>
+            <li><span>Charge estimée au 1RM par exercice</span></li>
+            <li><span>Poids, mensurations, équilibre musculaire</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="img/screens/client-stats-fr-360w.avif 360w, img/screens/client-stats-fr-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="img/screens/client-stats-fr-360w.webp 360w, img/screens/client-stats-fr-720w.webp 720w" sizes="360px">
+              <img src="img/screens/client-stats-fr.png" alt="Écran statistiques, en français : 79 séances, 10 ce mois-ci, une série de 21 semaines, la carte de chaleur des douze derniers mois, et la carte musculaire avant et arrière." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Statistiques client</span><span class="num">Capture réelle</span></p>
+        </figure>
       </li>
     </ol>
   </section>
 
-  <!-- 02 -->
-  <section class="sec wrap" id="produit">
-    <div class="sec-head rv">
-      <div class="rule label"><span class="n num">02</span><span class="k">Le produit</span></div>
-      <h2>Une application pour vous, une pour vos clients</h2>
-      <p class="lead">
-        Vous travaillez dans le tableau de bord coach. Vos clients ont l'app d'entraînement.
-        Les captures ci-dessous viennent du produit tel qu'il tourne, pas d'une maquette.
+  <!-- 02 · Plans. On the bone ground with the spec sheet: terms belong with the spec, and the
+       light section is where the manual metaphor is literal. Three columns of the same rows, not
+       three cards; the middle plan is marked by a rule, not a badge. -->
+  <section class="sec spec plans" id="tarifs">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">02</span><span class="k">Tarifs</span></div>
+        <h2>Un forfait par taille de roster</h2>
+        <p class="lead">Ce qui vous plafonne, ce n'est pas le nombre d'heures de coaching, c'est tout le reste. Chaque forfait contient tout le produit ; seul le nombre de clients change.</p>
+      </div>
+
+      <div class="plan-grid rv">
+        <div class="plan">
+          <h3 id="plan-solo">Solo</h3>
+          <p class="plan-price"><span class="num">19&nbsp;€</span> par mois</p>
+          <dl>
+            <div><dt>Clients actifs</dt><dd class="num">jusqu'à 10</dd></div>
+            <div><dt>À l'année</dt><dd class="num">190&nbsp;€</dd></div>
+            <div><dt>Essai</dt><dd class="num">14 jours</dd></div>
+          </dl>
+        </div>
+        <div class="plan mid">
+          <h3 id="plan-pro">Pro</h3>
+          <p class="plan-price"><span class="num">39&nbsp;€</span> par mois</p>
+          <dl>
+            <div><dt>Clients actifs</dt><dd class="num">jusqu'à 30</dd></div>
+            <div><dt>À l'année</dt><dd class="num">390&nbsp;€</dd></div>
+            <div><dt>Essai</dt><dd class="num">14 jours</dd></div>
+          </dl>
+        </div>
+        <div class="plan">
+          <h3 id="plan-studio">Studio</h3>
+          <p class="plan-price"><span class="num">79&nbsp;€</span> par mois</p>
+          <dl>
+            <div><dt>Clients actifs</dt><dd class="num">jusqu'à 75</dd></div>
+            <div><dt>À l'année</dt><dd class="num">790&nbsp;€</dd></div>
+            <div><dt>Essai</dt><dd class="num">14 jours</dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <p class="plan-note rv">
+        Prix TTC, en euros. L'année coûte dix mois. Un client désactivé libère sa place.
+        Le paiement en ligne ouvre bientôt ; d'ici là, on démarre ensemble après
+        <a href="#appel">un appel de 20&nbsp;minutes</a>.
       </p>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>Le tableau de bord du matin</h3>
-        <p>Une page qui répond à la seule question qui compte avant votre premier client : qui a besoin de vous aujourd'hui.</p>
-        <ul>
-          <li><span>Qui s'entraîne en ce moment, en direct</span></li>
-          <li><span>Qui n'a rien fait depuis sept jours</span></li>
-          <li><span>Qui attend une réponse de votre part</span></li>
-        </ul>
-      </div>
-      <figure class="shot-wrap">
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="img/screens/coach-today-fr-360w.avif 360w, img/screens/coach-today-fr-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="img/screens/coach-today-fr-360w.webp 360w, img/screens/coach-today-fr-720w.webp 720w" sizes="360px">
-            <img src="img/screens/coach-today-fr.png" alt="Tableau de bord coach : les compteurs Clients 6, En séance 2 et Actifs 7 j 5, une carte « à traiter » nommant trois clients, puis la carte « en séance » avec la progression en direct de deux clients." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Tableau de bord</span><span class="num">Capture réelle</span></p>
-      </figure>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>Votre roster, sur une page</h3>
-        <p>L'assiduité de chaque client sur 28 jours, la couleur avant le chiffre. Celui qui décroche se voit avant qu'il ne parte.</p>
-        <ul>
-          <li><span>Assiduité sur 28 jours, client par client</span></li>
-          <li><span>Point vert : en séance en ce moment</span></li>
-          <li><span>Programme envoyé, accepté, ou resté sans réponse</span></li>
-        </ul>
-      </div>
-      <figure class="shot-wrap">
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="img/screens/coach-clients-fr-360w.avif 360w, img/screens/coach-clients-fr-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="img/screens/coach-clients-fr-360w.webp 360w, img/screens/coach-clients-fr-720w.webp 720w" sizes="360px">
-            <img src="img/screens/coach-clients-fr.png" alt="Liste des clients : six fiches ; les cinq clients qui ont un programme affichent leur taux d'assiduité sur 28 jours en couleur, de 42 % en rouge à 100 % en vert, et une pastille verte marque les deux clients en séance." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Liste des clients</span><span class="num">Capture réelle</span></p>
-      </figure>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>Ce que voit votre client</h3>
-        <p>Une vraie app, à votre nom, installable sur l'écran d'accueil. Pas un PDF, pas un lien vers un tableur.</p>
-        <ul>
-          <li><span>La séance du jour, et la semaine devant</span></li>
-          <li><span>Son poids et sa courbe, contre son objectif</span></li>
-          <li><span>Fonctionne hors-ligne, se synchronise après</span></li>
-        </ul>
-      </div>
-      <figure class="shot-wrap">
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="img/screens/client-home-fr-360w.avif 360w, img/screens/client-home-fr-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="img/screens/client-home-fr-360w.webp 360w, img/screens/client-home-fr-720w.webp 720w" sizes="360px">
-            <img src="img/screens/client-home-fr.png" alt="Accueil côté client, en français : la bande de la semaine, la séance du jour marquée « Terminé », puis le poids corporel à 83,5 kg et sa courbe sur cinq mois." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Accueil client</span><span class="num">Capture réelle</span></p>
-      </figure>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>Les chiffres, quand vous en avez besoin</h3>
-        <p>L'assiduité par rapport au plan, pas une moyenne flatteuse. De quoi tenir une conversation difficile avec des faits.</p>
-        <ul>
-          <li><span>Assiduité mesurée contre les jours prévus</span></li>
-          <li><span>Charge estimée au 1RM par exercice</span></li>
-          <li><span>Poids, mensurations, équilibre musculaire</span></li>
-        </ul>
-      </div>
-      <figure class="shot-wrap">
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="img/screens/client-stats-fr-360w.avif 360w, img/screens/client-stats-fr-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="img/screens/client-stats-fr-360w.webp 360w, img/screens/client-stats-fr-720w.webp 720w" sizes="360px">
-            <img src="img/screens/client-stats-fr.png" alt="Écran statistiques, en français : 79 séances, 10 ce mois-ci, une série de 21 semaines, la carte de chaleur des douze derniers mois, et la carte musculaire avant et arrière." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Statistiques client</span><span class="num">Capture réelle</span></p>
-      </figure>
     </div>
   </section>
 
@@ -343,9 +390,9 @@
         <div class="spec-row"><dt>Progression des charges</dt><dd>Linéaire, Greyskull LP ou double progression, au choix par exercice.</dd></div>
         <div class="spec-row"><dt>Hors-ligne</dt><dd>La séance se déroule et s'enregistre sans réseau, la synchronisation suit.</dd></div>
         <div class="spec-row"><dt>Notifications</dt><dd>Fin de repos et rappel de séance, par Web Push.</dd></div>
-        <div class="spec-row"><dt>Hébergement</dt><dd>Votre instance, votre domaine, vos données. Aucune télémétrie.</dd></div>
+        <div class="spec-row"><dt>Hébergement</dt><dd>Hébergé pour vous, rien à installer. Aucune télémétrie.</dd></div>
         <div class="spec-row"><dt>Export</dt><dd>Les données client sont exportables à tout moment, en JSON.</dd></div>
-        <div class="spec-row"><dt>Tarif</dt><dd>Forfait mensuel fixe, plus une mise en place payée une fois. Pas d'abonnement par client. Le montant est fixé pendant l'appel.</dd></div>
+        <div class="spec-row"><dt>Tarif</dt><dd>Trois forfaits selon le nombre de clients, voir <a href="#tarifs">Tarifs</a>. Pas de prix par client.</dd></div>
         <div class="spec-row"><dt>Pays</dt><dd>Maroc. L'appel de démarrage et l'assistance se font sur WhatsApp.</dd></div>
       </dl>
 
@@ -357,12 +404,12 @@
         <li class="row">
           <span class="n label">Sortie</span>
           <div><h3>Vous repartez avec vos données</h3></div>
-          <p>Exportables en JSON à tout moment. L'instance est la vôtre, pas la nôtre.</p>
+          <p>Exportables en JSON à tout moment. Rien ne reste enfermé chez nous.</p>
         </li>
         <li class="row">
-          <span class="n label">Prix</span>
-          <div><h3>Pas d'abonnement par client</h3></div>
-          <p>Votre facture n'augmente pas parce que votre activité marche.</p>
+          <span class="n label">Clients</span>
+          <div><h3>Votre facture ne bloque jamais un client</h3></div>
+          <p>L'app de vos clients ne dépend pas de votre forfait. Un paiement en retard ne coupe la séance de personne.</p>
         </li>
       </ol>
     </div>
@@ -383,8 +430,8 @@
       </li>
       <li class="step">
         <span class="n label num">02</span>
-        <h3>L'instance</h3>
-        <p>Votre domaine est configuré et votre compte coach ouvert. Rien à installer de votre côté.</p>
+        <h3>Votre compte</h3>
+        <p>Votre compte coach est ouvert, sur le forfait qui correspond à votre roster. Rien à installer de votre côté.</p>
       </li>
       <li class="step">
         <span class="n label num">03</span>
@@ -417,7 +464,7 @@
       </details>
       <details>
         <summary>Qu'est-ce qui se passe si j'arrête ?</summary>
-        <p>Vous repartez avec vos données, exportées en JSON. L'instance est la vôtre, pas la nôtre.</p>
+        <p>Vous repartez avec vos données, exportées en JSON. Le tableau de bord reste utilisable jusqu'à la fin de la période déjà payée.</p>
       </details>
       <details>
         <summary>Le tableau de bord coach est-il en français ?</summary>
@@ -433,7 +480,15 @@
       </details>
       <details>
         <summary>Combien ça coûte ?</summary>
-        <p>Un forfait mensuel fixe, plus une mise en place payée une seule fois. Pas d'abonnement par client : votre facture n'augmente pas parce que votre activité marche. Le montant dépend du nombre de clients et de l'hébergement, et il est fixé pendant l'appel.</p>
+        <p>De 19 à 79 € par mois selon le nombre de clients actifs : Solo jusqu'à 10, Pro jusqu'à 30, Studio jusqu'à 75. TTC, 14 jours d'essai, et l'année coûte dix mois. Le détail est dans <a href="#tarifs">Tarifs</a>.</p>
+      </details>
+      <details>
+        <summary>Et si je dépasse mon forfait ?</summary>
+        <p>Vos clients actuels continuent comme avant. Vous ne pouvez simplement plus en inviter de nouveaux, jusqu'à ce que vous passiez au forfait du dessus ou désactiviez un client : un client désactivé libère sa place.</p>
+      </details>
+      <details>
+        <summary>Je peux changer de forfait ?</summary>
+        <p>Oui, à tout moment, depuis votre compte. La carte, les factures et la résiliation se gèrent au même endroit.</p>
       </details>
     </div>
   </section>
@@ -503,7 +558,8 @@
       <p class="fine">Le logiciel des coachs sportifs indépendants au Maroc. Bâti sur openGym.</p>
     </div>
     <ul>
-      <li><a href="#produit">Le produit</a></li>
+      <li><a href="#semaine">La semaine</a></li>
+      <li><a href="#tarifs">Tarifs</a></li>
       <li><a href="#fiche">Fiche technique</a></li>
       <li><a href="#questions">Questions</a></li>
       <li><a href="/mentions-legales">Mentions légales</a></li>

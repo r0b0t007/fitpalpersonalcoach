@@ -134,7 +134,8 @@ the removal does not read as an oversight later.
   contrast, plus a warm veil) so it sits on the site's graphite ground rather than looking
   pasted in from a brighter page.
 
-**`site-coach/img/coach-hero.jpg`** — the portrait beside the hero headline.
+**`site-coach/img/coach-hero.jpg`** — the portrait beside the hero headline. Not shown on the site
+since CHW-318, when the price list took its column; the file and this entry stay in case it returns.
 
 - **Source**: Pexels, photo id **37963582**, by **Bulat843**
   (<https://www.pexels.com/photo/37963582/>)

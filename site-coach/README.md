@@ -50,7 +50,8 @@ img/screens/*.png       real app screenshots (see below), every one per locale (
 img/og-{fr,en,es}.png   1200x630 social cards, one layout in three languages, all ending in
                         fitpal.ma (rendered from an HTML card in headless Chrome, Archivo)
 img/promo-poster-{fr,en,es}.jpg  hero video poster (the frame at 10.1s, 800x450)
-img/coach-hero.jpg      hero portrait beside the headline (stock, illustrative)
+img/coach-hero.jpg      hero portrait, NOT SHOWN since CHW-318 (the price list took its column);
+                        kept, with its NOTICE.md entry, in case it returns
 img/coaches.jpg         the full-bleed photo band (stock, illustrative — both in NOTICE.md)
 assets/promo-{fr,en,es}.{mp4,webm}  the hero loop, 16.8s, silent, 1280x720 (H.264 ~130 kbps;
                         AV1 via libsvtav1 -crf 50), cut down from the 1920x1080 render

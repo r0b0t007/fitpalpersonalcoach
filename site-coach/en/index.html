@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Software for personal trainers in Morocco | FitPal Coach</title>
-<meta name="description" content="Software for independent personal trainers in Morocco: programs, adherence tracking and a real training app for clients. Book a 20-minute WhatsApp call.">
+<meta name="description" content="Software for independent personal trainers in Morocco: programs, adherence tracking and a real training app for clients. From €19 a month. Book a 20-minute WhatsApp call.">
 <meta name="theme-color" content="#1C1A17">
 
 <link rel="canonical" href="https://fitpal.ma/en/">
@@ -34,7 +34,7 @@
 
 <link rel="preload" as="image" href="../img/promo-poster-en.jpg" fetchpriority="high">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/archivo-latin.woff2" crossorigin>
-<link rel="stylesheet" href="../styles.css?v=16">
+<link rel="stylesheet" href="../styles.css?v=17">
 
 <script>
 /* Pre-paint: arm the intro before first paint so the hero never shows and then hides.
@@ -87,10 +87,29 @@
         "@type": "Country",
         "name": "Morocco"
       },
-      "offers": {
-        "@type": "Offer",
-        "description": "Flat monthly fee plus a one-time setup, no per-client subscription. Price on request, set during the call."
-      }
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Solo",
+          "price": "19",
+          "priceCurrency": "EUR",
+          "description": "Up to 10 active clients, per month, VAT included. €190 a year. 14-day trial."
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro",
+          "price": "39",
+          "priceCurrency": "EUR",
+          "description": "Up to 30 active clients, per month, VAT included. €390 a year. 14-day trial."
+        },
+        {
+          "@type": "Offer",
+          "name": "Studio",
+          "price": "79",
+          "priceCurrency": "EUR",
+          "description": "Up to 75 active clients, per month, VAT included. €790 a year. 14-day trial."
+        }
+      ]
     },
     {
       "@type": "Person",
@@ -131,8 +150,8 @@
     </button>
 
     <nav class="nav" id="nav" aria-label="Main">
-      <a href="#problem">The problem</a>
-      <a href="#product">The product</a>
+      <a href="#week">The week</a>
+      <a href="#pricing">Pricing</a>
       <a href="#spec">Spec sheet</a>
       <a href="#setup">Getting set up</a>
       <a href="#questions">Questions</a>
@@ -158,25 +177,21 @@
         </p>
         <div class="actions">
           <a class="btn primary" href="#call">Book a call</a>
-          <a class="btn ghost" href="#product">See the product</a>
+          <a class="btn ghost" href="#week">See the product</a>
         </div>
         <p class="note">Twenty minutes. No automated demo, no card.</p>
       </div>
 
-      <figure class="hero-portrait">
-        <!-- Desktop only, and eager. The figure is display:none under 1040px, and it is in the
-             first viewport above that, so loading="lazy" only delayed a likely LCP element on
-             desktop. Every source is gated on the same 1040px query, and the <img> falls back to
-             an inline 1x1 GIF, so a phone fetches nothing for a figure it never shows. -->
-        <picture>
-            <source media="(min-width: 1040px)" type="image/avif" srcset="../img/coach-hero-400w.avif 400w, ../img/coach-hero-800w.avif 800w, ../img/coach-hero-1100w.avif 1100w" sizes="40vw">
-            <source media="(min-width: 1040px)" type="image/webp" srcset="../img/coach-hero-400w.webp 400w, ../img/coach-hero-800w.webp 800w, ../img/coach-hero-1100w.webp 1100w" sizes="40vw">
-            <source media="(min-width: 1040px)" srcset="../img/coach-hero.jpg">
-            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="A coach and her client mid-session in a gym."
-             width="1100" height="1375" decoding="async">
-          </picture>
-        <figcaption class="label">Stock photograph, illustrative</figcaption>
-      </figure>
+      <!-- The price, beside the headline: see the note in the French page. -->
+      <aside class="hero-plans" aria-labelledby="hero-plans-h">
+        <p class="label" id="hero-plans-h">Pricing, per month</p>
+        <dl>
+          <div><dt>Solo <span>10 clients</span></dt><dd class="num">€19</dd></div>
+          <div><dt>Pro <span>30 clients</span></dt><dd class="num">€39</dd></div>
+          <div><dt>Studio <span>75 clients</span></dt><dd class="num">€79</dd></div>
+        </dl>
+        <p class="hero-plans-foot"><span>14-day trial · VAT included</span><a href="#pricing">The detail</a></p>
+      </aside>
 
       <div class="hero-stage">
         <div class="hero-media">
@@ -193,134 +208,161 @@
     </div>
   </section>
 
-  <!-- 01 -->
-  <section class="sec wrap" id="problem">
+  <!-- 01 · The week. See the note in the French page: each admin chore beside the real capture
+       that removes it, in the order a coach's week meets them. -->
+  <section class="sec wrap" id="week">
     <div class="sec-head rv">
-      <div class="rule label"><span class="n num">01</span><span class="k">The problem</span></div>
-      <h2>What admin takes from you</h2>
+      <div class="rule label"><span class="n num">01</span><span class="k">The week</span></div>
+      <h2>Four moments where the admin goes away</h2>
+      <p class="lead">
+        You work in the coach dashboard, your clients in the training app. Every screen below is
+        a capture of the product as it runs, not a mockup.
+      </p>
     </div>
 
-    <ol class="rows rv">
-      <li class="row">
-        <span class="n label num">01</span>
-        <div><h3>The program lives in a spreadsheet</h3></div>
-        <p>You rebuild it by hand for every client, then send it as a screenshot. One correction and you start again.</p>
+    <ol class="week">
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">The morning, on the client's phone</p>
+          <h3>Their session is waiting</h3>
+          <p class="before"><span class="label">Before</span>A spreadsheet rebuilt by hand for every client, sent as a screenshot. One correction and you start again.</p>
+          <p>A real app, installed on the home screen. Not a PDF, not a link to a spreadsheet.</p>
+          <ul>
+            <li><span>Today's session, and the week ahead</span></li>
+            <li><span>Their weight and curve, against their goal</span></li>
+            <li><span>Works offline, syncs afterwards</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="../img/screens/client-home-en-360w.avif 360w, ../img/screens/client-home-en-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="../img/screens/client-home-en-360w.webp 360w, ../img/screens/client-home-en-720w.webp 720w" sizes="360px">
+              <img src="../img/screens/client-home-en.png" alt="Client home: the week strip, today's session marked Done, then the bodyweight curve and a 21 week streak." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Client home</span><span class="num">Real capture</span></p>
+        </figure>
       </li>
-      <li class="row">
-        <span class="n label num">02</span>
-        <div><h3>The check-in lives in your DMs</h3></div>
-        <p>A client sends a voice note at 10pm. Three days later it is buried under twenty other conversations.</p>
+
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">Before your first client</p>
+          <h3>You see who needs you</h3>
+          <p class="before"><span class="label">Before</span>A voice note at 10pm, buried three days later under twenty other conversations.</p>
+          <p>One page that answers the only question that matters before your first client: who needs you today.</p>
+          <ul>
+            <li><span>Who is training right now, live</span></li>
+            <li><span>Who has done nothing for seven days</span></li>
+            <li><span>Who is waiting on a reply from you</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="../img/screens/coach-today-en-360w.avif 360w, ../img/screens/coach-today-en-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="../img/screens/coach-today-en-360w.webp 360w, ../img/screens/coach-today-en-720w.webp 720w" sizes="360px">
+              <img src="../img/screens/coach-today-en.png" alt="Coach dashboard: counters reading Clients 6, Training now 2 and Active 7d 5, a needs-attention card naming three clients, then a live card with two clients' set-by-set progress." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Dashboard</span><span class="num">Real capture</span></p>
+        </figure>
       </li>
-      <li class="row">
-        <span class="n label num">03</span>
-        <div><h3>Drop-off shows up too late</h3></div>
-        <p>By the time you notice someone has stopped training, they have already decided to quit. The month is gone.</p>
+
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">Midweek</p>
+          <h3>The one slipping shows up before they leave</h3>
+          <p class="before"><span class="label">Before</span>By the time you noticed someone had stopped training, they had already decided to quit.</p>
+          <p>Every client's 28-day adherence, colour before number, the whole roster on one page.</p>
+          <ul>
+            <li><span>28-day adherence, client by client</span></li>
+            <li><span>Green dot: in a session right now</span></li>
+            <li><span>Program sent, accepted, or left unanswered</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="../img/screens/coach-clients-en-360w.avif 360w, ../img/screens/coach-clients-en-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="../img/screens/coach-clients-en-360w.webp 360w, ../img/screens/coach-clients-en-720w.webp 720w" sizes="360px">
+              <img src="../img/screens/coach-clients-en.png" alt="Client list: six cards; the five clients on a program show a 28-day adherence figure in colour, from 42 per cent in red to 100 per cent in green, with a green dot on the two clients currently training." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Client list</span><span class="num">Real capture</span></p>
+        </figure>
       </li>
-      <li class="row">
-        <span class="n label num">04</span>
-        <div><h3>You hit a ceiling</h3></div>
-        <p>It is not coaching hours that cap your roster. It is everything around them.</p>
+
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">End of the month</p>
+          <h3>The review runs on facts</h3>
+          <p class="before"><span class="label">Before</span>An impression, and a client who mostly remembers the sessions they did.</p>
+          <p>Adherence against the plan, not a flattering average. Enough to hold a hard conversation with facts in it.</p>
+          <ul>
+            <li><span>Adherence measured against scheduled days</span></li>
+            <li><span>Estimated 1RM per exercise</span></li>
+            <li><span>Bodyweight, measurements, muscle balance</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="../img/screens/client-stats-en-360w.avif 360w, ../img/screens/client-stats-en-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="../img/screens/client-stats-en-360w.webp 360w, ../img/screens/client-stats-en-720w.webp 720w" sizes="360px">
+              <img src="../img/screens/client-stats-en.png" alt="Stats screen: 80 workouts and a 21 week streak, the last-twelve-months heatmap, and the front and back muscle map." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Client stats</span><span class="num">Real capture</span></p>
+        </figure>
       </li>
     </ol>
   </section>
 
-  <!-- 02 -->
-  <section class="sec wrap" id="product">
-    <div class="sec-head rv">
-      <div class="rule label"><span class="n num">02</span><span class="k">The product</span></div>
-      <h2>One app for you, one for your clients</h2>
-      <p class="lead">
-        You work in the coach dashboard. Your clients get the training app. Every screenshot
-        below comes from the product as it runs, not from a mockup.
+  <!-- 02 · Plans. See the note in the French page. -->
+  <section class="sec spec plans" id="pricing">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">02</span><span class="k">Pricing</span></div>
+        <h2>One plan per roster size</h2>
+        <p class="lead">It is not coaching hours that cap your roster, it is everything around them. Every plan carries the whole product; only the number of clients changes.</p>
+      </div>
+
+      <div class="plan-grid rv">
+        <div class="plan">
+          <h3 id="plan-solo">Solo</h3>
+          <p class="plan-price"><span class="num">€19</span> a month</p>
+          <dl>
+            <div><dt>Active clients</dt><dd class="num">up to 10</dd></div>
+            <div><dt>Yearly</dt><dd class="num">€190</dd></div>
+            <div><dt>Trial</dt><dd class="num">14 days</dd></div>
+          </dl>
+        </div>
+        <div class="plan mid">
+          <h3 id="plan-pro">Pro</h3>
+          <p class="plan-price"><span class="num">€39</span> a month</p>
+          <dl>
+            <div><dt>Active clients</dt><dd class="num">up to 30</dd></div>
+            <div><dt>Yearly</dt><dd class="num">€390</dd></div>
+            <div><dt>Trial</dt><dd class="num">14 days</dd></div>
+          </dl>
+        </div>
+        <div class="plan">
+          <h3 id="plan-studio">Studio</h3>
+          <p class="plan-price"><span class="num">€79</span> a month</p>
+          <dl>
+            <div><dt>Active clients</dt><dd class="num">up to 75</dd></div>
+            <div><dt>Yearly</dt><dd class="num">€790</dd></div>
+            <div><dt>Trial</dt><dd class="num">14 days</dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <p class="plan-note rv">
+        Prices in euros, VAT included. A year costs ten months. A deactivated client frees their
+        seat. Online checkout opens soon; until then, we start together after
+        <a href="#call">a 20-minute call</a>.
       </p>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>The morning dashboard</h3>
-        <p>One page that answers the only question that matters before your first client: who needs you today.</p>
-        <ul>
-          <li><span>Who is training right now, live</span></li>
-          <li><span>Who has done nothing for seven days</span></li>
-          <li><span>Who is waiting on a reply from you</span></li>
-        </ul>
-      </div>
-      <figure>
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="../img/screens/coach-today-en-360w.avif 360w, ../img/screens/coach-today-en-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="../img/screens/coach-today-en-360w.webp 360w, ../img/screens/coach-today-en-720w.webp 720w" sizes="360px">
-            <img src="../img/screens/coach-today-en.png" alt="Coach dashboard: counters reading Clients 6, Training now 2 and Active 7d 5, a needs-attention card naming three clients, then a live card with two clients' set-by-set progress." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Dashboard</span><span class="num">Real capture</span></p>
-      </figure>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>Your roster on one page</h3>
-        <p>Every client's 28-day adherence, colour before number. The one slipping shows up before they leave.</p>
-        <ul>
-          <li><span>28-day adherence, client by client</span></li>
-          <li><span>Green dot: in a session right now</span></li>
-          <li><span>Program sent, accepted, or left unanswered</span></li>
-        </ul>
-      </div>
-      <figure>
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="../img/screens/coach-clients-en-360w.avif 360w, ../img/screens/coach-clients-en-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="../img/screens/coach-clients-en-360w.webp 360w, ../img/screens/coach-clients-en-720w.webp 720w" sizes="360px">
-            <img src="../img/screens/coach-clients-en.png" alt="Client list: six cards; the five clients on a program show a 28-day adherence figure in colour, from 42 per cent in red to 100 per cent in green, with a green dot on the two clients currently training." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Client list</span><span class="num">Real capture</span></p>
-      </figure>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>What your client sees</h3>
-        <p>A real app, under your name, installed on the home screen. Not a PDF, not a link to a spreadsheet.</p>
-        <ul>
-          <li><span>Today's session, and the week ahead</span></li>
-          <li><span>Their weight and curve, against their goal</span></li>
-          <li><span>Works offline, syncs afterwards</span></li>
-        </ul>
-      </div>
-      <figure>
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="../img/screens/client-home-en-360w.avif 360w, ../img/screens/client-home-en-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="../img/screens/client-home-en-360w.webp 360w, ../img/screens/client-home-en-720w.webp 720w" sizes="360px">
-            <img src="../img/screens/client-home-en.png" alt="Client home: the week strip, today's session marked Done, then the bodyweight curve and a 21 week streak." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Client home</span><span class="num">Real capture</span></p>
-      </figure>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>The numbers, when you need them</h3>
-        <p>Adherence against the plan, not a flattering average. Enough to hold a hard conversation with facts in it.</p>
-        <ul>
-          <li><span>Adherence measured against scheduled days</span></li>
-          <li><span>Estimated 1RM per exercise</span></li>
-          <li><span>Bodyweight, measurements, muscle balance</span></li>
-        </ul>
-      </div>
-      <figure>
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="../img/screens/client-stats-en-360w.avif 360w, ../img/screens/client-stats-en-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="../img/screens/client-stats-en-360w.webp 360w, ../img/screens/client-stats-en-720w.webp 720w" sizes="360px">
-            <img src="../img/screens/client-stats-en.png" alt="Stats screen: 80 workouts and a 21 week streak, the last-twelve-months heatmap, and the front and back muscle map." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Client stats</span><span class="num">Real capture</span></p>
-      </figure>
     </div>
   </section>
 
@@ -342,26 +384,23 @@
         <div class="spec-row"><dt>Load progression</dt><dd>Linear, Greyskull LP or double progression, chosen per exercise.</dd></div>
         <div class="spec-row"><dt>Offline</dt><dd>A session runs and records with no network, and syncs after.</dd></div>
         <div class="spec-row"><dt>Notifications</dt><dd>Rest-timer and session reminders, over Web Push.</dd></div>
-        <div class="spec-row"><dt>Hosting</dt><dd>Your instance, your domain, your data. No telemetry.</dd></div>
+        <div class="spec-row"><dt>Hosting</dt><dd>Hosted for you, nothing to install. No telemetry.</dd></div>
         <div class="spec-row"><dt>Export</dt><dd>Client data exports at any time, as JSON.</dd></div>
-        <div class="spec-row"><dt>Price</dt><dd>A flat monthly fee, plus a one-off setup. No per-client subscription. The amount is set on the call.</dd></div>
+        <div class="spec-row"><dt>Price</dt><dd>Three plans by client count, see <a href="#pricing">Pricing</a>. No per-client price.</dd></div>
         <div class="spec-row"><dt>Based in</dt><dd>Morocco. The setup call and support happen on WhatsApp.</dd></div>
       </dl>
 
-      <!-- The two facts most likely to close this buyer used to live only inside collapsed FAQ
-           items at ~85% scroll, while the feature list sat open: the objection-handling was
-           hidden and the features were not. They close the spec sheet now, which is the most
-           credible object on the page and the right place for terms. -->
+      <!-- See the note in the French page: terms close the spec sheet. -->
       <ol class="rows rv terms">
         <li class="row">
           <span class="n label">Exit</span>
           <div><h3>You leave with your data</h3></div>
-          <p>Exportable as JSON at any time. The instance is yours, not ours.</p>
+          <p>Exportable as JSON at any time. Nothing stays locked in with us.</p>
         </li>
         <li class="row">
-          <span class="n label">Price</span>
-          <div><h3>No per-client subscription</h3></div>
-          <p>Your bill does not grow because your business is working.</p>
+          <span class="n label">Clients</span>
+          <div><h3>Your bill never locks out a client</h3></div>
+          <p>Your clients' app does not depend on your plan. A late payment stops nobody's session.</p>
         </li>
       </ol>
     </div>
@@ -382,8 +421,8 @@
       </li>
       <li class="step">
         <span class="n label num">02</span>
-        <h3>The instance</h3>
-        <p>Your domain is configured and your coach account opened. Nothing to install on your side.</p>
+        <h3>Your account</h3>
+        <p>Your coach account is opened on the plan that fits your roster. Nothing to install on your side.</p>
       </li>
       <li class="step">
         <span class="n label num">03</span>
@@ -416,7 +455,7 @@
       </details>
       <details>
         <summary>What happens if I stop?</summary>
-        <p>You leave with your data, exported as JSON. The instance is yours, not ours.</p>
+        <p>You leave with your data, exported as JSON. The dashboard keeps working until the end of the period you already paid for.</p>
       </details>
       <details>
         <summary>Is the coach dashboard in French?</summary>
@@ -432,7 +471,15 @@
       </details>
       <details>
         <summary>What does it cost?</summary>
-        <p>A flat monthly fee, plus a one-off setup. No per-client subscription: your bill does not grow because your business is working. The amount depends on client count and hosting, and is set on the call.</p>
+        <p>€19 to €79 a month depending on active clients: Solo up to 10, Pro up to 30, Studio up to 75. VAT included, a 14-day trial, and a year costs ten months. The detail is under <a href="#pricing">Pricing</a>.</p>
+      </details>
+      <details>
+        <summary>What if I outgrow my plan?</summary>
+        <p>Your current clients carry on as before. You simply cannot invite new ones until you move up a plan or deactivate a client: a deactivated client frees their seat.</p>
+      </details>
+      <details>
+        <summary>Can I change plans?</summary>
+        <p>Yes, at any time, from your account. Card, invoices and cancellation are managed in the same place.</p>
       </details>
     </div>
   </section>
@@ -498,7 +545,8 @@
       <p class="fine">Software for independent personal trainers in Morocco. Built on openGym.</p>
     </div>
     <ul>
-      <li><a href="#product">The product</a></li>
+      <li><a href="#week">The week</a></li>
+      <li><a href="#pricing">Pricing</a></li>
       <li><a href="#spec">Spec sheet</a></li>
       <li><a href="#questions">Questions</a></li>
       <li><a href="/en/legal">Legal</a></li>

@@ -10,6 +10,9 @@
    This is NOT site/ (fitpal.ma, gold on black) and NOT frontend/ (the app). Different buyer,
    deliberately different look. */
 
+/* Hallmark · genre: editorial-industrial · macrostructure: Narrative Workflow · nav: N9 edge-aligned
+ * footer: Ft2 single line · design-system: DESIGN.md · designed-as-app (CHW-318) */
+
 /* ---------------------------------------------------------------- type */
 
 /* Archivo, self-hosted. Was two render-blocking requests to fonts.googleapis.com plus a
@@ -98,6 +101,9 @@
   --bone:         #F2EDE4;
   --muted:        #A9A198;
   --mute-bone:    #5E574E;
+  /* The row separator on bone: --mute-bone at 28%. Separators between rows of one table, not
+     boundaries, so they sit under 3:1 on purpose; the table's top rule is full --mute-bone. */
+  --rule-bone:    rgba(94, 87, 78, 0.28);
 
   /* accent. The app's gold, so this site reads as the same brand family; the ground stays
      warm graphite rather than the app's pure black.
@@ -435,75 +441,66 @@ p { max-width: 68ch; }
   width: 100%;
 }
 
-/* The photograph that fills the space beside the headline.
+/* The price list beside the headline (CHW-318).
 
-   The copy runs to a text measure, so on a wide screen the right half of the hero was empty.
-   A photograph there is the one place on this page where a human face appears above the fold,
-   which is what keeps a field-manual layout from reading as machinery.
+   This column held a stock portrait, put there because the copy runs to a text measure and left
+   the right half of the hero empty. A fact fills it better than decoration: the price was the
+   one answer this buyer could not get without picking up the phone, and printing it is the
+   spec-sheet honesty PRODUCT.md asks for. Same row grammar as the spec table — label left,
+   tabular figure right, a rule between — so it reads as an excerpt of the sheet below.
 
-   It is presented UNFRAMED — no device body, no border. That is the same contrast DESIGN.md
-   draws for the photo band lower down: app screens are evidence and sit in a phone; a
-   photograph is atmosphere and does not.
-
-   Two mechanics matter here:
-   - It is absolutely positioned inside a stretched figure, so it takes its height FROM the
-     copy column and contributes none of its own. Let it size itself and a 4:5 portrait stands
-     ~110px taller than the copy, which pushes the film down and undoes the fold work above.
-   - Below the breakpoint it is not rendered at all. Stacked on a phone it would cost a full
-     screen of scrolling before the film, and the film plus the four screenshots already carry
-     that view.
-
-   The breakpoint is 1040px, not 1000px, and the extra 40px is deliberate. Chrome matches a
-   media query against `innerWidth`, which INCLUDES the classic scrollbar, while layout gets
-   `clientWidth`, which does not. At a 1000px window the two-column rule therefore fired with
-   only 985px to lay out, the second track computed to `0px`, and this figure's absolutely
-   positioned caption — `left: 0; right: 0` on a zero-width box — spilled 78px past the page
-   and gave the whole document a horizontal scrollbar. Starting at 1040 keeps the rule out of
-   that 15px band entirely. */
-.hero-portrait { display: none; }
+   Below 1040px it stacks between the copy and the film. The 1040px breakpoint, not 1000px, is
+   still deliberate: Chrome matches a media query against innerWidth, which includes the classic
+   scrollbar, so a 1000px rule fired with 985px to lay out and collapsed the second track. */
+.hero-plans {
+  min-width: 0;
+  max-width: 34rem;
+  border-top: 1px solid var(--rule-strong);
+  padding-top: var(--sp-4);
+}
+.hero-plans > .label { color: var(--gold); margin-bottom: var(--sp-2); }
+.hero-plans dl > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-4);
+  padding-block: var(--sp-3);
+  border-bottom: 1px solid var(--rule-strong);
+}
+.hero-plans dt { font-variation-settings: 'wght' 600, 'wdth' 100; }
+.hero-plans dt span {
+  margin-left: var(--sp-2);
+  color: var(--muted);
+  font-size: var(--t-small);
+  font-variation-settings: 'wght' 400, 'wdth' 100;
+}
+.hero-plans dd {
+  margin: 0;
+  font-size: var(--t-h3);
+  font-variation-settings: 'wght' 700, 'wdth' 78;
+  white-space: nowrap;
+}
+.hero-plans-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  margin-top: var(--sp-3);
+  max-width: none;
+  font-size: var(--t-small);
+  color: var(--muted);
+}
+.hero-plans-foot a { color: var(--gold); white-space: nowrap; }
 
 @media (min-width: 1040px) {
   .hero-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.5fr);
     column-gap: clamp(32px, 4vw, 64px);
-    align-items: start;
+    align-items: end;      /* the list closes on the same line as the note */
   }
-  .hero-copy    { grid-column: 1; grid-row: 1; }
-  .hero-stage   { grid-column: 1 / -1; }
-  .hero-portrait {
-    display: block;
-    position: relative;
-    grid-column: 2;
-    grid-row: 1;
-    align-self: stretch;   /* height comes from the copy column */
-    min-height: 0;
-    min-width: 0;
-    margin: 0;
-    /* Belt and braces for the collapse described above: if this track is ever squeezed to
-       nothing again, the caption is clipped rather than pushing the page sideways. */
-    overflow: hidden;
-  }
-  .hero-portrait img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center 18%;   /* both faces sit high in the frame */
-    border-radius: var(--r);
-  }
-  /* Same disclosure the photo band carries, and for the same reason: a stock portrait beside a
-     headline is the easiest place on the page to imply a customer by accident. Overlaid rather
-     than placed under the figure, so it adds no height and the film below does not move. */
-  .hero-portrait figcaption {
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    padding: 32px var(--sp-4) var(--sp-3);
-    color: var(--muted);
-    background: linear-gradient(to bottom, transparent, rgba(20, 18, 15, .92) 64%);
-    border-end-start-radius: var(--r);
-    border-end-end-radius: var(--r);
-  }
+  .hero-copy  { grid-column: 1; grid-row: 1; }
+  .hero-plans { grid-column: 2; grid-row: 1; }
+  .hero-stage { grid-column: 1 / -1; }
 }
 
 /* The film is NOT in a phone. The four screenshots are phone screens and belong in a phone
@@ -578,8 +575,6 @@ p { max-width: 68ch; }
 @media (prefers-reduced-motion: reduce) {
   .media-toggle { transition: none; }
 }
-
-.feat-body, .feat figure { min-width: 0; }
 
 /* The device frame. Every screen on this site is a phone screen, so there is no flat variant
    left; the old `.shot` hairline-and-mat is gone rather than kept as dead CSS.
@@ -669,7 +664,7 @@ p { max-width: 68ch; }
    lands at ~16px, in the same register as this page's own 17px body. The row runs ~780px tall
    at 9:19.5, which the two-column feature grid absorbs (each column is ~560px at the 1200px
    container). */
-.feat .shot-wrap { --dev-w: 360px; }
+.stage .shot-wrap { --dev-w: 360px; }
 
 /* ---------------------------------------------------------------- problem rows */
 
@@ -687,29 +682,71 @@ p { max-width: 68ch; }
 .row h3 { margin-bottom: var(--sp-2); }
 .row p { color: var(--muted); }
 
-/* ---------------------------------------------------------------- features */
+/* ---------------------------------------------------------------- the week */
 
-/* Alternating, not an even card grid. */
-.feat {
+/* Narrative Workflow (CHW-318). The problem rows and the alternating feature rows were two
+   sections that said the same four things twice — four complaints, then four screens — and left
+   the reader to pair them. Each stage now pairs one chore with the capture that removes it, in
+   the order a coach's week meets them, hung on one spine.
+
+   The spine is the left rule; each stage's time stamp sits on a gold graduation leaving it, the
+   same square-ended tick the steps scale uses. It does not alternate: a timeline reads down one
+   line, and alternating sides would make it a zigzag. */
+.week { border-top: 1px solid var(--rule-strong); }
+
+.stage {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: clamp(32px, 5vw, 80px);
-  align-items: center;
-  padding-block: var(--sp-9);
-  border-bottom: 1px solid var(--rule-strong);
+  align-items: start;
+  padding: var(--sp-8) 0 var(--sp-8) clamp(20px, 3vw, 48px);
+  border-left: 1px solid var(--rule-strong);
 }
-.feat:last-child { border-bottom: 0; }
-.feat:nth-child(even) .feat-body { order: 2; }
+.stage + .stage { border-top: 1px solid var(--rule-strong); }
 
-.feat h3 { margin-bottom: var(--sp-4); }
-.feat p { color: var(--muted); margin-bottom: var(--sp-5); }
+.stage::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: calc(var(--sp-8) + 0.45em);
+  width: 12px;
+  height: 2px;
+  background: var(--gold);
+}
 
-.feat ul { display: grid; gap: var(--sp-3); }
-.feat li {
+/* The copy rides beside its phone while the phone scrolls past: the capture is roughly twice
+   the height of the text, and without this the column ends halfway down the frame. Plain
+   sticky, no scroll-linked script. */
+.stage-body {
+  min-width: 0;
+  position: sticky;
+  top: calc(68px + var(--sp-6));   /* under the 68px sticky header */
+}
+.stage figure { min-width: 0; }
+
+.stage-when { color: var(--gold); margin-bottom: var(--sp-4); }
+.stage h3 { margin-bottom: var(--sp-4); }
+
+/* The chore it replaces. Smaller and muted, between two rules, so the eye lands on it second;
+   not struck through, which costs legibility to make a joke. */
+.before {
+  margin-bottom: var(--sp-5);
+  padding-block: var(--sp-3);
+  border-block: 1px solid var(--rule-strong);
+  color: var(--muted);
+  font-size: var(--t-small);
+}
+.before .label { display: block; margin-bottom: var(--sp-1); }
+
+.stage-body > p:not(.before):not(.stage-when) { margin-bottom: var(--sp-5); }
+
+.stage ul { display: grid; gap: var(--sp-3); }
+.stage li {
   display: grid; grid-template-columns: 1.25rem 1fr; gap: var(--sp-3);
   font-size: var(--t-small); color: var(--muted);
 }
-.feat li::before {
+.stage li::before {
   content: ''; width: 9px; height: 9px; margin-top: 0.45em;
   background: var(--gold);
 }
@@ -735,7 +772,7 @@ p { max-width: 68ch; }
   border-top: 1px solid var(--mute-bone);
   margin-top: var(--sp-7);
 }
-.spec .terms .row { border-bottom-color: rgba(94, 87, 78, 0.28); }
+.spec .terms .row { border-bottom-color: var(--rule-bone); }
 .spec .terms .row:last-child { border-bottom: 0; }
 .spec .terms .row .n { color: var(--gold-deep); }
 .spec .terms .row h3 { color: var(--graphite); }
@@ -750,14 +787,94 @@ p { max-width: 68ch; }
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   gap: var(--sp-5);
   padding-block: var(--sp-4);
-  border-bottom: 1px solid rgba(94, 87, 78, 0.28);
+  border-bottom: 1px solid var(--rule-bone);
   align-items: baseline;
 }
 .spec-row dt { color: var(--mute-bone); }
 .spec-row dd { margin: 0; font-variation-settings: 'wght' 500, 'wdth' 100; }
 .spec-row dd .y { color: var(--gold-deep); font-variation-settings: 'wght' 700, 'wdth' 100; }
 
-/* ---------------------------------------------------------------- steps */
+/* ---------------------------------------------------------------- plans (light) */
+
+/* Three plans as three columns of the same rows, not three cards (CHW-318). DESIGN.md allows one
+   card on the page, and it is the spec block; a plan is the same kind of object, a short spec,
+   so it takes the spec grammar. The middle plan is marked by a gold-deep rule along its top, not
+   a "recommended" badge. Monthly and yearly are two rows rather than a toggle: no script, and
+   both numbers are visible at once, which is the honest way to show a discount.
+
+   Tarifs and the spec sheet share one bone run, so the second section drops its top padding and
+   the run reads as one printed sheet with two headings. */
+.plans + .spec { padding-top: 0; }
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--mute-bone);
+}
+
+.plan {
+  position: relative;
+  min-width: 0;
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+}
+.plan + .plan { border-left: 1px solid var(--rule-bone); }
+.plan.mid::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -2px;
+  height: 3px;
+  background: var(--gold-deep);
+}
+
+.plan h3 { color: var(--graphite); }
+
+.plan-price {
+  margin-block: var(--sp-3) var(--sp-5);
+  color: var(--mute-bone);
+  font-size: var(--t-small);
+}
+.plan-price .num {
+  display: block;
+  margin-bottom: var(--sp-1);
+  color: var(--graphite);
+  font-size: var(--t-h2);
+  font-variation-settings: 'wght' 800, 'wdth' 68;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.plan dl > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-4);
+  padding-block: var(--sp-3);
+  border-top: 1px solid var(--rule-bone);
+}
+.plan dt { color: var(--mute-bone); font-size: var(--t-small); }
+.plan dd { margin: 0; font-variation-settings: 'wght' 500, 'wdth' 100; white-space: nowrap; }
+
+.plan-note {
+  margin-top: var(--sp-6);
+  color: var(--mute-bone);
+  font-size: var(--t-small);
+}
+
+/* Links on bone: --gold measures 1.80:1 here; --gold-deep is the light ground's accent. The
+   bone focus ring would vanish on its own ground, so the light section rings in graphite
+   (14.89:1), the same move the gold band makes with --ink. These are the first links the bone
+   run has ever held. */
+.plan-note a,
+.spec-row dd a { color: var(--gold-deep); }
+.spec :focus-visible { outline-color: var(--graphite); }
+
+@media (max-width: 760px) {
+  .plan-grid { grid-template-columns: minmax(0, 1fr); }
+  .plan { padding-inline: 0; }
+  .plan + .plan { border-left: 0; border-top: 1px solid var(--rule-bone); }
+}
+
+/* ---------------------------------------------------------------- steps *//* ---------------------------------------------------------------- steps */
 
 /* Four graduations on one rule, not four cards.
 
@@ -978,8 +1095,8 @@ p { max-width: 68ch; }
   .hero-grid { grid-template-columns: minmax(0, 1fr); }
   /* A phone-sized picture of a phone, shown on a phone, is the classic mockup absurdity. */
   .hero-media video { max-height: 56svh; }
-  .feat { grid-template-columns: minmax(0, 1fr); }
-  .feat:nth-child(even) .feat-body { order: 0; }
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .stage-body { position: static; }
 }
 
 /* The header collapses well before the body does. Five French nav labels plus the CTA needed
@@ -1042,6 +1159,7 @@ p { max-width: 68ch; }
 .js.intro .hero .lead,
 .js.intro .hero .actions,
 .js.intro .hero .note,
+.js.intro .hero-plans,
 .js.intro .hero-stage {
   opacity: 0;
   animation: introUp var(--slow) var(--ease) forwards;
@@ -1053,6 +1171,7 @@ p { max-width: 68ch; }
 .js.intro .hero .lead              { animation-delay: 300ms; }
 .js.intro .hero .actions           { animation-delay: 380ms; }
 .js.intro .hero .note              { animation-delay: 430ms; }
+.js.intro .hero-plans              { animation-delay: 400ms; }
 .js.intro .hero-stage {
   animation-name: introRise;
   animation-delay: 460ms;
@@ -1074,6 +1193,7 @@ p { max-width: 68ch; }
   .js.intro .hero .lead,
   .js.intro .hero .actions,
   .js.intro .hero .note,
+  .js.intro .hero-plans,
   .js.intro .hero-stage { opacity: 1; animation: none; }
 }
 
