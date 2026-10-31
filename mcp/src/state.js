@@ -7,7 +7,7 @@
    every tool call; getState() and getUser() stay synchronous, so tools.js is the same for both. */
 import fs from 'node:fs'
 import path from 'node:path'
-import { remoteBase, tokenFile, savedToken, fetchUser, fetchState } from './remote.js'
+import { remoteBase, tokenFile, savedPairing, fetchUser, fetchState } from './remote.js'
 
 const DATA_DIR = process.env.OPENGYM_DATA || path.join(process.cwd(), 'data')
 
@@ -17,32 +17,26 @@ let _db = undefined
 let _uid = null
 let _watcher = null
 let _loadedMtime = 0    // mtimeMs we last read at — used to catch watcher omissions
-let _remote = null      // remote mode: { base, token, user } once refresh() has run
+let _remote = null      // remote mode: { base, token, user } after the first refresh() that worked
 
 export const isRemote = () => Boolean((process.env.OPENGYM_URL || '').trim())
 
 // Remote mode: the state as the server holds it now, one GET per tool call — nothing cached to go
-// stale, and an answer never mixes two syncs. The user is read once. File mode: nothing to do,
+// stale, and an answer never mixes two syncs. The token file is read on every call too, so pairing
+// again (after an expiry, or as another account) needs no restart; the user is fetched again only
+// when the token changed. Nothing is kept until both reads worked, so a failed call leaves the
+// last good answer's account in place for a call running beside it. File mode: nothing to do,
 // getState() checks the file itself.
 export async function refresh() {
   if (!isRemote()) return
-  if (!_remote) {
-    const base = remoteBase(process.env.OPENGYM_URL)
-    const token = savedToken(base, tokenFile())
-    _remote = { base, token, user: await fetchUser(base, token) }
-    _uid = _remote.user.id
-  }
-  let state
-  try {
-    state = await fetchState(_remote.base, _remote.token)
-  } catch (e) {
-    _remote = null   // the next call reads the token file again: pairing anew needs no restart
-    throw e
-  }
-  _state = state && typeof state === 'object' ? Object.assign({}, defaultsShape(), state) : null
+  const base = remoteBase(process.env.OPENGYM_URL)
+  const { token } = savedPairing(base, tokenFile())
+  const user = _remote && _remote.base === base && _remote.token === token ? _remote.user : await fetchUser(base, token)
+  const state = await fetchState(base, token)
+  _remote = { base, token, user }
+  _uid = user.id
+  _state = state ? Object.assign({}, defaultsShape(), state) : null
 }
-
-export const remoteServer = () => _remote && _remote.base
 
 function readJsonOrNull(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return null }

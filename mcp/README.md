@@ -10,10 +10,11 @@ application (Claude Desktop, Cursor, Cline, Continue, etc.) read your openGym pr
 routines, workouts, body-weight log, estimated 1RMs, and muscle balance — directly from your
 self-hosted `./data` directory.
 
-It is read-only, runs locally as a stdio process spawned by the LLM client, adds no new
-container, and requires no extra authentication. The LLM never sees passkeys, VAPID keys, or
-session secrets — it can only read the same `state-<uid>.json` files the openGym api already
-writes.
+It is read-only, runs locally as a stdio process spawned by the LLM client, and adds no new
+container. The LLM never sees passkeys, VAPID keys, or session secrets. In file mode it needs no
+authentication and can only read the same `state-<uid>.json` files the openGym api already
+writes; in remote mode it holds one paired session token on disk (see **Remote mode**) and only
+GETs your own state with it.
 
 The numbers it answers with are computed by the **same pure functions the React UI uses**
 (`frontend/src/lib/*.js`) — `estimate1RM`, `loadOfWorkouts`, `effectiveRoutine`, etc. — so a
@@ -54,7 +55,9 @@ Then register it with `OPENGYM_URL` instead of `OPENGYM_DATA`:
   Settings → "Sign out everywhere" ends it at once. A tool call then says so; run `pair.mjs`
   again, no restart needed.
 - **Fresh on every call.** Each tool call reads `/api/data` again, so a session the phone just
-  synced is in the next answer. https only, except `localhost` for a dev server.
+  synced is in the next answer, and the token file again, so pairing as someone else takes effect
+  at once. A server that does not answer in 15 s fails the call. https only, except `localhost`
+  for a dev server (a bare `localhost:8000` means http).
 - **Whose data.** Yours, as your app syncs it. A coach's clients are not readable this way.
 
 ## File mode: upstream's Node API
@@ -150,8 +153,10 @@ dependencies landed in `frontend/`, no public exports changed.
   remote mode uses Node's own `fetch`, through the API's own sign-in and tenancy.
 - **No new process to run.** stdio transport is spawned by the LLM client; nothing extra to
   deploy or keep alive.
-- **No new auth.** The filesystem is the boundary — same as the API running on the
-  user's box. No passkey material, VAPID keys, or session secrets ever cross it.
+- **No new auth.** File mode: the filesystem is the boundary — same as the API running on the
+  user's box. Remote mode: the API's own sign-in — a session token from the existing pairing
+  flow, kept owner-only in `~/.opengym-mcp/token.json`, sent only to the server it was paired
+  with, never through a redirect. No passkey material or VAPID keys cross either boundary.
 - **No telemetry.** File mode makes no network call: it reads `./data/*.json` and exits when the
   LLM client disconnects. Remote mode calls the one server you paired with, and nothing else.
 

@@ -22,7 +22,8 @@ export function tokenFile() {
 export function remoteBase(raw) {
   let s = String(raw || '').trim()
   if (!s) throw new Error('no server address given')
-  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) s = 'https://' + s
+  // No scheme typed: https, or http for this machine's dev server (localhost:8000).
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) s = (/^(?:localhost|127\.0\.0\.1|\[::1\])(?:[:/]|$)/i.test(s) ? 'http://' : 'https://') + s
   let u
   try { u = new URL(s) } catch { throw new Error(`not a server address: ${JSON.stringify(raw)}`) }
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)
@@ -31,16 +32,32 @@ export function remoteBase(raw) {
   return u.origin
 }
 
+// Bounded, so a server that takes the connection and never answers fails the tool call in
+// seconds rather than hanging the LLM client for undici's five minutes.
+export const TIMEOUT_MS = 15_000
+
+// No redirect is followed: the API never sends one, and following one could carry the token to
+// another host, or turn a sign-in page into a 200 that reads like an answer.
 async function call(base, route, opts = {}) {
-  const r = await fetch(base + route, opts)
-  const data = await r.json().catch(() => ({}))
+  let r
+  try {
+    r = await fetch(base + route, { ...opts, redirect: 'error', signal: AbortSignal.timeout(TIMEOUT_MS) })
+  } catch (e) {
+    throw new Error(`${base}${route}: ${e.name === 'TimeoutError' ? `no answer in ${TIMEOUT_MS / 1000} s` : e.cause?.message || e.message}`)
+  }
+  const data = await r.json().catch(() => null)
   if (r.status === 401) {
     throw new Error(`${base} no longer accepts this token (it expires after the server's SESSION_DAYS, ` +
       `and "sign out everywhere" ends it) — pair again: node scripts/pair.mjs ${base} <code>`)
   }
-  if (!r.ok) throw new Error(`${route}: ${data.error || 'HTTP ' + r.status}`)
+  if (!r.ok) throw new Error(`${route}: ${data?.error || 'HTTP ' + r.status}`)
+  // A 200 that is not the API's JSON (the app's index.html while /api is missing, say) is an
+  // error, not an empty answer: read as one, it would say the account never synced.
+  if (!data || typeof data !== 'object') throw shapeError(base, route)
   return data
 }
+
+const shapeError = (base, route) => new Error(`${base}${route} did not answer as the API does — is ${base} the server's address?`)
 
 // One-time: trade a pairing code for a token, and keep it (owner-only where the OS has modes).
 export async function pair(raw, code, file) {
@@ -54,19 +71,27 @@ export async function pair(raw, code, file) {
   return user
 }
 
-// The saved token for `base`, or an error saying what to do.
-export function savedToken(base, file) {
+// The saved pairing for `base` ({ url, token, user }), or an error saying what to do.
+export function savedPairing(base, file) {
   let saved = null
   try { saved = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
   if (!saved || typeof saved.token !== 'string') throw new Error(`no token in ${file} — pair first: node scripts/pair.mjs ${base} <code>`)
   if (saved.url !== base) throw new Error(`the token in ${file} is for ${saved.url}, not ${base} — pair again: node scripts/pair.mjs ${base} <code>`)
-  return saved.token
+  return saved
 }
 
 const auth = token => ({ headers: { Authorization: 'Bearer ' + token } })
 
 // GET /api/me: the public user ({ id, name, … }).
-export const fetchUser = (base, token) => call(base, '/api/me', auth(token)).then(d => d.user)
+export async function fetchUser(base, token) {
+  const { user } = await call(base, '/api/me', auth(token))
+  if (!user || typeof user.id !== 'string') throw shapeError(base, '/api/me')
+  return user
+}
 
 // GET /api/data: the state as the app last synced it, or null for an account that never has.
-export const fetchState = (base, token) => call(base, '/api/data', auth(token)).then(d => d.state ?? null)
+export async function fetchState(base, token) {
+  const d = await call(base, '/api/data', auth(token))
+  if (!('state' in d) || (d.state !== null && typeof d.state !== 'object')) throw shapeError(base, '/api/data')
+  return d.state
+}

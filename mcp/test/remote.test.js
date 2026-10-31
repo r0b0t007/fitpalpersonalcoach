@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { buildDemoState } from '../../frontend/src/lib/demoSeed.js'
-import { remoteBase, pair, savedToken } from '../src/remote.js'
+import { remoteBase, pair, savedPairing } from '../src/remote.js'
 
 const BASE = 'https://coach.example.test'
 const TOKEN = 'tok-123'
@@ -20,7 +20,7 @@ function fakeServer({ state = buildDemoState(), code = 'ABCD2345' } = {}) {
   const json = (status, body) => ({ ok: status < 400, status, json: async () => body })
   return async (url, opts = {}) => {
     const u = new URL(url)
-    requests.push({ url: u.pathname, auth: opts.headers && opts.headers.Authorization, body: opts.body })
+    requests.push({ url: u.pathname, auth: opts.headers && opts.headers.Authorization, body: opts.body, redirect: opts.redirect, signal: opts.signal })
     if (u.origin !== BASE) throw new Error('fetch to ' + u.origin)
     if (u.pathname === '/api/pair/redeem') {
       return JSON.parse(opts.body).code === code ? json(200, { token: TOKEN, user: USER }) : json(400, { error: 'invalid or expired code' })
@@ -66,6 +66,52 @@ describe('remoteBase', () => {
   test('refuses an empty address', () => {
     expect(() => remoteBase('  ')).toThrow(/no server address/)
   })
+  test('a bare localhost means the dev server\'s plain http', () => {
+    expect(remoteBase('localhost:8000')).toBe('http://localhost:8000')
+    expect(remoteBase('127.0.0.1')).toBe('http://127.0.0.1')
+    expect(remoteBase('localhost.example.test')).toBe('https://localhost.example.test')
+  })
+})
+
+describe('what the server answers', () => {
+  const html = async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('Unexpected token <') } })
+
+  test('no redirect is followed, and every request has a deadline', async () => {
+    await pair(BASE, 'ABCD2345', file)
+    const st = await freshState()
+    await st.refresh()
+    expect(requests.length).toBe(3)
+    for (const r of requests) {
+      expect(r.redirect).toBe('error')
+      expect(r.signal).toBeInstanceOf(AbortSignal)
+    }
+  })
+
+  test('a 200 that is not the API (the app\'s index.html) is an error, not "never synced"', async () => {
+    await pair(BASE, 'ABCD2345', file)
+    const st = await freshState()
+    const api = fakeServer()
+    vi.stubGlobal('fetch', (url, opts) => new URL(url).pathname === '/api/data' ? html() : api(url, opts))
+    await expect(st.refresh()).rejects.toThrow(/did not answer as the API does/)
+  })
+
+  test('a /api/me without a user is an error, and leaves nothing behind once the server is right', async () => {
+    await pair(BASE, 'ABCD2345', file)
+    const st = await freshState()
+    const api = fakeServer()
+    vi.stubGlobal('fetch', async (url, opts) => new URL(url).pathname === '/api/me' ? { ok: true, status: 200, json: async () => ({}) } : api(url, opts))
+    await expect(st.refresh()).rejects.toThrow(/did not answer as the API does/)
+    vi.stubGlobal('fetch', api)
+    await st.refresh()
+    expect(st.getUser().name).toBe('Ada')
+  })
+
+  test('a server that never answers fails the call with the deadline, not a hang', async () => {
+    await pair(BASE, 'ABCD2345', file)
+    const st = await freshState()
+    vi.stubGlobal('fetch', async () => { throw new DOMException('The operation was aborted due to timeout', 'TimeoutError') })
+    await expect(st.refresh()).rejects.toThrow(/no answer in 15 s/)
+  })
 })
 
 describe('pair', () => {
@@ -75,7 +121,7 @@ describe('pair', () => {
     expect(JSON.parse(requests[0].body)).toEqual({ code: 'ABCD2345' })
     const saved = JSON.parse(fs.readFileSync(file, 'utf8'))
     expect(saved).toEqual({ url: BASE, token: TOKEN, user: { id: 'u1', name: 'Ada' } })
-    expect(savedToken(BASE, file)).toBe(TOKEN)
+    expect(savedPairing(BASE, file).token).toBe(TOKEN)
   })
   test('a spent or wrong code is the server\'s own sentence, and nothing is written', async () => {
     await expect(pair(BASE, 'WRONG', file)).rejects.toThrow('invalid or expired code')
@@ -93,7 +139,6 @@ describe('state in remote mode', () => {
     expect(S.routines.length).toBe(server.state.routines.length)
     expect(S.gifSize).toBe('full')                     // a default the stored state may lack
     expect(st.getUser()).toEqual({ id: 'u1', name: 'Ada', created: null })
-    expect(st.remoteServer()).toBe(BASE)
   })
 
   test('each refresh reads the server again, so a sync on the phone shows on the next call', async () => {
@@ -159,6 +204,22 @@ describe('state in remote mode', () => {
     fs.writeFileSync(file, JSON.stringify({ url: BASE, token: fresh }))
     await st.refresh()
     expect(st.getState().routines.length).toBe(server.state.routines.length)
+  })
+
+  test('pairing again as someone else, while the old token still works, takes effect at once', async () => {
+    await pair(BASE, 'ABCD2345', file)
+    const st = await freshState()
+    await st.refresh()
+    const api = fakeServer()
+    vi.stubGlobal('fetch', async (url, opts = {}) => {
+      if (opts.headers?.Authorization === 'Bearer tok-bob' && new URL(url).pathname === '/api/me')
+        return { ok: true, status: 200, json: async () => ({ user: { id: 'u2', name: 'Bob' } }) }
+      if (opts.headers?.Authorization === 'Bearer tok-bob') opts = { ...opts, headers: { Authorization: 'Bearer ' + TOKEN } }
+      return api(url, opts)
+    })
+    fs.writeFileSync(file, JSON.stringify({ url: BASE, token: 'tok-bob' }))
+    await st.refresh()
+    expect(st.getUser().name).toBe('Bob')
   })
 
   test('the data dir is not read in remote mode', async () => {
