@@ -212,15 +212,27 @@ describe('Account › Plan & billing', () => {
   it('offers a plan, and no portal, to a coach who never paid', async () => {
     ME = me({ status: 'none', plan: null, cap: 0, canWrite: false }, { status: 'pending' }, false)
     await render(<CoachAccount />)
-    expect(text()).toContain('No plan yet')
+    // A row in the grouped list that opens the plan sheet, not a button padded in under one.
+    const row = [...container.querySelectorAll('.sect-b > button.lrow')].find(b => b.textContent.startsWith('Choose a plan'))
+    expect(row).toBeTruthy()
     expect(text()).not.toContain('Manage billing')
+    await act(async () => { row.click() })
+    expect(useUI.getState().sheets).toHaveLength(1)
   })
 
-  it('puts the card first when the plan is paused', async () => {
+  it('puts the card first when the plan is paused, on the row that fixes it', async () => {
     ME = me({ status: 'paused', canWrite: false })
     await render(<CoachAccount />)
+    const row = [...container.querySelectorAll('.sect-b > button.lrow')].find(b => b.textContent.startsWith('Update payment'))
+    expect(row?.textContent).toContain('paused until the payment goes through')
+    expect(container.querySelector('.sect-b .card')).toBe(null)
+  })
+
+  it('says what a pause stops even with no portal to fix it in', async () => {
+    ME = me({ status: 'paused', canWrite: false }, null, false)
+    await render(<CoachAccount />)
     expect(text()).toContain('Billing needs attention')
-    expect(text()).toContain('Update payment')
+    expect(text()).not.toContain('Update payment')
   })
 
   it('has nothing to manage on a granted plan', async () => {

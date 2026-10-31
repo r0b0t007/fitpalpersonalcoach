@@ -239,6 +239,22 @@ h4.sec{
 }
 .card .big{font-size:30px;font-weight:600;letter-spacing:-.026em;line-height:1.1}
 
+/* A status card: an icon, a title, a line under it, then its actions — billing's banner on Today
+   and the invite sheet's blocked card (CHW-319; they were hand-written copies of each other).
+   Status is a tinted fill, never a coloured outline: rule 3, hairlines not borders. */
+.notice{display:flex;gap:12px;align-items:flex-start}
+.notice.busy{align-items:center}
+.notice-i{flex:none;margin-top:1px}
+.notice-m{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.notice-a{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.notice-a .btn.sm,.notice-a .btn.xs{align-self:flex-start}
+.card.warn{background:color-mix(in srgb,var(--orange) 10%,var(--surface))}
+.card.caution{background:color-mix(in srgb,var(--yellow) 10%,var(--surface))}
+
+/* The centred screen a signed-out visitor lands on: sign-in, self-serve sign-up and the mobile
+   app's first run. Three views wrote the same inline object (CHW-319). */
+.gate{display:flex;flex-direction:column;justify-content:center;min-height:78vh;text-align:center}
+
 /* ------------------------------------------------------ inset group list -- */
 .sect{margin-bottom:22px}
 .sect-t{
