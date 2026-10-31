@@ -50,7 +50,8 @@ img/screens/*.png       real app screenshots (see below), every one per locale (
 img/og-{fr,en,es}.png   1200x630 social cards, one layout in three languages, all ending in
                         fitpal.ma (rendered from an HTML card in headless Chrome, Archivo)
 img/promo-poster-{fr,en,es}.jpg  hero video poster (the frame at 10.1s, 800x450)
-img/coach-hero.jpg      hero portrait beside the headline (stock, illustrative)
+img/coach-hero.jpg      hero portrait, NOT SHOWN since CHW-318 (the price list took its column);
+                        kept, with its NOTICE.md entry, in case it returns
 img/coaches.jpg         the full-bleed photo band (stock, illustrative — both in NOTICE.md)
 assets/promo-{fr,en,es}.{mp4,webm}  the hero loop, 16.8s, silent, 1280x720 (H.264 ~130 kbps;
                         AV1 via libsvtav1 -crf 50), cut down from the 1920x1080 render
@@ -135,11 +136,11 @@ Three things worth knowing before changing it:
 - **The ratio is measured, not chosen.** 9:19.5 is the app's own phone viewport, so the captures
   and the film fill the screen with no cropping and no letterbox. Change the ratio and everything
   inside starts getting cropped silently by `object-fit: cover`.
-- **The hero photo's two-column breakpoint is 1040px, not 1000px.** Chrome matches media
+- **The hero's two-column breakpoint is 1040px, not 1000px.** Chrome matches media
   queries against `innerWidth` (scrollbar included) but lays out against `clientWidth`, so a
-  1000px rule fires with 985px of room; the photo's grid track collapsed to `0px` and its
+  1000px rule fires with 985px of room; the second grid track (then the photo) collapsed to `0px` and its
   caption spilled 78px, giving the page a horizontal scrollbar. Do not lower it back.
-- **`--dev-w` lives on the CONTAINER** (`.feat .shot-wrap`), not on `.device`,
+- **`--dev-w` lives on the CONTAINER** (`.stage .shot-wrap`), not on `.device`,
   because the caption reads it too (`max-width`). Set it on the device and the caption stops
   matching the phone it labels.
 - **The geometry is borrowed, the skin is not.** It comes from the house component the ten

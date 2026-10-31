@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Software para entrenadores personales en Marruecos | FitPal Coach</title>
-<meta name="description" content="Software para entrenadores personales independientes en Marruecos: programas, seguimiento de la constancia y una app de entrenamiento de verdad para tus clientes. Reserva una llamada de 20 minutos por WhatsApp.">
+<meta name="description" content="Software para entrenadores personales independientes en Marruecos: programas, seguimiento de la constancia y una app de entrenamiento de verdad para tus clientes. Desde 19 € al mes. Reserva una llamada de 20 minutos por WhatsApp.">
 <meta name="theme-color" content="#1C1A17">
 
 <link rel="canonical" href="https://fitpal.ma/es/">
@@ -34,7 +34,7 @@
 
 <link rel="preload" as="image" href="../img/promo-poster-es.jpg" fetchpriority="high">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/archivo-latin.woff2" crossorigin>
-<link rel="stylesheet" href="../styles.css?v=16">
+<link rel="stylesheet" href="../styles.css?v=17">
 
 <script>
 /* Pre-paint: arm the intro before first paint so the hero never shows and then hides.
@@ -87,10 +87,77 @@
         "@type": "Country",
         "name": "Marruecos"
       },
-      "offers": {
-        "@type": "Offer",
-        "description": "Una cuota mensual fija más una puesta en marcha única, sin suscripción por cliente. Precio a consultar, se fija durante la llamada."
-      }
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Solo",
+          "price": "19",
+          "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "19",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "190",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
+          "description": "Hasta 10 clientes activos, al mes, IVA incluido. 190 € al año. 14 días de prueba."
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro",
+          "price": "39",
+          "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "39",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "390",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
+          "description": "Hasta 30 clientes activos, al mes, IVA incluido. 390 € al año. 14 días de prueba."
+        },
+        {
+          "@type": "Offer",
+          "name": "Studio",
+          "price": "79",
+          "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "79",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "790",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
+          "description": "Hasta 75 clientes activos, al mes, IVA incluido. 790 € al año. 14 días de prueba."
+        }
+      ]
     },
     {
       "@type": "Person",
@@ -131,8 +198,8 @@
     </button>
 
     <nav class="nav" id="nav" aria-label="Principal">
-      <a href="#problem">El problema</a>
-      <a href="#product">El producto</a>
+      <a href="#week">La semana</a>
+      <a href="#pricing">Precios</a>
       <a href="#spec">Ficha técnica</a>
       <a href="#setup">La puesta en marcha</a>
       <a href="#questions">Preguntas</a>
@@ -150,7 +217,7 @@
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Software de coaching · de 5 a 40 clientes</span><span class="proof">Capturas reales, sin maquetas</span></p>
+        <p class="label eyebrow"><span>Software de coaching · hasta 75 clientes</span><span class="proof">Capturas reales, sin maquetas</span></p>
         <h1 class="display"><span>El papeleo</span><span>te está costando</span><span>clientes.</span></h1>
         <p class="lead">
           FitPal Coach sustituye los mensajes de WhatsApp, las notas de voz y la hoja de cálculo. Tus clientes
@@ -158,22 +225,10 @@
         </p>
         <div class="actions">
           <a class="btn primary" href="#call">Reservar una llamada</a>
-          <a class="btn ghost" href="#product">Ver el producto</a>
+          <a class="btn ghost" href="#week">Ver el producto</a>
         </div>
         <p class="note">Veinte minutos. Sin demo automática, sin tarjeta.</p>
       </div>
-
-      <figure class="hero-portrait">
-        <!-- Desktop only, and eager. See the note on the same figure in the English page. -->
-        <picture>
-            <source media="(min-width: 1040px)" type="image/avif" srcset="../img/coach-hero-400w.avif 400w, ../img/coach-hero-800w.avif 800w, ../img/coach-hero-1100w.avif 1100w" sizes="40vw">
-            <source media="(min-width: 1040px)" type="image/webp" srcset="../img/coach-hero-400w.webp 400w, ../img/coach-hero-800w.webp 800w, ../img/coach-hero-1100w.webp 1100w" sizes="40vw">
-            <source media="(min-width: 1040px)" srcset="../img/coach-hero.jpg">
-            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Una entrenadora y su clienta en plena sesión en un gimnasio."
-             width="1100" height="1375" decoding="async">
-          </picture>
-        <figcaption class="label">Foto de banco de imágenes, ilustrativa</figcaption>
-      </figure>
 
       <div class="hero-stage">
         <div class="hero-media">
@@ -187,137 +242,175 @@
         </div>
         <p class="shot-cap label"><span>Lunes 08:12</span><span class="num">Captura real</span></p>
       </div>
+
+      <!-- The price, beside the headline: see the note in the French page. -->
+      <aside class="hero-plans" aria-labelledby="hero-plans-h">
+        <p class="label" id="hero-plans-h">Precios, al mes</p>
+        <dl>
+          <div><dt>Solo <span>10 clientes</span></dt><dd class="num">19&nbsp;€</dd></div>
+          <div><dt>Pro <span>30 clientes</span></dt><dd class="num">39&nbsp;€</dd></div>
+          <div><dt>Studio <span>75 clientes</span></dt><dd class="num">79&nbsp;€</dd></div>
+        </dl>
+        <p class="hero-plans-foot"><span>14 días de prueba · IVA incluido</span><a href="#pricing">El detalle</a></p>
+      </aside>
     </div>
   </section>
 
-  <!-- 01 -->
-  <section class="sec wrap" id="problem">
+  <!-- 01 · The week. See the note in the French page: each admin chore beside the real capture
+       that removes it, in the order a coach's week meets them. -->
+  <section class="sec wrap" id="week">
     <div class="sec-head rv">
-      <div class="rule label"><span class="n num">01</span><span class="k">El problema</span></div>
-      <h2>Lo que te quita el papeleo</h2>
+      <div class="rule label"><span class="n num">01</span><span class="k">La semana</span></div>
+      <h2>Cuatro momentos en los que el papeleo desaparece</h2>
+      <p class="lead">
+        Tú trabajas en el panel del entrenador, tus clientes en la app de entrenamiento. Cada
+        pantalla de abajo es una captura del producto tal como funciona, no una maqueta.
+      </p>
     </div>
 
-    <ol class="rows rv">
-      <li class="row">
-        <span class="n label num">01</span>
-        <div><h3>El programa vive en una hoja de cálculo</h3></div>
-        <p>Lo rehaces a mano para cada cliente y luego lo mandas como captura de pantalla. Una corrección y vuelta a empezar.</p>
+    <ol class="week">
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">Por la mañana, en el móvil del cliente</p>
+          <h3>Su sesión les está esperando</h3>
+          <p class="before"><span class="label">Antes</span>Una hoja de cálculo rehecha a mano para cada cliente, enviada como captura de pantalla. Una corrección y vuelta a empezar.</p>
+          <p>Una app de verdad, instalada en la pantalla de inicio. Ni un PDF ni un enlace a una hoja de cálculo.</p>
+          <ul>
+            <li><span>La sesión de hoy y la semana que viene</span></li>
+            <li><span>Su peso y su curva, frente a su objetivo</span></li>
+            <li><span>Funciona sin conexión y sincroniza después</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="../img/screens/client-home-es-360w.avif 360w, ../img/screens/client-home-es-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="../img/screens/client-home-es-360w.webp 360w, ../img/screens/client-home-es-720w.webp 720w" sizes="360px">
+              <img src="../img/screens/client-home-es.png" alt="Inicio del cliente: la tira de la semana, la sesión de hoy marcada como hecha, la curva de peso corporal y una racha de 21 semanas." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Inicio del cliente</span><span class="num">Captura real</span></p>
+        </figure>
       </li>
-      <li class="row">
-        <span class="n label num">02</span>
-        <div><h3>El seguimiento vive en tus mensajes</h3></div>
-        <p>Un cliente te manda una nota de voz a las diez de la noche. Tres días después está enterrada bajo otras veinte conversaciones.</p>
+
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">Antes de tu primer cliente</p>
+          <h3>Ves quién te necesita</h3>
+          <p class="before"><span class="label">Antes</span>Una nota de voz a las diez de la noche, enterrada tres días después bajo otras veinte conversaciones.</p>
+          <p>Una sola página que responde a la única pregunta que importa antes de tu primer cliente: quién te necesita hoy.</p>
+          <ul>
+            <li><span>Quién está entrenando ahora mismo, en directo</span></li>
+            <li><span>Quién lleva siete días sin hacer nada</span></li>
+            <li><span>Quién está esperando una respuesta tuya</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="../img/screens/coach-today-es-360w.avif 360w, ../img/screens/coach-today-es-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="../img/screens/coach-today-es-360w.webp 360w, ../img/screens/coach-today-es-720w.webp 720w" sizes="360px">
+              <img src="../img/screens/coach-today-es.png" alt="Panel del entrenador: contadores con Clientes 6, Entrenando ahora 2 y Activos 7 d 5, una tarjeta de atención con tres clientes y una tarjeta en directo con el progreso serie a serie de dos clientes." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Panel</span><span class="num">Captura real</span></p>
+        </figure>
       </li>
-      <li class="row">
-        <span class="n label num">03</span>
-        <div><h3>El abandono se ve demasiado tarde</h3></div>
-        <p>Cuando te das cuenta de que alguien ha dejado de entrenar, ya ha decidido dejarlo. El mes está perdido.</p>
+
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">A mitad de semana</p>
+          <h3>El que se descuelga aparece antes de irse</h3>
+          <p class="before"><span class="label">Antes</span>Cuando te dabas cuenta de que alguien había dejado de entrenar, ya había decidido dejarlo.</p>
+          <p>La constancia de cada cliente en 28 días, primero el color y luego la cifra, todos tus clientes en una sola página.</p>
+          <ul>
+            <li><span>Constancia en 28 días, cliente por cliente</span></li>
+            <li><span>Punto verde: entrenando ahora mismo</span></li>
+            <li><span>Programa enviado, aceptado o sin respuesta</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="../img/screens/coach-clients-es-360w.avif 360w, ../img/screens/coach-clients-es-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="../img/screens/coach-clients-es-360w.webp 360w, ../img/screens/coach-clients-es-720w.webp 720w" sizes="360px">
+              <img src="../img/screens/coach-clients-es.png" alt="Lista de clientes: seis tarjetas; los cinco clientes con programa muestran su constancia en 28 días en color, del 42 por ciento en rojo al 100 por ciento en verde, y un punto verde marca a los dos clientes que están entrenando." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Lista de clientes</span><span class="num">Captura real</span></p>
+        </figure>
       </li>
-      <li class="row">
-        <span class="n label num">04</span>
-        <div><h3>Llegas a un techo</h3></div>
-        <p>No son las horas de entrenamiento las que limitan tu cartera de clientes. Es todo lo que hay alrededor.</p>
+
+      <li class="stage rv">
+        <div class="stage-body">
+          <p class="stage-when label">A final de mes</p>
+          <h3>El balance se hace con datos</h3>
+          <p class="before"><span class="label">Antes</span>Una impresión, y un cliente que recuerda sobre todo las sesiones que sí hizo.</p>
+          <p>La constancia frente al plan, no una media complaciente. Lo justo para tener una conversación difícil con datos.</p>
+          <ul>
+            <li><span>Constancia medida sobre los días programados</span></li>
+            <li><span>1RM estimado por ejercicio</span></li>
+            <li><span>Peso corporal, medidas, equilibrio muscular</span></li>
+          </ul>
+        </div>
+        <figure class="shot-wrap">
+          <div class="device">
+            <div class="device-screen"><picture>
+              <source type="image/avif" srcset="../img/screens/client-stats-es-360w.avif 360w, ../img/screens/client-stats-es-720w.avif 720w" sizes="360px">
+              <source type="image/webp" srcset="../img/screens/client-stats-es-360w.webp 360w, ../img/screens/client-stats-es-720w.webp 720w" sizes="360px">
+              <img src="../img/screens/client-stats-es.png" alt="Estadísticas: 80 entrenamientos y una racha de 21 semanas, el mapa de calor de los últimos doce meses y el mapa muscular de frente y de espalda." width="720" height="1560" loading="lazy">
+            </picture></div>
+          </div>
+          <p class="shot-cap label"><span>Estadísticas del cliente</span><span class="num">Captura real</span></p>
+        </figure>
       </li>
     </ol>
   </section>
 
-  <!-- 02 -->
-  <section class="sec wrap" id="product">
-    <div class="sec-head rv">
-      <div class="rule label"><span class="n num">02</span><span class="k">El producto</span></div>
-      <h2>Una app para ti, otra para tus clientes</h2>
-      <p class="lead">
-        Tú trabajas en el panel del entrenador. Tus clientes tienen la app de entrenamiento. Cada captura
-        de abajo sale del producto tal y como funciona, no de una maqueta.
+  <!-- 02 · Plans. See the note in the French page. -->
+  <section class="sec spec plans" id="pricing">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">02</span><span class="k">Precios</span></div>
+        <h2>Un plan por tamaño de cartera</h2>
+        <p class="lead">No son las horas de entrenamiento las que te ponen un techo, es todo lo que hay alrededor. Cada plan incluye el producto entero; solo cambia el número de clientes.</p>
+      </div>
+
+      <div class="plan-grid rv">
+        <div class="plan">
+          <h3 id="plan-solo">Solo</h3>
+          <p class="plan-price"><span class="num">19&nbsp;€</span> al mes</p>
+          <dl>
+            <div><dt>Clientes activos</dt><dd class="num">hasta 10</dd></div>
+            <div><dt>Al año</dt><dd class="num">190&nbsp;€</dd></div>
+            <div><dt>Prueba</dt><dd class="num">14 días</dd></div>
+          </dl>
+        </div>
+        <div class="plan mid">
+          <h3 id="plan-pro">Pro</h3>
+          <p class="plan-price"><span class="num">39&nbsp;€</span> al mes</p>
+          <dl>
+            <div><dt>Clientes activos</dt><dd class="num">hasta 30</dd></div>
+            <div><dt>Al año</dt><dd class="num">390&nbsp;€</dd></div>
+            <div><dt>Prueba</dt><dd class="num">14 días</dd></div>
+          </dl>
+        </div>
+        <div class="plan">
+          <h3 id="plan-studio">Studio</h3>
+          <p class="plan-price"><span class="num">79&nbsp;€</span> al mes</p>
+          <dl>
+            <div><dt>Clientes activos</dt><dd class="num">hasta 75</dd></div>
+            <div><dt>Al año</dt><dd class="num">790&nbsp;€</dd></div>
+            <div><dt>Prueba</dt><dd class="num">14 días</dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <p class="plan-note rv">
+        Precios en euros, IVA incluido. Un año cuesta diez meses. Un cliente que lo deja libera su
+        plaza. El pago en línea abre pronto; mientras tanto, empezamos juntos después de
+        <a href="#call">una llamada de 20&nbsp;minutos</a>.
       </p>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>El panel de la mañana</h3>
-        <p>Una sola página que responde a la única pregunta que importa antes de tu primer cliente: quién te necesita hoy.</p>
-        <ul>
-          <li><span>Quién está entrenando ahora mismo, en directo</span></li>
-          <li><span>Quién lleva siete días sin hacer nada</span></li>
-          <li><span>Quién está esperando una respuesta tuya</span></li>
-        </ul>
-      </div>
-      <figure>
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="../img/screens/coach-today-es-360w.avif 360w, ../img/screens/coach-today-es-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="../img/screens/coach-today-es-360w.webp 360w, ../img/screens/coach-today-es-720w.webp 720w" sizes="360px">
-            <img src="../img/screens/coach-today-es.png" alt="Panel del entrenador: contadores con Clientes 6, Entrenando ahora 2 y Activos 7 d 5, una tarjeta de atención con tres clientes y una tarjeta en directo con el progreso serie a serie de dos clientes." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Panel</span><span class="num">Captura real</span></p>
-      </figure>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>Tus clientes en una sola página</h3>
-        <p>La constancia de cada cliente en 28 días, primero el color y luego la cifra. El que se descuelga aparece antes de irse.</p>
-        <ul>
-          <li><span>Constancia en 28 días, cliente por cliente</span></li>
-          <li><span>Punto verde: entrenando ahora mismo</span></li>
-          <li><span>Programa enviado, aceptado o sin respuesta</span></li>
-        </ul>
-      </div>
-      <figure>
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="../img/screens/coach-clients-es-360w.avif 360w, ../img/screens/coach-clients-es-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="../img/screens/coach-clients-es-360w.webp 360w, ../img/screens/coach-clients-es-720w.webp 720w" sizes="360px">
-            <img src="../img/screens/coach-clients-es.png" alt="Lista de clientes: seis tarjetas; los cinco clientes con programa muestran su constancia en 28 días en color, del 42 por ciento en rojo al 100 por ciento en verde, y un punto verde marca a los dos clientes que están entrenando." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Lista de clientes</span><span class="num">Captura real</span></p>
-      </figure>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>Lo que ve tu cliente</h3>
-        <p>Una app de verdad, con tu nombre, instalada en la pantalla de inicio. Ni un PDF ni un enlace a una hoja de cálculo.</p>
-        <ul>
-          <li><span>La sesión de hoy y la semana que viene</span></li>
-          <li><span>Su peso y su curva, frente a su objetivo</span></li>
-          <li><span>Funciona sin conexión y sincroniza después</span></li>
-        </ul>
-      </div>
-      <figure>
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="../img/screens/client-home-es-360w.avif 360w, ../img/screens/client-home-es-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="../img/screens/client-home-es-360w.webp 360w, ../img/screens/client-home-es-720w.webp 720w" sizes="360px">
-            <img src="../img/screens/client-home-es.png" alt="Inicio del cliente: la tira de la semana, la sesión de hoy marcada como hecha, la curva de peso corporal y una racha de 21 semanas." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Inicio del cliente</span><span class="num">Captura real</span></p>
-      </figure>
-    </div>
-
-    <div class="feat rv">
-      <div class="feat-body">
-        <h3>Las cifras, cuando las necesitas</h3>
-        <p>La constancia frente al plan, no una media complaciente. Lo justo para tener una conversación difícil con datos.</p>
-        <ul>
-          <li><span>Constancia medida sobre los días programados</span></li>
-          <li><span>1RM estimado por ejercicio</span></li>
-          <li><span>Peso corporal, medidas, equilibrio muscular</span></li>
-        </ul>
-      </div>
-      <figure>
-        <div class="device">
-          <div class="device-screen"><picture>
-            <source type="image/avif" srcset="../img/screens/client-stats-es-360w.avif 360w, ../img/screens/client-stats-es-720w.avif 720w" sizes="360px">
-            <source type="image/webp" srcset="../img/screens/client-stats-es-360w.webp 360w, ../img/screens/client-stats-es-720w.webp 720w" sizes="360px">
-            <img src="../img/screens/client-stats-es.png" alt="Estadísticas: 80 entrenamientos y una racha de 21 semanas, el mapa de calor de los últimos doce meses y el mapa muscular de frente y de espalda." width="720" height="1560" loading="lazy">
-          </picture></div>
-        </div>
-        <p class="shot-cap label"><span>Estadísticas del cliente</span><span class="num">Captura real</span></p>
-      </figure>
     </div>
   </section>
 
@@ -339,22 +432,23 @@
         <div class="spec-row"><dt>Progresión de carga</dt><dd>Lineal, Greyskull LP o doble progresión, a elegir por ejercicio.</dd></div>
         <div class="spec-row"><dt>Sin conexión</dt><dd>Una sesión se hace y se registra sin red, y se sincroniza después.</dd></div>
         <div class="spec-row"><dt>Notificaciones</dt><dd>Fin del descanso y recordatorios de sesión, por Web Push.</dd></div>
-        <div class="spec-row"><dt>Alojamiento</dt><dd>Tu instancia, tu dominio, tus datos. Sin telemetría.</dd></div>
+        <div class="spec-row"><dt>Alojamiento</dt><dd>Alojado por nosotros, no tienes que instalar nada. Sin telemetría.</dd></div>
         <div class="spec-row"><dt>Exportación</dt><dd>Los datos de los clientes se exportan en cualquier momento, en JSON.</dd></div>
-        <div class="spec-row"><dt>Precio</dt><dd>Una cuota mensual fija, más una puesta en marcha única. Sin suscripción por cliente. El importe se fija en la llamada.</dd></div>
+        <div class="spec-row"><dt>Precio</dt><dd>Tres planes según el número de clientes, ver <a href="#pricing">Precios</a>. Sin precio por cliente.</dd></div>
         <div class="spec-row"><dt>Con sede en</dt><dd>Marruecos. La llamada de puesta en marcha y el soporte son por WhatsApp.</dd></div>
       </dl>
 
+      <!-- See the note in the French page: terms close the spec sheet. -->
       <ol class="rows rv terms">
         <li class="row">
           <span class="n label">Salida</span>
           <div><h3>Te vas con tus datos</h3></div>
-          <p>Exportables en JSON en cualquier momento. La instancia es tuya, no nuestra.</p>
+          <p>Exportables en JSON en cualquier momento. Nada se queda encerrado con nosotros.</p>
         </li>
         <li class="row">
-          <span class="n label">Precio</span>
-          <div><h3>Sin suscripción por cliente</h3></div>
-          <p>Tu factura no crece porque tu negocio funcione.</p>
+          <span class="n label">Clientes</span>
+          <div><h3>Tu factura nunca bloquea a un cliente</h3></div>
+          <p>La app de tus clientes no depende de tu plan. Un pago con retraso no corta la sesión de nadie.</p>
         </li>
       </ol>
     </div>
@@ -375,8 +469,8 @@
       </li>
       <li class="step">
         <span class="n label num">02</span>
-        <h3>La instancia</h3>
-        <p>Configuramos tu dominio y abrimos tu cuenta de entrenador. No tienes que instalar nada.</p>
+        <h3>Tu cuenta</h3>
+        <p>Abrimos tu cuenta de entrenador con el plan que encaja con tu cartera. No tienes que instalar nada.</p>
       </li>
       <li class="step">
         <span class="n label num">03</span>
@@ -409,7 +503,7 @@
       </details>
       <details>
         <summary>¿Qué pasa si lo dejo?</summary>
-        <p>Te vas con tus datos, exportados en JSON. La instancia es tuya, no nuestra.</p>
+        <p>Te vas con tus datos, exportados en JSON. El panel sigue funcionando hasta el final del periodo ya pagado.</p>
       </details>
       <details>
         <summary>¿El panel del entrenador está en español?</summary>
@@ -425,7 +519,15 @@
       </details>
       <details>
         <summary>¿Cuánto cuesta?</summary>
-        <p>Una cuota mensual fija, más una puesta en marcha única. Sin suscripción por cliente: tu factura no crece porque tu negocio funcione. El importe depende del número de clientes y del alojamiento, y se fija en la llamada.</p>
+        <p>De 19 a 79 € al mes según el número de clientes activos: Solo hasta 10, Pro hasta 30, Studio hasta 75. IVA incluido, 14 días de prueba, y un año cuesta diez meses. El detalle está en <a href="#pricing">Precios</a>.</p>
+      </details>
+      <details>
+        <summary>¿Y si me quedo corto con mi plan?</summary>
+        <p>Tus clientes actuales siguen como siempre. Simplemente no puedes invitar a nuevos hasta que pases al plan siguiente o un cliente que lo ha dejado libere su plaza: dinos cuál y lo desactivamos.</p>
+      </details>
+      <details>
+        <summary>¿Puedo cambiar de plan?</summary>
+        <p>Sí, en cualquier momento. Por ahora basta con un mensaje: cambiamos tu plan desde nuestro lado. Cuando abra el pago en línea, la tarjeta, las facturas y el plan se gestionarán desde tu cuenta.</p>
       </details>
     </div>
   </section>
@@ -490,7 +592,8 @@
       <p class="fine">Software para entrenadores personales independientes en Marruecos. Construido sobre openGym.</p>
     </div>
     <ul>
-      <li><a href="#product">El producto</a></li>
+      <li><a href="#week">La semana</a></li>
+      <li><a href="#pricing">Precios</a></li>
       <li><a href="#spec">Ficha técnica</a></li>
       <li><a href="#questions">Preguntas</a></li>
       <li><a href="/es/legal">Aviso legal</a></li>

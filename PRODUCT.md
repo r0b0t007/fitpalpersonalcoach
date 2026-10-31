@@ -30,10 +30,16 @@ FitPal Coach is the software a solo coach runs their roster on. Clients get a re
 with their program in it. The coach gets a dashboard that shows who trained, who did not, and
 who is about to quit.
 
-The site exists to get a trainer to book a call. It is not a self-serve signup funnel, so the
+The site exists to get a trainer to book a call. It is not a self-serve signup funnel yet, so the
 page has to do the work a sales call would otherwise do: establish that this was built for a
 solo operator, show the actual product, and remove the fear of moving a client roster onto
 something new.
+
+Prices are public (CHW-318): three plans by active-client count (Solo 10, Pro 30, Studio 75 at
+€19, €39 and €79 a month, a year for ten months, VAT included, 14-day trial). "Price set on the
+call" was the one answer this buyer could not get without picking up the phone, and it
+contradicted a product that bills by plan. The call stays the conversion until online checkout
+opens (CHW-302); then the plan table is where the "Start" links go.
 
 Success is a booked call from someone who already understands what the product is.
 
