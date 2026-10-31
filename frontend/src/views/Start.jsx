@@ -61,9 +61,8 @@ export default function Start() {
     catch (err) { toast(err.message || t('Could not open the payment page')) }
   }
 
-  const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
   return (
-    <div className="narrow" style={wrap}>
+    <div className="narrow gate">
       <Logo size={40} heading />
       <div className="muted" style={{ marginBottom: 26 }}>{t('Coach your clients from one app.')}</div>
       <div className="card" style={{ textAlign: 'left' }}>

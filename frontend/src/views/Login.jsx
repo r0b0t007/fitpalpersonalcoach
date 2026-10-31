@@ -187,11 +187,10 @@ export default function Login() {
       aria-expanded={emailOpen}>{t('Sign in with email')}</Button>
     {emailOpen && <EmailSignIn focus />}
   </>
-  const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
 
   // Demo build: no backend to sign in against — the only way in is the local guest profile.
   if (DEMO) return (
-    <div className="narrow" style={wrap}>
+    <div className="narrow gate">
       {head}
       <div className="muted" style={{ marginBottom: 30 }}>{t('Live demo — everything stays in this browser.')}</div>
       <Button variant="primary" icon="sparkles" onClick={() => setGuest(true)}>{t('Start the demo')}</Button>
@@ -206,7 +205,7 @@ export default function Login() {
   )
 
   return (
-    <div className="narrow" style={wrap}>
+    <div className="narrow gate">
       {head}
       <div className="muted" style={{ marginBottom: full ? 14 : 34 }}>
         {inviter ? t('{0} invited you to train with them.', inviter) : t('Your coach. Your plan. Your progress.')}

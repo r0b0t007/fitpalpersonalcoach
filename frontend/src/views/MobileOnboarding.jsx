@@ -43,9 +43,8 @@ export function ConnectSheet({ close }) {
 
 export default function MobileOnboarding() {
   const { chooseLocalMode } = useStore()
-  const wrap = { display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '78vh', textAlign: 'center' }
   return (
-    <div className="narrow" style={wrap}>
+    <div className="narrow gate">
       <Logo size={40} heading />
       <div className="muted" style={{ marginBottom: 34 }}>{t('How do you want to use {0}?', BRAND)}</div>
       <Button variant="primary" icon="lock" onClick={() => chooseLocalMode()}>{t('Use on this device')}</Button>
