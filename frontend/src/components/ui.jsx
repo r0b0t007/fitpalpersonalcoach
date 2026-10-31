@@ -295,6 +295,26 @@ export function Row({ icon, iconTint, title, subtitle, value, accessory = 'none'
   )
 }
 
+/* ============================ status ============================ */
+
+// A status card (index.css .notice): an icon — or the waiting ring while `busy` — a title, a
+// line under it, and its actions. `tone` (warn, caution) tints the card and colours the icon from
+// one class, so the two cannot disagree; `tint` colours the icon of a card with no tone. Actions
+// sit under the text (a small button), or span the card when `wide` (full-width buttons).
+export function Notice({ icon, tint, title, body, tone, busy, wide, role, children }) {
+  return (
+    <div className={'card notice' + (tone ? ' ' + tone : '') + (busy ? ' busy' : '')} role={role}>
+      {busy ? <span className="spin" aria-hidden="true" />
+        : <Icon name={icon} size={22} className="notice-i" style={tone || !tint ? null : { color: tint }} />}
+      <div className="notice-m">
+        <div className="t-head">{title}</div>
+        <div className="small muted">{body}</div>
+      </div>
+      {children && <div className={'notice-a' + (wide ? ' wide' : '')}>{children}</div>}
+    </div>
+  )
+}
+
 /* ============================ picker ============================ */
 
 // Replaces <select>. A native select opens a system list that ignores the app's

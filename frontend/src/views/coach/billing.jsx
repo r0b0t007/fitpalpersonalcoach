@@ -5,8 +5,7 @@ import { api } from '../../lib/api.js'
 import { billingState, pickPlan, planName } from '../../lib/billing.js'
 import { fmtDate, isoOf } from '../../lib/format.js'
 import { t, tp } from '../../lib/i18n.js'
-import Icon from '../../components/Icon.jsx'
-import { Button, Row, Section, Segmented } from '../../components/ui.jsx'
+import { Button, Notice, Row, Section, Segmented } from '../../components/ui.jsx'
 
 // The coach's plan on screen (R4; designs S4, C20, C21): the plan picker the sign-up and "Choose a
 // plan" share, the banner on Today and the Plan & billing section on Account. What state to draw
@@ -90,26 +89,11 @@ export function PlanSheet({ close }) {
   </>
 }
 
-/**
- * The status card (index.css .notice): an icon — or the waiting ring while `busy` — a title, a
- * line under it, and its actions. `tone` tints the whole card (warn, caution) instead of drawing
- * a coloured outline round it.
- */
-function Notice({ icon, tint, title, body, tone, busy, role, children }) {
-  return <div className={'card notice' + (tone ? ' ' + tone : '') + (busy ? ' busy' : '')} role={role}>
-    {busy ? <span className="spin" aria-hidden="true" />
-      : <Icon name={icon} size={22} className="notice-i" style={{ color: tint }} />}
-    <div className="notice-m">
-      <div className="t-head">{title}</div>
-      <div className="small muted">{body}</div>
-      {children && <div className="notice-a">{children}</div>}
-    </div>
-  </div>
-}
-
-const BANNER_ICON = {
-  none: ['sparkles', 'var(--label-3)'], trialing: ['sparkles', 'var(--acc)'], past_due: ['warning', 'var(--orange)'],
-  paused: ['pause', 'var(--orange)'], over_cap: ['people', 'var(--yellow)'],
+// The banner's look per state. A state that needs the coach (payment, pause, cap) takes the same
+// tone InviteBlocked gives it, so one coach never sees the same state tinted in one place only.
+const BANNER_LOOK = {
+  none: { icon: 'sparkles', tint: 'var(--label-3)' }, trialing: { icon: 'sparkles', tint: 'var(--acc)' },
+  past_due: { icon: 'warning', tone: 'warn' }, paused: { icon: 'pause', tone: 'warn' }, over_cap: { icon: 'people', tone: 'caution' },
 }
 
 /** C21: one card between Today's title and its tiles. `b` is banner()'s answer, never null here. */
@@ -132,8 +116,7 @@ export function BillingBanner({ b, billing }) {
       : t('Everyone keeps training. Upgrade to invite more.')],
   }[b.kind]
   const label = { choose: t('Choose a plan'), manage: t('Manage billing'), update: t('Update payment'), upgrade: t('Upgrade') }[b.action]
-  const [icon, tint] = BANNER_ICON[b.kind] || []
-  return <Notice role="status" icon={icon} tint={tint} busy={b.kind === 'activating'} title={copy[0]} body={copy[1]}>
+  return <Notice role="status" {...BANNER_LOOK[b.kind]} busy={b.kind === 'activating'} title={copy[0]} body={copy[1]}>
     {label && <Button variant="tinted" size="xs" onClick={() => runBillingAction(b.action)}>{label}</Button>}
   </Notice>
 }
@@ -154,7 +137,7 @@ export function InviteBlocked({ reason, cap, used, onManageClients }) {
   // upgrade in: the larger plan is the owner's to give. Until /billing/me answers the copy is the
   // ordinary one, and the button waits for a portal to exist.
   const granted = state === 'granted'
-  if (reason === 'at_cap') return <Notice tone="caution" icon="people" tint="var(--yellow)"
+  if (reason === 'at_cap') return <Notice tone="caution" icon="people" wide
     title={tp(cap, 'Your plan allows {0} client', 'Your plan allows {0} clients')} body={granted
       ? tp(used, 'You have {0} active client. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.',
         'You have {0} active clients. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.')
@@ -164,7 +147,7 @@ export function InviteBlocked({ reason, cap, used, onManageClients }) {
     <Button onClick={onManageClients}>{t('Manage clients')}</Button>
   </Notice>
 
-  return <Notice tone="warn" icon="pause" tint="var(--orange)" title={t('Inviting is paused')}
+  return <Notice tone="warn" icon="pause" wide title={t('Inviting is paused')}
     body={t('Inviting opens again once billing is sorted out.')}>
     {state === 'none'
       ? <Button variant="primary" onClick={() => runBillingAction('choose')}>{t('Choose a plan')}</Button>
@@ -191,7 +174,7 @@ export function PlanBillingSection({ billing }) {
     accessory="chevron" onClick={openPortal} />
 
   if (state === 'none') return <Section title={t('Plan & billing')} footer={footer}>
-    <Row icon="sparkles" iconTint="var(--acc)" title={t('Choose a plan')} subtitle={t('Inviting clients and sending programs open as soon as you pick one.')}
+    <Row icon="sparkles" iconTint="var(--acc)" title={t('No plan yet')} subtitle={t('Choose a plan to invite clients and send programs')}
       accessory="chevron" onClick={() => runBillingAction('choose')} />
     {/* An ended plan still has its invoices in the portal. */}
     {manage(t('Invoices from your earlier plan'))}
@@ -199,10 +182,11 @@ export function PlanBillingSection({ billing }) {
 
   if (state === 'paused') return <Section title={t('Plan & billing')} footer={footer}>
     <Row icon="pause" iconTint="var(--orange)" title={title} subtitle={t('Paused — your clients can still train')} value={seats} />
-    {/* What "paused" stops, on the row that fixes it — or alone, when there is no portal to fix it in. */}
-    <Row icon="warning" iconTint="var(--orange)" title={billing.portal ? t('Update payment') : t('Billing needs attention')}
-      subtitle={t('You can see everything, but inviting, sending programs and uploading demos are paused until the payment goes through.')}
-      accessory={billing.portal ? 'chevron' : 'none'} onClick={billing.portal ? openPortal : undefined} />
+    <Row icon="warning" iconTint="var(--orange)" title={t('Billing needs attention')}
+      subtitle={t('You can see everything, but inviting, sending programs and uploading demos are paused until the payment goes through.')} />
+    {/* The fix is past_due's row: the same action looks the same in both states. */}
+    {billing.portal && <Row icon="gear" iconTint="var(--grey)" title={t('Update payment')}
+      subtitle={t('Payment method, invoices, change plan or cancel')} accessory="chevron" onClick={openPortal} />}
   </Section>
 
   if (state === 'granted') return <Section title={t('Plan & billing')} footer={footer}>
