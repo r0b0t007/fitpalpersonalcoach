@@ -11,6 +11,7 @@ import { Button, Segmented } from '../../components/ui.jsx'
 import { StatsPanels } from '../Stats.jsx'
 import { AdherenceCard, CheckinsCard, PhotosCard, memberAdherence, memberState } from './parts.jsx'
 import { SendSheet } from './sheets.jsx'
+import { confirmSheet } from '../../sheets.jsx'
 
 // One client, as a page rather than the sheet it used to be: Today's attention rows deep-link
 // here, the browser's back button has to mean something, and a coach reads this screen for
@@ -96,6 +97,18 @@ export default function ClientDetail() {
   const send = () => (programs.length
     ? openSheet(close => <ProgramPicker programs={programs} close={close} onPick={p => { close(); open(p) }} />)
     : open(null))
+  // Release, not disable (CHW-320): the client stops being this coach's, which frees a seat on the
+  // plan (the cap counts User::activeClientsOf, by coach), and their account, log and own plan stay
+  // theirs. Disabling an account is the operator's, and would lock them out of their own data.
+  // The server withdraws this coach's unanswered offers to them in the same step.
+  const release = () => confirmSheet({
+    title: t('Release {0}?', d.user.name),
+    message: t('They stop being your client, which frees a seat on your plan. Their account and training log stay theirs, and programs they have not answered yet are withdrawn. To coach them again, send them a new invite.'),
+    confirmText: t('Release'), danger: true,
+    onConfirm: () => api('/api/coach/member/release', { method: 'POST', body: JSON.stringify({ id }) })
+      .then(() => { toast(t('{0} is no longer your client', d.user.name)); nav('/clients') })
+      .catch(e => toast(e.message)),
+  })
 
   return <div className="narrow">
     {/* As on Today: the button keeps its label on one line and drops under the name when both do
@@ -132,6 +145,7 @@ export default function ClientDetail() {
           <span className="small muted">{fmtVol(w.vol ?? workoutVolume(w), d.unit)}</span>
         </div>) : <div className="dim small">{t('No workouts logged.')}</div>}
       </div>
+      <Button variant="danger" onClick={release}>{t('Release client')}</Button>
     </>}
 
     {tab === 'program' && <>

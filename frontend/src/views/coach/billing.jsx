@@ -139,10 +139,10 @@ export function InviteBlocked({ reason, cap, used, onManageClients }) {
   const granted = state === 'granted'
   if (reason === 'at_cap') return <Notice tone="caution" icon="people" wide
     title={tp(cap, 'Your plan allows {0} client', 'Your plan allows {0} clients')} body={granted
-      ? tp(used, 'You have {0} active client. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.',
-        'You have {0} active clients. Ask FitPal for a larger plan — or disable a client who has stopped training to free a seat.')
-      : tp(used, 'You have {0} active client. Upgrade to invite more — or disable a client who has stopped training to free a seat.',
-        'You have {0} active clients. Upgrade to invite more — or disable a client who has stopped training to free a seat.')}>
+      ? tp(used, 'You have {0} active client. Ask FitPal for a larger plan — or release a client who has stopped training, from their page: that frees a seat.',
+        'You have {0} active clients. Ask FitPal for a larger plan — or release a client who has stopped training, from their page: that frees a seat.')
+      : tp(used, 'You have {0} active client. Upgrade to invite more — or release a client who has stopped training, from their page: that frees a seat.',
+        'You have {0} active clients. Upgrade to invite more — or release a client who has stopped training, from their page: that frees a seat.')}>
     {!granted && billing?.portal && <Button variant="primary" onClick={openPortal}>{t('Upgrade')}</Button>}
     <Button onClick={onManageClients}>{t('Manage clients')}</Button>
   </Notice>

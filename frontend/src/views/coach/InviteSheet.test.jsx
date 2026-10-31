@@ -176,6 +176,9 @@ describe('when the plan takes nobody on', () => {
     await mount()
     expect(text()).toContain('Upgrade to invite more')
     expect(text()).not.toContain('Ask FitPal')
+    // The seat is freed by the coach, from the client's page (CHW-320) — never "disable".
+    expect(text()).toContain('release a client who has stopped training, from their page')
+    expect(text()).not.toContain('disable')
   })
 
   it('at the cap on a granted plan: no upgrade button, there is no portal to upgrade in', async () => {
