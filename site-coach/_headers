@@ -4,7 +4,7 @@
   X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
-  Content-Security-Policy: default-src 'self'; img-src 'self' data:; media-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; img-src 'self'; media-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'
 
 # Notes on the CSP above, because two parts of it are easy to break silently:
 #
@@ -22,10 +22,9 @@
 #   so the inline-script risk is close to nil and the maintenance win is real. There are no
 #   inline style attributes, so style-src deliberately does NOT carry 'unsafe-inline'.
 #
-#   img-src allows data: for the hero portrait's 1x1 GIF fallback, which is what lets a phone
-#   skip that image entirely (see the comment on .hero-portrait in index.html). Dropping data:
-#   does not break anything visible - the figure is hidden on phones - but every phone visit
-#   then logs a CSP violation for it.
+#   img-src is 'self' only. It allowed data: for the hero portrait's 1x1 GIF fallback; the
+#   portrait left the page in CHW-318, and no page uses a data: image now. Add it back only
+#   with the image that needs it.
 
 /*.html
   Cache-Control: public, max-age=0, must-revalidate

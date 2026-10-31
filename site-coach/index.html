@@ -93,6 +93,22 @@
           "name": "Solo",
           "price": "19",
           "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "19",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "190",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
           "description": "Jusqu'à 10 clients actifs, par mois, TTC. 190 € à l'année. 14 jours d'essai."
         },
         {
@@ -100,6 +116,22 @@
           "name": "Pro",
           "price": "39",
           "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "39",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "390",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
           "description": "Jusqu'à 30 clients actifs, par mois, TTC. 390 € à l'année. 14 jours d'essai."
         },
         {
@@ -107,6 +139,22 @@
           "name": "Studio",
           "price": "79",
           "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "79",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "790",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
           "description": "Jusqu'à 75 clients actifs, par mois, TTC. 790 € à l'année. 14 jours d'essai."
         }
       ]
@@ -169,7 +217,7 @@
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Logiciel de coaching · 5 à 40 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
+        <p class="label eyebrow"><span>Logiciel de coaching · jusqu'à 75 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
         <h1 class="display"><span>L'admin</span><span>vous coûte</span><span>des clients.</span></h1>
         <p class="lead">
           FitPal Coach remplace les DM WhatsApp, les notes vocales et le tableur. Vos clients reçoivent
@@ -181,6 +229,19 @@
           <a class="btn ghost" href="#semaine">Voir le produit</a>
         </div>
         <p class="note">Appel de 20 minutes. Pas de démo automatisée, pas de carte bancaire.</p>
+      </div>
+
+      <div class="hero-stage">
+        <div class="hero-media">
+          <!-- [html-validate-disable-next aria-label-misuse: the site script adds controls on every path that can play it; with no JS it is a still poster and the label still names it] -->
+          <video data-autoplay poster="img/promo-poster-fr.jpg" muted playsinline preload="none"
+                 width="1280" height="720"
+                 aria-label="FitPal Coach en dix-sept secondes : le coût de l'admin, puis le tableau de bord qui le supprime.">
+            <source data-src="assets/promo-fr.webm" type='video/webm; codecs="av01.0.05M.08"'>
+              <source data-src="assets/promo-fr.mp4" type="video/mp4">
+            </video>
+        </div>
+        <p class="shot-cap label"><span>Lundi 08:12</span><span class="num">Capture réelle</span></p>
       </div>
 
       <!-- The price, beside the headline. This column held a stock portrait; a fact fills it
@@ -195,19 +256,6 @@
         </dl>
         <p class="hero-plans-foot"><span>14 jours d'essai · TTC</span><a href="#tarifs">Le détail</a></p>
       </aside>
-
-      <div class="hero-stage">
-        <div class="hero-media">
-          <!-- [html-validate-disable-next aria-label-misuse: the site script adds controls on every path that can play it; with no JS it is a still poster and the label still names it] -->
-          <video data-autoplay poster="img/promo-poster-fr.jpg" muted playsinline preload="none"
-                 width="1280" height="720"
-                 aria-label="FitPal Coach en dix-sept secondes : le coût de l'admin, puis le tableau de bord qui le supprime.">
-            <source data-src="assets/promo-fr.webm" type='video/webm; codecs="av01.0.05M.08"'>
-              <source data-src="assets/promo-fr.mp4" type="video/mp4">
-            </video>
-        </div>
-        <p class="shot-cap label"><span>Lundi 08:12</span><span class="num">Capture réelle</span></p>
-      </div>
     </div>
   </section>
 
@@ -365,7 +413,7 @@
       </div>
 
       <p class="plan-note rv">
-        Prix TTC, en euros. L'année coûte dix mois. Un client désactivé libère sa place.
+        Prix TTC, en euros. L'année coûte dix mois. Un client qui arrête libère sa place.
         Le paiement en ligne ouvre bientôt ; d'ici là, on démarre ensemble après
         <a href="#appel">un appel de 20&nbsp;minutes</a>.
       </p>
@@ -484,11 +532,11 @@
       </details>
       <details>
         <summary>Et si je dépasse mon forfait ?</summary>
-        <p>Vos clients actuels continuent comme avant. Vous ne pouvez simplement plus en inviter de nouveaux, jusqu'à ce que vous passiez au forfait du dessus ou désactiviez un client : un client désactivé libère sa place.</p>
+        <p>Vos clients actuels continuent comme avant. Vous ne pouvez simplement plus en inviter de nouveaux, jusqu'à ce que vous passiez au forfait du dessus ou qu'un client qui a arrêté libère sa place : dites-nous lequel, nous le désactivons.</p>
       </details>
       <details>
         <summary>Je peux changer de forfait ?</summary>
-        <p>Oui, à tout moment, depuis votre compte. La carte, les factures et la résiliation se gèrent au même endroit.</p>
+        <p>Oui, à tout moment. Pour l'instant, un message suffit : nous changeons votre forfait de notre côté. Quand le paiement en ligne ouvrira, la carte, les factures et le forfait se géreront depuis votre compte.</p>
       </details>
     </div>
   </section>

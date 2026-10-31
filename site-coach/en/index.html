@@ -93,6 +93,22 @@
           "name": "Solo",
           "price": "19",
           "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "19",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "190",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
           "description": "Up to 10 active clients, per month, VAT included. €190 a year. 14-day trial."
         },
         {
@@ -100,6 +116,22 @@
           "name": "Pro",
           "price": "39",
           "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "39",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "390",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
           "description": "Up to 30 active clients, per month, VAT included. €390 a year. 14-day trial."
         },
         {
@@ -107,6 +139,22 @@
           "name": "Studio",
           "price": "79",
           "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "79",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "790",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
           "description": "Up to 75 active clients, per month, VAT included. €790 a year. 14-day trial."
         }
       ]
@@ -169,7 +217,7 @@
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Coaching software · 5 to 40 clients</span><span class="proof">Real captures, no mockups</span></p>
+        <p class="label eyebrow"><span>Coaching software · up to 75 clients</span><span class="proof">Real captures, no mockups</span></p>
         <h1 class="display"><span>Admin is</span><span>costing you</span><span>clients.</span></h1>
         <p class="lead">
           FitPal Coach replaces the WhatsApp DMs, the voice notes and the spreadsheet. Your clients get a
@@ -181,17 +229,6 @@
         </div>
         <p class="note">Twenty minutes. No automated demo, no card.</p>
       </div>
-
-      <!-- The price, beside the headline: see the note in the French page. -->
-      <aside class="hero-plans" aria-labelledby="hero-plans-h">
-        <p class="label" id="hero-plans-h">Pricing, per month</p>
-        <dl>
-          <div><dt>Solo <span>10 clients</span></dt><dd class="num">€19</dd></div>
-          <div><dt>Pro <span>30 clients</span></dt><dd class="num">€39</dd></div>
-          <div><dt>Studio <span>75 clients</span></dt><dd class="num">€79</dd></div>
-        </dl>
-        <p class="hero-plans-foot"><span>14-day trial · VAT included</span><a href="#pricing">The detail</a></p>
-      </aside>
 
       <div class="hero-stage">
         <div class="hero-media">
@@ -205,6 +242,17 @@
         </div>
         <p class="shot-cap label"><span>Monday 08:12</span><span class="num">Real capture</span></p>
       </div>
+
+      <!-- The price, beside the headline: see the note in the French page. -->
+      <aside class="hero-plans" aria-labelledby="hero-plans-h">
+        <p class="label" id="hero-plans-h">Pricing, per month</p>
+        <dl>
+          <div><dt>Solo <span>10 clients</span></dt><dd class="num">€19</dd></div>
+          <div><dt>Pro <span>30 clients</span></dt><dd class="num">€39</dd></div>
+          <div><dt>Studio <span>75 clients</span></dt><dd class="num">€79</dd></div>
+        </dl>
+        <p class="hero-plans-foot"><span>14-day trial · VAT included</span><a href="#pricing">The detail</a></p>
+      </aside>
     </div>
   </section>
 
@@ -359,7 +407,7 @@
       </div>
 
       <p class="plan-note rv">
-        Prices in euros, VAT included. A year costs ten months. A deactivated client frees their
+        Prices in euros, VAT included. A year costs ten months. A client who stops frees their
         seat. Online checkout opens soon; until then, we start together after
         <a href="#call">a 20-minute call</a>.
       </p>
@@ -475,11 +523,11 @@
       </details>
       <details>
         <summary>What if I outgrow my plan?</summary>
-        <p>Your current clients carry on as before. You simply cannot invite new ones until you move up a plan or deactivate a client: a deactivated client frees their seat.</p>
+        <p>Your current clients carry on as before. You simply cannot invite new ones until you move up a plan or a client who has stopped frees their seat: tell us which one and we deactivate them.</p>
       </details>
       <details>
         <summary>Can I change plans?</summary>
-        <p>Yes, at any time, from your account. Card, invoices and cancellation are managed in the same place.</p>
+        <p>Yes, at any time. For now a message is enough: we change your plan on our side. Once online checkout opens, card, invoices and plan are all managed from your account.</p>
       </details>
     </div>
   </section>

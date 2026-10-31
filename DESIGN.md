@@ -171,7 +171,8 @@ content is laid out as ruled rows, not as a repeating icon-heading-text grid.
   760px the columns stack. Every number on it is a real price; nothing is "from" or "contact us".
 - **Hero price list.** The same three prices as label/value rows on the dark ground, closing on
   the trial terms and a link down to the table. It is an excerpt of the sheet, not a promotion:
-  no strike-through prices, no badge, no "most popular".
+  no strike-through prices, no badge, no "most popular". Beside the copy from 1040px; below
+  that it follows the film, so a phone still meets the film right under the headline.
 - **Device frame.** Every app screen on the site sits inside a phone: a 1px `--rule-strong`
   outline, an `--ink` bezel, `--dev-radius` corners, a small speaker slot, and a screen at
   `aspect-ratio: 9 / 19.5`. That ratio is the app's own phone viewport, so the body shape is

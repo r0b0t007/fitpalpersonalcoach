@@ -136,11 +136,11 @@ Three things worth knowing before changing it:
 - **The ratio is measured, not chosen.** 9:19.5 is the app's own phone viewport, so the captures
   and the film fill the screen with no cropping and no letterbox. Change the ratio and everything
   inside starts getting cropped silently by `object-fit: cover`.
-- **The hero photo's two-column breakpoint is 1040px, not 1000px.** Chrome matches media
+- **The hero's two-column breakpoint is 1040px, not 1000px.** Chrome matches media
   queries against `innerWidth` (scrollbar included) but lays out against `clientWidth`, so a
-  1000px rule fires with 985px of room; the photo's grid track collapsed to `0px` and its
+  1000px rule fires with 985px of room; the second grid track (then the photo) collapsed to `0px` and its
   caption spilled 78px, giving the page a horizontal scrollbar. Do not lower it back.
-- **`--dev-w` lives on the CONTAINER** (`.feat .shot-wrap`), not on `.device`,
+- **`--dev-w` lives on the CONTAINER** (`.stage .shot-wrap`), not on `.device`,
   because the caption reads it too (`max-width`). Set it on the device and the caption stops
   matching the phone it labels.
 - **The geometry is borrowed, the skin is not.** It comes from the house component the ten

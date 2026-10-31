@@ -449,7 +449,9 @@ p { max-width: 68ch; }
    spec-sheet honesty PRODUCT.md asks for. Same row grammar as the spec table — label left,
    tabular figure right, a rule between — so it reads as an excerpt of the sheet below.
 
-   Below 1040px it stacks between the copy and the film. The 1040px breakpoint, not 1000px, is
+   It comes after the film in the source, so below 1040px it stacks under the film rather than
+   between the copy and it: on a phone the film and its poster stay where the portrait left
+   them, right under the copy, and the price list follows. The 1040px breakpoint, not 1000px, is
    still deliberate: Chrome matches a media query against innerWidth, which includes the classic
    scrollbar, so a 1000px rule fired with 985px to lay out and collapsed the second track. */
 .hero-plans {
@@ -803,8 +805,9 @@ p { max-width: 68ch; }
    both numbers are visible at once, which is the honest way to show a discount.
 
    Tarifs and the spec sheet share one bone run, so the second section drops its top padding and
-   the run reads as one printed sheet with two headings. */
-.plans + .spec { padding-top: 0; }
+   the run reads as one printed sheet with two headings. Without that padding, a jump to #fiche
+   would put the section head under the 68px sticky header, so the anchor carries the offset. */
+.plans + .spec { padding-top: 0; scroll-margin-top: calc(68px + var(--sp-6)); }
 
 .plan-grid {
   display: grid;
@@ -874,7 +877,7 @@ p { max-width: 68ch; }
   .plan + .plan { border-left: 0; border-top: 1px solid var(--rule-bone); }
 }
 
-/* ---------------------------------------------------------------- steps *//* ---------------------------------------------------------------- steps */
+/* ---------------------------------------------------------------- steps */
 
 /* Four graduations on one rule, not four cards.
 

@@ -93,6 +93,22 @@
           "name": "Solo",
           "price": "19",
           "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "19",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "190",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
           "description": "Hasta 10 clientes activos, al mes, IVA incluido. 190 € al año. 14 días de prueba."
         },
         {
@@ -100,6 +116,22 @@
           "name": "Pro",
           "price": "39",
           "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "39",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "390",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
           "description": "Hasta 30 clientes activos, al mes, IVA incluido. 390 € al año. 14 días de prueba."
         },
         {
@@ -107,6 +139,22 @@
           "name": "Studio",
           "price": "79",
           "priceCurrency": "EUR",
+          "priceSpecification": [
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "79",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+            },
+            {
+              "@type": "UnitPriceSpecification",
+              "price": "790",
+              "priceCurrency": "EUR",
+              "valueAddedTaxIncluded": true,
+              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
+            }
+          ],
           "description": "Hasta 75 clientes activos, al mes, IVA incluido. 790 € al año. 14 días de prueba."
         }
       ]
@@ -169,7 +217,7 @@
   <section class="hero wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Software de coaching · de 5 a 40 clientes</span><span class="proof">Capturas reales, sin maquetas</span></p>
+        <p class="label eyebrow"><span>Software de coaching · hasta 75 clientes</span><span class="proof">Capturas reales, sin maquetas</span></p>
         <h1 class="display"><span>El papeleo</span><span>te está costando</span><span>clientes.</span></h1>
         <p class="lead">
           FitPal Coach sustituye los mensajes de WhatsApp, las notas de voz y la hoja de cálculo. Tus clientes
@@ -181,17 +229,6 @@
         </div>
         <p class="note">Veinte minutos. Sin demo automática, sin tarjeta.</p>
       </div>
-
-      <!-- The price, beside the headline: see the note in the French page. -->
-      <aside class="hero-plans" aria-labelledby="hero-plans-h">
-        <p class="label" id="hero-plans-h">Precios, al mes</p>
-        <dl>
-          <div><dt>Solo <span>10 clientes</span></dt><dd class="num">19&nbsp;€</dd></div>
-          <div><dt>Pro <span>30 clientes</span></dt><dd class="num">39&nbsp;€</dd></div>
-          <div><dt>Studio <span>75 clientes</span></dt><dd class="num">79&nbsp;€</dd></div>
-        </dl>
-        <p class="hero-plans-foot"><span>14 días de prueba · IVA incluido</span><a href="#pricing">El detalle</a></p>
-      </aside>
 
       <div class="hero-stage">
         <div class="hero-media">
@@ -205,6 +242,17 @@
         </div>
         <p class="shot-cap label"><span>Lunes 08:12</span><span class="num">Captura real</span></p>
       </div>
+
+      <!-- The price, beside the headline: see the note in the French page. -->
+      <aside class="hero-plans" aria-labelledby="hero-plans-h">
+        <p class="label" id="hero-plans-h">Precios, al mes</p>
+        <dl>
+          <div><dt>Solo <span>10 clientes</span></dt><dd class="num">19&nbsp;€</dd></div>
+          <div><dt>Pro <span>30 clientes</span></dt><dd class="num">39&nbsp;€</dd></div>
+          <div><dt>Studio <span>75 clientes</span></dt><dd class="num">79&nbsp;€</dd></div>
+        </dl>
+        <p class="hero-plans-foot"><span>14 días de prueba · IVA incluido</span><a href="#pricing">El detalle</a></p>
+      </aside>
     </div>
   </section>
 
@@ -359,7 +407,7 @@
       </div>
 
       <p class="plan-note rv">
-        Precios en euros, IVA incluido. Un año cuesta diez meses. Un cliente desactivado libera su
+        Precios en euros, IVA incluido. Un año cuesta diez meses. Un cliente que lo deja libera su
         plaza. El pago en línea abre pronto; mientras tanto, empezamos juntos después de
         <a href="#call">una llamada de 20&nbsp;minutos</a>.
       </p>
@@ -475,11 +523,11 @@
       </details>
       <details>
         <summary>¿Y si me quedo corto con mi plan?</summary>
-        <p>Tus clientes actuales siguen como siempre. Simplemente no puedes invitar a nuevos hasta que pases al plan siguiente o desactives a un cliente: un cliente desactivado libera su plaza.</p>
+        <p>Tus clientes actuales siguen como siempre. Simplemente no puedes invitar a nuevos hasta que pases al plan siguiente o un cliente que lo ha dejado libere su plaza: dinos cuál y lo desactivamos.</p>
       </details>
       <details>
         <summary>¿Puedo cambiar de plan?</summary>
-        <p>Sí, en cualquier momento, desde tu cuenta. La tarjeta, las facturas y la baja se gestionan en el mismo sitio.</p>
+        <p>Sí, en cualquier momento. Por ahora basta con un mensaje: cambiamos tu plan desde nuestro lado. Cuando abra el pago en línea, la tarjeta, las facturas y el plan se gestionarán desde tu cuenta.</p>
       </details>
     </div>
   </section>
