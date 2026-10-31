@@ -574,7 +574,7 @@ Rules: one banner at a time. Activating wins while the app is waiting on the pay
 
 ```
 Same as C14 (sheet over C3, Clients cell on), with the link card replaced; draw two artboards, "C22a" and "C22b". Redraw the dimmed C3 roster behind it with 10 clients, all active.
-C22a (at the cap — this artboard on the Solo plan): in place of the link .card, a .card with border var(--yellow): icon people iconTint var(--yellow), .tt "Your plan allows 10 clients", .ss "You have 10 active clients. Upgrade to invite more — or disable a client who has stopped training to free a seat.", Button primary full width "Upgrade", plain Button "Manage clients".
+C22a (at the cap — this artboard on the Solo plan): in place of the link .card, a .card with border var(--yellow): icon people iconTint var(--yellow), .tt "Your plan allows 10 clients", .ss "You have 10 active clients. Upgrade to invite more — or release a client who has stopped training, from their page: that frees a seat." (CHW-320: a coach releases a client from client detail; disabling an account is the operator's), Button primary full width "Upgrade", plain Button "Manage clients".
 C22b (paused, or no plan yet): the same card in var(--orange) with icon pause: .tt "Inviting is paused", .ss "Inviting opens again once billing is sorted out.", Button primary full width "Update payment" — or "Choose a plan" for a coach with no plan yet (draw the paused one).
 The "Waiting" and "Joined" sections stay below, unchanged; waiting codes can still be revoked.
 ```
