@@ -52,8 +52,8 @@ backend/   the API — Laravel 13, PHP 8.4+, MariaDB in production (SQLite local
            laravel-backend-design.md. Run: backend/README.md. Composer dependencies few and
            justified, not minimal.
 mcp/       upstream's MCP server — read-only stdio bridge to a user's workouts for LLM clients.
-           It reads the Node API's JSON files, so it does NOT work against this fork's backend
-           until it has a database adapter (mcp/README.md). Its tests still run in CI.
+           Against this fork's backend it runs in remote mode (OPENGYM_URL): GET /api/data with
+           a token paired like the phone's (scripts/pair.mjs, mcp/README.md).
 media/     exercise img/gif, gitignored, fetched by scripts/fetch-media.sh.
 site-coach/ THIS product's marketing site → **fitpal.ma** (the apex), Cloudflare Pages
            project `fitpal-coach`, gated by DEPLOY_SITE_COACH. Plain HTML/CSS/JS.
@@ -182,9 +182,12 @@ minute, and a test fails an event set to a minute off those ticks. Filament serv
 ### MCP server (`mcp/src`)
 
 Upstream's read-only stdio MCP bridge (`@modelcontextprotocol/sdk`): it reads a user's
-routines/workouts/body-weight/1RM/muscle-balance from the `state-<uid>.json` files the Node API
-wrote to `DATA_DIR`. Laravel keeps that data in its database, so it reads nothing useful here until
-it has a database adapter (mcp/README.md). `state.js` loads/derives the data, `tools.js`
+routines/workouts/body-weight/1RM/muscle-balance. Upstream's file mode reads the `state-<uid>.json`
+files the Node API wrote to `DATA_DIR`; Laravel keeps that data in its database, so here it runs in
+remote mode (`remote.js`, CHW-316): `OPENGYM_URL` set, it GETs `/api/data` and `/api/me` with a
+bearer token that `scripts/pair.mjs` buys once from a Settings pairing code, the paired phone's
+bargain. No backend route of its own. `state.js` loads/derives the data (`refresh()` before
+each tool call), `tools.js`
 defines the exposed MCP tools (zod-validated schemas), `labels.js` maps internal keys to
 human-readable labels, `index.js` wires it together. See `mcp/README.md` for the client-config
 side (Claude Desktop / Cursor).

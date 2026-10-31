@@ -1,8 +1,13 @@
 /* opengym-mcp state — reads ./data/state-<uid>.json + db.json (read-only). Cached with an
    fs.watch + mtime fallback so a session the api server just wrote is visible on the next
-   tool call without a restart. */
+   tool call without a restart.
+
+   Or, with OPENGYM_URL set, from that server's API (remote.js): how it reads a FitPal Coach
+   account, whose state is in the backend's database, not in files. refresh() fetches it before
+   every tool call; getState() and getUser() stay synchronous, so tools.js is the same for both. */
 import fs from 'node:fs'
 import path from 'node:path'
+import { remoteBase, tokenFile, savedPairing, fetchUser, fetchState } from './remote.js'
 
 const DATA_DIR = process.env.OPENGYM_DATA || path.join(process.cwd(), 'data')
 
@@ -12,6 +17,26 @@ let _db = undefined
 let _uid = null
 let _watcher = null
 let _loadedMtime = 0    // mtimeMs we last read at — used to catch watcher omissions
+let _remote = null      // remote mode: { base, token, user } after the first refresh() that worked
+
+export const isRemote = () => Boolean((process.env.OPENGYM_URL || '').trim())
+
+// Remote mode: the state as the server holds it now, one GET per tool call — nothing cached to go
+// stale, and an answer never mixes two syncs. The token file is read on every call too, so pairing
+// again (after an expiry, or as another account) needs no restart; the user is fetched again only
+// when the token changed. Nothing is kept until both reads worked, so a failed call leaves the
+// last good answer's account in place for a call running beside it. File mode: nothing to do,
+// getState() checks the file itself.
+export async function refresh() {
+  if (!isRemote()) return
+  const base = remoteBase(process.env.OPENGYM_URL)
+  const { token } = savedPairing(base, tokenFile())
+  const user = _remote && _remote.base === base && _remote.token === token ? _remote.user : await fetchUser(base, token)
+  const state = await fetchState(base, token)
+  _remote = { base, token, user }
+  _uid = user.id
+  _state = state ? Object.assign({}, defaultsShape(), state) : null
+}
 
 function readJsonOrNull(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return null }
@@ -56,6 +81,7 @@ function resolveUid() {
 // Idempotent. Picks the uid, loads db.json, attaches the watcher, primes state.
 export function init() {
   if (_uid !== null) return
+  if (isRemote()) throw new Error('remote mode reads through refresh(), not the data dir')
   if (!fs.existsSync(DATA_DIR)) throw new Error(`OPENGYM_DATA dir does not exist: ${DATA_DIR}`)
   _uid = resolveUid()
   reloadDb()
@@ -86,6 +112,7 @@ export function init() {
 
 // Returns the state object, or null for a fresh account that never signed in on a device.
 export function getState() {
+  if (_remote) return _state
   init()
   const file = stateFile(_uid)
   // Re-read if the file's mtime changed since our last load — covers watcher omissions and
@@ -110,6 +137,7 @@ export function getState() {
 
 // Returns the user record (id + name). No passkey material, no VAPID keys, no push subs.
 export function getUser() {
+  if (_remote) return { id: _remote.user.id, name: _remote.user.name, created: _remote.user.created || null }
   init()
   const u = _db.users.find(x => x.id === _uid) || { id: _uid, name: 'Profile', created: null }
   return { id: u.id, name: u.name, created: u.created || null }
