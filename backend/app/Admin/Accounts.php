@@ -190,7 +190,9 @@ final class Accounts
      * Takes back a licence granted by hand. A Creem licence is not the admin's to remove (it ends
      * in Creem), so only a manual one is: anything else is "nothing to revoke". The row stays,
      * marked `revoked`, as the history of what was granted (the audit log is pruned); the coach is
-     * then unlicensed — read-only while billing is on.
+     * then on the Free plan when FREE_CAP is set — still writing, up to its cap — and otherwise
+     * unlicensed: read-only while billing is on. Disabling the account is what stops a coach
+     * writing at all.
      */
     public static function revoke(Request $request, User $admin, mixed $id): User
     {

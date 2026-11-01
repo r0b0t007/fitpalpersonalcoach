@@ -14,9 +14,10 @@ use Carbon\CarbonInterface;
  *  2. billing off and no Free plan (Plans::billingOn, Plans::freeCap) → `unlicensed`, writable,
  *     unlimited — a self-hosted instance and the test suite are unaffected;
  *  3. a licence that writes (rule 5) → its plan and cap;
- *  4. otherwise, with a Free plan (FREE_CAP, CHW-329) → `free`: writable, capped at FREE_CAP — no
- *     licence yet, or one that lapsed; without a Free plan → cap 0 and not writable (no licence),
- *     or the licence's own read-only status;
+ *  4. otherwise, with a Free plan (FREE_CAP, CHW-329) → writable, capped at FREE_CAP: `free` for no
+ *     licence or one that is over, the licence's own status for one Creem can still bill (paused,
+ *     unpaid — the app offers its card fix); without a Free plan → cap 0 and not writable (no
+ *     licence), or the licence's own read-only status;
  *  5. writable while trialing, active, past_due (Creem is still retrying), manual, and canceled
  *     until the period that was paid for ends;
  *  6. canTakeClient = writable and under the cap; overCap = more active clients than the cap
@@ -78,6 +79,14 @@ final readonly class Entitlement
                 $licence->trial_ends_at, $licence->period_end);
         }
         if (($free = Plans::freeCap()) > 0) {
+            // A subscription Creem can still bill (paused, unpaid) keeps its status: its fix is the
+            // card in the portal, and a checkout would be refused (BillingController::refuseHeld) —
+            // the app must see it to offer the right one. Meanwhile it works as on Free.
+            if ($licence !== null && $licence->canStillBill()) {
+                return new self($licence->status, $licence->plan, $free, $used, true, $used < $free, $used > $free,
+                    $licence->trial_ends_at, $licence->period_end);
+            }
+
             return new self('free', 'free', $free, $used, true, $used < $free, $used > $free);
         }
         if ($licence === null) {
@@ -96,12 +105,13 @@ final readonly class Entitlement
      */
     public static function canWrite(User $user): bool
     {
-        if (self::exempt($user) !== null) {
+        // A Free plan writes whatever the licence says: answered before the licence is read.
+        if (self::exempt($user) !== null || Plans::freeCap() > 0) {
             return true;
         }
         $licence = self::licenceOf($user);
 
-        return ($licence !== null && self::writable($licence)) || Plans::freeCap() > 0;
+        return $licence !== null && self::writable($licence);
     }
 
     /**

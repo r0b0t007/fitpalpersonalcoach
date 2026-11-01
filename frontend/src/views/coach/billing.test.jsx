@@ -378,3 +378,30 @@ describe('the Free plan', () => {
     expect(text()).not.toContain('Upgrade')
   })
 })
+
+describe('the Free plan, after review', () => {
+  it('a paused subscription on an instance with Free still shows the card fix, and says it works as Free', async () => {
+    useStore.setState({ config: FREE_AND_PAID })
+    ME = me({ status: 'paused', plan: 'pro', cap: 3, used: 2, canWrite: true, canTakeClient: true })
+    await render(<CoachToday />)
+    expect(text()).toContain('Your plan is paused')
+    expect(text()).toContain('Until the payment goes through, you are on the Free plan: up to 3 active clients.')
+    expect(text()).toContain('Update payment')
+  })
+
+  it('a Free coach who once paid can still reach their invoices', async () => {
+    useStore.setState({ config: FREE_AND_PAID })
+    ME = { ...free({ used: 2 }), portal: true }
+    await render(<CoachAccount />)
+    expect(text()).toContain('Invoices from your earlier plan')
+  })
+
+  it('tells a Free coach over the cap to release a client where no paid plan is sold, not to upgrade', async () => {
+    useStore.setState({ config: FREE_ONLY })
+    ME = { ...free({ used: 4, canTakeClient: false, overCap: true }), plans: [FREE_PLAN] }
+    await render(<CoachToday />)
+    expect(text()).toContain('4 active clients on a 3-client plan')
+    expect(text()).not.toContain('Upgrade to invite more')
+    expect(text()).toContain('Release a client who has stopped training to invite someone new.')
+  })
+})

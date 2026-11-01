@@ -190,9 +190,20 @@ it('keeps a paying coach on their plan, and drops one whose plan lapsed to Free'
     billingOn();
     licence($f->a, ['status' => 'active', 'plan' => 'pro']);
     expect(Entitlement::for($f->a))->toMatchObject(['status' => 'active', 'plan' => 'pro', 'cap' => 30]);
-    licence($f->a, ['status' => 'paused', 'plan' => 'pro']);
+    // Over: canceled and its period gone. Free, with nothing left to bill.
+    licence($f->a, ['status' => 'canceled', 'plan' => 'pro', 'period_end' => now()->subDay()]);
     expect(Entitlement::for($f->a))->toMatchObject(['status' => 'free', 'plan' => 'free', 'cap' => 3, 'canWrite' => true]);
 });
+
+it('keeps a subscription Creem can still bill under its own status, with Free\'s allowance', function (string $status) {
+    $f = $this->f;
+    config(['fitpal.free_cap' => 3]);
+    billingOn();
+    licence($f->a, ['status' => $status, 'plan' => 'pro']);
+    // Its fix is the card in the portal, not a new checkout (which the server refuses): the app has
+    // to see `paused`/`unpaid` to offer it. Meanwhile the coach works as on Free.
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => $status, 'plan' => 'pro', 'cap' => 3, 'used' => 2, 'canWrite' => true, 'canTakeClient' => true]);
+})->with(['paused', 'unpaid']);
 
 it('leaves admins exempt, and billing-off coaches unlimited while FREE_CAP is unset', function () {
     $f = $this->f;
@@ -200,4 +211,11 @@ it('leaves admins exempt, and billing-off coaches unlimited while FREE_CAP is un
     config(['fitpal.free_cap' => 3]);
     $f->a->forceFill(['admin' => true])->save();
     expect(Entitlement::for($f->a->refresh()))->toMatchObject(['status' => 'admin', 'cap' => null]);
+});
+
+it('warns in check-config when the Free plan is as big as the smallest paid one', function () {
+    config(['fitpal.free_cap' => 10]);
+    $this->artisan('fitpal:check-config')->expectsOutputToContain('FREE_CAP (10) is not below the smallest paid plan (Solo, 10)');
+    config(['fitpal.free_cap' => 3]);
+    $this->artisan('fitpal:check-config')->doesntExpectOutputToContain('FREE_CAP (');
 });

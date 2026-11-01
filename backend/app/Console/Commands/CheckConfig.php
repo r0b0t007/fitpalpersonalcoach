@@ -40,6 +40,12 @@ final class CheckConfig extends Command
         // Creem: a partial set leaves billing off (every coach entitled) — say so, and name any
         // CREEM_PRODUCTS entry that is ignored.
         array_push($warnings, ...Plans::problems(), ...Creem::problems());
+        // A Free plan as big as a paid one makes paying a downgrade: the coach would land over the
+        // cap of the plan they just bought.
+        $smallest = min(Plans::CAPS);
+        if (Plans::freeCap() >= $smallest) {
+            $warnings[] = 'FREE_CAP ('.Plans::freeCap().') is not below the smallest paid plan ('.ucfirst((string) array_search($smallest, Plans::CAPS, true)).", $smallest): upgrading would lower a coach's cap.";
+        }
         if (config('fitpal.self_serve_coach') && ! Plans::selfServeOpen()) {
             $warnings[] = 'SELF_SERVE_COACH is on but there is nothing to sign up to: set FREE_CAP for the Free plan, or CREEM_API_KEY, CREEM_WEBHOOK_SECRET and CREEM_PRODUCTS for paid plans. Coach sign-up stays closed until then.';
         }
