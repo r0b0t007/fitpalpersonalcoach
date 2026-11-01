@@ -35,7 +35,7 @@ function pendingRequest(object $coach, string $email = 'salma@example.com', stri
     return [$join, $token];
 }
 
-function decide(object $coach, string $id, bool $accept)
+function decideRequest(object $coach, string $id, bool $accept)
 {
     return test()->postJson('/api/coach/requests/decide', ['id' => $id, 'accept' => $accept], bearer($coach));
 }
@@ -53,7 +53,7 @@ it('lists a coach their own requests, pending first, with the intake', function 
 it('accepts: the follower gets an account, on the roster, with a seat — and only then', function () {
     [$join] = pendingRequest($this->f->a);
     expect(User::query()->where('email', 'salma@example.com')->exists())->toBeFalse();
-    decide($this->f->a, $join->id, true)->assertOk()->assertJsonPath('member.name', 'Salma');
+    decideRequest($this->f->a, $join->id, true)->assertOk()->assertJsonPath('member.name', 'Salma');
     $user = User::query()->where('email', 'salma@example.com')->first();
     expect($user->coach_id)->toBe($this->f->a->id)
         ->and($user->email_verified_at)->not->toBeNull()
@@ -66,7 +66,7 @@ it('accepts: the follower gets an account, on the roster, with a seat — and on
 it('binds an account that already exists and has no coach', function () {
     $this->f->u1->forceFill(['email' => 'salma@example.com'])->save();
     [$join] = pendingRequest($this->f->a);
-    decide($this->f->a, $join->id, true)->assertOk();
+    decideRequest($this->f->a, $join->id, true)->assertOk();
     expect($this->f->u1->refresh()->coach_id)->toBe($this->f->a->id)
         ->and(User::query()->where('email', 'salma@example.com')->count())->toBe(1);
 });
@@ -74,8 +74,8 @@ it('binds an account that already exists and has no coach', function () {
 it('never moves a client between coaches: a second accept is refused and the request lapses', function () {
     [$atB] = pendingRequest($this->f->b);
     [$atA] = pendingRequest($this->f->a);
-    decide($this->f->b, $atB->id, true)->assertOk();
-    decide($this->f->a, $atA->id, true)->assertStatus(409)->assertExactJson(['error' => 'they already train with another coach']);
+    decideRequest($this->f->b, $atB->id, true)->assertOk();
+    decideRequest($this->f->a, $atA->id, true)->assertStatus(409)->assertExactJson(['error' => 'they already train with another coach']);
     expect(User::query()->where('email', 'salma@example.com')->first()->coach_id)->toBe($this->f->b->id)
         ->and($atA->refresh()->status)->toBe('expired');
 });
@@ -83,7 +83,7 @@ it('never moves a client between coaches: a second accept is refused and the req
 it('keeps the request waiting when the plan is full, and says how to make room', function () {
     config(['fitpal.free_cap' => 2]);   // A has two active clients already
     [$join] = pendingRequest($this->f->a);
-    decide($this->f->a, $join->id, true)->assertStatus(402)->assertExactJson([
+    decideRequest($this->f->a, $join->id, true)->assertStatus(402)->assertExactJson([
         'error' => 'your plan allows 2 clients — upgrade to accept more',
         'msg' => ['k' => 'your plan allows {0} clients — upgrade to accept more', 'v' => [2]],
     ]);
@@ -93,7 +93,7 @@ it('keeps the request waiting when the plan is full, and says how to make room',
 
 it('declines without making anything, and says nothing more to the follower than no', function () {
     [$join, $token] = pendingRequest($this->f->a);
-    decide($this->f->a, $join->id, false)->assertOk();
+    decideRequest($this->f->a, $join->id, false)->assertOk();
     expect($join->refresh()->status)->toBe('declined')
         ->and(User::query()->where('email', 'salma@example.com')->exists())->toBeFalse();
     $this->postJson('/api/join/status', ['id' => $join->id, 'token' => $token])->assertJsonPath('status', 'declined');
@@ -102,21 +102,21 @@ it('declines without making anything, and says nothing more to the follower than
 
 it("answers a coach on another coach's request as on a made-up one", function () {
     [$join] = pendingRequest($this->f->b);
-    decide($this->f->a, $join->id, true)->assertStatus(404)->assertExactJson(['error' => 'no such request']);
-    decide($this->f->a, 'nope', false)->assertStatus(404);
+    decideRequest($this->f->a, $join->id, true)->assertStatus(404)->assertExactJson(['error' => 'no such request']);
+    decideRequest($this->f->a, 'nope', false)->assertStatus(404);
     expect($join->refresh()->status)->toBe('pending');
 });
 
 it('stops a read-only coach accepting', function () {
     Billing::on();
     [$join] = pendingRequest($this->f->a);
-    decide($this->f->a, $join->id, true)->assertStatus(402);
+    decideRequest($this->f->a, $join->id, true)->assertStatus(402);
 });
 
 it('lets the browser that sent an accepted request sign in, once', function () {
     [$join, $token] = pendingRequest($this->f->a);
     $this->postJson('/api/join/claim', ['id' => $join->id, 'token' => $token])->assertStatus(404);   // not accepted yet
-    decide($this->f->a, $join->id, true)->assertOk();
+    decideRequest($this->f->a, $join->id, true)->assertOk();
     $res = $this->postJson('/api/join/claim', ['id' => $join->id, 'token' => $token])->assertOk()
         ->assertJsonPath('user.name', 'Salma')->assertJsonPath('user.coachName', 'Coach A');
     expect($res->getCookie(SessionToken::cookieName(), false)?->getValue())->not->toBeEmpty();
