@@ -265,7 +265,8 @@ old deployment's variables carry over as they are.
 | `INVITE_ONLY` | `0` | `1`: an account needs an invite code (a coach's invite link always works). |
 | `BOOTSTRAP_CODE` | *(empty)* | How the first account gets into an invite-only instance and becomes admin. At least 16 characters; ignored once any account exists. |
 | `ALLOW_GUEST` | `1` | `0` removes "Continue without account". |
-| `SELF_SERVE_COACH` | `0` | Opens coach sign-up without an invite. Meant for paying coaches: it stays closed until billing is configured. |
+| `SELF_SERVE_COACH` | `0` | Opens coach sign-up without an invite. Stays closed until there is a plan to sign up to: `FREE_CAP`, or billing (`CREEM_*`). |
+| `FREE_CAP` | *(empty)* | The Free plan: a coach with no paid plan may coach this many active clients, with no card and no Creem needed. Empty or `0`: no Free plan, and with billing off every coach is unlimited. |
 | `DATA_DIR` | `backend/storage/app/fitpal` | Files kept outside the database: `media/ex/` (coaches' exercise demos), `media/photo/<uid>/` (clients' progress photos) and `vapid.json` (the push keys, unless `VAPID_*` is set). Outside the document root; the files only leave through the API, behind a session. |
 | `MEDIA_MAX_VIDEO_MB` | `90` | Cap on a coach's exercise demo (section 6). |
 | `MEDIA_MAX_PHOTO_MB` | `12` | Cap on a client's progress photo (section 6). |
@@ -305,7 +306,7 @@ This fork is one coaching business: coaches, their clients, and whoever runs the
 - **Admins** are accounts whose `admin` flag is set in the `users` table, or whose id is in
   `ADMIN_UIDS`. An admin also coaches. A fresh instance has no admin.
 - **Coaches** are made by an admin (in the admin panel, below), or sign themselves up through
-  `SELF_SERVE_COACH` once billing is on.
+  `SELF_SERVE_COACH` once billing is on or `FREE_CAP` is set.
 
 The way to start an invite-only instance: set `INVITE_ONLY=1` and a long random `BOOTSTRAP_CODE`,
 sign up and give the bootstrap code as your invite code. That first account is made admin, the

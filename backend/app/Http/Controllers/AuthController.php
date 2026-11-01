@@ -293,9 +293,9 @@ final class AuthController
     /**
      * A coach signing up on their own (spec §2 flow, §4): name, email and a passkey, then the
      * checkout. Behind SELF_SERVE_COACH, which opens this WITHOUT an invite even when INVITE_ONLY
-     * — and only while billing is on: the self-serve coach is meant to pay, and with no Creem
-     * every coach is unlicensed, writable and unlimited, which would make an invite-only instance
-     * open to anyone.
+     * — and only with a plan to sign up to (Plans::selfServeOpen): a paid one, or the Free plan,
+     * which caps the account at FREE_CAP. With neither, every coach is unlicensed and unlimited,
+     * which would make an invite-only instance open to anyone.
      *
      * The address is not taken from the request as the account's: it waits in `pending_email`,
      * and the first mail is the link that confirms it (spec §4a) — as changing it does. Nothing
@@ -305,7 +305,7 @@ final class AuthController
      */
     private function coachOptions(Request $request, string $name): JsonResponse
     {
-        if (! config('fitpal.self_serve_coach') || ! Plans::billingOn()) {
+        if (! Plans::selfServeOpen()) {
             Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'self-serve-closed']);
 
             return Json::error(403, 'coach sign-up is not open on this server');
@@ -328,13 +328,14 @@ final class AuthController
 
     /**
      * The coach's account, written with its passkey: coach and self_serve set, the address pending,
-     * no licence — read-only until the checkout's webhook (Entitlement). The mail is the link that
+     * no licence — on the Free plan when there is one, else read-only until the checkout's webhook
+     * (Entitlement). The mail is the link that
      * confirms the address, in the language the app is in (the account has no saved one yet), sent
      * after the response and never blocking the sign-up.
      */
     private function coachVerify(Request $request, User $user, $validation, array $extra): JsonResponse
     {
-        if (! config('fitpal.self_serve_coach') || ! Plans::billingOn()) {
+        if (! Plans::selfServeOpen()) {
             Audit::record($request, 'auth.register.fail', ['ok' => false, 'name' => $user->name, 'msg' => 'self-serve-closed']);
 
             return Json::error(403, 'coach sign-up is not open on this server');

@@ -23,7 +23,7 @@ beforeEach(function () {
         'fitpal.rp_id' => 'localhost', 'fitpal.origin' => 'http://localhost:5173',
         'webauthn.relying_party.id' => 'localhost', 'webauthn.origins' => 'localhost',
         'fitpal.session_secret' => str_repeat('ab', 32),
-        'fitpal.self_serve_coach' => true, 'fitpal.invite_only' => true, 'fitpal.bootstrap_code' => '',
+        'fitpal.self_serve_coach' => true, 'fitpal.invite_only' => true, 'fitpal.bootstrap_code' => '', 'fitpal.free_cap' => 0,
     ]);
     Billing::on();
     Mail::fake();
@@ -85,7 +85,7 @@ it('leaves a self-serve coach read-only until the checkout licenses them', funct
     $this->postJson('/api/coach/invites/new', [], bearer($user))->assertStatus(402);
 });
 
-it('stays closed while SELF_SERVE_COACH is off, or while billing is off, invite-only or not', function (array $config) {
+it('stays closed while SELF_SERVE_COACH is off, or while billing is off with no Free plan, invite-only or not', function (array $config) {
     config($config);
     $this->postJson('/api/register/options', ['name' => 'Nadia', 'email' => 'nadia@example.com', 'coach' => true])
         ->assertStatus(403)->assertExactJson(['error' => 'coach sign-up is not open on this server']);
@@ -93,6 +93,7 @@ it('stays closed while SELF_SERVE_COACH is off, or while billing is off, invite-
 })->with([
     'flag off, invite-only' => [['fitpal.self_serve_coach' => false]],
     'flag off, open' => [['fitpal.self_serve_coach' => false, 'fitpal.invite_only' => false]],
+    'flag off, Free plan, billing off' => [['fitpal.self_serve_coach' => false, 'fitpal.free_cap' => 3, 'fitpal.creem.api_key' => '']],
     'billing off: a free, unlimited coach for anyone' => [['fitpal.creem.api_key' => '']],
 ]);
 
@@ -161,4 +162,12 @@ it('makes no admin of a self-serve coach, and does not let one kill the bootstra
     // The owner's bootstrap still works.
     $owner = (new Passkey)->register($this, 'Owner', 'first-account-key-2026')->assertOk()->json('user.id');
     expect(User::query()->find($owner)->isAdmin())->toBeTrue();
+});
+
+it('opens on the Free plan with billing off: the coach is capped at FREE_CAP, never unlimited', function () {
+    config(['fitpal.free_cap' => 3, 'fitpal.creem.api_key' => '']);
+    $res = coachSignup(['name' => 'Salma', 'email' => 'salma@example.com'])->assertOk();
+    $coach = User::query()->find($res->json('user.id'));
+    expect(Entitlement::for($coach)->toArray())->toMatchArray(['status' => 'free', 'cap' => 3, 'used' => 0, 'canWrite' => true, 'canTakeClient' => true]);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'auth.register.ok', 'uid' => $coach->id, 'msg' => 'self-serve']);
 });

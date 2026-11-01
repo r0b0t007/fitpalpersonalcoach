@@ -42,6 +42,17 @@ final class Plans
     }
 
     /**
+     * Whether a coach may sign up on their own (/#/start): SELF_SERVE_COACH, and something to
+     * sign up to — a paid plan (billing on) or the Free plan. Never with neither: with no Creem and
+     * no FREE_CAP every coach is unlicensed and unlimited, and an invite-only instance would be
+     * open to anyone. On the Free plan alone, every account it makes is capped at FREE_CAP.
+     */
+    public static function selfServeOpen(): bool
+    {
+        return (bool) config('fitpal.self_serve_coach') && (self::billingOn() || self::freeCap() > 0);
+    }
+
+    /**
      * The configured products, plan => period => product id, keeping only well-formed entries.
      *
      * @return array<string, array<string, string>>
