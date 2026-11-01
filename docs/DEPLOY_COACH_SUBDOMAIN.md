@@ -253,6 +253,10 @@ fires and the link opens the app's home screen instead of the coach:
 </IfModule>
 ```
 
+The rule must keep the query string, as it does with no `?` in its target: `/c/<handle>?join=1`
+lands in the join form (`#/join/<handle>`), which is how the app sends someone on from Instagram's
+browser to Safari or Chrome mid-form (CHW-332).
+
 Check it with a handle that exists and is open (Account › My page):
 
 ```sh

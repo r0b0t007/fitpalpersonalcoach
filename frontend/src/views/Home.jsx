@@ -16,6 +16,7 @@ import { OfferCard } from './MyCoach.jsx'
 import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import InstallCard from '../components/InstallCard.jsx'
+import OpenInBrowser from '../components/OpenInBrowser.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf } from '../lib/glyphs.js'
@@ -223,6 +224,8 @@ export default function Home() {
     </div>}
     <PhotosDue S={S} today={todayISO()} coached={!!user?.coachName} />
     <TodayTargets S={S} nav={nav} today={todayISO()} />
+    {/* Inside Instagram's browser there is no install: the card says where there is (CHW-332). */}
+    <OpenInBrowser path="/" />
     <InstallCard />
 
     {emptyState === 'waiting' && (

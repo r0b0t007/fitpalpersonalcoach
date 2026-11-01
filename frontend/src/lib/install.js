@@ -17,6 +17,7 @@
 import { useSyncExternalStore } from 'react'
 import { MOBILE } from './mobile.js'
 import { IS_ANDROID, IS_IOS } from './api.js'
+import { inAppBrowser } from './inapp.js'
 import { t } from './i18n-core.js'
 
 export const INSTALL_SNOOZED = 'gym_install_snoozed_v1'
@@ -29,8 +30,9 @@ const IS_ANDROID_CHROME = IS_ANDROID && /\bChrome\/\d/.test(navigator.userAgent)
   && !/SamsungBrowser|EdgA|OPR\/|Firefox/.test(navigator.userAgent)
 
 // `navigator.standalone` is defined (true or false) only in Safari proper — undefined inside
-// WKWebView, which is what every in-app browser (Instagram, Facebook…) and every non-Safari iOS
-// browser is. Those have no share-sheet "Add to Home Screen", so the Safari steps would be wrong.
+// WKWebView, which is what every non-Safari iOS browser is. Those have no share-sheet "Add to
+// Home Screen", so the Safari steps would be wrong. In-app browsers are ruled out by name first
+// (installPath, lib/inapp.js), on Android too, where Instagram's webview says "Chrome".
 const isIosSafari = () => IS_IOS && 'standalone' in navigator
 
 // True once running as the installed app — on iOS/iPadOS Safari's `navigator.standalone`,
@@ -86,6 +88,9 @@ export const canPrompt = () => !!deferred
 // desktop included), 'ios' (Safari's share sheet), 'android' (Chrome's menu, while the event
 // hasn't fired), or null (nothing worth describing — desktop Firefox/Safari, in-app WebViews…).
 export function installPath() {
+  // Nothing installs from in there: OpenInBrowser says where to go, on Login, the coach's page,
+  // the join form and Home, the signed-in client's way to the same offer.
+  if (inAppBrowser()) return null
   if (canPrompt()) return 'prompt'
   if (IS_IOS) return isIosSafari() ? 'ios' : null
   if (IS_ANDROID_CHROME) return 'android'

@@ -6,6 +6,7 @@ import { useCoachTheme } from './PublicCoach.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import Logo from '../components/Logo.jsx'
+import OpenInBrowser from '../components/OpenInBrowser.jsx'
 import { Button, Check, CodeField, Notice, Segmented, TextArea, TextField } from '../components/ui.jsx'
 
 /**
@@ -147,6 +148,9 @@ export default function Join({ handle }) {
     <h1 style={{ marginTop: 0 }}>{coach.name}</h1>
 
     {step === 'intake' && <>
+      {/* Only here, before anything is sent: a request waiting is followed from this browser's
+          storage, which Safari or Chrome would not have. */}
+      <OpenInBrowser path={'/c/' + encodeURIComponent(handle) + '?join=1'} style={{ margin: '10px 0 4px' }} />
       <h4 className="sec">{t('Your goal')}</h4>
       <div className="chips">{GOALS.map(g => chip(intake.goal === g, goalLabel(g), () => set('goal', g), g))}</div>
       <h4 className="sec">{t('Your level')}</h4>
