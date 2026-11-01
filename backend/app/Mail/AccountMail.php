@@ -8,7 +8,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 /**
- * The account mails (spec §4a), one class for them all — and since CHW-337 a fourth, `request`:
+ * The account mails (spec §4a), one class for them all (the sign-in mail's heading is its code, CHW-331) — and since CHW-337 a fourth, `request`:
  * a coach told that someone asked to train with them (no name: that is text a stranger typed). The first three: a sign-in link (`signin`), a link
  * confirming a new sign-in address (`confirm`, sent to that address), and the notice to the old
  * address that it was replaced (`changed`, no link). HTML and plain-text parts, the same words,
@@ -24,10 +24,10 @@ final class AccountMail extends Mailable
     public readonly string $lang;
 
     /** $lang: when the account has no saved language yet (a sign-up's first mail), the app's own. */
-    public function __construct(public readonly string $kind, User $user, public readonly ?string $url = null, ?string $email = null, ?string $lang = null)
+    public function __construct(public readonly string $kind, User $user, public readonly ?string $url = null, ?string $email = null, ?string $lang = null, ?string $code = null)
     {
         $this->lang = in_array($lang, MailCopy::LANGS, true) ? $lang : MailCopy::langFor($user);
-        $this->words = MailCopy::words($this->lang, $kind, ['name' => $user->name, 'email' => $email]);
+        $this->words = MailCopy::words($this->lang, $kind, ['name' => $user->name, 'email' => $email, 'code' => $code]);
     }
 
     public function envelope(): Envelope

@@ -32,7 +32,8 @@ final class CsrfOrigin
         'POST /api/pair/redeem',
         // Asking for a sign-in link only sends a mail, and the phone app's WebView is not ORIGIN.
         // Not login/link: the mailed link opens the app on ORIGIN, so redeeming is same-origin,
-        // and exempting it would let a page sign a visitor in to the page's own account.
+        // and exempting it would let a page sign a visitor in to the page's own account. Nor
+        // login/code (CHW-331), for the same reason: the code is typed into the app on ORIGIN.
         'POST /api/login/email',
         // Not the billing webhook: Creem sends no Origin, so rule 5 passes it, and a page that
         // forges one is refused here before the route's HMAC check ever runs.

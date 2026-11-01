@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { setShellPref } from '../lib/role.js'
 import { forgetCoachSecrets } from '../lib/forget-coach.js'
-import { api, setRemoteAuth, passkeyLogin } from '../lib/api.js'
+import { api, setRemoteAuth, passkeyLogin, signInWithCode } from '../lib/api.js'
 import { localTZ, todayISO } from '../lib/format.js'
 import { compactMeals } from '../lib/nutrition.js'
 import { emptyHealth } from '../lib/health-consent.js'
@@ -388,11 +388,18 @@ export const useStore = create((set, get) => {
     forgetLocalSession() { clearLocalSession() },
 
     // A passkey sign-in, as Login and the link page both do it: the user, then their synced state.
-    async passkeySignIn() {
-      const u = await passkeyLogin()
+    // Every sign-in that lands on this device: the account, then its data.
+    async signedIn(u) {
       get().setUser(u)
       await get().pullState()
       return u
+    },
+    async passkeySignIn() {
+      return get().signedIn(await passkeyLogin())
+    },
+    // The emailed code (CHW-331), signed in as a passkey is.
+    async codeSignIn(email, code) {
+      return get().signedIn((await signInWithCode(email, code)).user)
     },
 
     async signOut() {

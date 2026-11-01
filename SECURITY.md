@@ -104,10 +104,14 @@ Read this before hosting it for anyone other than yourself.
   `app/WebAuthn/AssertionValidator.php`, `app/WebAuthn/Pipes/CheckOriginExact.php`). The
   authenticator's signature counter is stored, and a counter that goes backwards is refused
   (`app/WebAuthn/Pipes/CheckCounterNotReplayed.php`).
-- **Two narrower ways in, neither for clients.** A coach or admin with a confirmed address can ask
-  for a sign-in link by email: one use, 15 minutes, stored only as a SHA-256 hash, and asking
-  answers the same whether or not the address has an account
-  (`app/Http/Controllers/LoginLinkController.php`, `app/Models/LoginLink.php`). And an admin can
+- **Two narrower ways in.** A coach or admin with a confirmed address, and since CHW-331 a client
+  whose address was proven (by the code of an accepted join request), can ask for a sign-in mail:
+  a link and a 6-digit code, either of them one use, 15 minutes. The link is stored only as a
+  SHA-256 hash, the code as an HMAC keyed with `APP_KEY` and the row, and only the newest code
+  works: 5 wrong tries spend it, never the link beside it. Asking, and a refused code, answer the
+  same and take as long whether or not the address has an account (`app/Http/Controllers/LoginLinkController.php`,
+  `app/Models/LoginLink.php`). **Such a client's account is as safe as their inbox**: many have
+  no passkey at all, since passkeys fail inside Instagram's browser. And an admin can
   be given an email and password for the admin panel (`php artisan fitpal:panel-login`); that
   password opens the panel, on Laravel's own session and CSRF token, not the app
   (`app/Providers/Filament/AdminPanelProvider.php`, `User::canAccessPanel`).
@@ -211,8 +215,9 @@ Read this before hosting it for anyone other than yourself.
   still accepted. In practice: unlocked device ≈ account access.
 - **Recovery is thin, and none for clients.** Every successful registration creates a *new*
   account. A signed-in account can add more passkeys (with a recent sign-in, above); a coach or
-  admin with a confirmed email can get back in by link. A client who loses every passkey has no
-  way back short of the operator editing the database.
+  admin with a confirmed email can get back in by link or code, and so can a client whose address
+  was proven. A client with no proven address (one who joined by an invite link, with a passkey)
+  who loses every passkey has no way back short of the operator editing the database.
 - **Disabling someone isn't a ban.** They can still register a fresh account with a new passkey
   unless `INVITE_ONLY=1` is set. It also makes them near-invisible in the activity log: a disabled
   account is refused at the session check, so nothing it does produces an entry except the failed
@@ -220,8 +225,11 @@ Read this before hosting it for anyone other than yourself.
 - **HTTPS is required and the app doesn't provide it.** TLS is the job of the web server or
   whatever you put in front of it. Without it, browsers won't do passkeys at all (except on
   `http://localhost`) and the session token is sent in the clear.
-- **Almost no rate limiting.** Three things are throttled: asking for an email sign-in link (3 per
-  address per 15 minutes, 10 per client address and 300 per connection per hour), self-serve
+- **Almost no rate limiting.** Four things are throttled: asking for an email sign-in link (3 per
+  address per 15 minutes, 10 per client address and 300 per connection per hour), a sign-in code
+  (20 tries per address a day, any address alike and not reset by a new mail; 60 per client
+  address and 300 per connection an hour; so someone who knows an address can stop its codes
+  working for a day, though not the link in its owner's inbox), self-serve
   coach sign-up (10 per client address and 100 per connection per hour,
   `app/Support/ClientLimit.php`), and the admin panel's password form (Filament's own, 5 a
   minute). Nothing else throttles logins,

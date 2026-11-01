@@ -54,9 +54,10 @@ $routes = static function (): void {
     Route::post('/login/options', [AuthController::class, 'loginOptions']);
     Route::post('/login/verify', [AuthController::class, 'loginVerify']);
     Route::post('/logout', [AuthController::class, 'logout']);
-    // A coach's sign-in by email link (R4, Laravel only). No session: the address, then the token.
+    // Sign-in by email (R4; clients too since CHW-331). No session: the address, then the link's token or the code.
     Route::post('/login/email', [LoginLinkController::class, 'request']);
     Route::post('/login/link', [LoginLinkController::class, 'redeem']);
+    Route::post('/login/code', [LoginLinkController::class, 'code']);
     // The phone's side of pairing: no session, the code is the credential (CSRF-exempt).
     Route::post('/pair/redeem', [PairController::class, 'redeem']);
     // The invite landing screen, before the person has an account.

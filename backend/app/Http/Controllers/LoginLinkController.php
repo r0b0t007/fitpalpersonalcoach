@@ -22,12 +22,19 @@ use Illuminate\Support\Facades\RateLimiter;
 use function Illuminate\Support\defer;
 
 /**
- * A coach's second way in (spec §4a, R4; Laravel only): a sign-in link by email, and changing the
- * address those links go to. Passkeys stay the primary sign-in and the only one for clients.
+ * Signing in by email (spec §4a, R4; Laravel only): a mail with a link and a 6-digit code, and
+ * changing the address those mails go to. A coach's second way in beside their passkey; since
+ * CHW-331 a client's too, once their address is proven (a join request accepted), because a
+ * passkey fails inside Instagram's browser, where most clients arrive.
  *
- *  - POST /api/login/email {email} always answers {ok: true} — unknown, a client's, a disabled
- *    account's, a pending address, throttled: all alike, so it cannot tell anyone whether an
- *    address has an account. A coach or admin whose `email` is that address gets a link.
+ *  - POST /api/login/email {email} always answers {ok: true} — unknown, a disabled account's, a
+ *    pending or unproven address, throttled: all alike, so it cannot tell anyone whether an
+ *    address has an account. An account that may sign in with it (mayUseEmail) gets the mail.
+ *  - POST /api/login/code {email, code} signs in with the newest mail's code, in the browser that
+ *    asked: the main path, as a tapped link opens another browser and leaves Instagram's. Every
+ *    refusal reads alike and takes as long, whether the address has an account or not. Wrong
+ *    codes spend only the code, never the mail's link: a stranger who knows the address can stop
+ *    the codes working for a day, but not the link already in the inbox.
  *  - POST /api/login/link {t} redeems either kind of link: a sign-in link signs in exactly as a
  *    passkey does (SessionToken::cookies, so `logout/all` ends it too); an email-change link moves
  *    the pending address into `email` and tells the old one.
@@ -50,6 +57,22 @@ final class LoginLinkController
      * Generous, as every coach behind one Cloudflare edge shares it.
      */
     private const PER_PEER = [300, 3600];
+
+    /**
+     * Tries per address a day, for any address so that being refused says nothing about it, and
+     * not cleared by a new mail, which a stranger can ask for: 20 guesses a day at a million codes.
+     * A sign-in clears it. Each code is also spent after LoginLink::MAX_ATTEMPTS wrong tries.
+     */
+    private const CODE_PER_EMAIL = [20, 86400];
+
+    /**
+     * Tries per client address an hour: guessing across many addresses at once. Generous, as a
+     * mobile carrier puts many people behind one address.
+     */
+    private const CODE_PER_IP = [60, 3600];
+
+    /** Every refused code takes at least this long, so the time a refusal takes says nothing either. */
+    private const CODE_REFUSAL_MS = 400;
 
     /** At most this many `login.link.throttled` rows an hour: a flood must not push real events out of the log. */
     private const THROTTLE_AUDITS = 20;
@@ -77,20 +100,94 @@ final class LoginLinkController
         foreach ($buckets as $key => [, $decay]) {
             RateLimiter::hit($key, $decay);
         }
+
         // What is kept on the link row follows the owner's AUDIT_IP, as the audit log does.
         $stored = ClientIp::for($request, (string) config('fitpal.audit.ip'));
 
         // Only the lookup happens before the answer, the same for any address: the link, the
         // coach's language and the mail all come after it (defer), so timing tells nobody anything.
-        $user = LoginLink::validEmail($email) ? self::coachWithEmail($email) : null;
+        $user = LoginLink::validEmail($email) ? self::accountWithEmail($email) : null;
         if ($user !== null) {
             defer(function () use ($user, $stored) {
-                [$token] = LoginLink::issue($user, 'login', null, $stored);
-                SendAfterResponse::send($user->email, new AccountMail('signin', $user, LoginLink::url($token)));
+                [$token, , $code] = LoginLink::issue($user, 'login', null, $stored);
+                SendAfterResponse::send($user->email, new AccountMail('signin', $user, LoginLink::url($token), code: $code));
             });
         }
 
         return Json::ok(['ok' => true]);
+    }
+
+    public function code(Request $request): JsonResponse
+    {
+        $started = hrtime(true);
+        $email = LoginLink::normaliseEmail(Input::jsString($request, 'email'));
+        $code = Input::jsString($request, 'code');
+        $ip = ClientIp::for($request, 'full') ?? (string) $request->ip();
+        // Counted before the code is looked at, so that requests sent at once cannot all pass a
+        // limit none of them has counted yet. A sign-in takes its try back from the address.
+        $buckets = [
+            self::codeKey($email) => self::CODE_PER_EMAIL,
+            'login-code:ip:'.$ip => self::CODE_PER_IP,
+            'login-code:peer:'.$request->server('REMOTE_ADDR') => self::PER_PEER,
+        ];
+        foreach ($buckets as $key => [$max, $decay]) {
+            if (RateLimiter::hit($key, $decay) > $max) {
+                self::evenOut($started);
+                throw new ClientSafe(429, 'too many wrong codes — use the link in the email, or try again later');
+            }
+        }
+        // Decided under the link's lock and committed whatever the answer: a wrong code must count.
+        $user = DB::transaction(function () use ($email, $code): ?User {
+            $user = LoginLink::validEmail($email) ? self::accountWithEmail($email) : null;
+            // The newest mail's code only: a new mail takes the older codes away (LoginLink::issue).
+            $link = $user === null ? null : LoginLink::query()->where('user_id', $user->id)->where('purpose', 'login')
+                ->whereNull('used_at')->whereNotNull('code_hash')->where('expires_at', '>', now())
+                ->lockForUpdate()->first();
+            if ($link === null) {
+                return null;
+            }
+            if (preg_match('/^\d{6}$/', $code) !== 1 || ! hash_equals((string) $link->code_hash, LoginLink::codeHash($link->id, $code))) {
+                // The code is spent after the last try, not the row: its link still works.
+                $tries = $link->attempts + 1;
+                $link->forceFill(['attempts' => $tries] + ($tries >= LoginLink::MAX_ATTEMPTS ? ['code_hash' => null] : []))->save();
+
+                return null;
+            }
+            // As a link: one used, every other sign-in mail spent with it.
+            LoginLink::spendAll($user->id, 'login');
+            if ($user->email_verified_at === null) {
+                $user->forceFill(['email_verified_at' => now()])->save();
+            }
+
+            return $user;
+        });
+        if ($user === null) {
+            self::evenOut($started);
+            // An address with no account, an expired code, a wrong one: one answer for all.
+            throw new ClientSafe(400, 'that code is wrong — check the email and try again');
+        }
+        RateLimiter::clear(self::codeKey($email));
+        Audit::record($request, 'login.code', ['user' => $user]);
+
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
+    }
+
+    /**
+     * Holds a refusal until CODE_REFUSAL_MS have passed: an address with an account and a mail
+     * waiting costs a locked read and a write, one with neither a single read, and the difference
+     * must not be what tells them apart.
+     */
+    private static function evenOut(int $started): void
+    {
+        $left = self::CODE_REFUSAL_MS * 1000 - intdiv(hrtime(true) - $started, 1000);
+        if ($left > 0 && ! app()->runningUnitTests()) {
+            usleep($left);
+        }
+    }
+
+    private static function codeKey(string $email): string
+    {
+        return 'login-code:email:'.hash('sha256', $email);
     }
 
     public function redeem(Request $request): JsonResponse
@@ -119,7 +216,7 @@ final class LoginLinkController
                 throw new ClientSafe(400, 'this sign-in link was already used');
             }
             $user = User::query()->whereKey($link->user_id)->lockForUpdate()->first();
-            if ($user === null || ! $user->isCoach()) {
+            if ($user === null || ! self::mayUseEmail($user)) {
                 throw new ClientSafe(400, 'this sign-in link has expired — request a new one');
             }
             if ($user->disabled) {
@@ -227,14 +324,24 @@ final class LoginLinkController
     }
 
     /**
-     * The coach (or admin) whose sign-in address this is. Addresses are stored normalised and
-     * `users.email` is unique, so this is the index, not a scan.
+     * The account whose sign-in address this is, if it may sign in with it. Addresses are stored
+     * normalised and `users.email` is unique, so this is the index, not a scan.
      */
-    private static function coachWithEmail(string $email): ?User
+    private static function accountWithEmail(string $email): ?User
     {
         $user = User::query()->where('email', $email)->where('disabled', false)->first();
 
-        return $user?->isCoach() ? $user : null;
+        return $user !== null && self::mayUseEmail($user) ? $user : null;
+    }
+
+    /**
+     * A coach or admin, as before; and a client whose address was proven (CHW-331), which today
+     * means a join request accepted: the code they typed then. A client's account is then as safe
+     * as their inbox (SECURITY.md).
+     */
+    private static function mayUseEmail(User $user): bool
+    {
+        return $user->isCoach() || $user->email_verified_at !== null;
     }
 
     /**

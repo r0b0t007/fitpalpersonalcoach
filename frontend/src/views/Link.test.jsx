@@ -12,6 +12,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 const calls = []
 let REDEEM = null      // what POST /api/login/link answers: an object, or an Error to throw
 let ACCOUNT = null     // GET /api/account
+let CODE = null        // what POST /api/login/code answers: an object, or an Error to throw
+let UA = ''            // the user agent inapp.js reads
 // The helpers are rebuilt on the mocked api(): the originals would call the real one, and fetch.
 vi.mock('../lib/api.js', async orig => {
   const post = (path, body) => mockApi(path, { method: 'POST', body: JSON.stringify(body) })
@@ -19,6 +21,7 @@ vi.mock('../lib/api.js', async orig => {
     calls.push([path, opts?.body ? JSON.parse(opts.body) : undefined])
     if (path === '/api/login/link') { if (REDEEM instanceof Error) throw REDEEM; return REDEEM }
     if (path === '/api/login/email') return { ok: true }
+    if (path === '/api/login/code') { if (CODE instanceof Error) throw CODE; return CODE }
     if (path === '/api/account') return ACCOUNT
     if (path === '/api/account/email') return { ok: true, pendingEmail: JSON.parse(opts.body).email }
     if (path === '/api/data') return { state: null }
@@ -30,11 +33,13 @@ vi.mock('../lib/api.js', async orig => {
     api: mockApi,
     requestLoginLink: email => post('/api/login/email', { email }),
     redeemLoginLink: t => post('/api/login/link', { t }),
+    signInWithCode: (email, code) => post('/api/login/code', { email, code }),
     fetchAccount: () => mockApi('/api/account'),
     changeEmail: email => post('/api/account/email', { email }),
     webauthnOK: () => true,
   }
 })
+vi.mock('../lib/inapp.js', () => ({ inAppBrowser: () => /Instagram/.test(UA) }))
 vi.mock('../lib/mobile.js', () => ({
   MOBILE: false, initReminderSync: () => {}, writeAutoBackup: () => {}, nativeLoad: async () => null, nativeSave: () => {}, syncReminder: () => {},
 }))
@@ -74,7 +79,7 @@ const serverError = (status, message) => Object.assign(new Error(message), { sta
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true
   calls.length = 0
-  REDEEM = null; ACCOUNT = null
+  REDEEM = null; ACCOUNT = null; CODE = null; UA = ''
   localStorage.clear()
   useStore.setState({ user: null, config: LARAVEL })
   useUI.setState({ sheets: [] })
@@ -90,7 +95,7 @@ describe('without login_email in /api/config', () => {
     expect(linkOpen(LARAVEL)).toBe(true)
     useStore.setState({ config: NODE })
     await render(<Login />, '/home')
-    expect(text()).not.toContain('Sign in with email')
+    expect(text()).not.toContain('Get a code by email')
   })
 
   it('Account has no email row', async () => {
@@ -185,18 +190,18 @@ describe('Login’s email path', () => {
     // The regression: a copy of the address check that had lost its backslashes refused these.
     await render(<Login />, '/home?email=1')
     await type('input[type="email"]', 'sara@fitness.ma')
-    await click('Send me a link')
+    await click('Send me a code')
     expect(calls.find(([p]) => p === '/api/login/email')[1]).toEqual({ email: 'sara@fitness.ma' })
   })
 
-  it('sends a link and says the same thing whoever the address belongs to', async () => {
+  it('sends a code and says the same thing whoever the address belongs to', async () => {
     await render(<Login />, '/home')
-    await click('Sign in with email')
+    await click('Get a code by email')
     await type('input[type="email"]', 'coach@example.com')
-    await click('Send me a link')
+    await click('Send me a code')
     expect(calls.find(([p]) => p === '/api/login/email')[1]).toEqual({ email: 'coach@example.com' })
     expect(text()).toContain('Check your inbox')
-    expect(text()).toContain('If that address belongs to a coach')
+    expect(text()).toContain('If that address has an account, a 6-digit code is on its way to coach@example.com')
     await click('Use another address')
     expect(container.querySelector('input[type="email"]').value).toBe('')
   })
@@ -209,8 +214,56 @@ describe('Login’s email path', () => {
   it('asks for an address before sending anything', async () => {
     await render(<Login />, '/home?email=1')
     await type('input[type="email"]', 'not-an-address')
-    await click('Send me a link')
+    await click('Send me a code')
     expect(calls.find(([p]) => p === '/api/login/email')).toBe(undefined)
+  })
+})
+
+describe('Login’s code (CHW-331)', () => {
+  const askCode = async () => {
+    await render(<Login />, '/home?email=1')
+    await type('input[type="email"]', 'sara@fitness.ma')
+    await click('Send me a code')
+  }
+
+  it('signs in with the code typed in this browser, and offers a passkey after', async () => {
+    CODE = { user: { id: 'u1', name: 'Sara', coachName: 'Yasmine' } }
+    await askCode()
+    expect([...container.querySelectorAll('button')].find(b => b.textContent === 'Sign in').disabled).toBe(true)
+    await type('input[name="code"]', '48 29-13x')   // digits only, however it was pasted
+    expect(container.querySelector('input[name="code"]').value).toBe('482913')
+    await click('Sign in')
+    expect(calls.find(([p]) => p === '/api/login/code')[1]).toEqual({ email: 'sara@fitness.ma', code: '482913' })
+    expect(useStore.getState().user.id).toBe('u1')
+    expect(useUI.getState().sheets).toHaveLength(1)
+  })
+
+  it('says what the server said about a wrong code, and offers no passkey inside Instagram', async () => {
+    CODE = serverError(400, 'that code is wrong — check the email and try again')
+    await askCode()
+    await type('input[name="code"]', '000000')
+    await click('Sign in')
+    expect(text()).toContain('that code is wrong')
+    expect(useStore.getState().user).toBe(null)
+    UA = 'Mozilla/5.0 (iPhone) Mobile/15E148 Instagram 330.0'
+    CODE = { user: { id: 'u1', name: 'Sara' } }
+    await click('Sign in')
+    expect(useStore.getState().user.id).toBe('u1')
+    expect(useUI.getState().sheets).toHaveLength(0)
+  })
+
+  it('puts the code first inside Instagram, where a passkey fails', async () => {
+    UA = 'Mozilla/5.0 (iPhone) Mobile/15E148 Instagram 330.0'
+    await render(<Login />, '/home')
+    expect(container.querySelector('input[type="email"]')).toBeTruthy()
+    expect(text()).not.toContain('Get a code by email')
+    expect([...container.querySelectorAll('button')].find(b => b.textContent === 'Sign in with passkey').className).not.toContain('primary')
+  })
+
+  it('sends the code again from the same screen', async () => {
+    await askCode()
+    await click('Send the code again')
+    expect(calls.filter(([p]) => p === '/api/login/email')).toHaveLength(2)
   })
 })
 

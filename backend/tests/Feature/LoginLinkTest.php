@@ -26,6 +26,7 @@ beforeEach(function () {
     ]);
     Mail::fake();
     RateLimiter::clear('login-link:ip:127.0.0.1');
+    RateLimiter::clear('login-code:ip:127.0.0.1');
     $this->f = Coaching::twoCoaches();
     $this->f->a->forceFill(['email' => 'coach.a@example.com'])->save();
 });
@@ -343,7 +344,7 @@ it('prunes links older than a day', function () {
     expect(LoginLink::query()->count())->toBe(1);
 });
 
-it('writes the mail in the language the app is set to, falling back to English, in both parts', function (?string $lang, string $expect, string $heading) {
+it('writes the mail in the language the app is set to, falling back to English, in both parts', function (?string $lang, string $expect, string $phrase) {
     $f = $this->f;
     if ($lang !== null) {
         tap(UserState::query()->firstOrNew(['user_id' => $f->a->id]))->forceFill(['state' => json_encode(['lang' => $lang])])->save();
@@ -353,14 +354,15 @@ it('writes the mail in the language the app is set to, falling back to English, 
     expect($mail->lang)->toBe($expect);
     $html = $mail->render();
     $text = view('mail.account-text', ['w' => $mail->words, 'url' => $mail->url, 'lang' => $mail->lang])->render();
-    expect($html)->toContain($heading)->toContain(htmlspecialchars($mail->url))
-        ->and($text)->toContain($heading)->toContain($mail->url)->not->toContain('&amp;')->not->toContain('&#039;');
+    expect($html)->toContain(e($phrase))->toContain(htmlspecialchars($mail->url))->toContain('>'.$mail->words['heading'].'<')
+        ->and($text)->toContain($phrase)->toContain($mail->url)->not->toContain('&amp;')->not->toContain('&#039;')
+        ->and($mail->words['heading'])->toMatch('/^\d{6}$/')->and($mail->words['subject'])->toEndWith($mail->words['heading']);
 })->with([
-    'French' => ['fr', 'fr', 'Votre lien de connexion'],
-    'Spanish' => ['es', 'es', 'Tu enlace de acceso'],
-    'German' => ['de', 'de', 'Dein Anmeldelink'],
-    'Italian: not one of ours' => ['it', 'en', 'Your sign-in link'],
-    'no state' => [null, 'en', 'Your sign-in link'],
+    'French' => ['fr', 'fr', 'Saisissez ce code'],
+    'Spanish' => ['es', 'es', 'Introduce este código'],
+    'German' => ['de', 'de', 'gib diesen Code ein'],
+    'Italian: not one of ours' => ['it', 'en', 'Enter this code to sign in'],
+    'no state' => [null, 'en', 'Enter this code to sign in'],
 ]);
 
 it('says everything in every language that it says in English', function () {
@@ -396,4 +398,131 @@ it('sends the confirmation again to the pending address from any session, but a 
     $this->postJson('/api/account/email', ['email' => 'elsewhere@example.com'], $stale)
         ->assertStatus(403)->assertExactJson(['error' => 'sign in again to do this — it needs a recent sign-in']);
     expect($f->a->fresh()->pending_email)->toBe('signup.a@example.com');
+});
+
+/* ============================ the code (CHW-331) ============================ */
+
+function askCode(string $email, string $code): TestResponse
+{
+    return test()->postJson('/api/login/code', ['email' => $email, 'code' => $code]);
+}
+
+/** The code in the newest sign-in mail sent to $to: the mail's heading. */
+function codeMailed(string $to): string
+{
+    $mail = Mail::sent(AccountMail::class, fn (AccountMail $m) => $m->kind === 'signin' && $m->hasTo($to))->last();
+    expect($mail)->not->toBeNull();
+
+    return $mail->words['heading'];
+}
+
+/** A code that is not the one mailed. */
+function otherCode(string $code): string
+{
+    return str_pad((string) (((int) $code + 1) % 1_000_000), 6, '0', STR_PAD_LEFT);
+}
+
+it('signs a client in with the code once their address is proven, and not before', function () {
+    $a1 = $this->f->a1;
+    $a1->forceFill(['email' => 'client@example.com'])->save();
+    askLink('client@example.com')->assertOk();
+    Mail::assertNothingSent();   // an address nobody proved: not a way in to anyone's account
+    askCode('client@example.com', '000000')->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
+
+    $a1->forceFill(['email_verified_at' => now()])->save();   // as accepting their join request does
+    askLink('client@example.com')->assertOk();
+    $code = codeMailed('client@example.com');
+    $row = LoginLink::query()->sole();
+    expect($row->code_hash)->toBe(LoginLink::codeHash($row->id, $code))->not->toContain($code);
+    $r = askCode(' Client@Example.com ', $code)->assertOk()->assertJsonPath('user.id', $a1->id);
+    expect(collect($r->headers->getCookies())->map->getName())->toContain(SessionToken::cookieName());
+    $this->assertDatabaseHas('audit_events', ['ev' => 'login.code']);
+
+    // Used once: the code again, and the link from the same mail, are spent with it.
+    askCode('client@example.com', $code)->assertStatus(400);
+    redeemLink(tokenMailed('client@example.com'))->assertStatus(400)->assertExactJson(['error' => 'this sign-in link was already used']);
+});
+
+it('signs a coach in by code too, and lets a client in by the mail\'s link as well', function () {
+    askLink('coach.a@example.com');
+    askCode('coach.a@example.com', codeMailed('coach.a@example.com'))->assertOk()->assertJsonPath('user.id', $this->f->a->id);
+    $this->f->a1->forceFill(['email' => 'client@example.com', 'email_verified_at' => now()])->save();
+    askLink('client@example.com');
+    redeemLink(tokenMailed('client@example.com'))->assertOk()->assertJsonPath('user.id', $this->f->a1->id);
+});
+
+it('takes only the newest code, and none after 15 minutes', function () {
+    askLink('coach.a@example.com');
+    $first = codeMailed('coach.a@example.com');
+    askLink('coach.a@example.com');
+    $second = codeMailed('coach.a@example.com');
+    if ($first !== $second) {
+        askCode('coach.a@example.com', $first)->assertStatus(400);
+    }
+    $this->travel(LoginLink::TTL_MINUTES + 1)->minutes();
+    askCode('coach.a@example.com', $second)->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
+});
+
+it('spends the code after 5 wrong tries but never the link, and answers the same for an address with no account', function () {
+    askLink('coach.a@example.com');
+    $code = codeMailed('coach.a@example.com');
+    foreach (['coach.a@example.com', 'nobody@example.com'] as $email) {
+        for ($i = 0; $i < LoginLink::MAX_ATTEMPTS; $i++) {
+            askCode($email, otherCode($code))->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
+        }
+        askCode($email, $code)->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
+    }
+    $row = LoginLink::query()->sole();
+    expect($row->code_hash)->toBeNull()->and($row->used_at)->toBeNull();
+    // A stranger's wrong codes do not spend the link in the coach's inbox.
+    redeemLink(tokenMailed('coach.a@example.com'))->assertOk()->assertJsonPath('user.id', $this->f->a->id);
+});
+
+it('takes the code off an older mail when a new one is sent, and leaves its link working', function () {
+    askLink('coach.a@example.com');
+    $first = codeMailed('coach.a@example.com');
+    $firstLink = tokenMailed('coach.a@example.com');
+    askLink('coach.a@example.com');
+    $second = codeMailed('coach.a@example.com');
+    expect(LoginLink::query()->whereNotNull('code_hash')->count())->toBe(1);
+    // The newest code spent by wrong tries: the older one does not take over.
+    for ($i = 0; $i < LoginLink::MAX_ATTEMPTS; $i++) {
+        askCode('coach.a@example.com', otherCode($second));
+    }
+    if ($first !== $second) {
+        askCode('coach.a@example.com', $first)->assertStatus(400);
+    }
+    redeemLink($firstLink)->assertOk();
+});
+
+it('takes 20 tries per address a day, for any address, and a new mail does not reset it', function () {
+    askLink('coach.a@example.com');
+    foreach (['coach.a@example.com', 'nobody@example.com'] as $email) {
+        for ($i = 0; $i < 20; $i++) {
+            RateLimiter::clear('login-code:ip:127.0.0.1');   // the per-place limit is the next test's
+            askCode($email, '000000')->assertStatus(400);
+        }
+    }
+    RateLimiter::clear('login-code:ip:127.0.0.1');
+    askLink('coach.a@example.com');   // a stranger can ask for one: it must not buy more guesses
+    $refused = ['error' => 'too many wrong codes — use the link in the email, or try again later'];
+    askCode('coach.a@example.com', codeMailed('coach.a@example.com'))->assertStatus(429)->assertExactJson($refused);
+    askCode('nobody@example.com', '000000')->assertStatus(429)->assertExactJson($refused);
+    redeemLink(tokenMailed('coach.a@example.com'))->assertOk();   // and the link is the way in meanwhile
+    $this->travel(1)->days();
+    askLink('coach.a@example.com');
+    askCode('coach.a@example.com', codeMailed('coach.a@example.com'))->assertOk();
+});
+
+it('takes at most 60 codes an hour from one place, across addresses', function () {
+    for ($i = 0; $i < 60; $i++) {
+        askCode("guess{$i}@example.com", '123456')->assertStatus(400);
+    }
+    askCode('coach.a@example.com', '123456')->assertStatus(429);
+});
+
+it('refuses a code typed into another site: no signing a visitor in to someone else\'s account', function () {
+    askLink('coach.a@example.com');
+    $this->postJson('/api/login/code', ['email' => 'coach.a@example.com', 'code' => codeMailed('coach.a@example.com')], ['Origin' => 'https://evil.example', 'Sec-Fetch-Site' => 'cross-site'])
+        ->assertStatus(403);
 });

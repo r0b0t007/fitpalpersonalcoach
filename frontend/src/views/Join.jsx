@@ -6,7 +6,7 @@ import { useCoachTheme } from './PublicCoach.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import Logo from '../components/Logo.jsx'
-import { Button, Check, Notice, Segmented, TextArea, TextField } from '../components/ui.jsx'
+import { Button, Check, CodeField, Notice, Segmented, TextArea, TextField } from '../components/ui.jsx'
 
 /**
  * Asking to join a coach (CHW-336): from their public page, a short intake, the address and the
@@ -205,8 +205,7 @@ export default function Join({ handle }) {
 
     {step === 'code' && <>
       <p className="muted">{t('Enter the 6-digit code we sent to {0}.', who.email.trim())}</p>
-      <TextField name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456"
-        value={code} onChange={e => { setCode(e.target.value.replace(/\D/g, '')); setError(null) }} />
+      <CodeField value={code} onChange={v => { setCode(v); setError(null) }} />
       {errorLine}
       <div style={{ height: 18 }} />
       <Button variant="primary" onClick={verify} disabled={busy || code.length !== 6}>{t('Send my request')}</Button>
