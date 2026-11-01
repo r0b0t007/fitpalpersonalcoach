@@ -57,6 +57,7 @@ const LABELS = {
   'auth.pair.fail': () => t('Phone pairing failed'),
   // A coach taking a client on, rather than an admin assigning one.
   'coach.program.save': () => t('Saved a program'),
+  'coach.page.save': () => t('Saved their public page'),
   'coach.program.delete': () => t('Deleted a program'),
   'coach.invite.create': () => t('Created a client code'),
   'coach.invite.revoke': () => t('Revoked a client code'),

@@ -7,6 +7,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ChunkUploadController;
+use App\Http\Controllers\CoachPageController;
 use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRosterController;
 use App\Http\Controllers\CreemWebhookController;
@@ -129,6 +130,9 @@ $routes = static function (): void {
             Route::get('/coach/programs', [CoachProgramController::class, 'index']);
             Route::post('/coach/programs/save', [CoachProgramController::class, 'save'])->middleware(RequireWriter::class);
             Route::post('/coach/programs/delete', [CoachProgramController::class, 'delete']);
+            // The coach's public page (CHW-330): the link in their Instagram bio.
+            Route::get('/coach/page', [CoachPageController::class, 'show']);
+            Route::post('/coach/page/save', [CoachPageController::class, 'save'])->middleware(RequireWriter::class);
             Route::post('/coach/assign', [AssignmentController::class, 'assign'])->middleware(RequireWriter::class);
             Route::post('/coach/assignments/withdraw', [AssignmentController::class, 'withdraw']);
             // Paying for the plan (R4, Laravel only). Not RequireWriter: a lapsed coach must pay.
