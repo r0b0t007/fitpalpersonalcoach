@@ -26,7 +26,9 @@ import Login from './views/Login.jsx'
 import Start, { startOpen } from './views/Start.jsx'
 import Link, { linkOpen } from './views/Link.jsx'
 import PublicCoach from './views/PublicCoach.jsx'
+import Join from './views/Join.jsx'
 import { coachHandleFromPath } from './lib/coach-page.js'
+import { joinHandleFromPath } from './lib/join.js'
 import MobileOnboarding from './views/MobileOnboarding.jsx'
 import Home from './views/Home.jsx'
 import Plan from './views/Plan.jsx'
@@ -224,9 +226,10 @@ function Shell() {
   // An emailed sign-in link (views/Link.jsx) lands here signed in or not — an address change is
   // confirmed from a signed-in device too — so it comes before either shell, with no tab bar.
   const onLink = loc.pathname === '/link' && linkOpen(config)
-  // A coach's public page (CHW-330) is anyone's, signed in or not — before either shell, like
-  // /link, with no tab bar.
+  // A coach's public page (CHW-330), and asking to join from it (CHW-336), are anyone's, signed in
+  // or not — before either shell, like /link, with no tab bar.
   const coachPage = coachHandleFromPath(loc.pathname)
+  const joinPage = joinHandleFromPath(loc.pathname)
   // Not before boot has finished: a signed-in coach is drawn from the cached user while the config
   // is on its way (the coach routes' catch-all would bounce /link to /today with the token in it),
   // and boot's own /api/me and sync must not race a redemption that switches the session cookie.
@@ -246,11 +249,11 @@ function Shell() {
           re-mounts the boundary, so the tab bar is always a way out */}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
-          {coachPage ? <PublicCoach handle={coachPage} /> : onLink ? <Link /> : !authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <CoachRoutes user={user} /> : <ClientRoutes />}
+          {coachPage ? <PublicCoach handle={coachPage} /> : joinPage ? <Join handle={joinPage} /> : onLink ? <Link /> : !authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <CoachRoutes user={user} /> : <ClientRoutes />}
         </ErrorBoundary>
       </div>
       {/* The chat owns the bottom of the screen: its composer sits where the tabs would be. */}
-      {!onLink && !coachPage && (shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
+      {!onLink && !coachPage && !joinPage && (shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
       <RestTimer />
       <Modals />
       <Toast />

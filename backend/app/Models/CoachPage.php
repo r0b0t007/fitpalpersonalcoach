@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Coaching\Handle;
 use App\Tenancy\OwnedByCoach;
 use Illuminate\Database\Eloquent\Model;
 
@@ -26,6 +27,24 @@ class CoachPage extends Model
     protected function casts(): array
     {
         return ['open' => 'boolean', 'created' => 'integer', 'updated' => 'integer'];
+    }
+
+    /**
+     * A page as the public finds it, by handle: the page, and its coach while they still coach
+     * (an enabled coach). Whether it is open is the caller's to judge — the public card and the
+     * join form say "closed" and "missing" apart.
+     *
+     * @return array{0: CoachPage|null, 1: User|null}
+     */
+    public static function findPublic(string $handle): array
+    {
+        if (! Handle::valid($handle)) {
+            return [null, null];
+        }
+        $page = self::acrossCoaches()->where('handle', $handle)->first(); // across coaches: the public looks a page up by its handle
+        $coach = $page ? User::query()->find($page->coach_id) : null;
+
+        return [$page, $coach !== null && $coach->isCoach() && ! $coach->disabled ? $coach : null];
     }
 
     /** The link for the bio: ORIGIN/c/<handle>, which the docroot .htaccess hands to the API. */

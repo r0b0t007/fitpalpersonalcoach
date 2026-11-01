@@ -6,6 +6,19 @@ import Logo from '../components/Logo.jsx'
 import { Notice } from '../components/ui.jsx'
 
 /**
+ * Wears a coach's chosen theme (CHW-323) while the screen is open, handed to App through useUI,
+ * which applies it; leaving hands the person's own back. Undefined (not loaded yet): nothing.
+ * Shared by the public page and the join flow, so the two never disagree about it.
+ */
+export function useCoachTheme(theme) {
+  useEffect(() => {
+    if (!theme) return
+    useUI.setState({ themeOverride: theme === 'light' ? 'light' : 'dark' })
+    return () => useUI.setState({ themeOverride: null })
+  }, [theme])
+}
+
+/**
  * A coach's public page (CHW-330): where the link in their Instagram bio lands, through the server's
  * /c/<handle> (preview tags for the crawlers) and on to here. Anyone may see it, signed in or not.
  * It wears the coach's chosen theme (CHW-323) while open — handed to App through useUI, which applies
@@ -25,11 +38,7 @@ export default function PublicCoach({ handle }) {
     return () => { live = false }
   }, [handle])
 
-  useEffect(() => {
-    if (!coach) return
-    useUI.setState({ themeOverride: coach.theme === 'light' ? 'light' : 'dark' })
-    return () => useUI.setState({ themeOverride: null })
-  }, [coach?.theme])
+  useCoachTheme(coach?.theme)
 
   if (error) return <div className="narrow gate">
     <Logo size={30} heading />

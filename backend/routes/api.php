@@ -14,6 +14,7 @@ use App\Http\Controllers\CreemWebhookController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\ExerciseMediaController;
 use App\Http\Controllers\InviteController;
+use App\Http\Controllers\JoinController;
 use App\Http\Controllers\LoginLinkController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PairController;
@@ -61,6 +62,10 @@ $routes = static function (): void {
     // card the app draws from it. Anyone with the link.
     Route::get('/c/{handle}', [PublicPageController::class, 'html']);
     Route::get('/public/coach', [PublicPageController::class, 'json']);
+    // Asking to join a coach from that page (CHW-336): no session, no account until accepted.
+    Route::post('/join/start', [JoinController::class, 'start']);
+    Route::post('/join/verify', [JoinController::class, 'verify']);
+    Route::post('/join/status', [JoinController::class, 'status']);
 
     // A coach's exercise demo: the file is the body. Outside the groups below so CloseOnRefusal
     // wraps the sign-in, coach and licence checks too — their refusals must close the connection
