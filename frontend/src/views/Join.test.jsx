@@ -163,6 +163,20 @@ describe('while the request waits', () => {
       expect(text()).toContain('Yasmine accepted you')
     } finally { vi.useRealTimers() }
   })
+
+  it('says so, and forgets the request, when it is gone while waiting', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      localStorage.setItem('join:yasmine.fit', JSON.stringify({ id: 'req1', token: 'tok1' }))
+      STATUS = { status: 'pending', coachName: 'Yasmine', handle: 'yasmine.fit', theme: 'dark' }
+      await render()
+      STATUS = Object.assign(new Error('No such request'), { status: 404 })
+      await act(async () => { vi.advanceTimersByTime(21_000) })
+      await act(async () => {})
+      expect(text()).toContain('No such request')
+      expect(localStorage.getItem('join:yasmine.fit')).toBe(null)
+    } finally { vi.useRealTimers() }
+  })
 })
 
 describe('asking to join, when things go wrong', () => {

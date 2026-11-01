@@ -48,21 +48,27 @@ class JoinRequest extends Model
     /** How long after the accept the browser that asked can sign in with its token (JoinController::claim). */
     public const CLAIM_DAYS = 7;
 
+    /**
+     * The intake of a request nobody will act on (declined, lapsed): the answers, injuries
+     * included, go the moment it is answered; the name and address wait for prune, for the inbox.
+     */
+    public const BLANK = '{}';
+
     /** A request the coach has not answered in this many days lapses: no queue fills for good. */
     public const PENDING_DAYS = 14;
 
     /**
      * fitpal:prune: an intake holds health data, so what is not waiting on anyone goes. Unverified
      * after a day (nobody proved the address); pending ones lapse to `expired` after PENDING_DAYS
-     * with no answer, which also frees the coach's queue (MAX_PENDING) from anyone who filled it;
-     * declined and expired ones go 30 days after they were decided. Accepted ones stay while the link
+     * with no answer, which also frees the coach's queue (MAX_PENDING) from anyone who filled it,
+     * and its answers are blanked then; declined and expired ones go 30 days after they were decided. Accepted ones stay while the link
      * to the coach does: ending it forgets them (forgetMember, forgetCoach).
      */
     public static function prune(int $nowMs): int
     {
         $day = 86_400_000;
         self::acrossCoaches()->where('status', 'pending')->where('created', '<', $nowMs - self::PENDING_DAYS * $day) // across coaches: prune runs for every coach
-            ->update(['status' => 'expired', 'decided' => $nowMs]);
+            ->update(['status' => 'expired', 'intake' => self::BLANK, 'decided' => $nowMs]);
         // An accepted request's token signs in for CLAIM_DAYS: after that it is forgotten, so a copy
         // of it found later opens nothing.
         self::acrossCoaches()->where('status', 'accepted')->whereNotNull('token_hash')->where('decided', '<', $nowMs - self::CLAIM_DAYS * $day) // across coaches: prune runs for every coach
@@ -81,7 +87,9 @@ class JoinRequest extends Model
     public static function forgetMember(string $coachId, User $member): int
     {
         return self::acrossCoaches()->where('coach_id', $coachId) // across coaches: the caller names the coach whose link ended, from outside their context
-            ->where(fn ($q) => $q->where('member_id', $member->id)->orWhere('email', $member->email ?? ''))
+            // The address only for a request no account was recorded on: one that has changed hands
+            // since must not take another member's request with it.
+            ->where(fn ($q) => $q->where('member_id', $member->id)->orWhere(fn ($q) => $q->whereNull('member_id')->where('email', $member->email ?? '')))
             ->delete();
     }
 

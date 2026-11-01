@@ -6,16 +6,15 @@ use App\Audit\Audit;
 use App\Domain\Entitlement;
 use App\Domain\Plans;
 use App\Media\Paths;
-use App\Models\Assignment;
 use App\Models\ExerciseMedia;
 use App\Models\Invite;
-use App\Models\JoinRequest;
 use App\Models\Licence;
 use App\Models\Presence;
 use App\Models\User;
 use App\Support\ClientSafe;
 use App\Tenancy\CoachLock;
 use App\Tenancy\Detach;
+use App\Tenancy\Unlink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -95,10 +94,7 @@ final class Accounts
             $previous = $u->coach_id;
             if ($coachId === '') {
                 $u->forceFill(['coach_id' => null])->save();
-                Assignment::expirePending($u->id, $previous);
-                if ($previous !== null) {
-                    JoinRequest::forgetMember($previous, $u);   // the intake goes with the link (CHW-334)
-                }
+                Unlink::member($u, $previous);
 
                 return [$u, null, $previous];
             }
@@ -116,8 +112,7 @@ final class Accounts
             $u->forceFill(['coach_id' => $c->id])->save();
             // Offers from whoever had them before are no longer this coach's to stand behind.
             if ($previous !== null && $previous !== $c->id) {
-                Assignment::expirePending($u->id, $previous);
-                JoinRequest::forgetMember($previous, $u);
+                Unlink::member($u, $previous);
             }
 
             return [$u, $c, $previous];

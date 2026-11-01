@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Coaching\MemberCard;
 use App\Models\Assignment;
-use App\Models\JoinRequest;
 use App\Models\Presence;
 use App\Models\User;
 use App\Support\Input;
 use App\Support\Json;
 use App\Tenancy\Access;
+use App\Tenancy\Unlink;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -72,11 +72,7 @@ final class CoachRosterController
             $had = $member->coach_id;
             $member->coach_id = null;
             $member->save();
-            Assignment::expirePending($member->id, $had);
-            // What they told this coach when they asked to join goes with the link (CHW-334).
-            if ($had !== null) {
-                JoinRequest::forgetMember($had, $member);
-            }
+            Unlink::member($member, $had);
 
             return $member;
         });

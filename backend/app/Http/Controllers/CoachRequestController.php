@@ -82,6 +82,22 @@ final class CoachRequestController
         return Json::ok(['requests' => self::list(), 'member' => $member ? ['id' => $member->id, 'name' => $member->name] : null]);
     }
 
+    /**
+     * POST /api/coach/requests/forget {id} → {requests}: the coach deletes a request and what it
+     * said — a client who withdraws their consent while still training (CHW-334, the legal page's
+     * promise). Not behind RequireWriter: a lapsed plan must not keep anyone's health data.
+     */
+    public function forget(Request $request): JsonResponse
+    {
+        $id = Input::jsString($request, 'id');
+        if ($id === '' || JoinRequest::query()->whereKey($id)->delete() !== 1) {
+            throw new ClientSafe(404, 'no such request');
+        }
+        Audit::record($request, 'coach.request.forget', ['user' => $request->user('api'), 'msg' => $id]);
+
+        return Json::ok(['requests' => self::list()]);
+    }
+
     /** @return array{0: ClientSafe|null, 1: User|null, 2: JoinRequest|null} */
     private static function decideLocked(User $coach, string $id, bool $accept): array
     {
@@ -91,7 +107,7 @@ final class CoachRequestController
         }
         $now = Js::nowMs();
         if (! $accept) {
-            $join->forceFill(['status' => 'declined', 'decided' => $now])->save();
+            $join->forceFill(['status' => 'declined', 'intake' => JoinRequest::BLANK, 'decided' => $now])->save();
 
             return [null, null, $join];
         }
@@ -100,7 +116,7 @@ final class CoachRequestController
         $found = User::query()->where('email', $join->email)->value('id');
         $user = $found !== null ? User::query()->whereKey($found)->lockForUpdate()->first() : null;
         $lapse = function (ClientSafe $why) use ($join, $now): array {
-            $join->forceFill(['status' => 'expired', 'decided' => $now])->save();
+            $join->forceFill(['status' => 'expired', 'intake' => JoinRequest::BLANK, 'decided' => $now])->save();
 
             return [$why, null, null];
         };
@@ -160,9 +176,8 @@ final class CoachRequestController
             ->limit(JoinRequest::MAX_PENDING + self::RECENT)->get()
             ->map(fn (JoinRequest $r) => [
                 'id' => $r->id, 'name' => $r->name, 'email' => $r->email, 'status' => $r->status,
-                // The answers only while they are needed (CHW-334): to answer, or to coach someone
-                // accepted. A declined or lapsed request keeps its name until prune, not its injuries.
-                'intake' => in_array($r->status, ['pending', 'accepted'], true) ? (json_decode($r->intake, false) ?: new \stdClass) : new \stdClass,
+                // A declined or lapsed request's answers were blanked when it was answered (CHW-334).
+                'intake' => json_decode($r->intake, false) ?: new \stdClass,
                 'created' => $r->created, 'decided' => $r->decided,
             ])->all();
     }

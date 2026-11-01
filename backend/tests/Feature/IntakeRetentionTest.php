@@ -9,7 +9,9 @@ use App\Models\JoinRequest;
 use App\Models\User;
 use App\Tenancy\Detach;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Tests\Support\Billing;
 use Tests\Support\Coaching;
 
 beforeEach(function () {
@@ -89,4 +91,64 @@ it('keeps the answers in the inbox only while they are needed: waiting, or accep
     expect($by['pending']['intake']['injuries'])->toBe('Genou')
         ->and($by['accepted']['intake']['injuries'])->toBe('Genou')
         ->and($by['declined']['intake'])->toBe([]);
+});
+
+it('never takes another account\'s request by an address that has changed hands', function () {
+    // Y was accepted, then changed address; X took Y's old address and is on the same roster.
+    [$yId, $y] = acceptedFollower($this->f->a);
+    $y->forceFill(['email' => 'y.new@example.com'])->save();
+    $this->f->a1->forceFill(['email' => 'salma@example.com'])->save();
+    $this->postJson('/api/coach/member/release', ['id' => $this->f->a1->id], bearer($this->f->a))->assertOk();
+    expect(requestKept($yId))->toBeTrue();
+});
+
+it('blanks the answers the moment a request is declined or lapses — the name waits for prune, the injuries do not', function () {
+    [$no] = pendingRequest($this->f->a, 'no@example.com', 'No');
+    decideRequest($this->f->a, $no->id, false)->assertOk();
+    [$lapsed] = pendingRequest($this->f->a, 'u1@example.com', 'U1');
+    $this->f->b1->forceFill(['email' => 'u1@example.com'])->save();   // found another coach meanwhile
+    decideRequest($this->f->a, $lapsed->id, true)->assertStatus(409);
+    [$stale] = pendingRequest($this->f->a, 'stale@example.com', 'Stale');
+    $stale->forceFill(['created' => 1])->save();
+    $this->artisan('fitpal:prune')->assertSuccessful();
+    foreach ([$no, $lapsed, $stale] as $r) {
+        expect(JoinRequest::acrossCoaches()->find($r->id)->intake)->toBe('{}'); // across coaches: the test reads the stored row
+    }
+});
+
+it('lets the coach delete what a client answered, even on a read-only plan', function () {
+    [$id] = acceptedFollower($this->f->a);
+    Billing::on();
+    $this->postJson('/api/coach/requests/forget', ['id' => $id], bearer($this->f->b))->assertStatus(404);
+    expect(requestKept($id))->toBeTrue();
+    $this->postJson('/api/coach/requests/forget', ['id' => $id], bearer($this->f->a))->assertOk()->assertJsonCount(0, 'requests');
+    expect(requestKept($id))->toBeFalse();
+    $this->assertDatabaseHas('audit_events', ['ev' => 'coach.request.forget']);
+});
+
+it('lets the operator delete every request an address made, on a withdrawal by email', function () {
+    [$atA] = pendingRequest($this->f->a);
+    [$atB] = pendingRequest($this->f->b);
+    [$other] = pendingRequest($this->f->a, 'other@example.com', 'Other');
+    $this->artisan('fitpal:forget-join', ['email' => ' Salma@Example.com '])->expectsOutputToContain('2')->assertSuccessful();
+    expect(requestKept($atA->id))->toBeFalse()->and(requestKept($atB->id))->toBeFalse()->and(requestKept($other->id))->toBeTrue();
+});
+
+it('fills in the account on requests accepted before it was recorded, and blanks old answered ones', function () {
+    $migration = require database_path('migrations/2026_11_01_150000_add_member_id_to_join_requests.php');
+    $migration->down();
+    $this->f->a1->forceFill(['email' => 'a1@example.com'])->save();
+    $row = fn (string $id, string $email, string $status) => DB::table('join_requests')->insert([
+        'id' => $id, 'coach_id' => $this->f->a->id, 'email' => $email, 'name' => 'N', 'intake' => '{"injuries":"Genou"}',
+        'status' => $status, 'attempts' => 0, 'created' => 1, 'decided' => 2,
+    ]);
+    $row('acc', 'a1@example.com', 'accepted');
+    $row('gone', 'b1@example.com', 'accepted');   // not on A's roster any more: no account to name
+    $row('no', 'no@example.com', 'declined');
+    $migration->up();
+    $get = fn (string $id) => DB::table('join_requests')->where('id', $id)->first();
+    expect($get('acc')->member_id)->toBe($this->f->a1->id)
+        ->and($get('gone')->member_id)->toBeNull()
+        ->and($get('no')->intake)->toBe('{}')
+        ->and($get('acc')->intake)->toBe('{"injuries":"Genou"}');
 });

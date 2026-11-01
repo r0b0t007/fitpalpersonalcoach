@@ -45,6 +45,7 @@ export default function Requests() {
   const [open, setOpen] = useState(null)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const toast = msg => useUI.getState().toast(msg)
 
   const load = () => api('/api/coach/requests').then(r => setList(r.requests))
@@ -62,6 +63,15 @@ export default function Requests() {
       setError(e.message); setOpen(null)
       await load().catch(() => {})
     }
+    setBusy(false)
+  }
+
+  const forget = async r => {
+    setBusy(true); setError(null)
+    try {
+      const res = await api('/api/coach/requests/forget', { method: 'POST', body: JSON.stringify({ id: r.id }) })
+      setList(res.requests); setOpen(null); setDeleting(false)
+    } catch (e) { setError(e.message); await load().catch(() => {}) }
     setBusy(false)
   }
 
@@ -90,14 +100,22 @@ export default function Requests() {
     {decided.length > 0 && <>
       <h4 className="sec">{t('Answered')}</h4>
       {/* Someone accepted can be opened, for what they said when they asked; a no keeps only its name. */}
-      <div className="list">{decided.map(r => <div key={r.id} className="card" style={{ padding: 0 }}>
-        <button className="item" style={{ width: '100%', textAlign: 'left' }} disabled={r.status !== 'accepted'}
-          onClick={() => setOpen(open === r.id ? null : r.id)}>
+      <div className="list">{decided.map(r => {
+        const row = <>
           <div className="grow"><div className="tt">{r.name}</div><div className="ss">{rel(r.decided || r.created)}</div></div>
           <span className={'tag' + (r.status === 'accepted' ? ' acc' : '')}>{STATUS_LABEL[r.status]?.() ?? r.status}</span>
-        </button>
-        {open === r.id && r.status === 'accepted' && <Answers r={r} />}
-      </div>)}</div>
+        </>
+        if (r.status !== 'accepted') return <div key={r.id} className="item">{row}</div>
+        return <div key={r.id} className="card" style={{ padding: 0 }}>
+          <button className="item" style={{ width: '100%', textAlign: 'left' }} onClick={() => { setOpen(open === r.id ? null : r.id); setDeleting(false) }}>{row}</button>
+          {open === r.id && <Answers r={r}>
+            {/* A client who withdraws their consent while still training (CHW-334): two taps, for good. */}
+            <Button onClick={() => deleting ? forget(r) : setDeleting(true)} disabled={busy}>
+              {deleting ? t('Delete for good') : t('Delete these answers')}
+            </Button>
+          </Answers>}
+        </div>
+      })}</div>
     </>}
   </div>
 }
