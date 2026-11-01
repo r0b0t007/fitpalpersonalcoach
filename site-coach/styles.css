@@ -1223,7 +1223,10 @@ p { max-width: 68ch; }
   border-top: 1px solid var(--rule-strong);
 }
 .doc p { color: var(--muted); margin-bottom: var(--sp-4); }
+.doc h3 { font-size: 1.05rem; font-variation-settings: 'wght' 600; margin-top: var(--sp-5); margin-bottom: var(--sp-2); }
+.doc ul { color: var(--muted); margin: 0 0 var(--sp-4) 1.2em; display: grid; gap: var(--sp-2); }
 .doc a { color: var(--gold); }
+.doc [id] { scroll-margin-top: 96px; }   /* below the sticky header, for the app's link to #donnees */
 .doc .todo { color: var(--gold); }
 
 /* Smallest screens: shrink again so nothing dominates a real phone. */

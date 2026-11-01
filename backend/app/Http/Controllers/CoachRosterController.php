@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\Input;
 use App\Support\Json;
 use App\Tenancy\Access;
+use App\Tenancy\Unlink;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -71,7 +72,7 @@ final class CoachRosterController
             $had = $member->coach_id;
             $member->coach_id = null;
             $member->save();
-            Assignment::expirePending($member->id, $had);
+            Unlink::member($member, $had);
 
             return $member;
         });

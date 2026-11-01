@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api.js'
 import { t, getLang } from '../lib/i18n.js'
-import { EQUIPMENT, GOALS, INJURIES_MAX, LEVELS, MIN_FILL_MS, equipmentLabel, forgetRequest, goalLabel, intakeError, levelLabel, saveRequest, savedRequest } from '../lib/join.js'
+import { EQUIPMENT, GOALS, INJURIES_MAX, LEVELS, MIN_FILL_MS, equipmentLabel, forgetRequest, goalLabel, intakeError, levelLabel, privacyUrl, saveRequest, savedRequest } from '../lib/join.js'
 import { useCoachTheme } from './PublicCoach.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -65,7 +65,11 @@ export default function Join({ handle }) {
     let live = true
     const look = () => api('/api/join/status', { method: 'POST', body: JSON.stringify({ id: request.id, token: request.token }) })
       .then(s => { if (live && s.status !== 'pending') setRequest(req => ({ ...req, status: s.status })) })
-      .catch(() => {})
+      .catch(e => {
+        // Gone: the coach left, or the follower's answers were deleted on request. Said, and forgotten.
+        if (!live || e.status !== 404) return
+        forgetRequest(handle); setError(e.message); setStep('gone')
+      })
     const seen = () => { if (document.visibilityState === 'visible') look() }
     const every = setInterval(look, 20_000)
     document.addEventListener('visibilitychange', seen)
@@ -165,6 +169,10 @@ export default function Join({ handle }) {
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 18 }}>
         <Check checked={intake.consent} onChange={v => set('consent', v)} />
         <div className="small">{t('I agree that {0} sees these answers, injuries included, to prepare my program. Nobody else sees them.', coach.name)}</div>
+      </div>
+      <div className="small dim" style={{ marginTop: 8 }}>
+        {t('Your answers are erased as soon as {0} says no, and deleted when your coaching with them ends.', coach.name)}{' '}
+        <a href={privacyUrl(getLang())} target="_blank" rel="noopener noreferrer">{t('Your data and your rights')}</a>
       </div>
       {errorLine}
       <div style={{ height: 18 }} />

@@ -18,6 +18,7 @@ vi.mock('../../lib/api.js', async orig => ({
     calls.push([path, opts?.body ? JSON.parse(opts.body) : undefined])
     if (path === '/api/coach/requests') return { requests: LIST }
     if (path === '/api/coach/requests/count') return { pending: LIST.filter(r => r.status === 'pending').length }
+    if (path === '/api/coach/requests/forget') return { requests: LIST }
     if (path === '/api/coach/requests/decide') { if (DECIDE instanceof Error) throw DECIDE; return DECIDE }
     throw new Error('unexpected ' + path)
   },
@@ -100,6 +101,29 @@ describe('the requests inbox', () => {
     await act(async () => {})
     expect(n).toBe(1)
     expect(calls.map(([p]) => p)).toEqual(['/api/coach/requests/count'])
+  })
+
+  it('opens someone accepted for what they said, without the buttons; a no stays shut', async () => {
+    LIST = [{ ...salma, status: 'accepted', decided: Date.now() }, { ...salma, id: 'r2', name: 'Karim', status: 'declined', intake: {}, decided: Date.now() }]
+    await render()
+    await click('Salma')
+    expect(text()).toContain('Genou droit')
+    expect([...container.querySelectorAll('button')].some(b => b.textContent.trim() === 'Accept')).toBe(false)
+    // A no is a plain row, not a button that does nothing.
+    expect([...container.querySelectorAll('button')].some(b => b.textContent.includes('Karim'))).toBe(false)
+    expect(text()).toContain('Karim')
+  })
+
+  it('deletes the answers of an accepted client on a second tap', async () => {
+    LIST = [{ ...salma, status: 'accepted', decided: Date.now() }]
+    await render()
+    await click('Salma')
+    await click('Delete these answers')
+    expect(calls.some(([p]) => p === '/api/coach/requests/forget')).toBe(false)
+    LIST = []
+    await click('Delete for good')
+    expect(calls.find(([p]) => p === '/api/coach/requests/forget')[1]).toEqual({ id: 'r1' })
+    expect(text()).toContain('No requests yet')
   })
 
   it('says so when nobody has asked yet', async () => {
