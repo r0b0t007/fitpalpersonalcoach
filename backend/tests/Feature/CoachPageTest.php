@@ -6,6 +6,7 @@
 use App\Coaching\Handle;
 use App\Models\CoachPage;
 use App\Support\Phone;
+use App\Tenancy\Detach;
 use Tests\Support\Billing;
 use Tests\Support\Coaching;
 
@@ -129,6 +130,6 @@ it('answers 404 with no preview for a closed or unknown page, and still hands th
 
 it('closes the page of a coach who loses the role', function () {
     openPage($this->f->a);
-    \App\Tenancy\Detach::coach($this->f->a);
+    Detach::coach($this->f->a);
     expect(CoachPage::acrossCoaches()->find($this->f->a->id)->open)->toBeFalse(); // across coaches: test reads A's page with no context
 });
