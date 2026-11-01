@@ -36,6 +36,10 @@ return [
     'bootstrap_code' => trim((string) env('BOOTSTRAP_CODE', '')),
     'allow_guest' => $flag('ALLOW_GUEST', true),
     'self_serve_coach' => $flag('SELF_SERVE_COACH', false),
+    // The Free plan (CHW-329): a coach with no paid plan may coach this many active clients, and
+    // coach sign-up opens without Creem. 0 or unset = no Free plan: billing off then leaves every
+    // coach unlimited, as a self-hosted instance and the test suite expect.
+    'free_cap' => $count('FREE_CAP', 0),
 
     // The session token: `uid:expiryMs:sv` signed with HMAC-SHA256. The secret is the 64-hex text
     // the Node API kept in DATA_DIR/secret; importing it is what keeps every signed-in browser and

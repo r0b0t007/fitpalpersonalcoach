@@ -23,7 +23,7 @@ function licence(User $coach, array $fields): Licence
 
 beforeEach(function () {
     $this->f = Coaching::twoCoaches();
-    config(['fitpal.creem.api_key' => '', 'fitpal.creem.webhook_secret' => '', 'fitpal.creem.products' => '']);
+    config(['fitpal.creem.api_key' => '', 'fitpal.creem.webhook_secret' => '', 'fitpal.creem.products' => '', 'fitpal.free_cap' => 0]);
 });
 
 it('reads CREEM_PRODUCTS both ways, and is on only with key, secret and a product', function () {
@@ -106,10 +106,26 @@ it('counts active clients against the cap, and keeps an over-cap coach writing',
     expect(Entitlement::for($f->a))->toMatchObject(['used' => 11, 'canWrite' => true, 'canTakeClient' => false, 'overCap' => true]);
 });
 
-it('tells the app about billing in /api/config', function () {
-    $this->getJson('/api/config')->assertJsonPath('billing', false)->assertJsonPath('plans', [])->assertJsonPath('trial_days', 14);
+it('tells the app about billing and the Free plan in /api/config', function () {
+    $this->getJson('/api/config')->assertJsonPath('billing', false)->assertJsonPath('plans', [])->assertJsonPath('free_cap', 0)
+        ->assertJsonMissingPath('trial_days');
     billingOn('studio:year=prod_ty');
     $this->getJson('/api/config')->assertJsonPath('billing', true)->assertJsonPath('plans', [['plan' => 'studio', 'cap' => 75, 'periods' => ['year']]]);
+});
+
+it('offers Free first whenever FREE_CAP is set, with billing off or on', function () {
+    config(['fitpal.free_cap' => 3]);
+    expect(Plans::freeCap())->toBe(3)
+        ->and(Plans::offered())->toBe([['plan' => 'free', 'cap' => 3, 'periods' => []]]);
+    billingOn('pro:month=prod_pm');
+    expect(Plans::offered())->toBe([
+        ['plan' => 'free', 'cap' => 3, 'periods' => []],
+        ['plan' => 'pro', 'cap' => 30, 'periods' => ['month']],
+    ]);
+    $this->getJson('/api/config')->assertJsonPath('free_cap', 3)->assertJsonPath('plans.0.plan', 'free');
+    // A negative or junk value is off, never a cap below zero.
+    config(['fitpal.free_cap' => -2]);
+    expect(Plans::freeCap())->toBe(0);
 });
 
 it('says billing is off when CREEM_PRODUCTS names nothing it can sell', function () {

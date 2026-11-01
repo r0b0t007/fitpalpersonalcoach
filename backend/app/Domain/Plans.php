@@ -5,8 +5,9 @@ namespace App\Domain;
 /**
  * What is sold (spec §2): three tiers that differ only by how many active clients a coach may
  * have, each by the month or the year, six Creem products in all. Prices live in Creem's
- * dashboard, never here; so does the 14-day trial, which is configured on the products — the
- * number below is what the app says, and must match them.
+ * dashboard, never here. Below them, the Free plan (CHW-329): FREE_CAP active clients for a coach
+ * with no paid plan, no card and no Creem needed. It replaced the 14-day trial; the live products
+ * are configured without one.
  *
  * CREEM_PRODUCTS maps the tiers to Creem product ids: "solo:month=prod_x,solo:year=prod_y,…".
  * Billing is on only when the key, the webhook secret and at least one product are all set:
@@ -20,12 +21,16 @@ final class Plans
 
     public const PERIODS = ['month', 'year'];
 
-    public const TRIAL_DAYS = 14;
-
     /** The client cap of a tier, or null for a name that is not one. */
     public static function cap(?string $plan): ?int
     {
         return $plan !== null ? (self::CAPS[$plan] ?? null) : null;
+    }
+
+    /** The Free plan's client cap: FREE_CAP, or 0 when there is no Free plan. */
+    public static function freeCap(): int
+    {
+        return max(0, (int) config('fitpal.free_cap'));
     }
 
     /** Whether Creem is configured: key, webhook secret and at least one product. */
@@ -72,17 +77,18 @@ final class Plans
     }
 
     /**
-     * The tiers on sale, for the app: each with its cap and the periods it can be bought for, in
-     * tier order. Empty while billing is off.
+     * The plans on sale, for the app: Free first when FREE_CAP is set (no periods: nothing to
+     * buy), then each paid tier with its cap and the periods it can be bought for, in tier order
+     * — those only while billing is on.
      *
      * @return list<array{plan: string, cap: int, periods: list<string>}>
      */
     public static function offered(): array
     {
+        $out = self::freeCap() > 0 ? [['plan' => 'free', 'cap' => self::freeCap(), 'periods' => []]] : [];
         if (! self::billingOn()) {
-            return [];
+            return $out;
         }
-        $out = [];
         $products = self::products();
         foreach (self::CAPS as $plan => $cap) {
             $periods = array_values(array_filter(self::PERIODS, fn ($p) => isset($products[$plan][$p])));

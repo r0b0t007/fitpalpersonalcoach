@@ -18,11 +18,11 @@ it('serves the same route without the /api prefix, as a prefix-stripping mount s
 });
 
 it('reports the sign-in flags and never offers access requests', function () {
-    config(['fitpal.invite_only' => true, 'fitpal.allow_guest' => false, 'fitpal.self_serve_coach' => true]);
+    config(['fitpal.invite_only' => true, 'fitpal.allow_guest' => false, 'fitpal.self_serve_coach' => true, 'fitpal.free_cap' => 0]);
     $this->getJson('/api/config')->assertOk()->assertExactJson([
         'invite_only' => true, 'allow_guest' => false, 'request_access' => false, 'self_serve' => true,
         'upload' => ['chunked' => true, 'chunk_mb' => 4],
-        'billing' => false, 'plans' => [], 'trial_days' => 14, 'login_email' => true,
+        'billing' => false, 'plans' => [], 'free_cap' => 0, 'login_email' => true,
     ]);
 });
 
