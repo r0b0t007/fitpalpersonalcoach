@@ -65,6 +65,11 @@ final class JoinController
             return $decoy();
         }
 
+        // Closed on the whole server until the DPIA's conditions are met (JOIN_REQUESTS): no intake,
+        // and so no health data, before then. Verify, status and claim need a started request.
+        if (! config('fitpal.join_requests')) {
+            throw new ClientSafe(404, 'this coach is not taking requests right now');
+        }
         [$page, $coach] = CoachPage::findPublic(Handle::normalise(Input::raw($request, 'handle')));
         if ($page === null || $coach === null) {
             throw new ClientSafe(404, 'no such coach page');

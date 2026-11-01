@@ -36,6 +36,10 @@ return [
     'bootstrap_code' => trim((string) env('BOOTSTRAP_CODE', '')),
     'allow_guest' => $flag('ALLOW_GUEST', true),
     'self_serve_coach' => $flag('SELF_SERVE_COACH', false),
+    // Requests to join a coach from their public page (CHW-336/337). Off until the DPIA's conditions
+    // are met (docs/privacy/2026-11-01-dpia-coaching-and-join-requests.md, section 6): the form
+    // collects health data, and nothing may be collected before then.
+    'join_requests' => $flag('JOIN_REQUESTS', false),
     // The Free plan (CHW-329): a coach with no paid plan may coach this many active clients, and
     // coach sign-up opens without Creem. 0 or unset = no Free plan: billing off then leaves every
     // coach unlimited, as a self-hosted instance and the test suite expect.
