@@ -102,6 +102,16 @@ describe('the requests inbox', () => {
     expect(calls.map(([p]) => p)).toEqual(['/api/coach/requests/count'])
   })
 
+  it('opens someone accepted for what they said, without the buttons; a no stays shut', async () => {
+    LIST = [{ ...salma, status: 'accepted', decided: Date.now() }, { ...salma, id: 'r2', name: 'Karim', status: 'declined', intake: {}, decided: Date.now() }]
+    await render()
+    await click('Salma')
+    expect(text()).toContain('Genou droit')
+    expect([...container.querySelectorAll('button')].some(b => b.textContent.trim() === 'Accept')).toBe(false)
+    const karim = [...container.querySelectorAll('button')].find(b => b.textContent.includes('Karim'))
+    expect(karim.disabled).toBe(true)
+  })
+
   it('says so when nobody has asked yet', async () => {
     LIST = []
     await render()

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api.js'
 import { t, getLang } from '../lib/i18n.js'
-import { EQUIPMENT, GOALS, INJURIES_MAX, LEVELS, MIN_FILL_MS, equipmentLabel, forgetRequest, goalLabel, intakeError, levelLabel, saveRequest, savedRequest } from '../lib/join.js'
+import { EQUIPMENT, GOALS, INJURIES_MAX, LEVELS, MIN_FILL_MS, equipmentLabel, forgetRequest, goalLabel, intakeError, levelLabel, privacyUrl, saveRequest, savedRequest } from '../lib/join.js'
 import { useCoachTheme } from './PublicCoach.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
@@ -165,6 +165,10 @@ export default function Join({ handle }) {
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 18 }}>
         <Check checked={intake.consent} onChange={v => set('consent', v)} />
         <div className="small">{t('I agree that {0} sees these answers, injuries included, to prepare my program. Nobody else sees them.', coach.name)}</div>
+      </div>
+      <div className="small dim" style={{ marginTop: 8 }}>
+        {t('Kept while you train with {0}, deleted if they say no or you stop.', coach.name)}{' '}
+        <a href={privacyUrl(getLang())} target="_blank" rel="noopener noreferrer">{t('Your data and your rights')}</a>
       </div>
       {errorLine}
       <div style={{ height: 18 }} />

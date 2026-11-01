@@ -17,7 +17,7 @@
 <link rel="icon" href="favicon.ico" sizes="32x32">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="fonts/archivo-latin.woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=17">
+<link rel="stylesheet" href="styles.css?v=18">
 <script>document.documentElement.className += ' js'</script>
 </head>
 
@@ -54,22 +54,88 @@
   <h2>Hébergement</h2>
   <p>
     Ce site est hébergé par Cloudflare, Inc., 101 Townsend St, San Francisco, CA 94107,
-    États-Unis. L'application FitPal Coach est hébergée sur l'instance du client, sur le
-    domaine convenu lors de la mise en route.
+    États-Unis. L'application FitPal Coach (coach.fitpal.ma) et sa base de données sont
+    hébergées par Namecheap, Inc., Phoenix (Arizona), États-Unis.
   </p>
 
-  <h2>Données personnelles</h2>
+  <h2 id="donnees">Données personnelles</h2>
+  <h3>Ce site</h3>
   <p>
     Ce site ne dépose aucun cookie et n'utilise aucun outil de mesure d'audience. Aucune
     donnée de navigation n'est collectée, ni transmise à un tiers.
   </p>
+
+  <h3>Qui est responsable</h3>
   <p>
-    Les données saisies dans l'application (comptes, programmes, séances, mensurations)
-    restent sur l'instance du coach. Elles ne sont pas revendues, ni utilisées à des fins
-    publicitaires, et sont exportables en JSON à tout moment sur simple demande.
+    Pour les données de ses clients (programmes, séances, mensurations, bilans, réponses à sa
+    demande d'inscription), <strong>le coach est responsable du traitement</strong> : c'est lui qui
+    décide de les collecter et de leur usage. FitPal Coach, édité par Ahmed Chioua, agit comme
+    <strong>sous-traitant</strong> : il les héberge et les traite pour le compte du coach, sur ses
+    instructions, et pour rien d'autre. Pour le compte du coach lui-même (identité, adresse e-mail,
+    abonnement), FitPal Coach est responsable du traitement.
   </p>
   <p>
-    L'authentification repose sur les passkeys (WebAuthn) : aucun mot de passe n'est stocké.
+    Les données ne sont jamais vendues, ni utilisées à des fins publicitaires, et sont exportables
+    en JSON à tout moment sur simple demande.
+  </p>
+
+  <h3>Demander à s'entraîner avec un coach</h3>
+  <p>
+    La page d'un coach permet de lui demander à s'entraîner avec lui. Le formulaire recueille un
+    prénom, une adresse e-mail (vérifiée par un code), un objectif, un niveau, un nombre de séances
+    par semaine et le matériel disponible ; et, seulement si vous le souhaitez, vos blessures ou
+    douleurs et un numéro WhatsApp.
+  </p>
+  <p>
+    Les blessures et douleurs sont des <strong>données de santé</strong> (article 9 du RGPD ; loi
+    marocaine 09-08). Elles ne sont traitées qu'avec votre <strong>consentement explicite</strong>,
+    donné par une case à cocher distincte, et ne servent qu'à préparer votre programme. Seul le
+    coach à qui vous écrivez peut les lire.
+  </p>
+  <ul>
+    <li>Une demande dont l'adresse n'est pas vérifiée est supprimée sous 24 heures.</li>
+    <li>Une demande sans réponse du coach expire au bout de 14 jours.</li>
+    <li>Une demande refusée ou expirée est supprimée 30 jours plus tard.</li>
+    <li>
+      Une demande acceptée est conservée tant que vous vous entraînez avec ce coach, et supprimée
+      dès que ce lien prend fin : le coach vous retire de ses clients, vous changez de coach, ou le
+      coach quitte FitPal Coach.
+    </li>
+  </ul>
+  <p>
+    Vous pouvez retirer votre consentement à tout moment en le demandant au coach ou à
+    <a href="mailto:contact@fitpal.ma">contact@fitpal.ma</a> ; votre demande et vos réponses sont
+    alors supprimées.
+  </p>
+
+  <h3>Sous-traitants</h3>
+  <ul>
+    <li>Namecheap, Inc. (États-Unis) : hébergement de l'application et de sa base de données.</li>
+    <li>Resend, Inc. (États-Unis) : envoi des e-mails (codes, liens de connexion, réponses du coach).</li>
+    <li>Cloudflare, Inc. (États-Unis) : hébergement de ce site et acheminement du trafic.</li>
+    <li>
+      Les services de notification de votre navigateur (Google, Apple, Mozilla) : ils acheminent
+      les notifications chiffrées, sans pouvoir en lire le contenu.
+    </li>
+  </ul>
+  <p>
+    Ces prestataires étant situés hors de l'Union européenne et du Maroc, les transferts reposent
+    sur leurs garanties contractuelles (clauses contractuelles types de la Commission européenne).
+  </p>
+
+  <h3>Connexion</h3>
+  <p>
+    La connexion se fait par passkey (WebAuthn) ou par un code ou un lien envoyé par e-mail :
+    aucun mot de passe n'est stocké.
+  </p>
+
+  <h3>Vos droits</h3>
+  <p>
+    Vous disposez d'un droit d'accès, de rectification, d'effacement, de portabilité et
+    d'opposition. Adressez-vous à votre coach, ou à <a href="mailto:contact@fitpal.ma">contact@fitpal.ma</a> :
+    nous transmettons la demande au coach concerné. Vous pouvez aussi saisir l'autorité de protection
+    des données de votre pays : la CNIL en France, l'APD en Belgique, l'AEPD en Espagne, la CNDP au
+    Maroc.
   </p>
 
   <h2>Propriété intellectuelle</h2>

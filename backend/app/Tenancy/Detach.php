@@ -5,6 +5,7 @@ namespace App\Tenancy;
 use App\Models\Assignment;
 use App\Models\CoachPage;
 use App\Models\Invite;
+use App\Models\JoinRequest;
 use App\Models\User;
 
 /**
@@ -39,5 +40,8 @@ final class Detach
         // Their public page closes with the role: a link in a bio must not keep sending people to
         // a coach who no longer coaches here. Closed, not deleted — the handle stays theirs.
         CoachPage::acrossCoaches()->whereKey($coach->id)->update(['open' => false]); // across coaches: detach runs outside any coach context, for this one coach
+        // And what followers told them when they asked to join, injuries included (CHW-334): health
+        // data kept for a coach who no longer coaches here is kept for nobody.
+        JoinRequest::forgetCoach($coach->id);
     }
 }

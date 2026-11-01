@@ -1538,6 +1538,8 @@ export default {
   'Billing needs attention': 'La facturación necesita atención',
   'Choose a plan': 'Elegir un plan',
   'Ask to join': 'Pedir unirme',
+  'Kept while you train with {0}, deleted if they say no or you stop.': 'Se guardan mientras entrenes con {0} y se borran si te dice que no o si lo dejas.',
+  'Your data and your rights': 'Tus datos y tus derechos',
   'Requests': 'Solicitudes',
   'People who asked to train with you from your page.': 'Las personas que pidieron entrenar contigo desde tu página.',
   'No requests yet': 'Aún no hay solicitudes',

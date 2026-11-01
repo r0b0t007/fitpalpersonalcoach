@@ -9,6 +9,7 @@ use App\Media\Paths;
 use App\Models\Assignment;
 use App\Models\ExerciseMedia;
 use App\Models\Invite;
+use App\Models\JoinRequest;
 use App\Models\Licence;
 use App\Models\Presence;
 use App\Models\User;
@@ -95,6 +96,9 @@ final class Accounts
             if ($coachId === '') {
                 $u->forceFill(['coach_id' => null])->save();
                 Assignment::expirePending($u->id, $previous);
+                if ($previous !== null) {
+                    JoinRequest::forgetMember($previous, $u);   // the intake goes with the link (CHW-334)
+                }
 
                 return [$u, null, $previous];
             }
@@ -113,6 +117,7 @@ final class Accounts
             // Offers from whoever had them before are no longer this coach's to stand behind.
             if ($previous !== null && $previous !== $c->id) {
                 Assignment::expirePending($u->id, $previous);
+                JoinRequest::forgetMember($previous, $u);
             }
 
             return [$u, $c, $previous];

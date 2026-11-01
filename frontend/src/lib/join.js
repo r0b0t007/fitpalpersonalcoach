@@ -23,6 +23,11 @@ export const goalLabel = g => GOAL_LABEL[g]?.() ?? ''
 export const levelLabel = l => LEVEL_LABEL[l]?.() ?? ''
 export const equipmentLabel = e => EQUIPMENT_LABEL[e]?.() ?? ''
 
+// Where the follower reads who holds their answers, for how long, and their rights (CHW-334): the
+// privacy section of fitpal.ma's legal page, in French, Spanish or English (German reads English).
+const PRIVACY = { fr: 'https://fitpal.ma/mentions-legales#donnees', es: 'https://fitpal.ma/es/legal#datos' }
+export const privacyUrl = lang => PRIVACY[lang] || 'https://fitpal.ma/en/legal#data'
+
 /** Faster than this, the server takes the form for a bot's (and quietly keeps nothing). */
 export const MIN_FILL_MS = 3000
 

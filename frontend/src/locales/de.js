@@ -1556,6 +1556,8 @@ export default {
   'Billing needs attention': 'Die Abrechnung braucht deine Aufmerksamkeit',
   'Choose a plan': 'Tarif wählen',
   'Ask to join': 'Beitreten anfragen',
+  'Kept while you train with {0}, deleted if they say no or you stop.': 'Gespeichert, solange du mit {0} trainierst, gelöscht bei einer Absage oder wenn du aufhörst.',
+  'Your data and your rights': 'Deine Daten und deine Rechte',
   'Requests': 'Anfragen',
   'People who asked to train with you from your page.': 'Menschen, die über deine Seite angefragt haben, mit dir zu trainieren.',
   'No requests yet': 'Noch keine Anfragen',

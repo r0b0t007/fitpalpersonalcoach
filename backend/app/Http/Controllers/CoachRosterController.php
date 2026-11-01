@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Coaching\MemberCard;
 use App\Models\Assignment;
+use App\Models\JoinRequest;
 use App\Models\Presence;
 use App\Models\User;
 use App\Support\Input;
@@ -72,6 +73,10 @@ final class CoachRosterController
             $member->coach_id = null;
             $member->save();
             Assignment::expirePending($member->id, $had);
+            // What they told this coach when they asked to join goes with the link (CHW-334).
+            if ($had !== null) {
+                JoinRequest::forgetMember($had, $member);
+            }
 
             return $member;
         });

@@ -106,7 +106,7 @@ final class CoachRequestController
         };
         if ($user !== null && $user->coach_id === $coach->id) {
             // Already on this roster (an invite link, say): the request is answered by that.
-            $join->forceFill(['status' => 'accepted', 'decided' => $now])->save();
+            $join->forceFill(['status' => 'accepted', 'member_id' => $user->id, 'decided' => $now])->save();
 
             return [null, $user, $join];
         }
@@ -136,7 +136,7 @@ final class CoachRequestController
         $user ??= (new User)->forceFill(['id' => User::newId(), 'name' => $join->name, 'email' => $join->email]);
         // The address is proven: the follower typed the code it received.
         $user->forceFill(['coach_id' => $coach->id, 'email_verified_at' => $user->email_verified_at ?? now()])->save();
-        $join->forceFill(['status' => 'accepted', 'decided' => $now])->save();
+        $join->forceFill(['status' => 'accepted', 'member_id' => $user->id, 'decided' => $now])->save();
 
         return [null, $user, $join];
     }
@@ -160,7 +160,10 @@ final class CoachRequestController
             ->limit(JoinRequest::MAX_PENDING + self::RECENT)->get()
             ->map(fn (JoinRequest $r) => [
                 'id' => $r->id, 'name' => $r->name, 'email' => $r->email, 'status' => $r->status,
-                'intake' => json_decode($r->intake, false) ?: new \stdClass, 'created' => $r->created, 'decided' => $r->decided,
+                // The answers only while they are needed (CHW-334): to answer, or to coach someone
+                // accepted. A declined or lapsed request keeps its name until prune, not its injuries.
+                'intake' => in_array($r->status, ['pending', 'accepted'], true) ? (json_decode($r->intake, false) ?: new \stdClass) : new \stdClass,
+                'created' => $r->created, 'decided' => $r->decided,
             ])->all();
     }
 }

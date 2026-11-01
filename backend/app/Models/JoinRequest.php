@@ -29,7 +29,7 @@ class JoinRequest extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['email', 'name', 'lang', 'intake', 'status', 'code_hash', 'attempts', 'code_expires', 'token_hash', 'created', 'decided'];
+    protected $fillable = ['email', 'member_id', 'name', 'lang', 'intake', 'status', 'code_hash', 'attempts', 'code_expires', 'token_hash', 'created', 'decided'];
 
     protected function casts(): array
     {
@@ -55,7 +55,8 @@ class JoinRequest extends Model
      * fitpal:prune: an intake holds health data, so what is not waiting on anyone goes. Unverified
      * after a day (nobody proved the address); pending ones lapse to `expired` after PENDING_DAYS
      * with no answer, which also frees the coach's queue (MAX_PENDING) from anyone who filled it;
-     * declined and expired ones go 30 days after they were decided. Accepted ones stay.
+     * declined and expired ones go 30 days after they were decided. Accepted ones stay while the link
+     * to the coach does: ending it forgets them (forgetMember, forgetCoach).
      */
     public static function prune(int $nowMs): int
     {
@@ -69,6 +70,25 @@ class JoinRequest extends Model
 
         return self::acrossCoaches()->where('status', 'unverified')->where('created', '<', $nowMs - $day)->delete() // across coaches: prune runs for every coach
             + self::acrossCoaches()->whereIn('status', ['declined', 'expired'])->whereRaw('COALESCE(decided, created) < ?', [$nowMs - 30 * $day])->delete(); // across coaches: prune runs for every coach
+    }
+
+    /**
+     * A follower's link to a coach has ended — released, unassigned or moved by an admin (CHW-334):
+     * what they told that coach when they asked, injuries and phone included, goes with it. Found
+     * by the account accept recorded, and by the address for a request made before that account
+     * existed. Another coach's request from the same follower is that coach's, and stays.
+     */
+    public static function forgetMember(string $coachId, User $member): int
+    {
+        return self::acrossCoaches()->where('coach_id', $coachId) // across coaches: the caller names the coach whose link ended, from outside their context
+            ->where(fn ($q) => $q->where('member_id', $member->id)->orWhere('email', $member->email ?? ''))
+            ->delete();
+    }
+
+    /** Someone can no longer coach (Detach): every request they hold, waiting or answered, goes. */
+    public static function forgetCoach(string $coachId): int
+    {
+        return self::acrossCoaches()->where('coach_id', $coachId)->delete(); // across coaches: detach runs outside any coach context, for this one coach
     }
 
     public static function newId(): string

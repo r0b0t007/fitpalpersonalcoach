@@ -1538,6 +1538,8 @@ export default {
   'Billing needs attention': 'La facturation demande votre attention',
   'Choose a plan': 'Choisir une formule',
   'Ask to join': 'Demander à rejoindre',
+  'Kept while you train with {0}, deleted if they say no or you stop.': 'Conservées tant que vous vous entraînez avec {0}, supprimées en cas de refus ou si vous arrêtez.',
+  'Your data and your rights': 'Vos données et vos droits',
   'Requests': 'Demandes',
   'People who asked to train with you from your page.': 'Les personnes qui ont demandé à s’entraîner avec vous depuis votre page.',
   'No requests yet': 'Pas encore de demande',

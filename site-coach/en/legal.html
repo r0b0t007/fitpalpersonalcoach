@@ -17,7 +17,7 @@
 <link rel="icon" href="../favicon.ico" sizes="32x32">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="preload" as="font" type="font/woff2" href="../fonts/archivo-latin.woff2" crossorigin>
-<link rel="stylesheet" href="../styles.css?v=17">
+<link rel="stylesheet" href="../styles.css?v=18">
 <script>document.documentElement.className += ' js'</script>
 </head>
 
@@ -54,21 +54,79 @@
   <h2>Hosting</h2>
   <p>
     This site is hosted by Cloudflare, Inc., 101 Townsend St, San Francisco, CA 94107, USA.
-    The FitPal Coach application itself runs on the customer's own instance, on the domain
-    agreed during setup.
+    The FitPal Coach application (coach.fitpal.ma) and its database are hosted by Namecheap, Inc.,
+    Phoenix, Arizona, USA.
   </p>
 
-  <h2>Personal data</h2>
+  <h2 id="data">Personal data</h2>
+  <h3>This site</h3>
   <p>
     This site sets no cookies and runs no analytics. No browsing data is collected and none is
     passed to a third party.
   </p>
+
+  <h3>Who is responsible</h3>
   <p>
-    Data entered in the application (accounts, programs, sessions, measurements) stays on the
-    coach's instance. It is never sold or used for advertising, and it exports to JSON on
-    request at any time.
+    For their clients' data (programs, sessions, measurements, check-ins, the answers to a request
+    to join), <strong>the coach is the data controller</strong>: they decide to collect it and what
+    it is for. FitPal Coach, published by Ahmed Chioua, is the <strong>processor</strong>: it hosts
+    and processes that data on the coach's behalf, on their instructions, and for nothing else. For
+    the coach's own account (identity, email address, subscription), FitPal Coach is the controller.
   </p>
-  <p>Sign-in uses passkeys (WebAuthn), so no password is ever stored.</p>
+  <p>Data is never sold or used for advertising, and it exports to JSON on request at any time.</p>
+
+  <h3>Asking to train with a coach</h3>
+  <p>
+    A coach's page lets you ask to train with them. The form collects a first name, an email
+    address (checked with a code), a goal, a level, a number of sessions a week and the equipment you
+    have; and, only if you want to give them, your injuries or pain and a WhatsApp number.
+  </p>
+  <p>
+    Injuries and pain are <strong>health data</strong> (GDPR Article 9; Moroccan law 09-08). They are
+    processed only with your <strong>explicit consent</strong>, given with a separate checkbox, and
+    only to prepare your program. Only the coach you write to can read them.
+  </p>
+  <ul>
+    <li>A request whose address is not checked is deleted within 24 hours.</li>
+    <li>A request the coach does not answer lapses after 14 days.</li>
+    <li>A declined or lapsed request is deleted 30 days later.</li>
+    <li>
+      An accepted request is kept while you train with that coach, and deleted as soon as that ends:
+      the coach removes you from their clients, you move to another coach, or the coach leaves
+      FitPal Coach.
+    </li>
+  </ul>
+  <p>
+    You can withdraw your consent at any time by asking the coach or
+    <a href="mailto:contact@fitpal.ma">contact@fitpal.ma</a>; your request and your answers are then
+    deleted.
+  </p>
+
+  <h3>Processors</h3>
+  <ul>
+    <li>Namecheap, Inc. (USA): hosting of the application and its database.</li>
+    <li>Resend, Inc. (USA): sending email (codes, sign-in links, the coach's answer).</li>
+    <li>Cloudflare, Inc. (USA): hosting of this site and routing of traffic.</li>
+    <li>
+      Your browser's notification services (Google, Apple, Mozilla): they carry encrypted
+      notifications and cannot read them.
+    </li>
+  </ul>
+  <p>
+    As these providers are outside the European Union and Morocco, transfers rely on their
+    contractual safeguards (the European Commission's standard contractual clauses).
+  </p>
+
+  <h3>Signing in</h3>
+  <p>Sign-in uses a passkey (WebAuthn) or a code or link sent by email: no password is ever stored.</p>
+
+  <h3>Your rights</h3>
+  <p>
+    You have the right to access, correct, erase and export your data, and to object. Ask your
+    coach, or <a href="mailto:contact@fitpal.ma">contact@fitpal.ma</a>: we pass the request on to the
+    coach concerned. You can also complain to your country's data protection authority: the CNIL in
+    France, the APD/GBA in Belgium, the AEPD in Spain, the CNDP in Morocco.
+  </p>
 
   <h2>Intellectual property</h2>
   <p>
