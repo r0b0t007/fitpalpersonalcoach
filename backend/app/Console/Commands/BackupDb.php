@@ -119,6 +119,25 @@ final class BackupDb extends Command
         return true;
     }
 
+    /**
+     * The coach terms (CHW-357) promise that a copy taken before a deploy lasts 90 days at most:
+     * with rare deploys, the newest five could otherwise hold deleted clients for months. Hourly,
+     * from fitpal:prune. Only the deploy's own dumps; the nightly folder rotates by its --keep.
+     */
+    public const DEPLOY_DUMP_DAYS = 90;
+
+    public static function pruneOld(int $nowSec): int
+    {
+        $removed = 0;
+        foreach (glob(storage_path('backups').DIRECTORY_SEPARATOR.'db-*.sql.gz') ?: [] as $dump) {
+            if (filemtime($dump) < $nowSec - self::DEPLOY_DUMP_DAYS * 86400 && @unlink($dump)) {
+                $removed++;
+            }
+        }
+
+        return $removed;
+    }
+
     private function prune(string $dir, int $keep): void
     {
         $dumps = glob($dir.DIRECTORY_SEPARATOR.'db-*.sql.gz') ?: [];
