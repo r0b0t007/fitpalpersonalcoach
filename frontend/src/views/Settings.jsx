@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, forwardRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useStore, DEF, hasData } from '../store/useStore.js'
+import { can } from '../lib/features.js'
 import { workoutControls } from '../lib/workout-controls.js'
 import { convertStateUnit } from '../lib/units.js'
 import { useUI } from '../store/useUI.js'
@@ -37,6 +38,9 @@ export default function Settings() {
   const syncError = useStore(s => s.syncError)
   // A coached client's consent to share their health data (CHW-360), read for the row below.
   const healthConsent = useStore(s => s.healthConsent)
+  // A coached client's settings keep their own preferences and export, and drop what would undo
+  // or override their coach's program (CHW-333, lib/features.js).
+  const may = f => can(user, f)
   useEffect(() => { if (user?.coachName && !healthConsent) useStore.getState().loadHealthConsent().catch(() => {}) }, [user?.coachName, healthConsent])
   const { update, replaceState, setUser, pullState, pushState, signOut, signOutAll, resetDemo, disconnectServer } = useStore()
   const toast = useUI(s => s.toast)
@@ -367,20 +371,20 @@ export default function Settings() {
 
     {/* ---------- data: fill it, bring things over, back it up, wipe it ---------- */}
     <Section title={t('Data')}>
-      <Row icon="sparkles" iconTint="var(--acc)" title={t('Load starter plan')} accessory="chevron" onClick={starterPlanSheet} />
-      <Row icon="shuffle" iconTint="var(--teal)" title={t('Import from another app')}
+      {may('starterPlans') && <Row icon="sparkles" iconTint="var(--acc)" title={t('Load starter plan')} accessory="chevron" onClick={starterPlanSheet} />}
+      {may('importData') && <Row icon="shuffle" iconTint="var(--teal)" title={t('Import from another app')}
         subtitle={t('FitNotes, Strong, Hevy — or body weight from Apple Health')}
-        accessory="chevron" onClick={() => importRef.current.click()} />
-      <Row icon="key" iconTint="var(--teal)" title={t('Import from Hevy')}
+        accessory="chevron" onClick={() => importRef.current.click()} />}
+      {may('importData') && <Row icon="key" iconTint="var(--teal)" title={t('Import from Hevy')}
         subtitle={t('Pull your history with a Hevy Pro API key')}
-        accessory="chevron" onClick={importFromHevy} />
-      <Row icon="upload" iconTint="var(--blue)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
+        accessory="chevron" onClick={importFromHevy} />}
+      {may('backupImport') && <Row icon="upload" iconTint="var(--blue)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />}
       <Row icon="download" iconTint="var(--blue)" title={t('Export backup (JSON)')} accessory="chevron" onClick={doExport} />
       {MOBILE && <Row icon="history" iconTint="var(--blue)" title={t('Auto-backup on changes')}
         subtitle={t('Saves a dated copy to the Documents folder after finishing a workout or editing a routine — point a sync app at it, or copy it out by hand.')}>
         <Switch checked={!!S.autoBackup} onChange={v => update(s => { s.autoBackup = v })} />
       </Row>}
-      <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => confirmSheet({ title: t('Reset everything?'), message: t('Deletes your plan, workouts and body weight on this device. This cannot be undone.'), confirmText: t('Delete everything'), danger: true, onConfirm: () => { replaceState({ ...JSON.parse(JSON.stringify(DEF)), lang: S.lang }, true); nav('/home'); toast(t('All data reset')) } })} />
+      {may('reset') && <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => confirmSheet({ title: t('Reset everything?'), message: t('Deletes your plan, workouts and body weight on this device. This cannot be undone.'), confirmText: t('Delete everything'), danger: true, onConfirm: () => { replaceState({ ...JSON.parse(JSON.stringify(DEF)), lang: S.lang }, true); nav('/home'); toast(t('All data reset')) } })} />}
     </Section>
     <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={doImport} />
     {/* Reset after reading so picking the same file twice still fires onChange. */}

@@ -10,9 +10,10 @@ import { effectiveRoutineIds } from './history.js'
  * with something in it on `today` when nothing is planned there: the program may start on a
  * Monday, and the person joined on a Wednesday. A day the client marked as rest stays rest.
  *
- * Nobody is asked, so nothing of theirs is replaced: the program's week is taken only when they
- * have none of their own, and targets or a check-in day they already have are kept. A brand-new
- * client has none of these; one who comes back to a coach after a release may have all three.
+ * The program's week becomes theirs, replacing a week they had before: a coached client's plan is
+ * read-only (CHW-333), so a week the starter left alone could never be put right but by the
+ * coach. Targets and a check-in day they already have are kept, as nothing schedules around them.
+ * A brand-new client has none of these; one who comes back to a coach after a release may.
  * A mutator for update(); returns the routine id put on today, or null.
  */
 export function applyStarter(s, bundle, today) {
@@ -20,9 +21,8 @@ export function applyStarter(s, bundle, today) {
   s.week = s.week || {}
   s.routines = s.routines || []
   const before = s.routines.length
-  const ownWeek = Object.values(s.week).some(ids => [].concat(ids || []).length)
   const kept = { nutriTarget: s.nutriTarget, checkinDay: s.checkinDay }
-  mergePlan(s, bundle, { schedule: !ownWeek })
+  mergePlan(s, bundle, { schedule: true })
   if (kept.nutriTarget) s.nutriTarget = kept.nutriTarget
   if (kept.checkinDay != null) s.checkinDay = kept.checkinDay
   if (s.dayPlan[today] === 'rest' || effectiveRoutineIds(s, today).length) return null
