@@ -47,21 +47,25 @@ The product can't do that today. A code check on 2026-11-01 found:
 
 ### What each decision costs, from the code check
 
-1. **Free signup can't wait for Creem to go live, and it must not cap today's coaches.** Today
-   `coachOptions` and `coachVerify` refuse self-serve signup unless `Plans::billingOn()`. While
-   billing is off, `Plans::offered()` returns nothing, `Start.jsx`'s `startOpen` stays closed, and
-   `Entitlement::exempt` makes every coach `unlicensed` (no limit). Three changes go together:
-   - **Free applies only to coaches with `self_serve` set** (the column `coachVerify` writes). A
-     coach with `self_serve` and no writable licence gets status `free`, capped at `FREE_CAP`
-     (default 3), **whether or not billing is on**. Coaches onboarded by hand (`self_serve` false)
-     keep today's rule: `unlicensed` and unlimited while billing is off.
-   - The signup guard becomes "`SELF_SERVE_COACH` and (`Plans::billingOn()` or `FREE_CAP > 0`)".
-     The reason for the guard still holds: a self-serve account made with billing off is capped
-     at `FREE_CAP`, so the instance never hands out unlimited coach accounts.
-   - `Plans::offered()` lists `free` even with billing off, and `startOpen` no longer needs
-     `config.billing` for `?plan=free`. Paid plans still need billing on.
+1. **Free signup can't wait for Creem to go live.** Today `coachOptions` and `coachVerify` refuse
+   self-serve signup unless `Plans::billingOn()`. While billing is off, `Plans::offered()` returns
+   nothing, `Start.jsx`'s `startOpen` stays closed, and `Entitlement::exempt` makes every coach
+   `unlicensed` (no limit). That last rule also serves self-hosted instances with no billing.
+   Three changes go together:
+   - **A `FREE_CAP` env setting.** When it is set (production sets 3), every coach with no
+     writable licence gets status `free`, capped at `FREE_CAP`, **whether or not billing is on**.
+     Admins are exempt as before. When it is unset, today's rule stands: billing off means
+     `unlicensed` and unlimited, so self-hosters are unaffected.
+     There are no real coaches on coach.fitpal.ma yet (2026-11-01), only test data, so nobody live
+     is capped by this. Test coaches above 3 clients show as over the cap (they can still edit,
+     but can't add a client) until an admin grants a licence.
+   - **The signup guard** becomes "`SELF_SERVE_COACH` and (`Plans::billingOn()` or `FREE_CAP > 0`)".
+     Its reason still holds: an account made with billing off is capped at `FREE_CAP`, so the
+     instance never hands out unlimited coach accounts.
+   - **The plan list:** `Plans::offered()` lists `free` whenever `FREE_CAP` is set, and
+     `startOpen` no longer needs `config.billing` for `?plan=free`. Paid plans still need billing on.
 
-   A paying self-serve coach who lapses drops to Free (can still edit, can't add a fourth client)
+   A paying coach who lapses drops to Free (can still edit, can't add a client beyond the cap)
    instead of becoming read-only.
 2. **Clients stop being passkey-only.** Client security becomes "whoever controls the inbox".
    `SECURITY.md` must say so.
@@ -193,7 +197,7 @@ Each phase ships on its own. They are ordered by how much each moves the funnel.
 
 | # | Phase | Main pieces, and what they reuse |
 |---|---|---|
-| 1 | Free plan and card-less self-serve | `Plans::FREE_CAP`; `Entitlement::exempt`/`for` give a `self_serve` coach with no licence the `free` status (cap 3, writable) whether or not billing is on, while hand-onboarded coaches keep `unlicensed`; the signup guard becomes `SELF_SERVE_COACH && (billingOn \|\| FREE_CAP)`; `Plans::offered()` lists Free even with billing off; `Start.jsx` `startOpen` accepts `?plan=free` without `config.billing` and skips checkout; Free added to the `billing.jsx` PlanPicker; trial dropped (§2, cost 1) |
+| 1 | Free plan and card-less self-serve | `FREE_CAP` env (production 3; unset keeps today's unlimited-when-billing-off rule for self-hosters); with it set, `Entitlement::exempt`/`for` give any coach with no licence the `free` status (cap 3, writable) whether or not billing is on; the signup guard becomes `SELF_SERVE_COACH && (billingOn \|\| FREE_CAP)`; `Plans::offered()` lists Free whenever `FREE_CAP` is set; `Start.jsx` `startOpen` accepts `?plan=free` without `config.billing` and skips checkout; Free added to the `billing.jsx` PlanPicker; trial dropped (§2, cost 1) |
 | 2 | Public page, intake, email code, requests inbox | Tables `coach_pages` (handle, bio, whatsapp, open, auto_accept, starter_program_id, theme) and `join_requests` (email, name, intake JSON, status, token hash); `login_links.code_hash`/`attempts`; `POST /api/join/start`, `/api/join/verify`, `GET /api/join/status`, `POST /api/join/claim` (§3.0); accept follows `InviteController::redeem`'s lock order (client row, 409 if coached, then coach row, then `CoachSeat::refusal(lock:true)`); `views/Join.jsx`, `lib/join.js`, `lib/inapp.js`, `views/coach/Requests.jsx`, `views/coach/PublicPage.jsx`, a code variant of `email/signin-link-*` |
 | 3 | Starter program and auto-accept | `assignments.auto`; reuse `AssignmentController` and `PlanBundle`; a pure helper `lib/starter-accept.js` `applyStarter(S, bundle, today)` with its test (CONTRIBUTING rule), reusing the offer-apply code in `views/coach/sheets.jsx` |
 | 4 | Simplified app for coached clients | `lib/features.js`, where `coached` is true for a client who has a coach and isn't a coach; it gates routes (`/library`, `/muscles`), makes Plan read-only, and trims Settings, Home and the StatsPanels (which stay prop-driven) |
