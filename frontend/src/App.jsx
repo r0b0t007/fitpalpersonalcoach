@@ -25,6 +25,8 @@ import TimerFlash from './components/TimerFlash.jsx'
 import Login from './views/Login.jsx'
 import Start, { startOpen } from './views/Start.jsx'
 import Link, { linkOpen } from './views/Link.jsx'
+import PublicCoach from './views/PublicCoach.jsx'
+import { coachHandleFromPath } from './lib/coach-page.js'
 import MobileOnboarding from './views/MobileOnboarding.jsx'
 import Home from './views/Home.jsx'
 import Plan from './views/Plan.jsx'
@@ -44,6 +46,7 @@ import ClientDetail from './views/coach/ClientDetail.jsx'
 import Programs from './views/coach/Programs.jsx'
 import ProgramEditShell, { ProgramEdit, ProgramRoutineEdit } from './views/coach/ProgramEdit.jsx'
 import CoachAccount from './views/coach/CoachAccount.jsx'
+import PublicPage from './views/coach/PublicPage.jsx'
 import { BusinessAccounts, BusinessActivity } from './views/coach/Business.jsx'
 
 // last known scrollY per route, so back-navigation can put the page where it was
@@ -109,6 +112,7 @@ function CoachRoutes({ user }) {
         <Route path="r/:rid" element={<ProgramRoutineEdit />} />
       </Route>
       <Route path="/account" element={<CoachAccount />} />
+      <Route path="/account/page" element={<PublicPage />} />
       {/* The two operator jobs a single coach keeps, out of the gym dashboard. Both are gated on
           user.admin inside, so a URL typed by a plain coach lands back on /account rather than on
           a screen whose every request 403s. */}
@@ -156,17 +160,21 @@ function Shell() {
     sentInvite.current = true
     navigate('/mycoach')
   }, [ready, user, navigate])
-  useEffect(() => { applyPrefs(S.theme, S.accent) }, [S.theme, S.accent])
+  // A screen that wears someone else's theme (a coach's public page) says so in useUI, and this one
+  // place applies it — the status-bar colour with it — so a sync landing meanwhile cannot flip it
+  // back, and leaving gives the person's own theme as it now is.
+  const theme = useUI(s => s.themeOverride) || S.theme
+  useEffect(() => { applyPrefs(theme, S.accent) }, [theme, S.accent])
   // 'system' needs to react live if the OS theme flips while the app is open, not just on
   // the next mount — a fixed 'dark'/'light' choice never re-fires this since matchMedia
   // isn't consulted for those.
   useEffect(() => {
-    if (S.theme !== 'system' || !window.matchMedia) return
+    if (theme !== 'system' || !window.matchMedia) return
     const mql = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => applyPrefs(S.theme, S.accent)
+    const onChange = () => applyPrefs(theme, S.accent)
     mql.addEventListener('change', onChange)
     return () => mql.removeEventListener('change', onChange)
-  }, [S.theme, S.accent])
+  }, [theme, S.accent])
   useEffect(() => { setLang(S.lang || DEFAULT_LANG) }, [S.lang])
   // The coach's exercise demos. Server state, so it lives in a plain module registry rather than
   // in `S` (lib/coach-media.js argues that at length) and this is its single load — one request
@@ -216,6 +224,9 @@ function Shell() {
   // An emailed sign-in link (views/Link.jsx) lands here signed in or not — an address change is
   // confirmed from a signed-in device too — so it comes before either shell, with no tab bar.
   const onLink = loc.pathname === '/link' && linkOpen(config)
+  // A coach's public page (CHW-330) is anyone's, signed in or not — before either shell, like
+  // /link, with no tab bar.
+  const coachPage = coachHandleFromPath(loc.pathname)
   // Not before boot has finished: a signed-in coach is drawn from the cached user while the config
   // is on its way (the coach routes' catch-all would bounce /link to /today with the token in it),
   // and boot's own /api/me and sync must not race a redemption that switches the session cookie.
@@ -235,11 +246,11 @@ function Shell() {
           re-mounts the boundary, so the tab bar is always a way out */}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
-          {onLink ? <Link /> : !authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <CoachRoutes user={user} /> : <ClientRoutes />}
+          {coachPage ? <PublicCoach handle={coachPage} /> : onLink ? <Link /> : !authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <CoachRoutes user={user} /> : <ClientRoutes />}
         </ErrorBoundary>
       </div>
       {/* The chat owns the bottom of the screen: its composer sits where the tabs would be. */}
-      {!onLink && (shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
+      {!onLink && !coachPage && (shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
       <RestTimer />
       <Modals />
       <Toast />

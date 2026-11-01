@@ -121,7 +121,11 @@ export default function CoachAccount() {
     <PlanBillingSection billing={billing} />
 
     <Section title={t('Coaching')} footer={t('Everything you do for clients lives on the other three tabs. These are the pieces that belong to you rather than to one of them.')}>
-      <Row icon="link" iconTint="var(--acc)" title={t('Invite a client')}
+      {/* The one link for the bio (CHW-330): anyone who taps it can ask to train with you. */}
+      <Row icon="link" iconTint="var(--acc)" title={t('My page')}
+        subtitle={t('The one link for your Instagram bio.')} accessory="chevron"
+        onClick={() => nav('/account/page')} />
+      <Row icon="person" iconTint="var(--acc)" title={t('Invite a client')}
         subtitle={t('Make a link that puts whoever opens it on your roster.')} accessory="chevron"
         onClick={() => openSheet(() => <InviteSheet />)} />
       <Row icon="camera" iconTint="var(--indigo)" title={t('Exercise demos')}

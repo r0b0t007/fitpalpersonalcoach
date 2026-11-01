@@ -237,6 +237,35 @@ holding the pre-fix copy: Caching → Configuration → Custom Purge → **URL**
 serves `fitpal.ma`, `gym.fitpal.ma` and `app.fitpal.ma`. No purge is needed after later
 deploys; that is the whole point of `REVALIDATED`.
 
+### The coach page short link (CHW-330)
+
+A coach's public page is `coach.fitpal.ma/c/<handle>`, the link they put in their Instagram bio.
+The API serves it at `/api/c/<handle>` (preview tags for Instagram's and WhatsApp's crawlers, then
+a redirect into the app's `#/c/<handle>`); the short form needs one rule in the same server-owned
+`.htaccess`, **above** whatever rule sends unknown paths to `index.html` — below it, the rule never
+fires and the link opens the app's home screen instead of the coach:
+
+```apache
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # A coach's public page: /c/<handle> is the API's (preview tags, then the app).
+  RewriteRule ^c/([A-Za-z0-9._]{3,30})/?$ /api/c/$1 [L,NC]
+</IfModule>
+```
+
+Check it with a handle that exists and is open (Account › My page):
+
+```sh
+curl -sI https://coach.fitpal.ma/c/<handle> | head -1                          # HTTP/2 200
+curl -s  https://coach.fitpal.ma/c/<handle> | grep og:title                    # the coach's name
+curl -sA 'facebookexternalhit/1.1' https://coach.fitpal.ma/c/<handle> | grep og:title
+```
+
+The last one is the crawler Instagram and WhatsApp send. If it gets a Cloudflare challenge page
+instead of the tags, the link previews are blank: allow it (Security → Bots, or a WAF skip rule for
+the `/c/` and `/api/c/` paths). A closed page, or one whose coach is gone, answers 404 with no
+preview tags and still hands the visitor to the app, which says why.
+
 ## Laravel backend (measured in CHW-227; live since the R5 cutover)
 
 The backend has served `coach.fitpal.ma/api` since 2026-10-26. The measurements below were taken

@@ -3,6 +3,7 @@
 namespace App\Tenancy;
 
 use App\Models\Assignment;
+use App\Models\CoachPage;
 use App\Models\Invite;
 use App\Models\User;
 
@@ -35,5 +36,8 @@ final class Detach
         // asks whether a code is unused and unrevoked, so a coach let go on Monday would otherwise
         // still hand out working signups on Tuesday.
         Invite::revokeOpenOf($coach->id, 'coach detached');
+        // Their public page closes with the role: a link in a bio must not keep sending people to
+        // a coach who no longer coaches here. Closed, not deleted — the handle stays theirs.
+        CoachPage::acrossCoaches()->whereKey($coach->id)->update(['open' => false]); // across coaches: detach runs outside any coach context, for this one coach
     }
 }
