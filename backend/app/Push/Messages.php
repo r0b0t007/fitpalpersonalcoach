@@ -22,6 +22,7 @@ final class Messages
             'checkinTitle' => 'Weekly check-in 📋',
             'checkinBody' => 'Five quick scales and anything your coach should know.',
             'assignmentBody' => '{0} sent you a program',
+            'joinRequestBody' => '{0} asked to train with you',
         ],
         'de' => [
             'restTitle' => 'Pause vorbei 💪',
@@ -33,6 +34,7 @@ final class Messages
             'checkinTitle' => 'Wöchentlicher Check-in 📋',
             'checkinBody' => 'Fünf kurze Skalen und alles, was dein Coach wissen sollte.',
             'assignmentBody' => '{0} hat dir ein Programm geschickt',
+            'joinRequestBody' => '{0} möchte mit dir trainieren',
         ],
         'es' => [
             'restTitle' => 'Descanso terminado 💪',
@@ -44,6 +46,7 @@ final class Messages
             'checkinTitle' => 'Check-in semanal 📋',
             'checkinBody' => 'Cinco escalas rápidas y lo que tu entrenador deba saber.',
             'assignmentBody' => '{0} te ha enviado un programa',
+            'joinRequestBody' => '{0} quiere entrenar contigo',
         ],
         'fr' => [
             'restTitle' => 'Repos terminé 💪',
@@ -55,6 +58,7 @@ final class Messages
             'checkinTitle' => 'Point hebdomadaire 📋',
             'checkinBody' => 'Cinq échelles rapides et ce que votre coach doit savoir.',
             'assignmentBody' => '{0} vous a envoyé un programme',
+            'joinRequestBody' => '{0} souhaite s’entraîner avec vous',
         ],
     ];
 
@@ -103,6 +107,12 @@ final class Messages
         $c = self::copy($lang);
 
         return ['title' => $c['checkinTitle'], 'body' => $c['checkinBody'], 'tag' => 'checkin-reminder'];
+    }
+
+    /** Someone asked to train with this coach (CHW-337) — in the COACH's language. */
+    public static function joinRequest(mixed $lang, string $name, string $appName): array
+    {
+        return ['title' => $appName, 'body' => str_replace('{0}', $name, self::copy($lang)['joinRequestBody']), 'tag' => 'join-request'];
     }
 
     /** A coach sent this member a program — in the MEMBER's language. */

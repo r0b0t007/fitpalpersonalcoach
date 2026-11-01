@@ -9,6 +9,7 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ChunkUploadController;
 use App\Http\Controllers\CoachPageController;
 use App\Http\Controllers\CoachProgramController;
+use App\Http\Controllers\CoachRequestController;
 use App\Http\Controllers\CoachRosterController;
 use App\Http\Controllers\CreemWebhookController;
 use App\Http\Controllers\DataController;
@@ -66,6 +67,7 @@ $routes = static function (): void {
     Route::post('/join/start', [JoinController::class, 'start']);
     Route::post('/join/verify', [JoinController::class, 'verify']);
     Route::post('/join/status', [JoinController::class, 'status']);
+    Route::post('/join/claim', [JoinController::class, 'claim']);
 
     // A coach's exercise demo: the file is the body. Outside the groups below so CloseOnRefusal
     // wraps the sign-in, coach and licence checks too — their refusals must close the connection
@@ -143,6 +145,10 @@ $routes = static function (): void {
             // The coach's public page (CHW-330): the link in their Instagram bio.
             Route::get('/coach/page', [CoachPageController::class, 'show']);
             Route::post('/coach/page/save', [CoachPageController::class, 'save'])->middleware(RequireWriter::class);
+            // The followers who asked to join from that page (CHW-337).
+            Route::get('/coach/requests', [CoachRequestController::class, 'index']);
+            Route::get('/coach/requests/count', [CoachRequestController::class, 'count']);
+            Route::post('/coach/requests/decide', [CoachRequestController::class, 'decide'])->middleware(RequireWriter::class);
             Route::post('/coach/assign', [AssignmentController::class, 'assign'])->middleware(RequireWriter::class);
             Route::post('/coach/assignments/withdraw', [AssignmentController::class, 'withdraw']);
             // Paying for the plan (R4, Laravel only). Not RequireWriter: a lapsed coach must pay.

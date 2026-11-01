@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Audit\Audit;
 use App\Audit\ClientIp;
+use App\Auth\SessionToken;
 use App\Coaching\Handle;
 use App\Coaching\Intake;
+use App\Jobs\SendPush;
+use App\Mail\AccountMail;
 use App\Mail\JoinCodeMail;
+use App\Mail\MailCopy;
 use App\Mail\SendAfterResponse;
 use App\Models\CoachPage;
 use App\Models\JoinRequest;
@@ -92,14 +96,14 @@ final class JoinController
         $now = Js::nowMs();
         $join = JoinRequest::queueOf($coach)->where('email', $email)->where('status', 'unverified')->first()
             ?? (new JoinRequest)->forceFill(['id' => JoinRequest::newId(), 'coach_id' => $coach->id, 'email' => $email, 'status' => 'unverified']);
+        $lang = Input::jsString($request, 'lang');
         $join->forceFill([
-            'name' => $name, 'intake' => Js::stringify($intake),
+            'name' => $name, 'lang' => in_array($lang, MailCopy::LANGS, true) ? $lang : null, 'intake' => Js::stringify($intake),
             'code_hash' => JoinRequest::hash($code), 'attempts' => 0, 'code_expires' => $now + JoinRequest::CODE_MINUTES * 60_000,
             'created' => $now,
         ])->save();
         // The page, not the address: a log of what strangers typed is a liability.
         Audit::record($request, 'join.request', ['ok' => true, 'msg' => $page->handle]);
-        $lang = Input::jsString($request, 'lang');
         defer(fn () => SendAfterResponse::send($email, new JoinCodeMail($code, (string) $coach->name, $lang)));
 
         return Json::ok(['ok' => true, 'id' => $join->id]);
@@ -116,7 +120,7 @@ final class JoinController
         $code = Input::jsString($request, 'code');
         // Decided under the row's lock and committed, whatever the answer — a wrong code must count —
         // so a refusal is returned from the transaction and thrown after it.
-        [$refusal, $join, $token] = DB::transaction(function () use ($id, $code): array {
+        [$refusal, $join, $token, $coach] = array_pad(DB::transaction(function () use ($id, $code): array {
             $join = $id === '' ? null : JoinRequest::acrossCoaches()->whereKey($id)->lockForUpdate()->first(); // across coaches: a public route finds a request by its id
             if ($join === null || $join->status !== 'unverified' || $join->code_expires < Js::nowMs()) {
                 return [new ClientSafe(400, 'that code has expired — ask for a new one'), null, null];
@@ -145,8 +149,9 @@ final class JoinController
 
                 return [new ClientSafe(400, 'that is your own page'), null, null];
             }
-            // Already waiting, already accepted, or already their client.
-            if (JoinRequest::queueOf($coach)->where('email', $join->email)->whereIn('status', ['pending', 'accepted'])->exists()
+            // Already waiting, or already their client. Not "once accepted": a client released
+            // since may ask again.
+            if (JoinRequest::queueOf($coach)->where('email', $join->email)->where('status', 'pending')->exists()
                 || User::clientsOf($coach)->where('email', $join->email)->exists()) {
                 $join->delete();
 
@@ -158,14 +163,63 @@ final class JoinController
             $token = bin2hex(random_bytes(32));
             $join->forceFill(['status' => 'pending', 'code_hash' => null, 'token_hash' => JoinRequest::hash($token)])->save();
 
-            return [null, $join, $token];
-        });
+            return [null, $join, $token, $coach];
+        }), 4, null);
         if ($refusal !== null) {
             throw $refusal;
         }
         Audit::record($request, 'join.verify', ['ok' => true, 'msg' => CoachPage::acrossCoaches()->find($join->coach_id)?->handle]); // across coaches: the page of the request's coach, for the log
+        self::tellCoach($join, $coach);
 
         return Json::ok(['ok' => true, 'token' => $token, 'status' => $join->status]);
+    }
+
+    /**
+     * A request now waits on its coach (CHW-337): a push to their devices, with the name the
+     * follower gave, and a mail without it — the mail goes further than the coach's own screen, and
+     * the name is text a stranger typed. Only to an address the coach has proven. Both after the
+     * response, both best-effort: the request is in the inbox whatever they do.
+     */
+    private static function tellCoach(JoinRequest $join, User $coach): void
+    {
+        SendPush::dispatch($coach->id, 'join-request', [$join->name]);
+        if ($coach->email !== null && $coach->email_verified_at !== null) {
+            SendAfterResponse::to($coach->email, new AccountMail('request', $coach, rtrim((string) config('fitpal.origin'), '/').'/#/requests'));
+        }
+    }
+
+    /**
+     * POST /api/join/claim {id, token} → {user} with a session: once the coach has accepted, the
+     * browser that sent the request is signed in to the account accept made. Not spent on the first
+     * claim — a claim whose answer the network lost can be made again — but only for CLAIM_DAYS after
+     * the accept, after which prune forgets the token. Anywhere else, the follower signs in as any
+     * client does.
+     */
+    public function claim(Request $request): JsonResponse
+    {
+        $id = Input::jsString($request, 'id');
+        $token = Input::jsString($request, 'token');
+        $user = DB::transaction(function () use ($id, $token): ?User {
+            $join = $id === '' ? null : JoinRequest::acrossCoaches()->whereKey($id)->lockForUpdate()->first(); // across coaches: a public route finds a request by its id
+            if ($join === null || $join->status !== 'accepted' || $join->token_hash === null || ! hash_equals($join->token_hash, JoinRequest::hash($token))
+                || $join->decided < Js::nowMs() - JoinRequest::CLAIM_DAYS * 86_400_000) {
+                return null;
+            }
+            // Still that coach's client, and still allowed in: a release or a disable since the
+            // accept leaves nothing to sign in to here.
+            $user = User::query()->where('email', $join->email)->first();
+            if ($user === null || $user->disabled || $user->coach_id !== $join->coach_id) {
+                return null;
+            }
+
+            return $user;
+        });
+        if ($user === null) {
+            throw new ClientSafe(404, 'no such request');
+        }
+        Audit::record($request, 'join.claim', ['user' => $user]);
+
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
     }
 
     /**

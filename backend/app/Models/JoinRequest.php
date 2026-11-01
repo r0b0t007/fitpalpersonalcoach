@@ -29,7 +29,7 @@ class JoinRequest extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['email', 'name', 'intake', 'status', 'code_hash', 'attempts', 'code_expires', 'token_hash', 'created', 'decided'];
+    protected $fillable = ['email', 'name', 'lang', 'intake', 'status', 'code_hash', 'attempts', 'code_expires', 'token_hash', 'created', 'decided'];
 
     protected function casts(): array
     {
@@ -45,6 +45,9 @@ class JoinRequest extends Model
         return self::acrossCoaches()->where('coach_id', $coach->id); // across coaches: the public routes act for no coach, so this is the scope written out for one
     }
 
+    /** How long after the accept the browser that asked can sign in with its token (JoinController::claim). */
+    public const CLAIM_DAYS = 7;
+
     /** A request the coach has not answered in this many days lapses: no queue fills for good. */
     public const PENDING_DAYS = 14;
 
@@ -59,6 +62,10 @@ class JoinRequest extends Model
         $day = 86_400_000;
         self::acrossCoaches()->where('status', 'pending')->where('created', '<', $nowMs - self::PENDING_DAYS * $day) // across coaches: prune runs for every coach
             ->update(['status' => 'expired', 'decided' => $nowMs]);
+        // An accepted request's token signs in for CLAIM_DAYS: after that it is forgotten, so a copy
+        // of it found later opens nothing.
+        self::acrossCoaches()->where('status', 'accepted')->whereNotNull('token_hash')->where('decided', '<', $nowMs - self::CLAIM_DAYS * $day) // across coaches: prune runs for every coach
+            ->update(['token_hash' => null]);
 
         return self::acrossCoaches()->where('status', 'unverified')->where('created', '<', $nowMs - $day)->delete() // across coaches: prune runs for every coach
             + self::acrossCoaches()->whereIn('status', ['declined', 'expired'])->whereRaw('COALESCE(decided, created) < ?', [$nowMs - 30 * $day])->delete(); // across coaches: prune runs for every coach
