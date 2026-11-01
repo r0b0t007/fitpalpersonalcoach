@@ -42,6 +42,20 @@ class Assignment extends Model
         return ['schedule' => 'boolean', 'auto' => 'boolean'];
     }
 
+    /**
+     * A new pending offer, the one way one is made: a coach's send (AssignmentController::assign)
+     * and a page's starter program (App\Coaching\Starter, `auto`). The caller has checked the
+     * pending cap and holds the locks.
+     */
+    public static function offer(User $coach, string $memberId, string $bundle, string $note, bool $schedule, bool $auto = false, ?string $created = null): self
+    {
+        return tap((new self)->forceFill([
+            'id' => Js::randomId(), 'coach_id' => $coach->id, 'coach_name' => $coach->name, 'member_id' => $memberId,
+            'bundle' => $bundle, 'note' => $note, 'schedule' => $schedule, 'auto' => $auto,
+            'created' => $created ?? Js::isoNow(), 'status' => 'pending',
+        ]))->save();
+    }
+
     /** Every coach's assignments for one member (api/domain.mjs pendingAssignmentsFor and memberCard). */
     public static function forMember(string $memberId): Builder
     {

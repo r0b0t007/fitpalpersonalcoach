@@ -117,7 +117,7 @@ export default function Home() {
   const routine = todayRoutines[0] || null
   const todayName = todayRoutines.map(r => r.name).join(' + ')
   const todayOvr = S.dayPlan[todayISO()] !== undefined
-  const firstSession = !S.active && !!routine && S.workouts.length === 0
+  const firstSession = !S.active && !!routine && S.workouts.length === 0 && (S.startersTaken || []).length > 0
   // On a rest day, saying when you train next beats leaving the row as a full stop.
   const next = !S.active && !todayRoutines.length ? nextTrainingDay(S, todayISO()) : null
   /**
@@ -195,8 +195,8 @@ export default function Home() {
               style={doneToday && !S.active ? { color: 'var(--green)' } : undefined} />
           </span>
           <div style={{ minWidth: 0 }}>
-            {/* Their first session ever, put on today by a coach's starter program (CHW-338) or
-                planned by themselves: named for what it is, not as a "rescheduled" day. */}
+            {/* Their first session ever, after a coach's starter program put it on today (CHW-338):
+                named for what it is, not as a "rescheduled" day. Anyone else's day keeps its tag. */}
             <div className="lbl2">{firstSession ? t('Workout 1 · today') : t('Today')}</div>
             <div className="ttl">{S.active ? t('{0} — in progress', S.active.name)
               : doneToday ? (doneToday.name ? t('{0} — done', doneToday.name) : t('Workout done'))

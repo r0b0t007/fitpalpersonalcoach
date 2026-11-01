@@ -102,3 +102,29 @@ it('leaves the request waiting for the coach when their plan is full, and tells 
         ->and(JoinRequest::acrossCoaches()->sole()->status)->toBe('pending'); // across coaches: the one request in the test
     Bus::assertDispatched(SendPush::class, fn (SendPush $p) => $p->kind === 'join-request');
 });
+
+it('tells the coach who joined when the page accepted them by itself', function () {
+    starterPage($this->f->a, 'starter-1', auto: true);
+    askAndVerify()->assertOk();
+    Bus::assertDispatched(SendPush::class, fn (SendPush $p) => $p->userId === $this->f->a->id && $p->kind === 'join-auto' && $p->args === ['Salma']);
+    Bus::assertNotDispatched(SendPush::class, fn (SendPush $p) => $p->kind === 'join-request');
+});
+
+it('says the request lapsed when auto-accept cannot take a follower who trains with another coach', function () {
+    $this->f->b1->forceFill(['email' => 'salma@example.com', 'email_verified_at' => now()])->save();
+    starterPage($this->f->a, 'starter-1', auto: true);
+    askAndVerify()->assertOk()->assertJsonPath('status', 'expired');
+    expect($this->f->b1->refresh()->coach_id)->toBe($this->f->b->id);
+});
+
+it('clears the starter when its program is deleted, so the page can still be saved', function () {
+    starterPage($this->f->a, 'starter-1');
+    $this->postJson('/api/coach/programs/delete', ['id' => 'starter-1'], bearer($this->f->a))->assertOk();
+    expect(CoachPage::acrossCoaches()->find($this->f->a->id)->starter_program_id)->toBeNull(); // across coaches: the test reads A's page
+});
+
+it('leaves both settings as they are when a save does not mention them, as an older app sends', function () {
+    starterPage($this->f->a, 'starter-1', auto: true);
+    $this->postJson('/api/coach/page/save', ['handle' => 'sara.fit', 'bio' => 'Nouveau', 'whatsapp' => '', 'open' => true, 'theme' => 'dark'], bearer($this->f->a))
+        ->assertOk()->assertJsonPath('page.starterProgramId', 'starter-1')->assertJsonPath('page.autoAccept', true)->assertJsonPath('page.bio', 'Nouveau');
+});

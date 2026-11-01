@@ -52,11 +52,13 @@ final class CoachPageController
         // Only a real `true` opens it, and only `light` is light: a page is never published by a typo.
         $open = Input::raw($request, 'open') === true;
         $theme = Input::raw($request, 'theme') === 'light' ? 'light' : 'dark';
-        // CHW-338. As `open`: only a real `true` takes every request without the coach.
-        $autoAccept = Input::raw($request, 'autoAccept') === true;
-        $starter = Input::raw($request, 'starterProgramId');
-        $starter = is_string($starter) && $starter !== '' ? $starter : null;
-        if ($starter !== null && ! CoachProgram::query()->where('program_id', $starter)->exists()) {
+        // CHW-338. As `open`: only a real `true` takes every request without the coach. Absent, as
+        // from an app from before these settings, each is left as it is rather than turned off.
+        $body = Input::body($request);
+        $autoAccept = property_exists($body, 'autoAccept') ? $body->autoAccept === true : null;
+        $starter = property_exists($body, 'starterProgramId') ? $body->starterProgramId : false;
+        $starter = $starter === false ? false : (is_string($starter) && $starter !== '' ? $starter : null);
+        if (is_string($starter) && ! CoachProgram::query()->where('program_id', $starter)->exists()) {
             throw new ClientSafe(404, 'no such program');
         }
 
@@ -79,8 +81,9 @@ final class CoachPageController
                 $now = Js::nowMs();
                 // The holder of the handle, when it is this coach, is already their page.
                 $page = $holder ?? CoachPage::query()->first() ?? (new CoachPage)->forceFill(['created' => $now]);
-                $page->forceFill(['handle' => $handle, 'bio' => $bio, 'whatsapp' => $whatsapp, 'open' => $open, 'theme' => $theme,
-                    'auto_accept' => $autoAccept, 'starter_program_id' => $starter, 'updated' => $now])->save();
+                $page->forceFill(['handle' => $handle, 'bio' => $bio, 'whatsapp' => $whatsapp, 'open' => $open, 'theme' => $theme, 'updated' => $now]
+                    + ($autoAccept === null ? [] : ['auto_accept' => $autoAccept])
+                    + ($starter === false ? [] : ['starter_program_id' => $starter]))->save();
 
                 return $page;
             });

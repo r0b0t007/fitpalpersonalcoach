@@ -37,11 +37,7 @@ final class Starter
         } catch (ClientSafe) {
             return false;
         }
-        (new Assignment)->forceFill([
-            'id' => Js::randomId(), 'coach_id' => $coach->id, 'coach_name' => $coach->name, 'member_id' => $member->id,
-            'bundle' => Js::stringify($bundle), 'note' => '', 'schedule' => true, 'auto' => true,
-            'created' => Js::isoNow(), 'status' => 'pending',
-        ])->save();
+        Assignment::offer($coach, $member->id, Js::stringify($bundle), '', true, auto: true);
 
         return true;
     }

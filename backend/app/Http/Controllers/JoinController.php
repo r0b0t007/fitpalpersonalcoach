@@ -197,7 +197,13 @@ final class JoinController
         }
         // From here this request acts as the coach: their queue, their library, their roster.
         app(CoachContext::class)->set($coach);
-        [$refusal, $member, , $starter] = JoinAccept::decide($coach, $join->id, true);
+        try {
+            [$refusal, $member, , $starter] = JoinAccept::decide($coach, $join->id, true);
+        } catch (ClientSafe $e) {
+            // A race lost (another coach took them this instant), after verify committed the
+            // request: it waits on the coach, and this browser keeps its token to follow it.
+            [$refusal, $member, $starter] = [$e, null, false];
+        }
         $status = (string) JoinRequest::query()->whereKey($join->id)->value('status');
         if ($refusal !== null || $member === null) {
             if ($status === 'pending') {
@@ -208,6 +214,8 @@ final class JoinController
         }
         Audit::record($request, 'coach.request.auto', ['user' => $member, 'msg' => $page->handle]);
         JoinAccept::tellFollower($join, $coach, true);
+        // Nothing waits on the coach, but a new client took a seat: they hear who.
+        SendPush::dispatch($coach->id, 'join-auto', [$member->name]);
         if ($starter) {
             AssignmentSent::dispatch($coach, [$member->id]);
         }

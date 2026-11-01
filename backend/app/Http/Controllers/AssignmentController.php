@@ -64,11 +64,7 @@ final class AssignmentController
             }
             $created = Js::isoNow();
             foreach ($ids as $id) {
-                // coach_id comes from the CoachContext (OwnedByCoach), as every tenant row's does.
-                (new Assignment)->forceFill([
-                    'id' => Js::randomId(), 'coach_name' => $coach->name, 'member_id' => $locked->get($id)->id,
-                    'bundle' => $stored, 'note' => $note, 'schedule' => $schedule, 'created' => $created, 'status' => 'pending',
-                ])->save();
+                Assignment::offer($coach, $locked->get($id)->id, $stored, $note, $schedule, created: $created);
             }
 
             return $coach;
