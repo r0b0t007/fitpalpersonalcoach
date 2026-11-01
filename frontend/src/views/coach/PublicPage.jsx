@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api.js'
+import { fetchPrograms } from '../../lib/programs.js'
 import { BIO_MAX, normaliseHandle, validHandle } from '../../lib/coach-page.js'
 import { t } from '../../lib/i18n.js'
-import { Button, Notice, Row, Section, Segmented, Switch, TextArea, TextField } from '../../components/ui.jsx'
+import { Button, Notice, Row, Section, Segmented, SelectRow, Switch, TextArea, TextField } from '../../components/ui.jsx'
 
 /**
  * Account › My page (CHW-330): the coach's public page — the one link in their Instagram bio. The
@@ -18,13 +19,16 @@ export default function PublicPage() {
   const [saved, setSaved] = useState(null)
   // A new page starts open: a coach making one wants it live, and a closed one only tells visitors
   // "not taking requests".
-  const [form, setForm] = useState({ handle: '', bio: '', whatsapp: '', open: true, theme: 'dark' })
+  const [form, setForm] = useState({ handle: '', bio: '', whatsapp: '', open: true, theme: 'dark', starterProgramId: null, autoAccept: false })
+  const [programs, setPrograms] = useState([])
   const [error, setError] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const [busy, setBusy] = useState(false)
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError(null) }
   const took = r => { if (r.page) { setForm(r.page); setSaved({ handle: r.page.handle, url: r.url }) } }
 
+  // The library, for the starter program; without it the picker offers "None" only.
+  useEffect(() => { fetchPrograms().then(r => setPrograms(r.programs)).catch(() => {}) }, [])
   useEffect(() => {
     api('/api/coach/page').then(r => { took(r); setLoaded(true) })
       // No form on a failed load: saved, its blanks would overwrite the page the coach has.
@@ -77,6 +81,17 @@ export default function PublicPage() {
         <TextField name="whatsapp" type="tel" placeholder="+212 6 12 34 56 78" value={form.whatsapp}
           onChange={e => set('whatsapp', e.target.value)} />
       </div>
+    </Section>
+
+    {/* CHW-338: what a new client finds on day one, and whether they wait for the coach at all. */}
+    <Section title={t('New clients')} footer={t('The starter program is added to their plan, and their first workout is put on the day they join.')}>
+      <SelectRow icon="clipboard" iconTint="var(--acc)" title={t('Starter program')} sheetTitle={t('Starter program')}
+        value={form.starterProgramId || ''} onChange={v => set('starterProgramId', v || null)}
+        options={[{ value: '', label: t('None') }, ...programs.map(p => ({ value: p.id, label: p.name || t('Untitled program') }))]} />
+      <Row icon="checkCircle" iconTint="var(--green)" title={t('Accept requests automatically')}
+        subtitle={t('Each request is accepted as soon as the email is confirmed, while you have places on your plan.')}>
+        <Switch checked={!!form.autoAccept} onChange={v => set('autoAccept', v)} />
+      </Row>
     </Section>
 
     <Section title={t('Page theme')}>

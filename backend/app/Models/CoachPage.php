@@ -26,7 +26,7 @@ class CoachPage extends Model
 
     protected function casts(): array
     {
-        return ['open' => 'boolean', 'created' => 'integer', 'updated' => 'integer'];
+        return ['open' => 'boolean', 'auto_accept' => 'boolean', 'created' => 'integer', 'updated' => 'integer'];
     }
 
     /**
@@ -56,7 +56,9 @@ class CoachPage extends Model
     /** As the editor reads it. */
     public function toCoach(): array
     {
-        return ['handle' => $this->handle, 'bio' => $this->bio, 'whatsapp' => $this->whatsapp, 'open' => $this->open, 'theme' => $this->theme];
+        return ['handle' => $this->handle, 'bio' => $this->bio, 'whatsapp' => $this->whatsapp, 'open' => $this->open, 'theme' => $this->theme,
+            // CHW-338: what a new client is given, and whether requests wait for the coach at all.
+            'starterProgramId' => $this->starter_program_id, 'autoAccept' => (bool) $this->auto_accept];
     }
 
     /** As anyone with the link reads it: nothing the coach did not write for the public. */

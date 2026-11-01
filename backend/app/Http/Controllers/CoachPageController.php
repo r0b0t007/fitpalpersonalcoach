@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Coaching\Handle;
 use App\Models\CoachPage;
+use App\Models\CoachProgram;
 use App\Support\ClientSafe;
 use App\Support\Input;
 use App\Support\Js;
@@ -51,9 +52,16 @@ final class CoachPageController
         // Only a real `true` opens it, and only `light` is light: a page is never published by a typo.
         $open = Input::raw($request, 'open') === true;
         $theme = Input::raw($request, 'theme') === 'light' ? 'light' : 'dark';
+        // CHW-338. As `open`: only a real `true` takes every request without the coach.
+        $autoAccept = Input::raw($request, 'autoAccept') === true;
+        $starter = Input::raw($request, 'starterProgramId');
+        $starter = is_string($starter) && $starter !== '' ? $starter : null;
+        if ($starter !== null && ! CoachProgram::query()->where('program_id', $starter)->exists()) {
+            throw new ClientSafe(404, 'no such program');
+        }
 
         try {
-            $page = DB::transaction(function () use ($coach, $handle, $bio, $whatsapp, $open, $theme): CoachPage {
+            $page = DB::transaction(function () use ($coach, $handle, $bio, $whatsapp, $open, $theme, $autoAccept, $starter): CoachPage {
                 $me = CoachLock::take($coach->id);
                 // Judged again on the locked row: a detach (role revoked, account disabled) closes the
                 // page under this lock, and a save that waited behind it must not open it again.
@@ -71,7 +79,8 @@ final class CoachPageController
                 $now = Js::nowMs();
                 // The holder of the handle, when it is this coach, is already their page.
                 $page = $holder ?? CoachPage::query()->first() ?? (new CoachPage)->forceFill(['created' => $now]);
-                $page->forceFill(['handle' => $handle, 'bio' => $bio, 'whatsapp' => $whatsapp, 'open' => $open, 'theme' => $theme, 'updated' => $now])->save();
+                $page->forceFill(['handle' => $handle, 'bio' => $bio, 'whatsapp' => $whatsapp, 'open' => $open, 'theme' => $theme,
+                    'auto_accept' => $autoAccept, 'starter_program_id' => $starter, 'updated' => $now])->save();
 
                 return $page;
             });

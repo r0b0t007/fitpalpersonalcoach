@@ -39,7 +39,7 @@ class Assignment extends Model
 
     protected function casts(): array
     {
-        return ['schedule' => 'boolean'];
+        return ['schedule' => 'boolean', 'auto' => 'boolean'];
     }
 
     /** Every coach's assignments for one member (api/domain.mjs pendingAssignmentsFor and memberCard). */
@@ -90,7 +90,8 @@ class Assignment extends Model
     public function toInbox(): array
     {
         return ['id' => $this->id, 'coachName' => $this->coach_name, 'note' => $this->note, 'created' => $this->created,
-            'schedule' => (bool) $this->schedule, 'bundle' => $this->plan()];
+            // `auto`: a page's starter program (CHW-338), which the app takes in by itself.
+            'schedule' => (bool) $this->schedule, 'auto' => (bool) $this->auto, 'bundle' => $this->plan()];
     }
 
     /** A row of GET /api/assignments/history: the program's name and size, never the bundle. */

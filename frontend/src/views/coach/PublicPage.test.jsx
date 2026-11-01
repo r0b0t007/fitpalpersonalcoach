@@ -77,8 +77,19 @@ describe('Account › My page', () => {
     await type('input[name="whatsapp"]', '+212 612 345 678')
     await click('Light')
     await click('Save')
-    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toEqual({ handle: 'sara.fit', bio: 'Force.', whatsapp: '+212 612 345 678', open: true, theme: 'light' })
+    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toEqual({ handle: 'sara.fit', bio: 'Force.', whatsapp: '+212 612 345 678', open: true, theme: 'light', starterProgramId: null, autoAccept: false })
     expect(text()).toContain('https://coach.example/c/sara.fit')
+  })
+
+  it('keeps the starter program and turns on auto-accept with the page (CHW-338)', async () => {
+    PAGE = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', starterProgramId: 'p1', autoAccept: false }, url: 'https://coach.example/c/sara.fit' }
+    SAVE = PAGE
+    await render()
+    expect(text()).toContain('Starter program')
+    const sw = [...container.querySelectorAll('[role="switch"]')]
+    await act(async () => { sw[sw.length - 1].click() })   // the last switch: Accept requests automatically
+    await click('Save')
+    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: 'p1', autoAccept: true })
   })
 
   it('loads the page the coach has, and counts the bio', async () => {

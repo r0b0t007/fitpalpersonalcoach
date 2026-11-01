@@ -84,7 +84,8 @@ it('shows the inbox in Node\'s shape: the bundle as sent, schedule a boolean', f
     $f = $this->f;
     send($f->a, [$f->a2->id], ['note' => '  hi  ', 'schedule' => 1, 'bundle' => ['week' => new stdClass] + BUNDLE])->assertOk();
     $row = inbox($f->a2)[0];
-    expect($row)->toHaveKeys(['id', 'coachName', 'note', 'created', 'schedule', 'bundle'])->toHaveCount(6)
+    expect($row)->toHaveKeys(['id', 'coachName', 'note', 'created', 'schedule', 'auto', 'bundle'])->toHaveCount(7)
+        ->and($row['auto'])->toBeFalse()   // a program the coach sent, not a page's starter (CHW-338)
         ->and($row['id'])->toMatch('/^[A-Za-z0-9_-]{16}$/')
         ->and($row['coachName'])->toBe('Coach A')
         ->and($row['note'])->toBe('hi')
