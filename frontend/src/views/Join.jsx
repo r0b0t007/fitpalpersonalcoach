@@ -94,8 +94,10 @@ export default function Join({ handle }) {
     try {
       // A person quicker than MIN_FILL_MS (autofill, a second visit) is waited out here rather than
       // taken for a bot by the server, which would quietly send nothing.
+      // With a margin: a timer can fire a millisecond before Date.now() says it is due, and an
+      // elapsed of MIN_FILL_MS - 1 is a bot's to the server.
       const early = MIN_FILL_MS - (Date.now() - opened.current)
-      if (early > 0) await new Promise(r => setTimeout(r, early))
+      if (early > 0) await new Promise(r => setTimeout(r, early + 25))
       const r = await api('/api/join/start', { method: 'POST', body: JSON.stringify({
         handle, name: who.name.trim(), email: who.email.trim(), lang: getLang(), intake: { ...intake, injuries: intake.injuries.trim() },
         hp: who.hp, elapsed: Date.now() - opened.current,
