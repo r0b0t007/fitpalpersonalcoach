@@ -65,7 +65,7 @@ $routes = static function (): void {
     // Asking to join a coach from that page (CHW-336): no session, no account until accepted.
     Route::post('/join/start', [JoinController::class, 'start']);
     Route::post('/join/verify', [JoinController::class, 'verify']);
-    Route::get('/join/status', [JoinController::class, 'status']);
+    Route::post('/join/status', [JoinController::class, 'status']);
 
     // A coach's exercise demo: the file is the body. Outside the groups below so CloseOnRefusal
     // wraps the sign-in, coach and licence checks too — their refusals must close the connection

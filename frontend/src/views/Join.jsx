@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api.js'
 import { t, getLang } from '../lib/i18n.js'
-import { EQUIPMENT, GOALS, INJURIES_MAX, forgetRequest, intakeError, saveRequest, savedRequest } from '../lib/join.js'
-import { useUI } from '../store/useUI.js'
+import { EQUIPMENT, GOALS, INJURIES_MAX, LEVELS, MIN_FILL_MS, forgetRequest, intakeError, saveRequest, savedRequest } from '../lib/join.js'
+import { useCoachTheme } from './PublicCoach.jsx'
 import Logo from '../components/Logo.jsx'
 import { Button, Check, Notice, Segmented, TextArea, TextField } from '../components/ui.jsx'
 
@@ -12,6 +12,7 @@ const GOAL_LABEL = {
   strength: () => t('Get stronger'), fat_loss: () => t('Lose fat'), muscle: () => t('Build muscle'),
   fitness: () => t('Get fit'), sport: () => t('Perform at my sport'), other: () => t('Something else'),
 }
+const LEVEL_LABEL = { beginner: () => t('Beginner'), intermediate: () => t('Intermediate'), advanced: () => t('Advanced') }
 const EQUIPMENT_LABEL = {
   gym: () => t('Gym'), home: () => t('At home'), dumbbells: () => t('Dumbbells'), bands: () => t('Bands'), none: () => t('Nothing'),
 }
@@ -28,7 +29,7 @@ export default function Join({ handle }) {
   const [coach, setCoach] = useState(null)
   const [step, setStep] = useState('loading')   // loading | intake | about | email | code | sent | gone
   const [intake, setIntake] = useState({ goal: null, level: null, days: null, injuries: '', equipment: [], phone: '', consent: false })
-  const [who, setWho] = useState({ name: '', email: '', website: '' })
+  const [who, setWho] = useState({ name: '', email: '', hp: '' })
   const [code, setCode] = useState('')
   const [request, setRequest] = useState(null)   // { id } once started; { id, token, status } once sent
   const [error, setError] = useState(null)
@@ -38,28 +39,30 @@ export default function Join({ handle }) {
 
   useEffect(() => {
     let live = true
-    api('/api/public/coach?h=' + encodeURIComponent(handle)).then(async r => {
-      if (!live) return
-      setCoach(r.coach)
-      const saved = savedRequest(handle)
-      if (!saved) { setStep('intake'); return }
-      try {
-        const s = await api(`/api/join/status?id=${encodeURIComponent(saved.id)}&token=${encodeURIComponent(saved.token)}`)
-        if (live) { setRequest({ ...saved, status: s.status }); setStep('sent') }
-      } catch {
-        // Pruned, or never verified here: the stored request is nothing any more.
-        forgetRequest(handle)
-        if (live) setStep('intake')
-      }
-    }).catch(e => { if (live) { setError(e.message); setStep('gone') } })
+    const openPage = () => api('/api/public/coach?h=' + encodeURIComponent(handle))
+      .then(r => { if (live) { setCoach(r.coach); setStep('intake') } })
+      .catch(e => { if (live) { setError(e.message); setStep('gone') } })
+    const saved = savedRequest(handle)
+    if (!saved) { openPage(); return () => { live = false } }
+    // A request this browser sent comes first, and from its own route: it stays the follower's to
+    // see after the page closes (the public card would say "not taking requests" and stop there).
+    api('/api/join/status', { method: 'POST', body: JSON.stringify({ id: saved.id, token: saved.token }) })
+      .then(s => {
+        if (!live) return
+        setCoach({ name: s.coachName, handle: s.handle, theme: s.theme })
+        setRequest({ ...saved, status: s.status }); setStep('sent')
+      })
+      .catch(e => {
+        if (!live) return
+        // Only a request the server no longer knows is forgotten. Offline or a server error keeps
+        // the token — it is what signs the follower in once accepted (CHW-337).
+        if (e.status === 404) { forgetRequest(handle); openPage(); return }
+        setError(e.message || t('Could not load this page')); setStep('gone')
+      })
     return () => { live = false }
   }, [handle])
 
-  useEffect(() => {
-    if (!coach) return
-    useUI.setState({ themeOverride: coach.theme === 'light' ? 'light' : 'dark' })
-    return () => useUI.setState({ themeOverride: null })
-  }, [coach?.theme])
+  useCoachTheme(coach?.theme)
 
   const next = (to, check) => () => {
     const why = check()
@@ -76,11 +79,18 @@ export default function Join({ handle }) {
     if (!who.name.trim()) { setError(t('Tell us your name')); return }
     setBusy(true); setError(null)
     try {
+      // A person quicker than MIN_FILL_MS (autofill, a second visit) is waited out here rather than
+      // taken for a bot by the server, which would quietly send nothing.
+      const early = MIN_FILL_MS - (Date.now() - opened.current)
+      if (early > 0) await new Promise(r => setTimeout(r, early))
       const r = await api('/api/join/start', { method: 'POST', body: JSON.stringify({
         handle, name: who.name.trim(), email: who.email.trim(), lang: getLang(), intake: { ...intake, injuries: intake.injuries.trim() },
-        website: who.website, elapsed: Date.now() - opened.current,
+        hp: who.hp, elapsed: Date.now() - opened.current,
       }) })
-      setRequest({ id: r.id }); setCode(''); setStep('code')
+      // Sending again keeps the request's id: the server reuses the same request, and a throttled
+      // resend answers with an id of no request at all — the code already in the inbox still works
+      // against the one kept here.
+      setRequest(req => (req?.id ? req : { id: r.id })); setCode(''); setStep('code')
     } catch (e) { setError(e.message) }
     setBusy(false)
   }
@@ -109,7 +119,7 @@ export default function Join({ handle }) {
       <h4 className="sec">{t('Your goal')}</h4>
       <div className="chips">{GOALS.map(g => chip(intake.goal === g, GOAL_LABEL[g](), () => set('goal', g), g))}</div>
       <h4 className="sec">{t('Your level')}</h4>
-      <Segmented options={[{ value: 'beginner', label: t('Beginner') }, { value: 'intermediate', label: t('Intermediate') }, { value: 'advanced', label: t('Advanced') }]}
+      <Segmented options={LEVELS.map(l => ({ value: l, label: LEVEL_LABEL[l]() }))}
         value={intake.level} onChange={v => set('level', v)} />
       <h4 className="sec">{t('Days a week you can train')}</h4>
       {/* Numbers read the same in every language. */}
@@ -143,9 +153,10 @@ export default function Join({ handle }) {
       <div style={{ height: 10 }} />
       <TextField name="email" type="email" placeholder={t('Email')} maxLength={254} autoComplete="email"
         value={who.email} onChange={e => { setWho(w => ({ ...w, email: e.target.value })); setError(null) }} />
-      {/* A field people never see: whatever fills it is not a person. */}
-      <input name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={who.website}
-        onChange={e => setWho(w => ({ ...w, website: e.target.value }))}
+      {/* A field people never see, named so no autofill or password manager fills it: whatever
+          does is not a person. */}
+      <input name="hp" tabIndex={-1} autoComplete="off" aria-hidden="true" value={who.hp}
+        onChange={e => setWho(w => ({ ...w, hp: e.target.value }))}
         style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, opacity: 0 }} />
       <div className="dim small" style={{ margin: '8px 2px 0' }}>{t('We send you a code to check it is you. No password.')}</div>
       {errorLine}

@@ -39,7 +39,7 @@ final class MailCopy
             'changed.footer' => 'If that was not you, reply to this message so we can lock the account and put it right.',
             'joincode.subject' => 'Your FitPal code: :code',
             'joincode.heading' => ':code',
-            'joincode.body' => 'Enter this code to send your request to :coach. It works for 15 minutes.',
+            'joincode.body' => 'Enter this code to send your request to :coach. It works for :minutes minutes.',
             'joincode.footer' => 'Did not ask for this? Ignore this message — nothing is sent without this code.',
             'fallback' => 'The button does not work? Copy this link into your browser:',
         ],
@@ -62,7 +62,7 @@ final class MailCopy
             'changed.footer' => 'Si ce n’était pas vous, répondez à ce message pour que nous bloquions le compte et rétablissions la situation.',
             'joincode.subject' => 'Votre code FitPal : :code',
             'joincode.heading' => ':code',
-            'joincode.body' => 'Saisissez ce code pour envoyer votre demande à :coach. Il est valable 15 minutes.',
+            'joincode.body' => 'Saisissez ce code pour envoyer votre demande à :coach. Il est valable :minutes minutes.',
             'joincode.footer' => 'Vous n’avez rien demandé ? Ignorez ce message — rien n’est envoyé sans ce code.',
             'fallback' => 'Le bouton ne fonctionne pas ? Copiez ce lien dans votre navigateur :',
         ],
@@ -85,7 +85,7 @@ final class MailCopy
             'changed.footer' => 'Si no has sido tú, responde a este mensaje para que bloqueemos la cuenta y lo arreglemos.',
             'joincode.subject' => 'Tu código de FitPal: :code',
             'joincode.heading' => ':code',
-            'joincode.body' => 'Introduce este código para enviar tu solicitud a :coach. Sirve durante 15 minutos.',
+            'joincode.body' => 'Introduce este código para enviar tu solicitud a :coach. Sirve durante :minutes minutos.',
             'joincode.footer' => '¿No lo has pedido? Ignora este mensaje: no se envía nada sin este código.',
             'fallback' => '¿El botón no funciona? Copia este enlace en tu navegador:',
         ],
@@ -108,7 +108,7 @@ final class MailCopy
             'changed.footer' => 'Warst du das nicht? Antworte auf diese Nachricht, damit wir das Konto sperren und es in Ordnung bringen.',
             'joincode.subject' => 'Dein FitPal-Code: :code',
             'joincode.heading' => ':code',
-            'joincode.body' => 'Gib diesen Code ein, um deine Anfrage an :coach zu senden. Er gilt 15 Minuten.',
+            'joincode.body' => 'Gib diesen Code ein, um deine Anfrage an :coach zu senden. Er gilt :minutes Minuten.',
             'joincode.footer' => 'Nicht angefordert? Ignoriere diese Nachricht — ohne diesen Code wird nichts gesendet.',
             'fallback' => 'Der Button funktioniert nicht? Kopiere diesen Link in deinen Browser:',
         ],
@@ -135,7 +135,7 @@ final class MailCopy
         $unproven = $kind === 'confirm' || $kind === 'joincode';
         $name = $unproven ? '' : trim((string) preg_replace('/\s+/u', ' ', (string) ($fill['name'] ?? '')));
         $out = ['fallback' => $copy['fallback'], 'hello' => $name === '' ? $copy['hello.anon'] : strtr($copy['hello'], [':name' => $name])];
-        $values = [':email' => $fill['email'] ?? '', ':code' => $fill['code'] ?? '', ':coach' => $fill['coach'] ?? ''];
+        $values = [':email' => $fill['email'] ?? '', ':code' => $fill['code'] ?? '', ':coach' => $fill['coach'] ?? '', ':minutes' => (string) ($fill['minutes'] ?? '')];
         foreach (['subject', 'heading', 'body', 'button', 'footer'] as $part) {
             if (isset($copy["{$kind}.{$part}"])) {
                 $out[$part] = strtr($copy["{$kind}.{$part}"], $values);

@@ -45,14 +45,20 @@ class JoinRequest extends Model
         return self::acrossCoaches()->where('coach_id', $coach->id); // across coaches: the public routes act for no coach, so this is the scope written out for one
     }
 
+    /** A request the coach has not answered in this many days lapses: no queue fills for good. */
+    public const PENDING_DAYS = 14;
+
     /**
      * fitpal:prune: an intake holds health data, so what is not waiting on anyone goes. Unverified
-     * after a day (nobody proved the address); declined and expired 30 days after they were decided.
-     * Pending and accepted ones stay: the coach still needs them.
+     * after a day (nobody proved the address); pending ones lapse to `expired` after PENDING_DAYS
+     * with no answer, which also frees the coach's queue (MAX_PENDING) from anyone who filled it;
+     * declined and expired ones go 30 days after they were decided. Accepted ones stay.
      */
     public static function prune(int $nowMs): int
     {
         $day = 86_400_000;
+        self::acrossCoaches()->where('status', 'pending')->where('created', '<', $nowMs - self::PENDING_DAYS * $day) // across coaches: prune runs for every coach
+            ->update(['status' => 'expired', 'decided' => $nowMs]);
 
         return self::acrossCoaches()->where('status', 'unverified')->where('created', '<', $nowMs - $day)->delete() // across coaches: prune runs for every coach
             + self::acrossCoaches()->whereIn('status', ['declined', 'expired'])->whereRaw('COALESCE(decided, created) < ?', [$nowMs - 30 * $day])->delete(); // across coaches: prune runs for every coach

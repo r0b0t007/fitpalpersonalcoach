@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\JoinRequest;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -21,7 +22,7 @@ final class JoinCodeMail extends Mailable
     public function __construct(public readonly string $code, string $coachName, ?string $lang)
     {
         $this->lang = in_array($lang, MailCopy::LANGS, true) ? $lang : 'en';
-        $this->words = MailCopy::words($this->lang, 'joincode', ['code' => $code, 'coach' => $coachName]);
+        $this->words = MailCopy::words($this->lang, 'joincode', ['code' => $code, 'coach' => $coachName, 'minutes' => JoinRequest::CODE_MINUTES]);
     }
 
     public function envelope(): Envelope

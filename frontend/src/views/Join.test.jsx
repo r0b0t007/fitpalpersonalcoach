@@ -10,17 +10,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 const calls = []
 let VERIFY = null
 let STATUS = null
+let START_IDS = []
 vi.mock('../lib/api.js', async orig => ({
   ...(await orig()),
   api: async (path, opts) => {
     calls.push([path, opts?.body ? JSON.parse(opts.body) : undefined])
     if (path.startsWith('/api/public/coach?h=')) return { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'light' } }
-    if (path === '/api/join/start') return { ok: true, id: 'req1' }
+    if (path === '/api/join/start') return { ok: true, id: START_IDS.shift() || 'req-decoy' }
     if (path === '/api/join/verify') { if (VERIFY instanceof Error) throw VERIFY; return VERIFY }
-    if (path.startsWith('/api/join/status?')) { if (STATUS instanceof Error) throw STATUS; return STATUS }
+    if (path === '/api/join/status') { if (STATUS instanceof Error) throw STATUS; return STATUS }
     throw new Error('unexpected ' + path)
   },
 }))
+// The server's 3 s minimum, shortened so the tests do not wait on it; one test checks it is waited out.
+vi.mock('../lib/join.js', async orig => ({ ...(await orig()), MIN_FILL_MS: 50 }))
 const { default: Join } = await import('./Join.jsx')
 const { useUI } = await import('../store/useUI.js')
 
@@ -42,6 +45,11 @@ const type = async (selector, value) => {
   const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
   await act(async () => { Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value); el.dispatchEvent(new Event('input', { bubbles: true })) })
 }
+// Sending waits out the (shortened) minimum fill time on a timer, which act() does not wait for.
+const send = async label => {
+  await click(label)
+  await act(() => new Promise(r => setTimeout(r, 80)))
+}
 const checkConsent = async () => {
   const c = container.querySelector('[role="checkbox"]')
   await act(async () => { c.click() })
@@ -49,7 +57,7 @@ const checkConsent = async () => {
 
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true
-  calls.length = 0; VERIFY = null; STATUS = null
+  calls.length = 0; VERIFY = null; STATUS = null; START_IDS = ['req1']
   localStorage.clear()
   useUI.setState({ themeOverride: null })
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container)
@@ -70,11 +78,13 @@ describe('asking to join a coach', () => {
     await click('Next')
     await type('input[name="name"]', 'Salma')
     await type('input[name="email"]', 'salma@example.com')
-    await click('Send me a code')
+    await send('Send me a code')
     const start = calls.find(([p]) => p === '/api/join/start')[1]
-    expect(start).toMatchObject({ handle: 'yasmine.fit', name: 'Salma', email: 'salma@example.com', website: '',
+    expect(start).toMatchObject({ handle: 'yasmine.fit', name: 'Salma', email: 'salma@example.com', 
       intake: { goal: 'strength', level: 'beginner', days: 3, injuries: 'Genou droit', equipment: ['gym'], phone: '', consent: true } })
-    expect(typeof start.elapsed).toBe('number')
+    // Faster than the minimum fill time: the form waited it out instead of being taken for a bot.
+    expect(start.elapsed).toBeGreaterThanOrEqual(50)
+    expect(start.hp).toBe('')
     await type('input[name="code"]', '123456')
     await click('Send my request')
     expect(calls.find(([p]) => p === '/api/join/verify')[1]).toEqual({ id: 'req1', code: '123456' })
@@ -97,7 +107,7 @@ describe('asking to join a coach', () => {
     await click('Get stronger'); await click('Beginner'); await click('3'); await click('Next')
     await checkConsent(); await click('Next')
     await type('input[name="name"]', 'Salma'); await type('input[name="email"]', 'salma@example.com')
-    await click('Send me a code')
+    await send('Send me a code')
     await type('input[name="code"]', '000000')
     await click('Send my request')
     expect(text()).toContain('That code is wrong')
@@ -106,17 +116,45 @@ describe('asking to join a coach', () => {
 
   it('opens on the request this browser already sent', async () => {
     localStorage.setItem('join:yasmine.fit', JSON.stringify({ id: 'req1', token: 'tok1' }))
-    STATUS = { status: 'pending', coachName: 'Yasmine', handle: 'yasmine.fit' }
+    STATUS = { status: 'pending', coachName: 'Yasmine', handle: 'yasmine.fit', theme: 'light' }
     await render()
     expect(text()).toContain('Request sent')
-    expect(calls.some(([p]) => p === '/api/join/status?id=req1&token=tok1')).toBe(true)
+    expect(text()).toContain('Yasmine')
+    // Posted, never in a URL; and read before the page, which may have closed since.
+    expect(calls.find(([p]) => p === '/api/join/status')[1]).toEqual({ id: 'req1', token: 'tok1' })
+    expect(calls.some(([p]) => p.startsWith('/api/public/coach'))).toBe(false)
+    expect(useUI.getState().themeOverride).toBe('light')
   })
 
   it('starts afresh when the stored request is gone', async () => {
     localStorage.setItem('join:yasmine.fit', JSON.stringify({ id: 'req1', token: 'tok1' }))
-    STATUS = new Error('No such request')
+    STATUS = Object.assign(new Error('No such request'), { status: 404 })
     await render()
     expect(text()).toContain('Get stronger')
     expect(localStorage.getItem('join:yasmine.fit')).toBe(null)
+  })
+})
+
+describe('asking to join, when things go wrong', () => {
+  it('keeps the stored request through a server error or no connection, and says so', async () => {
+    localStorage.setItem('join:yasmine.fit', JSON.stringify({ id: 'req1', token: 'tok1' }))
+    STATUS = Object.assign(new Error('Service unavailable'), { status: 503 })
+    await render()
+    expect(text()).toContain('Service unavailable')
+    expect(JSON.parse(localStorage.getItem('join:yasmine.fit'))).toEqual({ id: 'req1', token: 'tok1' })
+  })
+
+  it('keeps the request it started when the code is sent again', async () => {
+    START_IDS = ['req1', 'req-decoy']   // the resend was throttled: the server answers with nothing real
+    VERIFY = { ok: true, token: 'tok1', status: 'pending' }
+    await render()
+    await click('Get stronger'); await click('Beginner'); await click('3'); await click('Next')
+    await checkConsent(); await click('Next')
+    await type('input[name="name"]', 'Salma'); await type('input[name="email"]', 'salma@example.com')
+    await send('Send me a code')
+    await send('Send the code again')
+    await type('input[name="code"]', '123456')
+    await click('Send my request')
+    expect(calls.find(([p]) => p === '/api/join/verify')[1]).toEqual({ id: 'req1', code: '123456' })
   })
 })

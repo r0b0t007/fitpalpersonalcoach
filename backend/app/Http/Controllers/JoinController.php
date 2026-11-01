@@ -16,6 +16,7 @@ use App\Support\ClientSafe;
 use App\Support\Input;
 use App\Support\Js;
 use App\Support\Json;
+use App\Tenancy\CoachLock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,9 +54,10 @@ final class JoinController
     public function start(Request $request): JsonResponse
     {
         $decoy = fn () => Json::ok(['ok' => true, 'id' => JoinRequest::newId()]);
-        // The honeypot is a field people never see; the fill time is the form's own count.
+        // The honeypot is a field people never see, named so no autofill thinks it knows it; the
+        // fill time is the form's own count (and the form waits it out, lib/join.js).
         $elapsed = Input::raw($request, 'elapsed');
-        if (Input::jsString($request, 'website') !== '' || ! is_int($elapsed) || $elapsed < self::MIN_FILL_MS) {
+        if (Input::jsString($request, 'hp') !== '' || ! is_int($elapsed) || $elapsed < self::MIN_FILL_MS) {
             return $decoy();
         }
 
@@ -83,17 +85,18 @@ final class JoinController
             throw new ClientSafe(429, 'this coach has too many requests waiting — try again later');
         }
 
-        // One unverified request per address and coach: starting again replaces it.
-        JoinRequest::queueOf($coach)->where('email', $email)->where('status', 'unverified')->delete();
+        // One unverified request per address and coach: starting again (the form's "send the code
+        // again") reuses it, so its id holds — a resend that was throttled leaves the code already
+        // in the inbox working against the id the page has. Only the newest code works.
         $code = str_pad((string) random_int(0, 999_999), 6, '0', STR_PAD_LEFT);
         $now = Js::nowMs();
-        $join = (new JoinRequest)->forceFill([
-            'id' => JoinRequest::newId(), 'coach_id' => $coach->id, 'email' => $email, 'name' => $name,
-            'intake' => Js::stringify($intake), 'status' => 'unverified',
+        $join = JoinRequest::queueOf($coach)->where('email', $email)->where('status', 'unverified')->first()
+            ?? (new JoinRequest)->forceFill(['id' => JoinRequest::newId(), 'coach_id' => $coach->id, 'email' => $email, 'status' => 'unverified']);
+        $join->forceFill([
+            'name' => $name, 'intake' => Js::stringify($intake),
             'code_hash' => JoinRequest::hash($code), 'attempts' => 0, 'code_expires' => $now + JoinRequest::CODE_MINUTES * 60_000,
             'created' => $now,
-        ]);
-        $join->save();
+        ])->save();
         // The page, not the address: a log of what strangers typed is a liability.
         Audit::record($request, 'join.request', ['ok' => true, 'msg' => $page->handle]);
         $lang = Input::jsString($request, 'lang');
@@ -126,16 +129,31 @@ final class JoinController
 
                 return [new ClientSafe(400, 'that code is wrong — check the email and try again'), null, null];
             }
-            $coach = User::query()->find($join->coach_id);
-            if ($coach !== null && $coach->email !== null && LoginLink::normaliseEmail($coach->email) === $join->email) {
+            // The coach judged again, on their locked row, at the moment the request would wait on
+            // them: the page may have closed or the coach gone since the code was sent, and the
+            // queue's cap is counted here too — under the lock, so two codes cannot both take the
+            // last place.
+            $coach = CoachLock::take($join->coach_id);
+            $page = CoachPage::acrossCoaches()->find($join->coach_id); // across coaches: the page of the request's coach
+            if ($coach === null || $coach->disabled || ! $coach->isCoach() || $page === null || ! $page->open) {
+                $join->delete();
+
+                return [new ClientSafe(404, 'this coach is not taking requests right now'), null, null];
+            }
+            if ($coach->email !== null && LoginLink::normaliseEmail($coach->email) === $join->email) {
                 $join->delete();
 
                 return [new ClientSafe(400, 'that is your own page'), null, null];
             }
-            if (JoinRequest::queueOf($coach)->where('email', $join->email)->where('status', 'pending')->exists()) {
+            // Already waiting, already accepted, or already their client.
+            if (JoinRequest::queueOf($coach)->where('email', $join->email)->whereIn('status', ['pending', 'accepted'])->exists()
+                || User::clientsOf($coach)->where('email', $join->email)->exists()) {
                 $join->delete();
 
                 return [new ClientSafe(409, 'you already asked to join this coach'), null, null];
+            }
+            if (JoinRequest::queueOf($coach)->where('status', 'pending')->count() >= JoinRequest::MAX_PENDING) {
+                return [new ClientSafe(429, 'this coach has too many requests waiting — try again later'), null, null];
             }
             $token = bin2hex(random_bytes(32));
             $join->forceFill(['status' => 'pending', 'code_hash' => null, 'token_hash' => JoinRequest::hash($token)])->save();
@@ -150,20 +168,27 @@ final class JoinController
         return Json::ok(['ok' => true, 'token' => $token, 'status' => $join->status]);
     }
 
-    /** GET /api/join/status?id=&token= → {status, coachName, handle}: for the browser holding the token, and nobody else. */
+    /**
+     * POST /api/join/status {id, token} → {status, coachName, handle, theme}: for the browser
+     * holding the token, and nobody else. A POST so the token never sits in a URL, where access
+     * logs keep it — it is what signs the follower in once accepted (CHW-337). Answers whether or
+     * not the page is still open: a request in flight is still the follower's to see.
+     */
     public function status(Request $request): JsonResponse
     {
-        $id = (string) $request->query('id', '');
-        $token = (string) $request->query('token', '');
+        $id = Input::jsString($request, 'id');
+        $token = Input::jsString($request, 'token');
         $join = $id === '' ? null : JoinRequest::acrossCoaches()->find($id); // across coaches: a public route finds a request by its id
         if ($join === null || $join->token_hash === null || ! hash_equals($join->token_hash, JoinRequest::hash($token))) {
             throw new ClientSafe(404, 'no such request');
         }
+        $page = CoachPage::acrossCoaches()->find($join->coach_id); // across coaches: the page of the request's coach
 
         return Json::ok([
             'status' => $join->status,
             'coachName' => User::query()->find($join->coach_id)?->name,
-            'handle' => CoachPage::acrossCoaches()->find($join->coach_id)?->handle, // across coaches: the page of the request's coach
+            'handle' => $page?->handle,
+            'theme' => $page?->theme ?? 'dark',
         ]);
     }
 

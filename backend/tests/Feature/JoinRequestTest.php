@@ -54,7 +54,7 @@ function joinPage(object $coach, bool $open = true): void
 
 function startJoin(array $over = [])
 {
-    return test()->postJson('/api/join/start', $over + ['handle' => 'sara.fit', 'name' => 'Salma', 'email' => 'Salma@Example.com', 'lang' => 'fr', 'intake' => intake(), 'website' => '', 'elapsed' => 9000]);
+    return test()->postJson('/api/join/start', $over + ['handle' => 'sara.fit', 'name' => 'Salma', 'email' => 'Salma@Example.com', 'lang' => 'fr', 'intake' => intake(), 'hp' => '', 'elapsed' => 9000]);
 }
 
 /** The code the last join mail to $to carried. */
@@ -91,7 +91,7 @@ it('answers a bot exactly as a person, and keeps nothing', function (array $over
     expect(JoinRequest::acrossCoaches()->count())->toBe(0); // across coaches: test counts every row
     Mail::assertNothingSent();
 })->with([
-    'honeypot filled' => [['website' => 'http://spam.example']],
+    'honeypot filled' => [['hp' => 'http://spam.example']],
     'filled in under 3 s' => [['elapsed' => 900]],
 ]);
 
@@ -111,12 +111,16 @@ it('says what is wrong with the name, the address or the intake', function (arra
     'no consent' => [['intake' => intake(['consent' => false])], 'please agree to share your answers with your coach'],
 ]);
 
-it('starts a request again rather than piling up unverified ones', function () {
+it('starts a request again in the same row, so its id holds and only the newest code works', function () {
     joinPage($this->f->a);
-    $first = startJoin()->json('id');
-    $second = startJoin()->json('id');
-    expect(JoinRequest::acrossCoaches()->pluck('id')->all())->toBe([$second]) // across coaches: test reads every row
-        ->and($first)->not->toBe($second);
+    [$id, $first] = startedJoin();
+    [$again, $second] = startedJoin();
+    expect($again)->toBe($id)
+        ->and(JoinRequest::acrossCoaches()->pluck('id')->all())->toBe([$id]); // across coaches: test reads every row
+    if ($first !== $second) {
+        verifyJoin($id, $first)->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
+    }
+    verifyJoin($id, $second)->assertOk();
 });
 
 it('turns requests away once a coach has 50 waiting', function () {
@@ -203,10 +207,12 @@ it('tells the browser holding the token where its request stands, and nobody els
     joinPage($this->f->a);
     [$id, $code] = startedJoin();
     $token = verifyJoin($id, $code)->json('token');
-    $this->getJson("/api/join/status?id=$id&token=$token")->assertOk()
-        ->assertExactJson(['status' => 'pending', 'coachName' => 'Coach A', 'handle' => 'sara.fit']);
-    $this->getJson("/api/join/status?id=$id&token=".str_repeat('0', 64))->assertStatus(404)->assertExactJson(['error' => 'no such request']);
-    $this->getJson("/api/join/status?id=$id")->assertStatus(404);
+    $this->postJson('/api/join/status', ['id' => $id, 'token' => $token])->assertOk()
+        ->assertExactJson(['status' => 'pending', 'coachName' => 'Coach A', 'handle' => 'sara.fit', 'theme' => 'dark']);
+    $this->postJson('/api/join/status', ['id' => $id, 'token' => str_repeat('0', 64)])->assertStatus(404)->assertExactJson(['error' => 'no such request']);
+    $this->postJson('/api/join/status', ['id' => $id])->assertStatus(404);
+    // Never in a URL: there is no GET.
+    $this->getJson("/api/join/status?id=$id&token=$token")->assertStatus(404);
 });
 
 it('prunes unverified requests after a day, and declined or expired ones after 30', function () {
@@ -222,4 +228,54 @@ it('prunes unverified requests after a day, and declined or expired ones after 3
     $this->artisan('fitpal:prune')->assertSuccessful();
     expect(JoinRequest::acrossCoaches()->orderBy('id')->pluck('id')->all()) // across coaches: test reads every row
         ->toBe(['freshunverified', 'oldpending', 'recentdeclined']);
+});
+
+it('holds the cap where a request becomes pending, not only where it starts', function () {
+    joinPage($this->f->a);
+    foreach (range(1, JoinRequest::MAX_PENDING - 1) as $i) {
+        Coaching::own(new JoinRequest, $this->f->a, ['id' => JoinRequest::newId(), 'email' => "p$i@example.com", 'name' => "P$i", 'intake' => '{}', 'status' => 'pending', 'created' => 1]);
+    }
+    // Two start while one place is left; the first to prove its address takes it.
+    [$a, $codeA] = startedJoin(['email' => 'a@example.com']);
+    [$b, $codeB] = startedJoin(['email' => 'b@example.com']);
+    verifyJoin($a, $codeA)->assertOk();
+    verifyJoin($b, $codeB)->assertStatus(429)->assertExactJson(['error' => 'this coach has too many requests waiting — try again later']);
+});
+
+it('judges the coach again when the code comes back: gone, closed, or no longer coaching', function (string $change) {
+    joinPage($this->f->a);
+    [$id, $code] = startedJoin();
+    match ($change) {
+        'closed' => CoachPage::acrossCoaches()->whereKey($this->f->a->id)->update(['open' => false]), // across coaches: the test closes A's page
+        'disabled' => $this->f->a->forceFill(['disabled' => true])->save(),
+        'uncoached' => $this->f->a->forceFill(['coach' => false])->save(),
+    };
+    verifyJoin($id, $code)->assertStatus(404)->assertExactJson(['error' => 'this coach is not taking requests right now']);
+    expect(JoinRequest::acrossCoaches()->where('status', 'pending')->count())->toBe(0); // across coaches: test counts every row
+})->with(['closed', 'disabled', 'uncoached']);
+
+it('turns away someone already with this coach, as a client or an accepted request', function () {
+    joinPage($this->f->a);
+    $this->f->a1->forceFill(['email' => 'client.a1@example.com'])->save();
+    [$id, $code] = startedJoin(['email' => 'client.a1@example.com']);
+    verifyJoin($id, $code)->assertStatus(409)->assertExactJson(['error' => 'you already asked to join this coach']);
+    Coaching::own(new JoinRequest, $this->f->a, ['id' => JoinRequest::newId(), 'email' => 'salma@example.com', 'name' => 'Salma', 'intake' => '{}', 'status' => 'accepted', 'created' => 1]);
+    [$id2, $code2] = startedJoin();
+    verifyJoin($id2, $code2)->assertStatus(409);
+});
+
+it('lets a request nobody answers lapse after 14 days, so a queue cannot fill for good', function () {
+    $now = (int) (microtime(true) * 1000);
+    $day = 86_400_000;
+    Coaching::own(new JoinRequest, $this->f->a, ['id' => 'stale', 'email' => 's@example.com', 'name' => 'S', 'intake' => '{}', 'status' => 'pending', 'created' => $now - 15 * $day]);
+    Coaching::own(new JoinRequest, $this->f->a, ['id' => 'fresh', 'email' => 'f@example.com', 'name' => 'F', 'intake' => '{}', 'status' => 'pending', 'created' => $now - 13 * $day]);
+    $this->artisan('fitpal:prune')->assertSuccessful();
+    expect(JoinRequest::acrossCoaches()->find('stale')->status)->toBe('expired') // across coaches: test reads A's rows
+        ->and(JoinRequest::acrossCoaches()->find('stale')->decided)->toBeGreaterThan($now - $day) // across coaches: test reads A's rows
+        ->and(JoinRequest::acrossCoaches()->find('fresh')->status)->toBe('pending'); // across coaches: test reads A's rows
+});
+
+it('says how long a code lasts from the same number that decides it', function () {
+    $mail = new JoinCodeMail('123456', 'Coach A', 'fr');
+    expect($mail->words['body'])->toContain((string) JoinRequest::CODE_MINUTES);
 });
