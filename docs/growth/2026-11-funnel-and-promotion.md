@@ -14,7 +14,7 @@ online, one to one. Today they deliver PDFs or Google Sheets over WhatsApp and s
 |---|---|---|---|
 | Morocco | 300–800 MAD/month *(est.: no published data, to be checked by mystery-shopping)* | No local B2B tool. Global ones need Stripe, which reportedly doesn't onboard companies registered in Morocco ([Kolonell](https://kolonell.com/fr/blog/paiement-en-ligne-pme-maroc-cmi-ou-stripe-2026)). | French and Darija, no Stripe needed, the coach is paid however they like, free for 3 clients |
 | France, Belgium | €30–150/month ([coachway FR](https://coachway.io/fr/combien-coute-un-coach-sportif-en-ligne/)) | Hexfit €19–29, AZEOO €9, Fit'Distance €13 ([coachway FR](https://coachway.io/fr/logiciel-coach-sportif/)) | One link in the bio, one price with no add-ons, a client app that works inside Instagram |
-| Spain | €50–150/month ([FitGeneration](https://fitgeneration.es/cuanto-vale-un-entrenador-personal-al-mes/)) | Harbiz €14–19 for 5 clients | Free for 3 clients, set up in a day, a simpler client app |
+| Spain | €50–150/month ([FitGeneration](https://fitgeneration.es/cuanto-vale-un-entrenador-personal-al-mes/)) | Harbiz €14–19 for 5 clients, third-party figure ([coachway ES](https://coachway.io/es/alternativas-a-harbiz/)); check on harbiz.io before quoting it | Free for 3 clients, set up in a day, a simpler client app |
 
 **Positioning:** "Un lien dans ta bio. Tes abonnés demandent à s'entraîner avec toi, tu acceptes,
 leur première séance est prête le jour même. Gratuit pour tes 3 premiers clients."
@@ -25,15 +25,15 @@ entreno está listo ese mismo día."
 
 ### Coach side (our revenue)
 
-| Stage | Event (`audit_events`) | Target |
+| Stage | Where it is counted (spec §7) | Target |
 |---|---|---|
 | Visit | fitpal.ma page view (site analytics) | — |
 | Sign-up | `coach.signup` with its plan (a new event, added with CHW-329; today a self-serve coach shows only as `auth.register.ok`) | 8% of visits *(est.)* |
 | Page published | `coach.page.save` with `open` on | 70% of sign-ups |
-| First request | first `join.request` | 50% of sign-ups within 7 days |
-| **Activated** | a client accepted *and* that client logs workout 1 | 50% of sign-ups within 7 days |
+| First request | first `join.request` | 65% of sign-ups within 7 days |
+| **Activated** | an accepted client whose `user_states.first_workout_at` is set | 50% of sign-ups within 7 days (about 3 in 4 of the coaches who got a request) |
 | Habit | 3 or more clients training every week at day 30 | 60% of activated coaches |
-| Paid | upgrade when the coach hits the 3-client cap | 25–35% of activated coaches |
+| Paid | upgrade when the coach hits the 3-client cap | 30% of activated coaches (25–35% is the acceptable range) |
 | Referral | a referred coach activates | 0.3 per paying coach |
 
 ### Follower side (the coach's funnel, which we make easy)
@@ -103,7 +103,7 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 - 150 DMs, 3 Reels, 1 Live or case study, onboarding calls.
 - Monday review: DM reply rate, sign-up → activation, activation → day-30 habit, paid.
 
-**Day-90 targets:** 100 sign-ups, 50 activated, 20 paying, 10 video testimonials.
+**Day-90 targets:** 100 sign-ups, 50 activated, 15 paying (30% of activated, matching §2), 10 video testimonials.
 
 ## 5. Open tests
 

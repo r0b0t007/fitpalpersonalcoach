@@ -47,11 +47,22 @@ The product can't do that today. A code check on 2026-11-01 found:
 
 ### What each decision costs, from the code check
 
-1. **Free signup can't wait for Creem to go live.** `coachOptions` refuses self-serve signup unless
-   `Plans::billingOn()`. That guard stays, because without it an instance with Creem off would
-   give out coach accounts with no limit. A `FREE_CAP` (default 3) is enforced even with billing
-   off, so Free signup can open before CHW-302. A paying coach who lapses drops to Free (can still
-   edit, can't add a fourth client) instead of becoming read-only.
+1. **Free signup can't wait for Creem to go live, and it must not cap today's coaches.** Today
+   `coachOptions` and `coachVerify` refuse self-serve signup unless `Plans::billingOn()`. While
+   billing is off, `Plans::offered()` returns nothing, `Start.jsx`'s `startOpen` stays closed, and
+   `Entitlement::exempt` makes every coach `unlicensed` (no limit). Three changes go together:
+   - **Free applies only to coaches with `self_serve` set** (the column `coachVerify` writes). A
+     coach with `self_serve` and no writable licence gets status `free`, capped at `FREE_CAP`
+     (default 3), **whether or not billing is on**. Coaches onboarded by hand (`self_serve` false)
+     keep today's rule: `unlicensed` and unlimited while billing is off.
+   - The signup guard becomes "`SELF_SERVE_COACH` and (`Plans::billingOn()` or `FREE_CAP > 0`)".
+     The reason for the guard still holds: a self-serve account made with billing off is capped
+     at `FREE_CAP`, so the instance never hands out unlimited coach accounts.
+   - `Plans::offered()` lists `free` even with billing off, and `startOpen` no longer needs
+     `config.billing` for `?plan=free`. Paid plans still need billing on.
+
+   A paying self-serve coach who lapses drops to Free (can still edit, can't add a fourth client)
+   instead of becoming read-only.
 2. **Clients stop being passkey-only.** Client security becomes "whoever controls the inbox".
    `SECURITY.md` must say so.
 3. **The emailed code beats the emailed link.** Tapping a link opens Safari or Chrome, which
@@ -70,8 +81,13 @@ The product can't do that today. A code check on 2026-11-01 found:
 7. **The intake collects health data.** Injuries are special-category data under GDPR art. 9
    (France, Spain, Belgium). In Morocco, law 09-08 applies and processing must be declared to
    the CNDP (this ties into CHW-58's work). This needs an explicit consent checkbox, a retention
-   rule, an update to the legal pages, and `Tenancy\Detach` must wipe the intake when a client
-   is released.
+   rule and an update to the legal pages. The intake (and the phone number) must be wiped on
+   **every** path that ends a client's link to a coach:
+   - `CoachRosterController::release` (`coach.member.release`), when the coach releases one client;
+   - the admin unassign in `app/Admin/Accounts.php` (`admin.user.unassign`);
+   - `Tenancy\Detach::coach`, which runs when a coach loses the role or is disabled.
+
+   One helper is called from all three, and a test covers each path.
 8. **Scheduled jobs run every 5 minutes** (CHW-311). A "new request" push can arrive up to about
    5 minutes late. A scheduled command sends its mail synchronously, so batches stay small.
 
@@ -85,13 +101,47 @@ Instagram bio ── coach.fitpal.ma/c/<handle>    Laravel page: OG tags, coach 
                        │ POST /api/join/start, /api/join/verify
                        ▼
                 join_requests (pending)  ──►  coach: push + email "New request"
+                       │   (no account yet: the browser holds a request token)
                        │ coach taps Accept (or auto-accept)
                        ▼
-          CoachLock + CoachSeat check  ──►  coach_id set, seat used
+     client row locked → 409 if it has a coach → coach row locked → CoachSeat check
+                       │ coach_id set, seat used, request accepted
+                       ▼
+           POST /api/join/claim (request token)  ──►  session; or a fresh email code
                        │ starter program as an auto Assignment
                        ▼
              Client Home: "Workout 1 · today"  ──►  first set logged (activation)
 ```
+
+### 3.0 No account until the coach accepts
+
+Verifying the code proves the follower owns the email; it does **not** create or sign in an
+account. Otherwise every form fill on an `INVITE_ONLY` server would leave a user with no coach.
+That is the state `fitpal:check-config` warns about, and that user would get the full uncoached
+app.
+
+- **Verify:** `/api/join/verify` moves the request to `pending` and returns a random request
+  token. Only a hash of the token is stored. The browser keeps the token in `localStorage` and
+  shows "Demande envoyée".
+- **Waiting:** while it waits, the browser polls `GET /api/join/status?id=&token=`.
+- **Accept:**
+  - The email has no account yet: the user is created at accept, with `coach_id` set.
+  - The email has an account with no coach: that account is bound, using `redeem`'s rules.
+  - The email's account already has a coach: the request expires with redeem's 409 copy
+    (`you already have a coach — they can release you first`).
+- **Claim:** once the request is accepted, `POST /api/join/claim {id, token}` exchanges the token
+  for a session, once only. On another device, the follower signs in with a fresh email code.
+  The "accepted" email says so.
+- **Decline:** a declined or expired request creates nothing.
+
+**Accept takes locks in `redeem`'s order** (`InviteController::redeem`):
+1. The client's row first. Refuse with 409 if the client already has a coach. This stops a
+   follower with requests pending at two coaches from being moved between them by the second
+   accept.
+2. Then the coach's row.
+3. Then `CoachSeat::refusal($coach, lock: true)`.
+
+Using the same order as `redeem` means accept and `redeem` cannot deadlock each other.
 
 ### 3.1 URL: `https://coach.fitpal.ma/c/<handle>`, rendered by Laravel
 
@@ -100,9 +150,13 @@ Instagram bio ── coach.fitpal.ma/c/<handle>    Laravel page: OG tags, coach 
   redirect hop inside Instagram's browser.
 - **Why server-rendered:** link previews in Instagram and WhatsApp need per-coach Open Graph tags
   in the server's HTML, which a `HashRouter` app can't produce.
-- **How it's served:** `PublicPageController@show` (Blade) answers at `/api/c/{handle}`, which
-  works without touching the server. The docroot `.htaccess` gets
-  `RewriteRule ^c/([a-z0-9._]{3,30})/?$ /api/c/$1 [L]` for the short form.
+- **How it's served:**
+  - `PublicPageController@show` (Blade) answers at `/api/c/{handle}`, which works without
+    touching the server.
+  - The docroot `.htaccess` gets `RewriteRule ^c/([A-Za-z0-9._]{3,30})/?$ /api/c/$1 [L,NC]` for
+    the short form. It must sit **before** the app's SPA fallback rule, or it never fires.
+  - Handles are stored lowercase and the controller lowercases what it is given, so
+    `/c/SaraFit` written in a bio, or capitalised by a phone, still resolves.
 - **What the page holds:** the OG tags, a small coach card in the language from
   `Accept-Language`, then `location.replace('/#/join/<handle>')`, with a `<noscript>` link as a
   fallback. Everything interactive stays in the React app and uses the existing `t()` packs.
@@ -139,20 +193,20 @@ Each phase ships on its own. They are ordered by how much each moves the funnel.
 
 | # | Phase | Main pieces, and what they reuse |
 |---|---|---|
-| 1 | Free plan and card-less self-serve | `Plans::FREE_CAP`; `Entitlement::for` returns `free` (cap 3, writable); `Plans::offered()` lists Free first; `Start.jsx` accepts `?plan=free` and skips checkout; Free added to the `billing.jsx` PlanPicker; trial dropped |
-| 2 | Public page, intake, email code, requests inbox | Tables `coach_pages` (handle, bio, whatsapp, open, auto_accept, starter_program_id, theme) and `join_requests` (email, name, intake JSON, status); `login_links.code_hash`/`attempts`; `POST /api/join/start` and `/api/join/verify`; accept copies `InviteController::redeem` (`CoachLock::take`, then `CoachSeat::refusal(lock:true)`); `views/Join.jsx`, `lib/join.js`, `lib/inapp.js`, `views/coach/Requests.jsx`, `views/coach/PublicPage.jsx`, a code variant of `email/signin-link-*` |
+| 1 | Free plan and card-less self-serve | `Plans::FREE_CAP`; `Entitlement::exempt`/`for` give a `self_serve` coach with no licence the `free` status (cap 3, writable) whether or not billing is on, while hand-onboarded coaches keep `unlicensed`; the signup guard becomes `SELF_SERVE_COACH && (billingOn \|\| FREE_CAP)`; `Plans::offered()` lists Free even with billing off; `Start.jsx` `startOpen` accepts `?plan=free` without `config.billing` and skips checkout; Free added to the `billing.jsx` PlanPicker; trial dropped (§2, cost 1) |
+| 2 | Public page, intake, email code, requests inbox | Tables `coach_pages` (handle, bio, whatsapp, open, auto_accept, starter_program_id, theme) and `join_requests` (email, name, intake JSON, status, token hash); `login_links.code_hash`/`attempts`; `POST /api/join/start`, `/api/join/verify`, `GET /api/join/status`, `POST /api/join/claim` (§3.0); accept follows `InviteController::redeem`'s lock order (client row, 409 if coached, then coach row, then `CoachSeat::refusal(lock:true)`); `views/Join.jsx`, `lib/join.js`, `lib/inapp.js`, `views/coach/Requests.jsx`, `views/coach/PublicPage.jsx`, a code variant of `email/signin-link-*` |
 | 3 | Starter program and auto-accept | `assignments.auto`; reuse `AssignmentController` and `PlanBundle`; a pure helper `lib/starter-accept.js` `applyStarter(S, bundle, today)` with its test (CONTRIBUTING rule), reusing the offer-apply code in `views/coach/sheets.jsx` |
 | 4 | Simplified app for coached clients | `lib/features.js`, where `coached` is true for a client who has a coach and isn't a coach; it gates routes (`/library`, `/muscles`), makes Plan read-only, and trims Settings, Home and the StatsPanels (which stay prop-driven) |
-| 5 | Coach pushes and daily digest | Derived `last_checkin` and `last_workout` in `UserState::derived`; a push when a coached client adds a check-in; `fitpal:coach-digest`, `dailyAt('07:00')` on the 5-minute tick; reuse `MemberCard::adherenceParts` and `checkinOverdue`; `users.last_digest` keeps it to one per day |
+| 5 | Coach pushes and daily digest | Derived `last_checkin` and `last_workout` in `UserState::derived`; a push when a coached client adds a check-in; `fitpal:coach-digest`, `dailyAt('07:00')` on the 5-minute tick; reuse `MemberCard::adherenceParts`; port the overdue rule from `frontend/src/lib/checkins.js` (`checkinOverdue`) to PHP, with a parity test on shared cases like `tests/Unit/CheckinDayTest.php`, so the digest and the coach's Today never disagree; `users.last_digest` keeps it to one per day |
 | 6 | Replies and WhatsApp | Table `coach_notes` (ref_type `checkin` or `workout`, ref_key, body of 1,000 characters at most, read_at); `Messages::coachNote` push, with at most one email a day as fallback; `lib/whatsapp.js` |
 
 **Rules for every phase:**
 - Every string goes through `t()`, with entries in all four packs.
 - API error keys must pass `check-error-strings.mjs`. A message with a value in it is a `Say::f`
   template, for example `your plan allows {0} clients — upgrade to accept more`.
-- New audit events (`coach.signup`, `join.request`, `join.verify`, `coach.request.accept`,
-  `coach.request.decline`, `coach.request.auto`, `coach.page.save`, `login.code`,
-  `coach.note.create`) get labels in `lib/audit.js`, and the floors are raised.
+- New audit events (`coach.signup`, `join.request`, `join.verify`, `join.claim`,
+  `coach.request.accept`, `coach.request.decline`, `coach.request.auto`, `coach.page.save`,
+  `login.code`, `coach.note.create`) get labels in `lib/audit.js`, and the floors are raised.
 - `CrossTenantTest` and `TenancyTest` cover every new table.
 - The public Blade page escapes the coach's bio, and a closed page answers 404.
 - Each phase goes through writing-plans, then TDD, then a PR, then CI (`test.yml`).
@@ -178,8 +232,24 @@ the Unsplash licence allows both. No photo may suggest that a real person endors
 
 ## 7. Funnel metrics
 
-Counted from `audit_events` and shown in a Filament widget. Nothing new is added to the app's
-dependencies.
+Shown in a Filament widget, with nothing new added to the app's dependencies. Three sources, so
+that an unauthenticated flood can never push security events out of `audit_events`:
+
+- **`audit_events`:** the authenticated or rate-limited steps. These are `coach.signup`,
+  `coach.page.save`, `join.request`, `join.verify`, `coach.request.accept` and the licence events.
+- **`coach_page_views`** (`coach_id`, `day`, `n`): page views, counted per coach per day. This is
+  one upsert, with no IP and no row per visit.
+- **`user_states.first_workout_at`:** a derived column set once in `UserState::derived`, the first
+  time a client's synced state holds a finished workout. **Activation** is "an accepted client's
+  `first_workout_at` is set". The time from first tap to first set is `first_workout_at` minus
+  `join_requests.created`.
+
+The funnels:
+- **Coach:** signs up for Free, publishes a page, gets a first request, accepts a first client,
+  that client logs workout 1 (**activation**, target within 7 days), 3 or more clients are
+  training weekly at day 30, and the coach pays (hits the 3-client cap).
+- **Follower:** views the page, sends a request, verifies the code, is accepted, and logs a first
+  set. The time from first tap to first logged set is tracked.
 
 - **Coach:** signs up for Free, publishes a page, gets a first request, accepts a first client,
   that client logs workout 1 (**activation**, target within 7 days), 3 or more clients are
