@@ -11,6 +11,7 @@ use App\Http\Controllers\CoachPageController;
 use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRequestController;
 use App\Http\Controllers\CoachRosterController;
+use App\Http\Controllers\CoachTermsController;
 use App\Http\Controllers\CreemWebhookController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\ExerciseMediaController;
@@ -133,6 +134,9 @@ $routes = static function (): void {
         // Coach routes act as the coach (CoachContext): every tenant-owned model is scoped to them.
         // RequireWriter marks the writes a lapsed licence stops (spec §6); the rest stay open.
         Route::middleware(RequireCoach::class)->group(function (): void {
+            // The coach terms and processor agreement (CHW-357).
+            Route::get('/coach/terms', [CoachTermsController::class, 'show']);
+            Route::post('/coach/terms', [CoachTermsController::class, 'accept']);
             Route::get('/coach/members', [CoachRosterController::class, 'members']);
             Route::get('/coach/member', [CoachRosterController::class, 'member']);
             Route::post('/coach/member/release', [CoachRosterController::class, 'release']);

@@ -65,6 +65,7 @@ const LABELS = {
   'coach.request.accept': () => t('Accepted a request to join'),
   'coach.request.decline': () => t('Declined a request to join'),
   'coach.request.forget': () => t('Deleted the answers to a request to join'),
+  'coach.terms.accept': () => t('Accepted the coach terms'),
   'coach.program.delete': () => t('Deleted a program'),
   'coach.invite.create': () => t('Created a client code'),
   'coach.invite.revoke': () => t('Revoked a client code'),

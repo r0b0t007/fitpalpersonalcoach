@@ -4,6 +4,7 @@
 // behind SELF_SERVE_COACH and only while billing is on, then read-only until the checkout. The
 // address waits in pending_email until its link is opened.
 
+use App\Coaching\Terms;
 use App\Domain\Entitlement;
 use App\Mail\AccountMail;
 use App\Models\User;
@@ -33,7 +34,7 @@ beforeEach(function () {
 function coachSignup(array $body, ?Passkey $pk = null): TestResponse
 {
     $pk ??= new Passkey;
-    $options = test()->postJson('/api/register/options', $body + ['coach' => true]);
+    $options = test()->postJson('/api/register/options', $body + ['coach' => true, 'terms' => Terms::VERSION]);
     if ($options->status() !== 200) {
         return $options;
     }
@@ -101,7 +102,7 @@ it('says the same for an address that has an account, and refuses it only when i
     $f = $this->f;
     $f->a->forceFill(['email' => 'coach.a@example.com'])->save();
     foreach (['', 'nope', str_repeat('a', 250).'@x.io'] as $email) {
-        $this->postJson('/api/register/options', ['name' => 'N', 'email' => $email, 'coach' => true])->assertStatus(400)->assertExactJson(['error' => 'that is not an email address']);
+        $this->postJson('/api/register/options', ['name' => 'N', 'email' => $email, 'coach' => true, 'terms' => Terms::VERSION])->assertStatus(400)->assertExactJson(['error' => 'that is not an email address']);
     }
     // No 409 here: that would look the address up for anyone.
     coachSignup(['name' => 'N', 'email' => 'Coach.A@example.com'])->assertOk();
@@ -124,7 +125,7 @@ it('lets nobody squat an address: the one who confirms it has it', function () {
 
 it('refuses at verify when the sign-up was closed after the options', function () {
     $pk = new Passkey;
-    $options = $this->postJson('/api/register/options', ['name' => 'N', 'email' => 'n@example.com', 'coach' => true])->assertOk();
+    $options = $this->postJson('/api/register/options', ['name' => 'N', 'email' => 'n@example.com', 'coach' => true, 'terms' => Terms::VERSION])->assertOk();
     config(['fitpal.self_serve_coach' => false]);
     $this->postJson('/api/register/verify', ['cid' => $options->json('cid'), 'credential' => $pk->attest($options->json('options'))])->assertStatus(403);
     expect(User::query()->where('name', 'N')->exists())->toBeFalse();
@@ -132,12 +133,12 @@ it('refuses at verify when the sign-up was closed after the options', function (
 
 it('keeps coach sign-ups to 10 an hour from one place, counting only real ones', function () {
     foreach (range(1, 5) as $i) {
-        $this->postJson('/api/register/options', ['name' => 'N', 'email' => 'typo', 'coach' => true])->assertStatus(400);
+        $this->postJson('/api/register/options', ['name' => 'N', 'email' => 'typo', 'coach' => true, 'terms' => Terms::VERSION])->assertStatus(400);
     }
     foreach (range(1, 10) as $i) {
-        $this->postJson('/api/register/options', ['name' => 'N', 'email' => "n{$i}@example.com", 'coach' => true])->assertOk();
+        $this->postJson('/api/register/options', ['name' => 'N', 'email' => "n{$i}@example.com", 'coach' => true, 'terms' => Terms::VERSION])->assertOk();
     }
-    $this->postJson('/api/register/options', ['name' => 'N', 'email' => 'n11@example.com', 'coach' => true])
+    $this->postJson('/api/register/options', ['name' => 'N', 'email' => 'n11@example.com', 'coach' => true, 'terms' => Terms::VERSION])
         ->assertStatus(429)->assertExactJson(['error' => 'too many sign-ups from here — try again later']);
     $this->assertDatabaseHas('audit_events', ['ev' => 'auth.register.denied', 'msg' => 'self-serve-throttled']);
 });

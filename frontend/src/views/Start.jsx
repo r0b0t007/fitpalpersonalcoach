@@ -7,7 +7,8 @@ import { pickPlan } from '../lib/billing.js'
 import { isEmail } from '../lib/email.js'
 import { t, getLang } from '../lib/i18n.js'
 import Logo from '../components/Logo.jsx'
-import { Button } from '../components/ui.jsx'
+import { Button, Check } from '../components/ui.jsx'
+import { termsUrl } from '../lib/terms.js'
 import { PlanPicker, startCheckout } from './coach/billing.jsx'
 
 /** Whether /#/start is a sign-up here: coaches may sign themselves up, to a paid plan or the Free one. */
@@ -33,6 +34,7 @@ export default function Start() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
+  const [agreed, setAgreed] = useState(false)   // the coach terms and processor agreement (CHW-357)
   // The list is the server's; a link for a plan it stopped selling falls back rather than sticking —
   // keeping the period the link asked for, which pickPlan honours on whichever plan it lands.
   useEffect(() => {
@@ -46,9 +48,10 @@ export default function Start() {
     if (!n) { toast(t('Enter a name')); return }
     // The server checks it properly; this only saves a passkey prompt over an obvious slip.
     if (!isEmail(e)) { toast(t('Enter your email address')); return }
+    if (!agreed) { toast(t('Please accept the coach terms')); return }
     setBusy(true)
     let u
-    try { u = await passkeyRegisterCoach(n, e, getLang()) }
+    try { u = await passkeyRegisterCoach(n, e, getLang(), config.terms_version) }
     catch (err) {
       setBusy(false)
       if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') toast(err.message || t('Registration failed'))
@@ -79,6 +82,13 @@ export default function Start() {
         <input className="input" type="email" placeholder={t('Email')} maxLength={254} autoComplete="email"
           value={email} onChange={ev => setEmail(ev.target.value)} />
         <div className="dim small" style={{ margin: '6px 4px 0' }}>{t('For receipts and for signing in if you lose your passkey.')}</div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 14 }}>
+          <Check checked={agreed} onChange={setAgreed} labelledBy="start-terms" />
+          <div id="start-terms" className="small">
+            <span onClick={() => setAgreed(!agreed)}>{t('I accept the coach terms and the data processing agreement')}</span>{' '}
+            <a href={termsUrl(getLang())} target="_blank" rel="noopener noreferrer">{t('Read the coach terms')}</a>
+          </div>
+        </div>
         <div style={{ height: 14 }} />
         <Button variant="primary" icon="person" onClick={go} disabled={busy}>
           {choice.plan === 'free'

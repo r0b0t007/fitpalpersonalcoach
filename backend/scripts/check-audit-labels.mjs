@@ -81,8 +81,8 @@ if (block) for (const k of block[1].matchAll(/'([^']+)'\s*:/g)) labelled.add(k[1
 // (CHW-301, which retired api/ and raised them as CHW-276 asked), not token minimums: raise them
 // deliberately when events are added. A DROP means the extractor stopped seeing calls that are
 // still there.
-const EVENT_FLOOR = 51
-const LABEL_FLOOR = 51
+const EVENT_FLOOR = 52
+const LABEL_FLOOR = 52
 if (emitted.size < EVENT_FLOOR) fail(`found ${emitted.size} audit events in backend/app, expected at least ${EVENT_FLOOR} — the extractor is broken, not the code`)
 if (labelled.size < LABEL_FLOOR) fail(`found ${labelled.size} labels in audit.js, expected at least ${LABEL_FLOOR} — the extractor is broken, not the code`)
 

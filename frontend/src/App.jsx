@@ -50,6 +50,7 @@ import ProgramEditShell, { ProgramEdit, ProgramRoutineEdit } from './views/coach
 import CoachAccount from './views/coach/CoachAccount.jsx'
 import PublicPage from './views/coach/PublicPage.jsx'
 import Requests from './views/coach/Requests.jsx'
+import TermsGate from './views/coach/TermsGate.jsx'
 import { BusinessAccounts, BusinessActivity } from './views/coach/Business.jsx'
 
 // last known scrollY per route, so back-navigation can put the page where it was
@@ -251,7 +252,7 @@ function Shell() {
           re-mounts the boundary, so the tab bar is always a way out */}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
-          {coachPage ? <PublicCoach handle={coachPage} /> : joinPage ? <Join handle={joinPage} /> : onLink ? <Link /> : !authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <CoachRoutes user={user} /> : <ClientRoutes />}
+          {coachPage ? <PublicCoach handle={coachPage} /> : joinPage ? <Join handle={joinPage} /> : onLink ? <Link /> : !authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <TermsGate><CoachRoutes user={user} /></TermsGate> : <ClientRoutes />}
         </ErrorBoundary>
       </div>
       {/* The chat owns the bottom of the screen: its composer sits where the tabs would be. */}
