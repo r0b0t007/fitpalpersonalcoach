@@ -1,7 +1,7 @@
 # FitPal Coach: funnel and 90-day promotion plan
 
 Written 2026-11-01, alongside `docs/superpowers/specs/2026-11-01-creator-coach-design.md`. The
-work is tracked in the Linear milestone M-C "Go-to-market: creator coaches". Numbers marked
+work is tracked in the Linear milestone "C3 — Go-to-market: creator coaches" (CHW-343 to CHW-355). Numbers marked
 *(est.)* are our own estimates. Every other number links its source.
 
 ## 1. Who we sell to
@@ -28,7 +28,7 @@ entreno está listo ese mismo día."
 | Stage | Event (`audit_events`) | Target |
 |---|---|---|
 | Visit | fitpal.ma page view (site analytics) | — |
-| Sign-up | `coach.signup` with its plan (a new event, added with M-B 1; today a self-serve coach shows only as `auth.register.ok`) | 8% of visits *(est.)* |
+| Sign-up | `coach.signup` with its plan (a new event, added with CHW-329; today a self-serve coach shows only as `auth.register.ok`) | 8% of visits *(est.)* |
 | Page published | `coach.page.save` with `open` on | 70% of sign-ups |
 | First request | first `join.request` | 50% of sign-ups within 7 days |
 | **Activated** | a client accepted *and* that client logs workout 1 | 50% of sign-ups within 7 days |

@@ -1,8 +1,8 @@
 # FitPal Coach for Instagram coaches: one link in the bio
 
 Design spec, 2026-11-01. Decided with the owner. It will be carried out in three Linear milestones
-in the "FitPal Coach" project: M-A (redesign, in Claude Design), M-B (the build) and M-C
-(go-to-market). The funnel and promotion plan is in `docs/growth/2026-11-funnel-and-promotion.md`.
+in the "FitPal Coach" project: C1 (redesign, in Claude Design: CHW-323 to CHW-328), C2 (the build: CHW-329 to CHW-342) and C3
+(go-to-market: CHW-343 to CHW-355). The funnel and promotion plan is in `docs/growth/2026-11-funnel-and-promotion.md`.
 
 ## 1. Why
 
@@ -133,7 +133,7 @@ Instagram bio ── coach.fitpal.ma/c/<handle>    Laravel page: OG tags, coach 
 | Pricing | Solo, Pro and Studio at €19, €39 and €79 | Free (3 clients, no card) | The 14-day trial |
 | fitpal.ma | The brand, the legal pages, FR/EN/ES | The "one link" pitch, a "Start free" CTA pointing at `#/start?plan=free`, a demo video | "Book a call" as the only CTA; the spec-sheet bragging (Greyskull, 1,324 exercises); the FAQ line "no account to create", which is false |
 
-## 5. Build phases (M-B)
+## 5. Build phases (C2)
 
 Each phase ships on its own. They are ordered by how much each moves the funnel.
 
@@ -159,7 +159,7 @@ Each phase ships on its own. They are ordered by how much each moves the funnel.
 
 CHW-302 (billing live) comes after phase 1 and no longer blocks coaches from signing up.
 
-## 6. Redesign (M-A)
+## 6. Redesign (C1)
 
 The Claude Design project is "FitPal Coach — Creator redesign". It starts from the existing
 "FitPal Coach Design System" project, `DESIGN.md`, `PRODUCT.md` and `frontend/src/index.css`.
@@ -257,7 +257,7 @@ WhatsApp. Coaches juggle about four tools for each check-in
   ([coachway FR](https://coachway.io/fr/combien-coute-un-coach-sportif-en-ligne/)).
 - **Spain:** €50–150 a month ([FitGeneration](https://fitgeneration.es/cuanto-vale-un-entrenador-personal-al-mes/)).
 - **Morocco:** no published data. The estimate is 300–800 MAD a month, to be checked by
-  mystery-shopping in M-C.
+  mystery-shopping in C3.
 
 **Morocco:**
 - 15.1M people use Instagram and 16.7M use TikTok
