@@ -208,9 +208,11 @@ Each phase ships on its own. They are ordered by how much each moves the funnel.
 - Every string goes through `t()`, with entries in all four packs.
 - API error keys must pass `check-error-strings.mjs`. A message with a value in it is a `Say::f`
   template, for example `your plan allows {0} clients — upgrade to accept more`.
-- New audit events (`coach.signup`, `join.request`, `join.verify`, `join.claim`,
-  `coach.request.accept`, `coach.request.decline`, `coach.request.auto`, `coach.page.save`,
-  `login.code`, `coach.note.create`) get labels in `lib/audit.js`, and the floors are raised.
+- New audit events (`join.request`, `join.verify`, `join.claim`, `coach.request.accept`,
+  `coach.request.decline`, `coach.request.auto`, `coach.page.save`, `login.code`,
+  `coach.note.create`) get labels in `lib/audit.js`, and the floors are raised. A coach sign-up
+  is counted from the existing `auth.register.ok` event with `msg` `self-serve` (CHW-329 dropped
+  the planned `coach.signup`).
 - `CrossTenantTest` and `TenancyTest` cover every new table.
 - The public Blade page escapes the coach's bio, and a closed page answers 404.
 - Each phase goes through writing-plans, then TDD, then a PR, then CI (`test.yml`).
@@ -239,8 +241,8 @@ the Unsplash licence allows both. No photo may suggest that a real person endors
 Shown in a Filament widget, with nothing new added to the app's dependencies. Three sources, so
 that an unauthenticated flood can never push security events out of `audit_events`:
 
-- **`audit_events`:** the authenticated or rate-limited steps. These are `coach.signup`,
-  `coach.page.save`, `join.request`, `join.verify`, `coach.request.accept` and the licence events.
+- **`audit_events`:** the authenticated or rate-limited steps. These are `auth.register.ok`
+  (msg `self-serve`), `coach.page.save`, `join.request`, `join.verify`, `coach.request.accept` and the licence events.
 - **`coach_page_views`** (`coach_id`, `day`, `n`): page views, counted per coach per day. This is
   one upsert, with no IP and no row per visit.
 - **`user_states.first_workout_at`:** a derived column set once in `UserState::derived`, the first
