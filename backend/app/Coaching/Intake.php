@@ -13,7 +13,7 @@ use stdClass;
  * offers (frontend/src/lib/join.js holds the same lists): anything else is dropped, never stored.
  *
  * Injuries are health data (GDPR art. 9; Morocco law 09-08): the consent is required and stamped
- * (consent_at), and the text is optional and short (CHW-334 has the rest: legal pages, wiping).
+ * (consent_at), the follower confirms they are 16 or older, and the text is optional and short (CHW-334 has the rest: legal pages, wiping).
  */
 final class Intake
 {
@@ -46,6 +46,11 @@ final class Intake
         }
         if (($raw->consent ?? null) !== true) {
             throw new ClientSafe(400, 'please agree to share your answers with your coach');
+        }
+        // 16, the highest age of digital consent in the markets served (GDPR art. 8): no parental
+        // consent to collect anywhere. Checked, not stored — consent_at is the record.
+        if (($raw->over16 ?? null) !== true) {
+            throw new ClientSafe(400, 'you must be 16 or older to ask');
         }
         $equipment = is_array($raw->equipment ?? null) ? $raw->equipment : [];
 

@@ -32,13 +32,15 @@ export const privacyUrl = lang => PRIVACY[lang] || 'https://fitpal.ma/en/legal#d
 export const MIN_FILL_MS = 3000
 
 /**
- * What stops this intake being sent, or null: 'basics' (goal, level, days a week), 'consent', or
+ * What stops this intake being sent, or null: 'basics' (goal, level, days a week), 'consent', 'age'
+ * (not confirmed 16 or older), or
  * 'injuries' (too long). The phone is the server's to judge — it knows every country's digits.
  */
 export function intakeError(i) {
   if (!GOALS.includes(i?.goal) || !LEVELS.includes(i?.level) || !Number.isInteger(i?.days) || i.days < 1 || i.days > 7) return 'basics'
   if ((i.injuries || '').trim().length > INJURIES_MAX) return 'injuries'
   if (i.consent !== true) return 'consent'
+  if (i.over16 !== true) return 'age'
   return null
 }
 

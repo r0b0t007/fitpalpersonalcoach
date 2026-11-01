@@ -194,7 +194,7 @@ it('tells the coach a request has arrived, by push and by email', function () {
     $this->f->a->forceFill(['email' => 'coach.a@example.com', 'email_verified_at' => now()])->save();
     Coaching::own(new CoachPage, $this->f->a, ['handle' => 'sara.fit', 'bio' => '', 'whatsapp' => '', 'open' => true, 'theme' => 'dark', 'created' => 1, 'updated' => 1]);
     $id = $this->postJson('/api/join/start', ['handle' => 'sara.fit', 'name' => 'Salma', 'email' => 'salma@example.com', 'lang' => 'fr', 'hp' => '', 'elapsed' => 9000,
-        'intake' => ['goal' => 'strength', 'level' => 'beginner', 'days' => 3, 'injuries' => '', 'equipment' => [], 'phone' => '', 'consent' => true]])->json('id');
+        'intake' => ['goal' => 'strength', 'level' => 'beginner', 'days' => 3, 'injuries' => '', 'equipment' => [], 'phone' => '', 'consent' => true, 'over16' => true]])->json('id');
     $code = Mail::sent(JoinCodeMail::class)->last()->code;
     $this->postJson('/api/join/verify', ['id' => $id, 'code' => $code])->assertOk();
     Bus::assertDispatched(SendPush::class, fn (SendPush $j) => $j->userId === $this->f->a->id && $j->kind === 'join-request' && $j->args === ['Salma']);

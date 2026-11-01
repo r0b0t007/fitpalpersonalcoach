@@ -19,7 +19,7 @@ import { Button, Check, Notice, Segmented, TextArea, TextField } from '../compon
 export default function Join({ handle }) {
   const [coach, setCoach] = useState(null)
   const [step, setStep] = useState('loading')   // loading | intake | about | email | code | sent | gone
-  const [intake, setIntake] = useState({ goal: null, level: null, days: null, injuries: '', equipment: [], phone: '', consent: false })
+  const [intake, setIntake] = useState({ goal: null, level: null, days: null, injuries: '', equipment: [], phone: '', consent: false, over16: false })
   const [who, setWho] = useState({ name: '', email: '', hp: '' })
   const [code, setCode] = useState('')
   const [request, setRequest] = useState(null)   // { id } once started; { id, token, status } once sent
@@ -81,10 +81,11 @@ export default function Join({ handle }) {
     if (why) { setError(why); return }
     setError(null); setStep(to)
   }
-  const basics = () => intakeError({ ...intake, consent: true }) === 'basics' ? t('Tell us your goal, level and days a week') : null
+  const basics = () => intakeError({ ...intake, consent: true, over16: true }) === 'basics' ? t('Tell us your goal, level and days a week') : null
   const about = () => ({
     injuries: t('Keep it under {0} characters', INJURIES_MAX),
     consent: t('Please agree to share your answers with your coach'),
+    age: t('You must be 16 or older to ask'),
   })[intakeError(intake)] || null
 
   const start = async () => {
@@ -167,6 +168,10 @@ export default function Join({ handle }) {
       <h4 className="sec">{t('WhatsApp (optional)')}</h4>
       <TextField name="phone" type="tel" placeholder="+212 6 12 34 56 78" value={intake.phone} onChange={e => set('phone', e.target.value)} />
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 18 }}>
+        <Check checked={intake.over16} onChange={v => set('over16', v)} />
+        <div className="small">{t('I am 16 or older')}</div>
+      </div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 12 }}>
         <Check checked={intake.consent} onChange={v => set('consent', v)} />
         <div className="small">{t('I agree that {0} sees these answers, injuries included, to prepare my program. Nobody else sees them.', coach.name)}</div>
       </div>
