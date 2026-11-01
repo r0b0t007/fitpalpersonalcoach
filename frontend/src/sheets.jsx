@@ -26,7 +26,7 @@ import MuscleExplorer from './components/MuscleExplorer.jsx'
 import { exerciseMuscleSnapshot, loadOfWorkouts, MUSCLES, MUSCLE_NAME, normalizeMuscleGroups, hasExplicitMuscleMetadata } from './lib/muscles.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { importHevyData, HevyApiError, HEVY_DEV_SETTINGS, mergeHevyRoutines } from './lib/import-hevy.js'
-import { buildPlanBundle, parsePlan, mergePlan, printPlan } from './lib/plan-share.js'
+import { buildPlanBundle, parsePlan, mergePlan, printPlan, schemeOf } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { exerciseHistory } from './lib/exercise-history.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC, MAX_BW_SETS, weightIncrement } from './lib/progression.js'
@@ -37,6 +37,10 @@ import { buildCompletedWorkout } from './lib/finish-workout.js'
 import { api, fetchMyPhotos, uploadProgressPhoto } from './lib/api.js'
 import { mustAsk } from './lib/health-consent.js'
 import { can } from './lib/features.js'
+
+// Every sheet that changes the plan asks this itself (CHW-333), so a button anywhere that opens
+// one cannot hand a coached client an edit of their coach's program.
+const allowed = feature => can(useStore.getState().user, feature)
 import { privacyUrl } from './lib/join.js'
 import { isWarmupRow } from './lib/workout-model.js'
 import { nextUnfinishedUnit } from './lib/supersetFlow.js'
@@ -155,7 +159,7 @@ function StarterPlanChooser({ close }) {
   </>
 }
 
-export const starterPlanSheet = () => ui().openSheet(close => <StarterPlanChooser close={close} />)
+export const starterPlanSheet = () => allowed('starterPlans') && ui().openSheet(close => <StarterPlanChooser close={close} />)
 
 /* ============================ weight picker (shared: body weight + goal) ============================ */
 // Fixed range, not a moving window — a window that resizes itself mid-drag (the previous
@@ -935,7 +939,7 @@ function ExerciseDetail({ ex, close }) {
     </div>
     {ex.desc && <div className="exnote">{ex.desc}</div>}
     {best > 0 && <div className="small row" style={{ marginBottom: 6, gap: 5 }}><Icon name="trophy" style={{ fontSize: 14, color: 'var(--yellow)' }} />{t('Best:')} <b className="accent">{fmtNum(best)} {st.unit}</b>{last ? ` · ${t('last')} ${fmtDate(last.d)}: ${last.sets.map(s => setLabel(ex.id, s, last.target)).join(', ')}` : ''}</div>}
-    <Button variant="primary" icon="plus" style={{ margin: '10px 0 4px' }} onClick={() => addToRoutineSheet(ex)}>{t('Add to my plan')}</Button>
+    {allowed('editPlan') && <Button variant="primary" icon="plus" style={{ margin: '10px 0 4px' }} onClick={() => addToRoutineSheet(ex)}>{t('Add to my plan')}</Button>}
     {last && <Button icon="history" style={{ marginTop: 4 }} onClick={() => exerciseHistorySheet(ex.id)}>{t('History')}</Button>}
     {ex.custom && <div className="row" style={{ gap: 8, marginTop: 8 }}>
       <Button icon="pencil" style={{ flex: 1 }} onClick={() => { close(); customExSheet(ex) }}>{t('Edit')}</Button>
@@ -1032,7 +1036,7 @@ function AddToRoutine({ ex, close }) {
     </div>
   </>
 }
-export const addToRoutineSheet = ex => ui().openSheet(close => <AddToRoutine ex={ex} close={close} />)
+export const addToRoutineSheet = ex => allowed('editPlan') && ui().openSheet(close => <AddToRoutine ex={ex} close={close} />)
 
 /* ============================ custom exercises (issue #11) ============================ */
 // Name + body part is all it takes — the exercise then behaves like any built-in one
@@ -1727,7 +1731,15 @@ export const effortPickerSheet = (kind, value, onPick) =>
   ui().openSheet(close => <EffortPicker kind={kind} value={value} onPick={onPick} close={close} />)
 
 /* ============================ share / print / import a plan ============================ */
-export const planToolsSheet = () => ui().openSheet(close => <PlanTools close={close} />)
+/** A routine read, not edited (a coached client's Plan, CHW-333): its exercises and their scheme. */
+export const routineViewSheet = r => ui().openSheet(() => <>
+  <h3>{r.name}</h3>
+  <div className="list">{(r.ex || []).map((e, i) => <div key={i} className="item">
+    <div className="grow"><div className="tt capitalize">{exerciseNameFor(exOr(e.id))}</div><div className="ss">{schemeOf(e, useStore.getState().S.unit)}</div></div>
+  </div>)}</div>
+</>)
+
+export const planToolsSheet = () => allowed('planShare') && ui().openSheet(close => <PlanTools close={close} />)
 
 function PlanTools({ close }) {
   const st = useStore(s => s.S)
@@ -1897,7 +1909,7 @@ function DayOverride({ iso, close }) {
     </div>
   </>
 }
-export const dayOverrideSheet = iso => ui().openSheet(close => <DayOverride iso={iso} close={close} />)
+export const dayOverrideSheet = iso => allowed('dayOverride') && ui().openSheet(close => <DayOverride iso={iso} close={close} />)
 
 function DayAssign({ day, close }) {
   const st = useStore(s => s.S)
@@ -1917,7 +1929,7 @@ function DayAssign({ day, close }) {
     </div>
   </>
 }
-export const dayAssignSheet = day => ui().openSheet(close => <DayAssign day={day} close={close} />)
+export const dayAssignSheet = day => allowed('editPlan') && ui().openSheet(close => <DayAssign day={day} close={close} />)
 
 // ＋ Add routine on a populated weekday: single-pick, appends to the day's list. A routine
 // already on that day is disabled; picking one closes the sheet.
@@ -1940,7 +1952,7 @@ function DayAddRoutine({ day, close }) {
     </div>
   </>
 }
-export const dayAddRoutineSheet = day => ui().openSheet(close => <DayAddRoutine day={day} close={close} />)
+export const dayAddRoutineSheet = day => allowed('editPlan') && ui().openSheet(close => <DayAddRoutine day={day} close={close} />)
 
 /* ============================ workout detail ============================ */
 function WorkoutDetail({ w, close }) {
@@ -2041,9 +2053,9 @@ function Calendar({ start, close }) {
     const iso = y + '-' + String(mo + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0')
     const ws = byDay[iso], planned = effectiveRoutineIds(st, iso).length > 0, ovr = st.dayPlan[iso] !== undefined
     const dotCls = ws ? 'done' : ovr && planned ? 'ovr' : planned ? 'plan' : ''
-    cells.push(<button key={d} className={'cal-d' + (ws ? ' has' : '') + (iso === todayISO() ? ' today' : '')} onClick={() => {
-      // A coached client follows their coach's days and moves none (CHW-333): an empty day is just that.
-      if (!ws) { if (can(useStore.getState().user, 'dayOverride')) { close(); dayOverrideSheet(iso) } return }
+    // A coached client follows their coach's days and moves none (CHW-333): an empty day is just that.
+    cells.push(<button key={d} className={'cal-d' + (ws ? ' has' : '') + (iso === todayISO() ? ' today' : '')} disabled={!ws && !allowed('dayOverride')} onClick={() => {
+      if (!ws) { close(); dayOverrideSheet(iso); return }
       if (ws.length === 1) { close(); workoutDetailSheet(ws[0]); return }
       close(); ui().openSheet(c2 => <><h3>{fmtDate(iso, true)}</h3><div className="list">{ws.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { c2(); workoutDetailSheet(w) }} />)}</div></>)
     }}><span>{d}</span><i className={dotCls} /></button>)

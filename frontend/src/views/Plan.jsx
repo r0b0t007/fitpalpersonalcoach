@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { DAYN, weekOrder, weekStartOf, uid, exCount } from '../lib/format.js'
 import { t, tp } from '../lib/i18n.js'
-import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet } from '../sheets.jsx'
+import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet, routineViewSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
@@ -14,7 +14,8 @@ export default function Plan() {
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
   // A coached client reads their coach's week and routines here, and changes none of it (CHW-333).
-  const edit = can(useStore(s => s.user), 'editPlan')
+  const user = useStore(s => s.user)
+  const edit = can(user, 'editPlan')
 
   const addRoutine = () => {
     const r = { id: uid(), name: t('New routine'), emoji: DEFAULT_GLYPH, ex: [] }
@@ -30,7 +31,7 @@ export default function Plan() {
 
   return <>
     <div className="hdr">
-      <div><h1>{t('Plan')}</h1><div className="sub">{edit ? t('Your weekly routine') : t('Your coach’s program')}</div></div>
+      <div><h1>{t('Plan')}</h1><div className="sub">{t('Your weekly routine')}</div></div>
       {edit && <div className="row" style={{ gap: 8 }}>
         {/* The catalogue left the tab bar, and Plan is where you reach for it — this is the
            screen you are on when you want to know what to put in a routine. */}
@@ -70,13 +71,13 @@ export default function Plan() {
         <h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
         {edit && <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>}
       </div>
-      {S.routines.length ? <div className="list">{S.routines.map(r => <div key={r.id} className="item" {...(edit ? tappable(() => nav('/plan/r/' + r.id)) : {})}>
+      {S.routines.length ? <div className="list">{S.routines.map(r => <div key={r.id} className="item" {...tappable(() => (edit ? nav('/plan/r/' + r.id) : routineViewSheet(r)))}>
         <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
-        {edit && <Icon name="chevronRight" className="chev" />}</div>)}</div> : edit ? <>
+        <Icon name="chevronRight" className="chev" /></div>)}</div> : edit ? <>
         <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>
         <Button icon="sparkles" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
-      </> : <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('Your coach is preparing your program.')}</div>}
+      </> : <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('{0} is preparing your program', user.coachName)}</div>}
     </div></div>
   </>
 }

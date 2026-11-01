@@ -35,14 +35,14 @@ describe('applyStarter', () => {
     expect(effectiveRoutineIds(s, TODAY)).toEqual([s.routines[1].id])
   })
 
-  it('replaces nothing a returning client already has: their week, targets and check-in day', () => {
+  it('gives a returning client the coach’s week, and keeps their targets and check-in day', () => {
     const s = { ...fresh(), routines: [{ id: 'mine', name: 'Mine', ex: [{ id: '0001', sets: 3 }] }], week: { 1: ['mine'] },
       nutriTarget: { kcal: 2000, t: 1 }, checkinDay: 3 }
     applyStarter(s, { ...bundle(), nutrition: { kcal: 2600 }, checkinDay: 0 }, TODAY)
-    expect(s.week).toEqual({ 1: ['mine'] })
+    expect(s.week).toEqual({ 1: [s.routines[1].id], 4: [s.routines[2].id] })   // the coach's, not theirs
     expect(s.nutriTarget).toEqual({ kcal: 2000, t: 1 })
     expect(s.checkinDay).toBe(3)
-    // Their week trains Mondays only, so today still gets the program's first routine.
+    expect(s.routines[0].name).toBe('Mine')   // their routine stays, off the week
     expect(effectiveRoutineIds(s, TODAY)).toEqual([s.routines[1].id])
   })
 

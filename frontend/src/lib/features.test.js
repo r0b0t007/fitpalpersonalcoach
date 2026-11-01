@@ -26,6 +26,6 @@ describe('features', () => {
   })
 
   it('never hides what is not on the list: export, the swap, their own charts', () => {
-    for (const f of ['export', 'swapExercise', 'stats', 'nutrition', 'history']) expect(can(coached, f)).toBe(true)
+    for (const f of ['export', 'swapExercise', 'stats', 'nutrition', 'history', 'pairing', 'equipment']) expect(can(coached, f)).toBe(true)
   })
 })

@@ -9,7 +9,9 @@ export const isCoached = user => !!user?.coachName && !isCoach(user)
 
 /**
  * What a coached client does not get, and why each would hurt. Export stays (their data is
- * theirs to take), as do the in-session exercise swap and their own charts.
+ * theirs to take), as do the in-session exercise swap, their own charts, pairing (the way the
+ * phone app signs in) and their equipment (a filter on exercises, not a load). The sheets that
+ * change the plan check these themselves (sheets.jsx), so no new button can reopen one.
  */
 export const COACHED_HIDES = Object.freeze({
   library: 'browsing the exercise catalogue to build routines',
@@ -21,8 +23,6 @@ export const COACHED_HIDES = Object.freeze({
   importData: 'importing other apps\' history (FitNotes, Strong, Hevy, Apple Health)',
   backupImport: 'restoring a backup over the synced plan',
   reset: 'wiping the plan and history the coach follows',
-  pairing: 'pairing another app (the mobile build, MCP) with a token',
-  equipment: 'equipment and plates: the coach sets the loads',
   recovery: 'the recovery and muscle-balance panels: useful to the coach, noise to a beginner',
   effort: 'the effort panel, for the same reason',
 })

@@ -292,12 +292,14 @@ export default function Stats() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   // A coached client's own charts, without the recovery, muscle-balance and effort panels their
-  // coach reads (CHW-333). Decided here, so the panels below stay prop-driven.
-  const simple = !can(useStore(s => s.user), 'recovery')
+  // coach reads (CHW-333). Decided here, so the panels below stay prop-driven; the coach's view of
+  // a client passes nothing and keeps them all.
+  const user = useStore(s => s.user)
+  const hide = { recovery: !can(user, 'recovery'), effort: !can(user, 'effort') }
   return <>
     <div className="hdr"><div><h1>{t('Stats')}</h1><div className="sub">{t('Progress & history')}</div></div>
       <button className="iconbtn" onClick={() => nav('/history')} aria-label={t('History')}><Icon name="history" /></button></div>
-    <StatsPanels S={S} simple={simple} />
+    <StatsPanels S={S} hide={hide} />
   </>
 }
 
@@ -392,7 +394,7 @@ function NutritionCard({ S, readOnly }) {
   </div>
 }
 
-export function StatsPanels({ S, readOnly = false, simple = false }) {
+export function StatsPanels({ S, readOnly = false, hide = {} }) {
   const nav = useNavigate()
   const [range, setRange] = useState(90)
   const [exId, setExId] = useState(null)
@@ -523,7 +525,7 @@ export function StatsPanels({ S, readOnly = false, simple = false }) {
   // curve of its own, because the two only mean something together: the same weight moved
   // with more left in the tank is progress a weight-only chart draws as a flat line.
   const exRir = exPts.map(p => avgRir(p.sets))
-  const showEff = exRir.filter(v => v != null).length >= 3
+  const showEff = !hide.effort && exRir.filter(v => v != null).length >= 3
   const effPts = exPts.map((p, i) => (exRir[i] == null ? null : { t: p.t, y: toScale(kind, exRir[i]), d: p.d })).filter(Boolean)
   const onE1 = showE1 && exMetric === 'e1rm'
   const onEff = showEff && exMetric === 'effort'
@@ -551,8 +553,8 @@ export function StatsPanels({ S, readOnly = false, simple = false }) {
       <Heatmap S={S} onDay={readOnly ? undefined : iso => { const ws = workouts.filter(w => w.d === iso); if (ws.length === 1) workoutDetailSheet(ws[0]); else if (ws.length) calendarSheet(iso) }} />
     </div>
 
-    {!simple && workouts.length > 0 && <MuscleBalance S={S} />}
-    {!simple && hasEffort(S) && <EffortCard S={S} />}
+    {!hide.recovery && workouts.length > 0 && <MuscleBalance S={S} />}
+    {!hide.effort && hasEffort(S) && <EffortCard S={S} />}
 
     <div className="cols">
       <div className="card">

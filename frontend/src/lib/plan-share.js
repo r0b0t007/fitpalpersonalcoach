@@ -226,8 +226,9 @@ export function mergePlan(s, bundle, { schedule } = {}) {
 const esc = str => String(str == null ? '' : str)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-// One exercise's scheme, e.g. "3 × 10 · 60 kg", "3 × 0:45" or "2 × 20 min @ 8 km/h".
-function scheme(e, unit) {
+// One exercise's scheme, e.g. "3 × 10 · 60 kg", "3 × 0:45" or "2 × 20 min @ 8 km/h". The printed
+// plan's, and a coached client's read-only routine's (sheets.jsx routineViewSheet).
+export function schemeOf(e, unit) {
   const sets = e.sets || 1
   const mode = modeOf(e)
   if (mode === 'cardio') {
@@ -259,7 +260,7 @@ function routineHTML(r, unit) {
       const name = ex ? exerciseNameFor(ex) : t('Unknown exercise')
       const part = ex && ex.bp && ex.bp !== 'cardio' ? `<span class="part">${esc(ex.bp)}</span>` : ''
       const note = e.note ? `<div class="ex-note">${esc(e.note)}</div>` : ''
-      return `<div class="ex"><div class="ex-row"><div class="ex-n">${esc(name)}${part}</div><div class="ex-s">${esc(scheme(e, unit))}</div></div>${note}</div>`
+      return `<div class="ex"><div class="ex-row"><div class="ex-n">${esc(name)}${part}</div><div class="ex-s">${esc(schemeOf(e, unit))}</div></div>${note}</div>`
     }).join('')
     return u.length > 1
       ? `<div class="ss"><div class="ss-tag">${esc(t('Superset'))}</div><div class="ss-items">${items}</div></div>`

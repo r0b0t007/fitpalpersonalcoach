@@ -1538,8 +1538,6 @@ export default {
   'Billing needs attention': 'La facturation demande votre attention',
   'Choose a plan': 'Choisir une formule',
   'Ask to join': 'Demander à rejoindre',
-  'Your coach’s program': 'Le programme de votre coach',
-  'Your coach is preparing your program.': 'Votre coach prépare votre programme.',
   'Workout 1 · today': 'Séance 1 · aujourd’hui',
   'New clients': 'Nouveaux clients',
   'Starter program': 'Programme de départ',
