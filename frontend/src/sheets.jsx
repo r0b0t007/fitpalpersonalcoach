@@ -37,6 +37,7 @@ import { buildCompletedWorkout } from './lib/finish-workout.js'
 import { api, fetchMyPhotos, uploadProgressPhoto } from './lib/api.js'
 import { mustAsk } from './lib/health-consent.js'
 import { can } from './lib/features.js'
+import { notesOn } from './lib/notes.js'
 
 // Every sheet that changes the plan asks this itself (CHW-333), so a button anywhere that opens
 // one cannot hand a coached client an edit of their coach's program.
@@ -2006,9 +2007,16 @@ function WorkoutDetail({ w, close }) {
     g.items.push([e, i])
   })
   const grouped = groups.length > 1 || (groups[0] && groups[0].rid && (w.routineIds || []).length > 1)
+  // What their coach wrote about this session (CHW-340).
+  const coachNotes = notesOn(useStore.getState().notes, 'workout', w.id)
+  const coachName = useStore.getState().user?.coachName
   return <>
     <h3>{w.name}</h3>
     <div className="muted small" style={{ marginBottom: 12 }}>{[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, st.unit), ...(w.bw ? [fmtNum(w.bw) + ' ' + st.unit] : [])].join(' · ')}</div>
+    {coachNotes.map(n => <div key={n.id} className="card" style={{ marginBottom: 12, padding: '10px 12px' }}>
+      <div className="small" style={{ fontWeight: 600, color: 'var(--acc)', marginBottom: 3 }}>{coachName || t('Your coach')}</div>
+      <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{n.body}</div>
+    </div>)}
     {grouped ? groups.map(g => {
       const r = g.rid ? st.routines.find(x => x.id === g.rid) : null
       const setN = g.items.reduce((n, [e]) => n + e.sets.filter(s => s.done && !isWarmupRow(s)).length, 0)

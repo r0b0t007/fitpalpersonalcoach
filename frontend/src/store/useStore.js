@@ -7,6 +7,7 @@ import { compactMeals } from '../lib/nutrition.js'
 import { emptyHealth } from '../lib/health-consent.js'
 import { parsePlan } from '../lib/plan-share.js'
 import { applyStarter } from '../lib/starter-accept.js'
+import { unreadCount } from '../lib/notes.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
@@ -260,7 +261,22 @@ export const useStore = create((set, get) => {
       return c
     },
 
+    // A coach's replies and comments (CHW-340): server-owned, read here, never written into S.
+    notes: [],
+    async loadNotes() {
+      if (!get().user?.coachName) return set({ notes: [] })
+      try { set({ notes: (await api('/api/notes')).notes || [] }) }
+      catch { /* offline, or an older server: no notes is the safe answer */ }
+    },
+    // Opening their coach's screen reads them all.
+    async readNotes() {
+      if (!unreadCount(get().notes)) return
+      try { set({ notes: (await api('/api/notes/read', { method: 'POST', body: '{}' })).notes || [] }) }
+      catch { /* they stay unread, and are marked the next time */ }
+    },
+
     async loadAssignments() {
+      get().loadNotes()   // refreshed with the offers, on every sync
       if (!get().user) return set({ assignments: [] })
       let list
       try { list = (await api('/api/assignments')).assignments || [] }
@@ -364,7 +380,7 @@ export const useStore = create((set, get) => {
       else localStorage.removeItem('gym_user')
       // Offers belong to whoever is signed in; leaving them behind would show one profile's
       // pending program to the next person on a shared device. The plan likewise.
-      set({ user: u, healthConsent: null, ...(u ? null : { assignments: [], billing: null }) })
+      set({ user: u, healthConsent: null, ...(u ? null : { assignments: [], billing: null, notes: [] }) })
     },
 
     async pushState() {

@@ -13,6 +13,7 @@ import Icon from '../components/Icon.jsx'
 import { Button, Section, Row } from '../components/ui.jsx'
 import { TargetRows } from '../components/MacroRows.jsx'
 import { openCoachOffer, checkinSheet } from '../sheets.jsx'
+import { unreadCount } from '../lib/notes.js'
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -86,10 +87,42 @@ export default function MyCoach() {
         deload, say — and the old Home card showed assignments[0] and silently swallowed the rest. */}
     {offers.map(o => <OfferCard key={o.id} offer={o} />)}
 
+    <CoachNotes coachName={coachName} S={S} />
     <CurrentProgram />
     <CheckIn S={S} today={today} />
     {PHOTOS_REACHABLE && <Photos userId={user.id} />}
     <Targets S={S} nav={nav} />
+  </div>
+}
+
+/* ------------------------------------------------------------------ notes -- */
+
+// What their coach wrote (CHW-340): replies to check-ins and comments on workouts, newest first,
+// each with what it is about. Opening this screen reads them; the ones new on arrival keep their
+// dot while it stays open, so the client can see which they had not read.
+function CoachNotes({ coachName, S }) {
+  const notes = useStore(s => s.notes)
+  const [fresh, setFresh] = useState(() => new Set())
+  useEffect(() => {
+    if (!unreadCount(notes)) return
+    setFresh(f => new Set([...f, ...notes.filter(n => !n.readAt).map(n => n.id)]))
+    useStore.getState().readNotes()
+  }, [notes])
+  if (!notes?.length) return null
+  const about = n => {
+    if (n.refType === 'checkin') return t('On your check-in of {0}', fmtDate(n.refKey))
+    const w = (S.workouts || []).find(x => x.id === n.refKey)
+    return w ? t('On {0}, {1}', w.name, fmtDate(w.d)) : t('On a workout')
+  }
+  return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="tt" style={{ marginBottom: 6 }}>{t('From {0}', coachName)}</div>
+    {notes.slice(0, 20).map(n => <div key={n.id} style={{ padding: '8px 0', borderTop: '1px solid var(--sep)' }}>
+      <div className="row" style={{ gap: 6 }}>
+        {fresh.has(n.id) && <span aria-label={t('New')} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--acc)', flex: 'none' }} />}
+        <span className="dim small">{about(n)}</span>
+      </div>
+      <div className="small" style={{ marginTop: 3, whiteSpace: 'pre-wrap' }}>{n.body}</div>
+    </div>)}
   </div>
 }
 
