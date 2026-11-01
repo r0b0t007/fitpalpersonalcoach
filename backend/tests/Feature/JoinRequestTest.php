@@ -7,6 +7,7 @@ use App\Coaching\Intake;
 use App\Mail\JoinCodeMail;
 use App\Models\CoachPage;
 use App\Models\JoinRequest;
+use App\Models\LoginLink;
 use App\Models\User;
 use App\Support\ClientSafe;
 use Illuminate\Support\Facades\Mail;
@@ -134,4 +135,76 @@ it('stops one address, and one place, from sending code after code', function ()
     startJoin()->assertOk();   // throttled, and answered as if it were not
     Mail::assertSentCount(3);
     $this->assertDatabaseHas('audit_events', ['ev' => 'join.request.throttled']);
+});
+
+/** Start a request and return [id, code]. */
+function startedJoin(array $over = []): array
+{
+    $id = startJoin($over)->assertOk()->json('id');
+
+    return [$id, mailedCode(LoginLink::normaliseEmail($over['email'] ?? 'Salma@Example.com'))];
+}
+
+function verifyJoin(string $id, string $code)
+{
+    return test()->postJson('/api/join/verify', ['id' => $id, 'code' => $code]);
+}
+
+it('makes the request pending on the right code, and gives the browser a token — still no account', function () {
+    joinPage($this->f->a);
+    $users = User::query()->count();
+    [$id, $code] = startedJoin();
+    $res = verifyJoin($id, $code)->assertOk()->assertJsonPath('status', 'pending');
+    $token = $res->json('token');
+    expect($token)->toMatch('/^[0-9a-f]{64}$/');
+    $req = JoinRequest::acrossCoaches()->find($id); // across coaches: the test reads the row the public route wrote
+    expect($req->only(['status', 'code_hash', 'token_hash']))->toBe(['status' => 'pending', 'code_hash' => null, 'token_hash' => JoinRequest::hash($token)])
+        ->and(User::query()->count())->toBe($users);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'join.verify', 'msg' => 'sara.fit']);
+    // The code is spent: a second go finds nothing to prove.
+    verifyJoin($id, $code)->assertStatus(400)->assertExactJson(['error' => 'that code has expired — ask for a new one']);
+});
+
+it('counts wrong codes, and stops at five', function () {
+    joinPage($this->f->a);
+    [$id, $code] = startedJoin();
+    $wrong = $code === '000000' ? '111111' : '000000';
+    foreach (range(1, JoinRequest::MAX_ATTEMPTS) as $i) {
+        verifyJoin($id, $wrong)->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
+    }
+    verifyJoin($id, $code)->assertStatus(429)->assertExactJson(['error' => 'too many tries — request a new code']);
+});
+
+it('lets a code lapse after 15 minutes, and knows no made-up request', function () {
+    joinPage($this->f->a);
+    [$id, $code] = startedJoin();
+    $this->travel(JoinRequest::CODE_MINUTES + 1)->minutes();
+    verifyJoin($id, $code)->assertStatus(400)->assertExactJson(['error' => 'that code has expired — ask for a new one']);
+    verifyJoin('nope', '123456')->assertStatus(400)->assertExactJson(['error' => 'that code has expired — ask for a new one']);
+});
+
+it('stops a coach asking to join their own page', function () {
+    joinPage($this->f->a);
+    $this->f->a->forceFill(['email' => 'coach.a@example.com'])->save();
+    [$id, $code] = startedJoin(['email' => 'Coach.A@example.com']);
+    verifyJoin($id, $code)->assertStatus(400)->assertExactJson(['error' => 'that is your own page']);
+});
+
+it('keeps one waiting request per person and coach', function () {
+    joinPage($this->f->a);
+    [$id, $code] = startedJoin();
+    verifyJoin($id, $code)->assertOk();
+    [$again, $code2] = startedJoin();
+    verifyJoin($again, $code2)->assertStatus(409)->assertExactJson(['error' => 'you already asked to join this coach']);
+    expect(JoinRequest::acrossCoaches()->pluck('id')->all())->toBe([$id]); // across coaches: test reads every row
+});
+
+it('tells the browser holding the token where its request stands, and nobody else', function () {
+    joinPage($this->f->a);
+    [$id, $code] = startedJoin();
+    $token = verifyJoin($id, $code)->json('token');
+    $this->getJson("/api/join/status?id=$id&token=$token")->assertOk()
+        ->assertExactJson(['status' => 'pending', 'coachName' => 'Coach A', 'handle' => 'sara.fit']);
+    $this->getJson("/api/join/status?id=$id&token=".str_repeat('0', 64))->assertStatus(404)->assertExactJson(['error' => 'no such request']);
+    $this->getJson("/api/join/status?id=$id")->assertStatus(404);
 });

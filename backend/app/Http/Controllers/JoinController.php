@@ -11,12 +11,14 @@ use App\Mail\SendAfterResponse;
 use App\Models\CoachPage;
 use App\Models\JoinRequest;
 use App\Models\LoginLink;
+use App\Models\User;
 use App\Support\ClientSafe;
 use App\Support\Input;
 use App\Support\Js;
 use App\Support\Json;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 
 use function Illuminate\Support\defer;
@@ -98,6 +100,70 @@ final class JoinController
         defer(fn () => SendAfterResponse::send($email, new JoinCodeMail($code, (string) $coach->name, $lang)));
 
         return Json::ok(['ok' => true, 'id' => $join->id]);
+    }
+
+    /**
+     * POST /api/join/verify {id, code} → {ok, token, status}: the code proves the address, and the
+     * request waits for the coach. Still no account and no session (spec §3.0): the token is what
+     * this browser keeps to read the request and, once accepted, to sign in (CHW-337).
+     */
+    public function verify(Request $request): JsonResponse
+    {
+        $id = Input::jsString($request, 'id');
+        $code = Input::jsString($request, 'code');
+        // Decided under the row's lock and committed, whatever the answer: a wrong code must count.
+        [$refusal, $join, $token] = DB::transaction(function () use ($id, $code): array {
+            $join = $id === '' ? null : JoinRequest::acrossCoaches()->whereKey($id)->lockForUpdate()->first(); // across coaches: a public route finds a request by its id
+            if ($join === null || $join->status !== 'unverified' || $join->code_expires < Js::nowMs()) {
+                return [[400, 'that code has expired — ask for a new one'], null, null];
+            }
+            if ($join->attempts >= JoinRequest::MAX_ATTEMPTS) {
+                return [[429, 'too many tries — request a new code'], null, null];
+            }
+            if (! hash_equals((string) $join->code_hash, JoinRequest::hash($code))) {
+                $join->forceFill(['attempts' => $join->attempts + 1])->save();
+
+                return [[400, 'that code is wrong — check the email and try again'], null, null];
+            }
+            $coach = User::query()->find($join->coach_id);
+            if ($coach !== null && $coach->email !== null && LoginLink::normaliseEmail($coach->email) === $join->email) {
+                $join->delete();
+
+                return [[400, 'that is your own page'], null, null];
+            }
+            if (JoinRequest::queueOf($coach)->where('email', $join->email)->where('status', 'pending')->exists()) {
+                $join->delete();
+
+                return [[409, 'you already asked to join this coach'], null, null];
+            }
+            $token = bin2hex(random_bytes(32));
+            $join->forceFill(['status' => 'pending', 'code_hash' => null, 'token_hash' => JoinRequest::hash($token)])->save();
+
+            return [null, $join, $token];
+        });
+        if ($refusal !== null) {
+            throw new ClientSafe(...$refusal);
+        }
+        Audit::record($request, 'join.verify', ['ok' => true, 'msg' => CoachPage::acrossCoaches()->find($join->coach_id)?->handle]); // across coaches: the page of the request's coach, for the log
+
+        return Json::ok(['ok' => true, 'token' => $token, 'status' => $join->status]);
+    }
+
+    /** GET /api/join/status?id=&token= → {status, coachName, handle}: for the browser holding the token, and nobody else. */
+    public function status(Request $request): JsonResponse
+    {
+        $id = (string) $request->query('id', '');
+        $token = (string) $request->query('token', '');
+        $join = $id === '' ? null : JoinRequest::acrossCoaches()->find($id); // across coaches: a public route finds a request by its id
+        if ($join === null || $join->token_hash === null || ! hash_equals($join->token_hash, JoinRequest::hash($token))) {
+            throw new ClientSafe(404, 'no such request');
+        }
+
+        return Json::ok([
+            'status' => $join->status,
+            'coachName' => User::query()->find($join->coach_id)?->name,
+            'handle' => CoachPage::acrossCoaches()->find($join->coach_id)?->handle, // across coaches: the page of the request's coach
+        ]);
     }
 
     /** As LoginLinkController::request: true when any bucket is full; counts the request otherwise. */
