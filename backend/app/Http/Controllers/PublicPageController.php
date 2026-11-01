@@ -15,7 +15,9 @@ use Illuminate\Http\Response;
  *  - /c/{handle} is the link in the bio (rewritten to /api/c/… by the docroot .htaccess). It is a
  *    page of preview tags for Instagram's and WhatsApp's crawlers, which read server HTML only,
  *    and a redirect into the app's #/c/<handle> — everything a person sees is the app's, in their
- *    language.
+ *    language. With ?join=1, into the join form instead (#/join/<handle>): the way the app sends
+ *    someone on from Instagram's browser to Safari or Chrome mid-form (CHW-332), as the link that
+ *    leaves it (an Android intent) cannot carry a #/ route.
  *  - /public/coach is what that screen reads.
  *
  * A page shows while it is open and its coach is still an enabled coach.
@@ -35,7 +37,7 @@ final class PublicPageController
         return Json::ok(['coach' => $page->toPublic($coach)]);
     }
 
-    public function html(string $handle): Response
+    public function html(Request $request, string $handle): Response
     {
         $handle = Handle::normalise($handle);
         [$page, $coach] = CoachPage::findPublic($handle);
@@ -46,7 +48,7 @@ final class PublicPageController
             'name' => $coach?->name,
             'url' => CoachPage::url($handle),
             'image' => rtrim((string) config('fitpal.origin'), '/').'/icon-512.png',
-            'app' => '/#/c/'.$handle,
+            'app' => ($request->query('join') === '1' ? '/#/join/' : '/#/c/').$handle,
         ], $shown ? 200 : 404)->header('Content-Type', 'text/html; charset=UTF-8');
     }
 }

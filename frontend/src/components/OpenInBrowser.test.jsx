@@ -37,12 +37,37 @@ describe('OpenInBrowser', () => {
     expect(host.textContent).toContain('If nothing happens: tap ··· in the corner')
   })
 
+  it('keeps this page\'s own address by default, so an invite link keeps its code', () => {
+    UA = IG_IOS
+    window.history.replaceState(null, '', '/?invite=ABC123')
+    render(<OpenInBrowser />)
+    expect(host.querySelector('a').getAttribute('href')).toBe('x-safari-' + window.location.origin + '/?invite=ABC123')
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('says to go, not to stay, where the email code is not offered', () => {
+    UA = IG_IOS
+    render(<OpenInBrowser canStay={false} />)
+    expect(host.textContent).toContain('Signing in works in Safari, not in here')
+    expect(host.textContent).not.toContain('Not now')
+  })
+
+  it('names no browser that is not there, outside a phone', () => {
+    UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) [FBAN/EMA;FBAV/460.0]'
+    render(<OpenInBrowser />)
+    expect(host.textContent).toContain('In your browser you can also add the app')
+    expect(host.textContent).not.toContain('Safari')
+    expect(host.querySelector('a')).toBe(null)
+    expect(host.textContent).toContain('Tap ··· in the corner')
+  })
+
   it('offers Chrome by an intent on Android', () => {
     UA = IG_ANDROID
     render(<OpenInBrowser />)
     const a = host.querySelector('a')
     expect(a.textContent).toBe('Open in Chrome')
-    expect(a.getAttribute('href')).toMatch(/^intent:\/\/.+\/#Intent;scheme=https?;package=com\.android\.chrome;end$/)
+    expect(a.getAttribute('href')).toMatch(/^intent:\/\/.+#Intent;scheme=https?;package=com\.android\.chrome;S\.browser_fallback_url=.+;end$/)
+    expect(host.textContent).toContain('tap ⋮ in the corner')   // Android's menu, not iOS's
   })
 
   it('shows nothing in a real browser', () => {

@@ -17,6 +17,7 @@ vi.mock('../lib/api.js', async orig => ({
 }))
 const { default: PublicCoach } = await import('./PublicCoach.jsx')
 const { useUI } = await import('../store/useUI.js')
+const { saveRequest } = await import('../lib/join.js')
 
 let container, root
 const text = () => container.textContent
@@ -50,6 +51,26 @@ describe("a coach's public page", () => {
     expect(container.querySelector('a[href^="https://wa.me"]')).toBe(null)
     act(() => root.unmount()); root = createRoot(container)
     expect(useUI.getState().themeOverride).toBe(null)
+  })
+
+  it('suggests Safari inside Instagram, but not once this browser has sent the coach a request', async () => {
+    const desc = Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent')
+    Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Mobile/15E148 Instagram 330.0', configurable: true })
+    try {
+      ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark' } }
+      await render(<PublicCoach handle="yasmine.fit" />)
+      expect(container.querySelector('a[href^="x-safari-"]').getAttribute('href')).toMatch(/\/c\/yasmine\.fit$/)
+      act(() => root.unmount()); root = createRoot(container)
+      // A request sent from here is followed from this browser's storage: no sending them away.
+      saveRequest('yasmine.fit', { id: 'r1', token: 't1' })
+      await render(<PublicCoach handle="yasmine.fit" />)
+      expect(text()).toContain('Yasmine')
+      expect(container.querySelector('a[href^="x-safari-"]')).toBe(null)
+    } finally {
+      delete navigator.userAgent
+      if (desc) Object.defineProperty(Navigator.prototype, 'userAgent', desc)
+      localStorage.clear()
+    }
   })
 
   it('says why there is nothing to show', async () => {

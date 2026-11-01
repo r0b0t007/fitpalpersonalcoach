@@ -243,7 +243,9 @@ export default function Login() {
       {full && <div className="card small" role="status" style={{ textAlign: 'left', marginBottom: 20, lineHeight: 1.4 }}>
         {t('{0} cannot take on new clients right now. Ask them about it — this link will work once they can.', inviter)}
       </div>}
-      <OpenInBrowser style={{ marginBottom: 14 }} />
+      {/* Its own address, so an invite link keeps its code. Without the email path, a passkey is
+          the only way in, and it fails in there: the card then says to go, not to stay. */}
+      <OpenInBrowser canStay={!config || emailPath} style={{ marginBottom: 14 }} />
       {codeFirst && <><EmailSignIn focus /><div style={{ height: 14 }} /></>}
       {webauthnOK() ? <>
         <Button variant={codeFirst ? undefined : 'primary'} icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>

@@ -124,6 +124,8 @@ it('serves the link page with escaped preview tags, and sends the visitor on to 
         ->not->toContain('<b>& co</b>');
     // Served at both mounts, as every route here is.
     $this->get('/c/sara.fit')->assertOk();
+    // Sent on from Instagram's browser mid-form (CHW-332): into the join form, not the page.
+    expect($this->get('/api/c/sara.fit?join=1')->assertOk()->getContent())->toContain('location.replace("\/#\/join\/sara.fit")');
 });
 
 it('answers 404 with no preview for a closed or unknown page, and still hands the visitor to the app', function () {

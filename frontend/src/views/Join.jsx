@@ -150,7 +150,7 @@ export default function Join({ handle }) {
     {step === 'intake' && <>
       {/* Only here, before anything is sent: a request waiting is followed from this browser's
           storage, which Safari or Chrome would not have. */}
-      <OpenInBrowser path={'/c/' + encodeURIComponent(handle)} style={{ margin: '10px 0 4px' }} />
+      <OpenInBrowser path={'/c/' + encodeURIComponent(handle) + '?join=1'} style={{ margin: '10px 0 4px' }} />
       <h4 className="sec">{t('Your goal')}</h4>
       <div className="chips">{GOALS.map(g => chip(intake.goal === g, goalLabel(g), () => set('goal', g), g))}</div>
       <h4 className="sec">{t('Your level')}</h4>
