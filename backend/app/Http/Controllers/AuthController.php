@@ -311,12 +311,6 @@ final class AuthController
 
             return Json::error(403, 'coach sign-up is not open on this server');
         }
-        // The current coach terms, accepted (CHW-357): the processor agreement starts with the account.
-        if (Input::jsString($request, 'terms') !== Terms::VERSION) {
-            Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'no-terms']);
-
-            return Json::error(400, 'please accept the coach terms');
-        }
         $email = LoginLink::normaliseEmail(Input::jsString($request, 'email'));
         if (! LoginLink::validEmail($email)) {
             Audit::record($request, 'auth.register.denied', ['ok' => false, 'name' => $name, 'msg' => 'bad-email']);
@@ -330,7 +324,11 @@ final class AuthController
             return Json::error(429, 'too many sign-ups from here — try again later');
         }
 
-        return $this->newAccountOptions($request, $name, ['code' => '', 'coach' => true, 'email' => $email, 'lang' => Input::jsString($request, 'lang'), 'terms' => Terms::VERSION]);
+        return $this->newAccountOptions($request, $name, ['code' => '', 'coach' => true, 'email' => $email, 'lang' => Input::jsString($request, 'lang'),
+            // The coach terms the Start page showed (CHW-357), kept only if they are the current ones.
+            // Not refused otherwise: an app from before them, or a tab open across a new version,
+            // signs up all the same, and the app asks for the current terms before anything else.
+            'terms' => Input::jsString($request, 'terms') === Terms::VERSION ? Terms::VERSION : null]);
     }
 
     /**
@@ -348,14 +346,21 @@ final class AuthController
             return Json::error(403, 'coach sign-up is not open on this server');
         }
         $email = (string) $extra['email'];
-        $terms = is_string($extra['terms'] ?? null) ? $extra['terms'] : null;   // as accepted at options
+        $terms = $extra['terms'] ?? null;   // the current version if accepted at options, else null
         DB::transaction(function () use ($user, $validation, $email, $terms) {
-            $user->forceFill(['coach' => true, 'self_serve' => true, 'pending_email' => $email, 'terms_version' => $terms, 'terms_at' => Js::nowMs()])->save();
+            $user->forceFill(['coach' => true, 'self_serve' => true, 'pending_email' => $email])->save();
+            if ($terms === Terms::VERSION) {
+                $user->forceFill(['terms_version' => $terms, 'terms_at' => Js::nowMs()])->save();
+            }
             $credential = $validation->credential;
             $credential->authenticatable_id = $user->id;
             $credential->save();
         });
         Audit::record($request, 'auth.register.ok', ['user' => $user, 'msg' => 'self-serve']);
+        // The same evidence as accepting in the app: who, which version, when.
+        if ($terms === Terms::VERSION) {
+            Audit::record($request, 'coach.terms.accept', ['user' => $user, 'msg' => $terms]);
+        }
         $lang = is_string($extra['lang'] ?? null) ? $extra['lang'] : null;
         $ip = ClientIp::for($request, (string) config('fitpal.audit.ip'));
         defer(function () use ($user, $email, $lang, $ip) {

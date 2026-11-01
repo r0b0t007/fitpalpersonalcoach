@@ -11,7 +11,7 @@ return new class extends Migration
         // The coach terms a coach accepted (CHW-357): the version (App\Coaching\Terms::VERSION) and
         // when, in ms. Null for clients, and for a coach who has not accepted any yet.
         Schema::table('users', function (Blueprint $table) {
-            $table->string('terms_version', 10)->nullable();
+            $table->string('terms_version', 32)->nullable();
             $table->bigInteger('terms_at')->nullable();
         });
     }

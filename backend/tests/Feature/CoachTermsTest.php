@@ -39,14 +39,31 @@ it('tells the app which version of the terms is current', function () {
     $this->getJson('/api/config')->assertOk()->assertJsonPath('terms_version', Terms::VERSION);
 });
 
-it('signs up no coach who has not accepted the current terms', function (array $body) {
-    termsSignup(['name' => 'Nadia', 'email' => 'nadia@example.com'] + $body)
-        ->assertStatus(400)->assertExactJson(['error' => 'please accept the coach terms']);
-    expect(User::query()->where('name', 'Nadia')->exists())->toBeFalse();
+it('signs up a coach without the current terms all the same, and asks for them in the app', function (array $body) {
+    // An app from before the terms, or a Start tab open across a new version.
+    $id = termsSignup(['name' => 'Nadia', 'email' => 'nadia@example.com'] + $body)->assertOk()->json('user.id');
+    $user = User::query()->find($id);
+    expect($user->terms_version)->toBeNull()->and($user->terms_at)->toBeNull();
+    $this->getJson('/api/coach/terms', bearer($user))->assertOk()->assertJsonPath('accepted', false);
+    $this->assertDatabaseMissing('audit_events', ['ev' => 'coach.terms.accept']);
 })->with([
     'none' => [['terms' => '']],
     'an older version' => [['terms' => '2020-01-01']],
 ]);
+
+it('holds a coach to an earlier version until a new one takes effect, then asks again', function () {
+    $this->f->a->forceFill(['terms_version' => '2020-01-01', 'terms_at' => 1])->save();
+    expect(Terms::accepted($this->f->a, Terms::effectiveMs() - 1))->toBeTrue()
+        ->and(Terms::accepted($this->f->a, Terms::effectiveMs()))->toBeFalse();
+    // Never accepted anything: asked at once, whatever the date.
+    expect(Terms::accepted($this->f->b, Terms::effectiveMs() - 1))->toBeFalse();
+});
+
+it('keeps a version the database can hold, taking effect no earlier than it is published', function () {
+    expect(Terms::VERSION)->toMatch('/^\d{4}-\d{2}-\d{2}$/')
+        ->and(strlen(Terms::VERSION))->toBeLessThanOrEqual(32)
+        ->and(Terms::EFFECTIVE >= Terms::VERSION)->toBeTrue();
+});
 
 it('records the version and the time a coach accepted at sign-up', function () {
     $id = termsSignup(['name' => 'Nadia', 'email' => 'nadia@example.com'])->assertOk()->json('user.id');
@@ -54,12 +71,13 @@ it('records the version and the time a coach accepted at sign-up', function () {
     expect($user->terms_version)->toBe(Terms::VERSION)
         ->and($user->terms_at)->toBeGreaterThan(1_700_000_000_000);
     $this->getJson('/api/coach/terms', bearer($user))->assertOk()
-        ->assertExactJson(['version' => Terms::VERSION, 'accepted' => true, 'acceptedAt' => $user->terms_at]);
+        ->assertExactJson(['version' => Terms::VERSION, 'accepted' => true, 'acceptedAt' => $user->terms_at, 'effective' => Terms::EFFECTIVE]);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'coach.terms.accept', 'msg' => Terms::VERSION]);
 });
 
 it('asks a coach from before the terms to accept them once, and records it', function () {
     $this->getJson('/api/coach/terms', bearer($this->f->a))->assertOk()
-        ->assertExactJson(['version' => Terms::VERSION, 'accepted' => false, 'acceptedAt' => null]);
+        ->assertExactJson(['version' => Terms::VERSION, 'accepted' => false, 'acceptedAt' => null, 'effective' => Terms::EFFECTIVE]);
     $this->postJson('/api/coach/terms', ['version' => Terms::VERSION], bearer($this->f->a))->assertOk()
         ->assertJsonPath('accepted', true);
     expect($this->f->a->refresh()->terms_version)->toBe(Terms::VERSION);

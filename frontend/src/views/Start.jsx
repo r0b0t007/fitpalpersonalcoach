@@ -7,8 +7,8 @@ import { pickPlan } from '../lib/billing.js'
 import { isEmail } from '../lib/email.js'
 import { t, getLang } from '../lib/i18n.js'
 import Logo from '../components/Logo.jsx'
-import { Button, Check } from '../components/ui.jsx'
-import { termsUrl } from '../lib/terms.js'
+import { Button } from '../components/ui.jsx'
+import TermsConsent from '../components/TermsConsent.jsx'
 import { PlanPicker, startCheckout } from './coach/billing.jsx'
 
 /** Whether /#/start is a sign-up here: coaches may sign themselves up, to a paid plan or the Free one. */
@@ -82,13 +82,7 @@ export default function Start() {
         <input className="input" type="email" placeholder={t('Email')} maxLength={254} autoComplete="email"
           value={email} onChange={ev => setEmail(ev.target.value)} />
         <div className="dim small" style={{ margin: '6px 4px 0' }}>{t('For receipts and for signing in if you lose your passkey.')}</div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 14 }}>
-          <Check checked={agreed} onChange={setAgreed} labelledBy="start-terms" />
-          <div id="start-terms" className="small">
-            <span onClick={() => setAgreed(!agreed)}>{t('I accept the coach terms and the data processing agreement')}</span>{' '}
-            <a href={termsUrl(getLang())} target="_blank" rel="noopener noreferrer">{t('Read the coach terms')}</a>
-          </div>
-        </div>
+        <div style={{ marginTop: 14 }}><TermsConsent checked={agreed} onChange={setAgreed} id="start-terms" /></div>
         <div style={{ height: 14 }} />
         <Button variant="primary" icon="person" onClick={go} disabled={busy}>
           {choice.plan === 'free'

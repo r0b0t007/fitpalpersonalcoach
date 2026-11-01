@@ -23,7 +23,7 @@ final class CoachTermsController
     {
         $coach = $request->user('api');
 
-        return Json::ok(['version' => Terms::VERSION, 'accepted' => Terms::accepted($coach), 'acceptedAt' => $coach->terms_at]);
+        return Json::ok(['version' => Terms::VERSION, 'accepted' => Terms::accepted($coach), 'acceptedAt' => $coach->terms_at, 'effective' => Terms::EFFECTIVE]);
     }
 
     public function accept(Request $request): JsonResponse
