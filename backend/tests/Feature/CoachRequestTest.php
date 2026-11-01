@@ -22,7 +22,7 @@ use Tests\Support\Billing;
 use Tests\Support\Coaching;
 
 beforeEach(function () {
-    config(['fitpal.session_secret' => str_repeat('ab', 32), 'fitpal.origin' => 'https://coach.example', 'fitpal.free_cap' => 0]);
+    config(['fitpal.session_secret' => str_repeat('ab', 32), 'fitpal.origin' => 'https://coach.example', 'fitpal.free_cap' => 0, 'fitpal.join_requests' => true]);
     $this->f = Coaching::twoCoaches();
     Mail::fake();
 });

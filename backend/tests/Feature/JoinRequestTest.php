@@ -15,8 +15,15 @@ use Illuminate\Support\Facades\RateLimiter;
 use Tests\Support\Coaching;
 
 beforeEach(function () {
-    config(['fitpal.session_secret' => str_repeat('ab', 32), 'fitpal.origin' => 'https://coach.example', 'fitpal.free_cap' => 0]);
+    config(['fitpal.session_secret' => str_repeat('ab', 32), 'fitpal.origin' => 'https://coach.example', 'fitpal.free_cap' => 0, 'fitpal.join_requests' => true]);
     $this->f = Coaching::twoCoaches();
+});
+
+it('takes no request at all while join requests are closed on the server, the default', function () {
+    config(['fitpal.join_requests' => false]);
+    joinPage($this->f->a);
+    startJoin()->assertStatus(404)->assertExactJson(['error' => 'this coach is not taking requests right now']);
+    expect(JoinRequest::acrossCoaches()->count())->toBe(0); // across coaches: nothing stored for anyone
 });
 
 function intake(array $over = []): array
