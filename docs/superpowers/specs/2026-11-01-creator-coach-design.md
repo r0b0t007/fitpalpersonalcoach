@@ -42,7 +42,7 @@ The product can't do that today. A code check on 2026-11-01 found:
 | Messaging | The coach **replies to a check-in** and **comments on a logged workout**, and the client is told by push, or by email if they have no push. A one-tap **WhatsApp** button covers everything else. No full chat. |
 | Pricing | **Free for up to 3 clients**, no card. Above that, the existing tiers: Solo 10, Pro 30, Studio 75 clients at €19, €39 and €79 a month. The 14-day trial is dropped, because Free replaces it. |
 | Market | Francophone countries (Morocco, France, Belgium) and Spain from the start. French is the lead language, with Spanish alongside; Darija only in marketing copy. |
-| Redesign | All four surfaces: the coach's link page and join flow, the client app, the coach app, and fitpal.ma. Done in Claude Design with **Unsplash** photos. |
+| Redesign | All four surfaces: the coach's link page and join flow, the client app, the coach app, and fitpal.ma. Done in Claude Design with **Unsplash** photos. The coach picks a dark (default) or light theme for their own page; the join flow follows it until acceptance, and the app stays dark by default. |
 | Features cut for clients | **Hidden behind a `coached` flag, not deleted.** "Train myself", users without a coach, and the coach's own program editing all keep them. |
 
 ### What each decision costs, from the code check
@@ -140,7 +140,7 @@ Each phase ships on its own. They are ordered by how much each moves the funnel.
 | # | Phase | Main pieces, and what they reuse |
 |---|---|---|
 | 1 | Free plan and card-less self-serve | `Plans::FREE_CAP`; `Entitlement::for` returns `free` (cap 3, writable); `Plans::offered()` lists Free first; `Start.jsx` accepts `?plan=free` and skips checkout; Free added to the `billing.jsx` PlanPicker; trial dropped |
-| 2 | Public page, intake, email code, requests inbox | Tables `coach_pages` (handle, bio, whatsapp, open, auto_accept, starter_program_id) and `join_requests` (email, name, intake JSON, status); `login_links.code_hash`/`attempts`; `POST /api/join/start` and `/api/join/verify`; accept copies `InviteController::redeem` (`CoachLock::take`, then `CoachSeat::refusal(lock:true)`); `views/Join.jsx`, `lib/join.js`, `lib/inapp.js`, `views/coach/Requests.jsx`, `views/coach/PublicPage.jsx`, a code variant of `email/signin-link-*` |
+| 2 | Public page, intake, email code, requests inbox | Tables `coach_pages` (handle, bio, whatsapp, open, auto_accept, starter_program_id, theme) and `join_requests` (email, name, intake JSON, status); `login_links.code_hash`/`attempts`; `POST /api/join/start` and `/api/join/verify`; accept copies `InviteController::redeem` (`CoachLock::take`, then `CoachSeat::refusal(lock:true)`); `views/Join.jsx`, `lib/join.js`, `lib/inapp.js`, `views/coach/Requests.jsx`, `views/coach/PublicPage.jsx`, a code variant of `email/signin-link-*` |
 | 3 | Starter program and auto-accept | `assignments.auto`; reuse `AssignmentController` and `PlanBundle`; a pure helper `lib/starter-accept.js` `applyStarter(S, bundle, today)` with its test (CONTRIBUTING rule), reusing the offer-apply code in `views/coach/sheets.jsx` |
 | 4 | Simplified app for coached clients | `lib/features.js`, where `coached` is true for a client who has a coach and isn't a coach; it gates routes (`/library`, `/muscles`), makes Plan read-only, and trims Settings, Home and the StatsPanels (which stay prop-driven) |
 | 5 | Coach pushes and daily digest | Derived `last_checkin` and `last_workout` in `UserState::derived`; a push when a coached client adds a check-in; `fitpal:coach-digest`, `dailyAt('07:00')` on the 5-minute tick; reuse `MemberCard::adherenceParts` and `checkinOverdue`; `users.last_digest` keeps it to one per day |
@@ -166,7 +166,7 @@ The Claude Design project is "FitPal Coach — Creator redesign". It starts from
 
 | Page | What it shows |
 |---|---|
-| `00-direction.html` | Two brand directions, an evolved gold-on-graphite "equipped pro" and a brighter creator-facing variant, plus the rules for type, colour and photos, and the Unsplash credits. The owner picks one. |
+| `00-direction.html` | Two brand directions, an evolved gold-on-graphite "equipped pro" and a brighter creator-facing variant, plus the rules for type, colour and photos, and the Unsplash credits. Decided 2026-11-01: the coach picks per page (dark is the default, light the alternative). |
 | `01-link-and-join.html` | The coach's page, the intake, email and code, the "open in browser" prompt, "request sent", and "accepted: workout 1 today". In French, with Spanish variants. |
 | `02-client-app.html` | Today, workout logging, progress, the Coach tab (notes, WhatsApp), and the simplified You/Settings. |
 | `03-coach-app.html` | Today with the Requests card, the inbox with the intake sheet, the page editor, the share kit, ClientDetail with replies, Programs, and Account/plan (Free badge, upgrade prompt at the cap). |
