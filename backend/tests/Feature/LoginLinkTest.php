@@ -463,23 +463,59 @@ it('takes only the newest code, and none after 15 minutes', function () {
     askCode('coach.a@example.com', $second)->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
 });
 
-it('spends a code after 5 wrong tries, and refuses the same for an address with no account', function () {
+it('spends the code after 5 wrong tries but never the link, and answers the same for an address with no account', function () {
     askLink('coach.a@example.com');
     $code = codeMailed('coach.a@example.com');
     foreach (['coach.a@example.com', 'nobody@example.com'] as $email) {
         for ($i = 0; $i < LoginLink::MAX_ATTEMPTS; $i++) {
             askCode($email, otherCode($code))->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
         }
-        askCode($email, $code)->assertStatus(429)->assertExactJson(['error' => 'too many tries — request a new code']);
+        askCode($email, $code)->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
     }
-    expect(LoginLink::query()->sole()->used_at)->not->toBeNull();
-    // A new mail is a new code to try.
+    $row = LoginLink::query()->sole();
+    expect($row->code_hash)->toBeNull()->and($row->used_at)->toBeNull();
+    // A stranger's wrong codes do not spend the link in the coach's inbox.
+    redeemLink(tokenMailed('coach.a@example.com'))->assertOk()->assertJsonPath('user.id', $this->f->a->id);
+});
+
+it('takes the code off an older mail when a new one is sent, and leaves its link working', function () {
+    askLink('coach.a@example.com');
+    $first = codeMailed('coach.a@example.com');
+    $firstLink = tokenMailed('coach.a@example.com');
+    askLink('coach.a@example.com');
+    $second = codeMailed('coach.a@example.com');
+    expect(LoginLink::query()->whereNotNull('code_hash')->count())->toBe(1);
+    // The newest code spent by wrong tries: the older one does not take over.
+    for ($i = 0; $i < LoginLink::MAX_ATTEMPTS; $i++) {
+        askCode('coach.a@example.com', otherCode($second));
+    }
+    if ($first !== $second) {
+        askCode('coach.a@example.com', $first)->assertStatus(400);
+    }
+    redeemLink($firstLink)->assertOk();
+});
+
+it('takes 20 tries per address a day, for any address, and a new mail does not reset it', function () {
+    askLink('coach.a@example.com');
+    foreach (['coach.a@example.com', 'nobody@example.com'] as $email) {
+        for ($i = 0; $i < 20; $i++) {
+            RateLimiter::clear('login-code:ip:127.0.0.1');   // the per-place limit is the next test's
+            askCode($email, '000000')->assertStatus(400);
+        }
+    }
+    RateLimiter::clear('login-code:ip:127.0.0.1');
+    askLink('coach.a@example.com');   // a stranger can ask for one: it must not buy more guesses
+    $refused = ['error' => 'too many wrong codes — use the link in the email, or try again later'];
+    askCode('coach.a@example.com', codeMailed('coach.a@example.com'))->assertStatus(429)->assertExactJson($refused);
+    askCode('nobody@example.com', '000000')->assertStatus(429)->assertExactJson($refused);
+    redeemLink(tokenMailed('coach.a@example.com'))->assertOk();   // and the link is the way in meanwhile
+    $this->travel(1)->days();
     askLink('coach.a@example.com');
     askCode('coach.a@example.com', codeMailed('coach.a@example.com'))->assertOk();
 });
 
-it('takes at most 30 wrong codes an hour from one place, across addresses', function () {
-    for ($i = 0; $i < 30; $i++) {
+it('takes at most 60 codes an hour from one place, across addresses', function () {
+    for ($i = 0; $i < 60; $i++) {
         askCode("guess{$i}@example.com", '123456')->assertStatus(400);
     }
     askCode('coach.a@example.com', '123456')->assertStatus(429);

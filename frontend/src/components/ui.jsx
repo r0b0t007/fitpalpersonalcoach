@@ -58,9 +58,10 @@ export const TextField = forwardRef(function TextField({ className = '', ...rest
 })
 
 // A 6-digit code from a mail (a join request's, a sign-in's): digits only, and the phone offers the
-// code it just received where it can (one-time-code). onChange gets the digits, not the event.
+// code it just received where it can (one-time-code). onChange gets the digits, not the event. No
+// maxLength: the browser would cut a pasted "482 913" to six characters before the space goes.
 export const CodeField = forwardRef(function CodeField({ value, onChange, ...rest }, ref) {
-  return <TextField ref={ref} name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456"
+  return <TextField ref={ref} name="code" inputMode="numeric" autoComplete="one-time-code" placeholder="123456"
     value={value} onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))} {...rest} />
 })
 

@@ -73,8 +73,9 @@ class LoginLink extends Model
      * the one already in their inbox.
      *
      * A sign-in link has a 6-digit code too (CHW-331), the way in that stays in the browser it was
-     * asked from: a tapped link opens another, and leaves Instagram's. Only the newest code works
-     * (LoginLinkController::code), so five wrong tries are five against one code.
+     * asked from: a tapped link opens another, and leaves Instagram's. Only the newest code works:
+     * a new sign-in mail takes the code off the older ones, whose links keep working. Five wrong
+     * tries take a code away too (LoginLinkController::code), and nothing else.
      *
      * @return array{string, self, ?string} the token, the row, and the code (sign-in links only)
      */
@@ -84,6 +85,9 @@ class LoginLink extends Model
         $now = now();
         $id = 'll_'.Js::token(18);
         $code = $purpose === 'login' ? str_pad((string) random_int(0, 999_999), 6, '0', STR_PAD_LEFT) : null;
+        if ($code !== null) {
+            self::query()->where('user_id', $user->id)->where('purpose', 'login')->whereNotNull('code_hash')->update(['code_hash' => null]);
+        }
         $link = (new self)->forceFill([
             'id' => $id, 'code_hash' => $code === null ? null : self::codeHash($id, $code), 'user_id' => $user->id, 'purpose' => $purpose, 'email' => $email,
             'token_hash' => self::hash($token), 'created_at' => $now, 'expires_at' => $now->copy()->addMinutes(self::TTL_MINUTES),

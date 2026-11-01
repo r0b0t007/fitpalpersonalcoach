@@ -252,6 +252,14 @@ describe('Login’s code (CHW-331)', () => {
     expect(useUI.getState().sheets).toHaveLength(0)
   })
 
+  it('puts the code first inside Instagram, where a passkey fails', async () => {
+    UA = 'Mozilla/5.0 (iPhone) Mobile/15E148 Instagram 330.0'
+    await render(<Login />, '/home')
+    expect(container.querySelector('input[type="email"]')).toBeTruthy()
+    expect(text()).not.toContain('Get a code by email')
+    expect([...container.querySelectorAll('button')].find(b => b.textContent === 'Sign in with passkey').className).not.toContain('primary')
+  })
+
   it('sends the code again from the same screen', async () => {
     await askCode()
     await click('Send the code again')

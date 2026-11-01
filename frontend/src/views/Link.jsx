@@ -8,7 +8,7 @@ import { t } from '../lib/i18n.js'
 import Logo from '../components/Logo.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
-import { AddPasskeySheet, shouldOfferPasskey } from '../components/AddPasskeySheet.jsx'
+import { offerPasskey } from '../components/AddPasskeySheet.jsx'
 
 /**
  * Whether /#/link is the email-link landing here: on a server with sign-in by link — and while the
@@ -76,7 +76,7 @@ export default function Link() {
         pullState()
         tm = setTimeout(() => {
           nav(homeFor(res.user, getShellPref()), { replace: true })   // replaces /link?t=… as well
-          if (shouldOfferPasskey()) useUI.getState().openSheet(close => <AddPasskeySheet close={close} />)
+          offerPasskey()
         }, SIGNED_IN_MS)
       } else { setState({ kind: 'emailChanged', email: res.email }); tidy() }
     }).catch(e => {

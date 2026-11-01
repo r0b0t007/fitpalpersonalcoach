@@ -32,7 +32,9 @@ use function Illuminate\Support\defer;
  *    address has an account. An account that may sign in with it (mayUseEmail) gets the mail.
  *  - POST /api/login/code {email, code} signs in with the newest mail's code, in the browser that
  *    asked: the main path, as a tapped link opens another browser and leaves Instagram's. Every
- *    refusal reads alike, whether the address has an account or not.
+ *    refusal reads alike and takes as long, whether the address has an account or not. Wrong
+ *    codes spend only the code, never the mail's link: a stranger who knows the address can stop
+ *    the codes working for a day, but not the link already in the inbox.
  *  - POST /api/login/link {t} redeems either kind of link: a sign-in link signs in exactly as a
  *    passkey does (SessionToken::cookies, so `logout/all` ends it too); an email-change link moves
  *    the pending address into `email` and tells the old one.
@@ -57,13 +59,20 @@ final class LoginLinkController
     private const PER_PEER = [300, 3600];
 
     /**
-     * Wrong codes per address per 15 minutes, counted for any address so that being refused says
-     * nothing about it. A new mail clears it; the code itself is spent after LoginLink::MAX_ATTEMPTS.
+     * Tries per address a day, for any address so that being refused says nothing about it, and
+     * not cleared by a new mail, which a stranger can ask for: 20 guesses a day at a million codes.
+     * A sign-in clears it. Each code is also spent after LoginLink::MAX_ATTEMPTS wrong tries.
      */
-    private const CODE_PER_EMAIL = [5, 900];
+    private const CODE_PER_EMAIL = [20, 86400];
 
-    /** Wrong codes per IP an hour: guessing across many addresses at once. */
-    private const CODE_PER_IP = [30, 3600];
+    /**
+     * Tries per client address an hour: guessing across many addresses at once. Generous, as a
+     * mobile carrier puts many people behind one address.
+     */
+    private const CODE_PER_IP = [60, 3600];
+
+    /** Every refused code takes at least this long, so the time a refusal takes says nothing either. */
+    private const CODE_REFUSAL_MS = 400;
 
     /** At most this many `login.link.throttled` rows an hour: a flood must not push real events out of the log. */
     private const THROTTLE_AUDITS = 20;
@@ -91,8 +100,7 @@ final class LoginLinkController
         foreach ($buckets as $key => [, $decay]) {
             RateLimiter::hit($key, $decay);
         }
-        // A new code to try: the wrong ones against the last no longer count against this address.
-        RateLimiter::clear(self::codeKey($email));
+
         // What is kept on the link row follows the owner's AUDIT_IP, as the audit log does.
         $stored = ClientIp::for($request, (string) config('fitpal.audit.ip'));
 
@@ -111,31 +119,37 @@ final class LoginLinkController
 
     public function code(Request $request): JsonResponse
     {
+        $started = hrtime(true);
         $email = LoginLink::normaliseEmail(Input::jsString($request, 'email'));
         $code = Input::jsString($request, 'code');
         $ip = ClientIp::for($request, 'full') ?? (string) $request->ip();
+        // Counted before the code is looked at, so that requests sent at once cannot all pass a
+        // limit none of them has counted yet. A sign-in takes its try back from the address.
         $buckets = [
             self::codeKey($email) => self::CODE_PER_EMAIL,
             'login-code:ip:'.$ip => self::CODE_PER_IP,
             'login-code:peer:'.$request->server('REMOTE_ADDR') => self::PER_PEER,
         ];
-        foreach ($buckets as $key => [$max]) {
-            if (RateLimiter::tooManyAttempts($key, $max)) {
-                throw new ClientSafe(429, 'too many tries — request a new code');
+        foreach ($buckets as $key => [$max, $decay]) {
+            if (RateLimiter::hit($key, $decay) > $max) {
+                self::evenOut($started);
+                throw new ClientSafe(429, 'too many wrong codes — use the link in the email, or try again later');
             }
         }
         // Decided under the link's lock and committed whatever the answer: a wrong code must count.
         $user = DB::transaction(function () use ($email, $code): ?User {
             $user = LoginLink::validEmail($email) ? self::accountWithEmail($email) : null;
+            // The newest mail's code only: a new mail takes the older codes away (LoginLink::issue).
             $link = $user === null ? null : LoginLink::query()->where('user_id', $user->id)->where('purpose', 'login')
                 ->whereNull('used_at')->whereNotNull('code_hash')->where('expires_at', '>', now())
-                ->orderByDesc('created_at')->lockForUpdate()->first();
+                ->lockForUpdate()->first();
             if ($link === null) {
                 return null;
             }
             if (preg_match('/^\d{6}$/', $code) !== 1 || ! hash_equals((string) $link->code_hash, LoginLink::codeHash($link->id, $code))) {
+                // The code is spent after the last try, not the row: its link still works.
                 $tries = $link->attempts + 1;
-                $link->forceFill(['attempts' => $tries] + ($tries >= LoginLink::MAX_ATTEMPTS ? ['used_at' => now()] : []))->save();
+                $link->forceFill(['attempts' => $tries] + ($tries >= LoginLink::MAX_ATTEMPTS ? ['code_hash' => null] : []))->save();
 
                 return null;
             }
@@ -148,9 +162,7 @@ final class LoginLinkController
             return $user;
         });
         if ($user === null) {
-            foreach ($buckets as $key => [, $decay]) {
-                RateLimiter::hit($key, $decay);
-            }
+            self::evenOut($started);
             // An address with no account, an expired code, a wrong one: one answer for all.
             throw new ClientSafe(400, 'that code is wrong — check the email and try again');
         }
@@ -158,6 +170,19 @@ final class LoginLinkController
         Audit::record($request, 'login.code', ['user' => $user]);
 
         return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
+    }
+
+    /**
+     * Holds a refusal until CODE_REFUSAL_MS have passed: an address with an account and a mail
+     * waiting costs a locked read and a write, one with neither a single read, and the difference
+     * must not be what tells them apart.
+     */
+    private static function evenOut(int $started): void
+    {
+        $left = self::CODE_REFUSAL_MS * 1000 - intdiv(hrtime(true) - $started, 1000);
+        if ($left > 0 && ! app()->runningUnitTests()) {
+            usleep($left);
+        }
     }
 
     private static function codeKey(string $email): string

@@ -1538,6 +1538,7 @@ export default {
   'Billing needs attention': 'La facturación necesita atención',
   'Choose a plan': 'Elegir un plan',
   'Ask to join': 'Pedir unirme',
+  'too many wrong codes — use the link in the email, or try again later': 'demasiados códigos incorrectos — usa el enlace del correo, o vuelve a intentarlo más tarde',
   'Get a code by email': 'Recibir un código por correo',
   'Could not send the code': 'No se pudo enviar el código',
   'If that address has an account, a 6-digit code is on its way to {0}. Enter it here; it works once, for 15 minutes.': 'Si esa dirección tiene una cuenta, un código de 6 cifras va de camino a {0}. Introdúcelo aquí; funciona una sola vez, durante 15 minutos.',

@@ -108,8 +108,8 @@ Read this before hosting it for anyone other than yourself.
   whose address was proven (by the code of an accepted join request), can ask for a sign-in mail:
   a link and a 6-digit code, either of them one use, 15 minutes. The link is stored only as a
   SHA-256 hash, the code as an HMAC keyed with `APP_KEY` and the row, and only the newest code
-  works: 5 wrong tries spend it. Asking, and a refused code, answer the same whether or not the
-  address has an account (`app/Http/Controllers/LoginLinkController.php`,
+  works: 5 wrong tries spend it, never the link beside it. Asking, and a refused code, answer the
+  same and take as long whether or not the address has an account (`app/Http/Controllers/LoginLinkController.php`,
   `app/Models/LoginLink.php`). **Such a client's account is as safe as their inbox**: many have
   no passkey at all, since passkeys fail inside Instagram's browser. And an admin can
   be given an email and password for the admin panel (`php artisan fitpal:panel-login`); that
@@ -227,8 +227,9 @@ Read this before hosting it for anyone other than yourself.
   `http://localhost`) and the session token is sent in the clear.
 - **Almost no rate limiting.** Four things are throttled: asking for an email sign-in link (3 per
   address per 15 minutes, 10 per client address and 300 per connection per hour), a sign-in code
-  (5 wrong per address per 15 minutes, any address alike; 30 wrong per client address and 300 per
-  connection an hour), self-serve
+  (20 tries per address a day, any address alike and not reset by a new mail; 60 per client
+  address and 300 per connection an hour; so someone who knows an address can stop its codes
+  working for a day, though not the link in its owner's inbox), self-serve
   coach sign-up (10 per client address and 100 per connection per hour,
   `app/Support/ClientLimit.php`), and the admin panel's password form (Filament's own, 5 a
   minute). Nothing else throttles logins,

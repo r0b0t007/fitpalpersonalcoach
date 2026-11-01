@@ -16,6 +16,10 @@ export function shouldOfferPasskey() {
   if (!webauthnOK() || inAppBrowser()) return false
   try { return !localStorage.getItem(KEY) } catch { return true }
 }
+/** After a sign-in by email, link or code: the offer, where it makes sense. */
+export function offerPasskey() {
+  if (shouldOfferPasskey()) useUI.getState().openSheet(close => <AddPasskeySheet close={close} />)
+}
 const remember = v => { try { localStorage.setItem(KEY, v) } catch { /* storage unavailable: offered again next time */ } }
 
 export function AddPasskeySheet({ close }) {

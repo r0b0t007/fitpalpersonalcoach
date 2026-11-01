@@ -388,18 +388,18 @@ export const useStore = create((set, get) => {
     forgetLocalSession() { clearLocalSession() },
 
     // A passkey sign-in, as Login and the link page both do it: the user, then their synced state.
-    async passkeySignIn() {
-      const u = await passkeyLogin()
+    // Every sign-in that lands on this device: the account, then its data.
+    async signedIn(u) {
       get().setUser(u)
       await get().pullState()
       return u
     },
-    // The emailed code (CHW-331), signed in as a passkey does.
+    async passkeySignIn() {
+      return get().signedIn(await passkeyLogin())
+    },
+    // The emailed code (CHW-331), signed in as a passkey is.
     async codeSignIn(email, code) {
-      const { user: u } = await signInWithCode(email, code)
-      get().setUser(u)
-      await get().pullState()
-      return u
+      return get().signedIn((await signInWithCode(email, code)).user)
     },
 
     async signOut() {

@@ -1,7 +1,8 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api, webauthnOK, passkeyRegister, bioLabel, requestLoginLink } from '../lib/api.js'
-import { AddPasskeySheet, shouldOfferPasskey } from '../components/AddPasskeySheet.jsx'
+import { offerPasskey } from '../components/AddPasskeySheet.jsx'
+import { inAppBrowser } from '../lib/inapp.js'
 import { useLocation } from 'react-router-dom'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
@@ -150,14 +151,14 @@ export function EmailSignIn({ focus }) {
     try {
       const u = await codeSignIn(email.trim(), code)
       useUI.getState().toast(t('Welcome back, {0}', u.name))
-      if (shouldOfferPasskey()) useUI.getState().openSheet(close => <AddPasskeySheet close={close} />)
+      offerPasskey()
     } catch (err) { setError(err.status ? err.message : t('Could not connect')); setBusy(false) }
   }
   if (sent) return <div className="card" role="status" style={{ textAlign: 'left' }}>
     <div style={{ fontWeight: 600 }}>{t('Check your inbox')}</div>
     <div className="small muted" style={{ lineHeight: 1.38, margin: '4px 0 12px' }}>{t('If that address has an account, a 6-digit code is on its way to {0}. Enter it here; it works once, for 15 minutes.', email.trim())}</div>
     <CodeField ref={codeRef} value={code} onChange={v => { setCode(v); setError(null) }}
-      onKeyDown={e => { if (e.key === 'Enter' && code.length === 6) verify() }} />
+      onKeyDown={e => { if (e.key === 'Enter' && code.length === 6 && !busy) verify() }} />
     {error && <div className="small" role="alert" style={{ color: 'var(--red)', marginTop: 8 }}>{error}</div>}
     <div style={{ height: 10 }} />
     <Button variant="primary" onClick={verify} disabled={busy || code.length !== 6}>{t('Sign in')}</Button>
@@ -181,7 +182,10 @@ export default function Login() {
   // sent the coach here for a new link (/link → "Get a new link", ?email=1).
   const loc = useLocation()
   const emailPath = !!config?.login_email
-  const [emailOpen, setEmailOpen] = useState(() => new URLSearchParams(loc.search).has('email'))
+  // Inside Instagram's browser (or another app's) a passkey fails or is lost, so the emailed code
+  // comes first there, already open (CHW-331).
+  const codeFirst = emailPath && inAppBrowser()
+  const [emailOpen, setEmailOpen] = useState(() => codeFirst || new URLSearchParams(loc.search).has('email'))
   const invite = useInvite()
   const inviter = invite === undefined ? undefined : invite?.name || null
   const full = !!invite?.full
@@ -238,10 +242,11 @@ export default function Login() {
       {full && <div className="card small" role="status" style={{ textAlign: 'left', marginBottom: 20, lineHeight: 1.4 }}>
         {t('{0} cannot take on new clients right now. Ask them about it — this link will work once they can.', inviter)}
       </div>}
+      {codeFirst && <><EmailSignIn focus /><div style={{ height: 14 }} /></>}
       {webauthnOK() ? <>
-        <Button variant="primary" icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
+        <Button variant={codeFirst ? undefined : 'primary'} icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>
         <div style={{ height: 10 }} />
-        {emailPath && <>{emailButton}<div style={{ height: 10 }} /></>}
+        {emailPath && !codeFirst && <>{emailButton}<div style={{ height: 10 }} /></>}
         {/* Not while the inviting coach takes nobody on: the sheet would carry their code into a
             refusal that only comes after the passkey prompt. Signing in stays open. */}
         {!full && <Button icon="sparkles" onClick={() => useUI.getState().openSheet(close => <RegisterSheet close={close} />)}>{t('Create new profile')}</Button>}
@@ -253,7 +258,7 @@ export default function Login() {
         : t("This browser doesn't support passkeys, and this instance requires an account. Try a browser or device with passkey support.")}</div>}
       {/* Without passkeys the email link is the only way in for a coach — the fallback is most
           needed exactly where the primary cannot run. */}
-      {!webauthnOK() && emailPath && <><div style={{ height: 12 }} />{emailButton}</>}
+      {!webauthnOK() && emailPath && !codeFirst && <><div style={{ height: 12 }} />{emailButton}</>}
       {canGuest && <Button variant="ghost" className="dim" onClick={() => setGuest(true)}>{t('Continue without account')}</Button>}
       <InstallCard style={{ marginTop: 20 }} />
       <div className="dim small" style={{ marginTop: 26, lineHeight: 1.5 }}>{t('Passkeys use {0} — no passwords.', bioLabel())}<br />{t('Each profile keeps its own plan, workouts & body weight.')}</div>
