@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { intakeError, joinHandleFromPath, savedRequest, saveRequest, forgetRequest } from './join.js'
 
-const ok = { goal: 'strength', level: 'beginner', days: 3, injuries: '', equipment: [], phone: '', consent: true }
+const ok = { goal: 'strength', level: 'beginner', days: 3, injuries: '', equipment: [], phone: '', consent: true, over16: true }
 
 describe('the intake check (the server makes the same: app/Coaching/Intake.php)', () => {
   it('lets a complete intake through', () => {
@@ -19,6 +19,7 @@ describe('the intake check (the server makes the same: app/Coaching/Intake.php)'
   it('keeps injuries short, and asks for consent', () => {
     expect(intakeError({ ...ok, injuries: 'a'.repeat(501) })).toBe('injuries')
     expect(intakeError({ ...ok, consent: false })).toBe('consent')
+    expect(intakeError({ ...ok, over16: false })).toBe('age')
   })
 })
 

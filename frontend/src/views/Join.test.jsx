@@ -53,9 +53,9 @@ const send = async label => {
   await click(label)
   await act(() => new Promise(r => setTimeout(r, 80)))
 }
+// The age box and the consent box: both ticked.
 const checkConsent = async () => {
-  const c = container.querySelector('[role="checkbox"]')
-  await act(async () => { c.click() })
+  for (const c of container.querySelectorAll('[role="checkbox"]')) await act(async () => { c.click() })
 }
 
 beforeEach(() => {
@@ -84,7 +84,7 @@ describe('asking to join a coach', () => {
     await send('Send me a code')
     const start = calls.find(([p]) => p === '/api/join/start')[1]
     expect(start).toMatchObject({ handle: 'yasmine.fit', name: 'Salma', email: 'salma@example.com', 
-      intake: { goal: 'strength', level: 'beginner', days: 3, injuries: 'Genou droit', equipment: ['gym'], phone: '', consent: true } })
+      intake: { goal: 'strength', level: 'beginner', days: 3, injuries: 'Genou droit', equipment: ['gym'], phone: '', consent: true, over16: true } })
     // Faster than the minimum fill time: the form waited it out instead of being taken for a bot.
     expect(start.elapsed).toBeGreaterThanOrEqual(50)
     expect(start.hp).toBe('')
@@ -99,8 +99,23 @@ describe('asking to join a coach', () => {
     await render()
     await click('Get stronger'); await click('Beginner'); await click('3')
     await click('Next')
+    const [age] = container.querySelectorAll('[role="checkbox"]')
+    await act(async () => { age.click() })
     await click('Next')
     expect(text()).toContain('Please agree to share your answers with your coach')
+    expect(calls.find(([p]) => p === '/api/join/start')).toBe(undefined)
+  })
+
+  it('asks the follower to confirm they are 16 or older', async () => {
+    await render()
+    await click('Get stronger'); await click('Beginner'); await click('3')
+    await click('Next')
+    // Nothing ticked: the age box comes first, as on the form; each box is named by its text.
+    const [age, consent] = container.querySelectorAll('[role="checkbox"]')
+    expect(container.querySelector('#' + age.getAttribute('aria-labelledby')).textContent).toBe('I am 16 or older')
+    expect(consent.getAttribute('aria-labelledby')).toBe('join-consent')
+    await click('Next')
+    expect(text()).toContain('You must be 16 or older to ask')
     expect(calls.find(([p]) => p === '/api/join/start')).toBe(undefined)
   })
 

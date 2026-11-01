@@ -21,7 +21,7 @@ beforeEach(function () {
 
 function intake(array $over = []): array
 {
-    return $over + ['goal' => 'strength', 'level' => 'beginner', 'days' => 3, 'injuries' => '', 'equipment' => ['gym'], 'phone' => '', 'consent' => true];
+    return $over + ['goal' => 'strength', 'level' => 'beginner', 'days' => 3, 'injuries' => '', 'equipment' => ['gym'], 'phone' => '', 'consent' => true, 'over16' => true];
 }
 
 it('keeps the intake to what the form offers, and stamps the consent', function () {
@@ -38,9 +38,15 @@ it('says what is missing from an intake', function (array $over, string $error) 
     'days out of range' => [['days' => 9], 'tell us your goal, level and days a week'],
     'days as text' => [['days' => '3'], 'tell us your goal, level and days a week'],
     'no consent' => [['consent' => false], 'please agree to share your answers with your coach'],
+    'under 16' => [['over16' => false], 'you must be 16 or older to ask'],
+    'age as a string' => [['over16' => 'true'], 'you must be 16 or older to ask'],
     'bad phone' => [['phone' => '0612345678'], 'that is not a phone number — include the country code'],
     'long injuries' => [['injuries' => str_repeat('a', 501)], 'tell us your goal, level and days a week'],
 ]);
+
+it('refuses an intake that never mentions an age, as a form from before the age box would send', function () {
+    expect(fn () => Intake::from((object) array_diff_key(intake(), ['over16' => 0])))->toThrow(ClientSafe::class, 'you must be 16 or older to ask');
+});
 
 it('refuses an intake that is not an object', function () {
     expect(fn () => Intake::from('nope'))->toThrow(ClientSafe::class, 'tell us your goal, level and days a week');

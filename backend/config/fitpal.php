@@ -76,6 +76,8 @@ return [
     //  - AUDIT_MAX / AUDIT_DAYS: blank or unset = the default (`process.env.X || 5000`), an explicit
     //    0 = no cap;
     //  - AUDIT_IP accepts `full`, or `net` and its truthy spellings, else off.
+    //    The fitpal.ma legal pages (site-coach/, "Security log") promise no IPs and 90 days at most:
+    //    turning AUDIT_IP on or raising AUDIT_DAYS means changing those pages first.
     'audit' => [
         'enabled' => ! (env('AUDIT_LOG') === false || preg_match('/^(0|false|no|off)$/i', (string) env('AUDIT_LOG', ''))),
         'max' => $count('AUDIT_MAX', 5000),
