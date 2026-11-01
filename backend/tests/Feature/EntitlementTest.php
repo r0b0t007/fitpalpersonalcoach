@@ -23,7 +23,7 @@ function licence(User $coach, array $fields): Licence
 
 beforeEach(function () {
     $this->f = Coaching::twoCoaches();
-    config(['fitpal.creem.api_key' => '', 'fitpal.creem.webhook_secret' => '', 'fitpal.creem.products' => '']);
+    config(['fitpal.creem.api_key' => '', 'fitpal.creem.webhook_secret' => '', 'fitpal.creem.products' => '', 'fitpal.free_cap' => 0]);
 });
 
 it('reads CREEM_PRODUCTS both ways, and is on only with key, secret and a product', function () {
@@ -106,10 +106,26 @@ it('counts active clients against the cap, and keeps an over-cap coach writing',
     expect(Entitlement::for($f->a))->toMatchObject(['used' => 11, 'canWrite' => true, 'canTakeClient' => false, 'overCap' => true]);
 });
 
-it('tells the app about billing in /api/config', function () {
-    $this->getJson('/api/config')->assertJsonPath('billing', false)->assertJsonPath('plans', [])->assertJsonPath('trial_days', 14);
+it('tells the app about billing and the Free plan in /api/config', function () {
+    $this->getJson('/api/config')->assertJsonPath('billing', false)->assertJsonPath('plans', [])->assertJsonPath('free_cap', 0)
+        ->assertJsonMissingPath('trial_days');
     billingOn('studio:year=prod_ty');
     $this->getJson('/api/config')->assertJsonPath('billing', true)->assertJsonPath('plans', [['plan' => 'studio', 'cap' => 75, 'periods' => ['year']]]);
+});
+
+it('offers Free first whenever FREE_CAP is set, with billing off or on', function () {
+    config(['fitpal.free_cap' => 3]);
+    expect(Plans::freeCap())->toBe(3)
+        ->and(Plans::offered())->toBe([['plan' => 'free', 'cap' => 3, 'periods' => []]]);
+    billingOn('pro:month=prod_pm');
+    expect(Plans::offered())->toBe([
+        ['plan' => 'free', 'cap' => 3, 'periods' => []],
+        ['plan' => 'pro', 'cap' => 30, 'periods' => ['month']],
+    ]);
+    $this->getJson('/api/config')->assertJsonPath('free_cap', 3)->assertJsonPath('plans.0.plan', 'free');
+    // A negative or junk value is off, never a cap below zero.
+    config(['fitpal.free_cap' => -2]);
+    expect(Plans::freeCap())->toBe(0);
 });
 
 it('says billing is off when CREEM_PRODUCTS names nothing it can sell', function () {
@@ -149,4 +165,57 @@ it('keeps the newest webhook ids and prunes the rest', function () {
     expect(BillingEvent::query()->count())->toBe(BillingEvent::KEEP)
         ->and(BillingEvent::query()->find('evt_1'))->toBeNull()
         ->and(BillingEvent::query()->find('evt_'.(BillingEvent::KEEP + 5)))->not->toBeNull();
+});
+
+it('puts a coach without a paid plan on Free when FREE_CAP is set, billing off or on', function () {
+    $f = $this->f;
+    config(['fitpal.free_cap' => 3]);
+    // Billing off: Free, not unlicensed.
+    expect(Entitlement::for($f->a)->toArray())->toMatchArray(['status' => 'free', 'plan' => 'free', 'cap' => 3, 'used' => 2, 'canWrite' => true, 'canTakeClient' => true, 'overCap' => false])
+        ->and(Entitlement::canWrite($f->a))->toBeTrue();
+    // Billing on and no licence: Free too, where it used to be read-only.
+    billingOn();
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => 'free', 'cap' => 3, 'canWrite' => true]);
+    // A third client fills it; a fourth puts the coach over, still writable.
+    (new User)->forceFill(['id' => User::newId(), 'name' => 'third', 'coach_id' => $f->a->id])->save();
+    expect(Entitlement::for($f->a))->toMatchObject(['used' => 3, 'canTakeClient' => false, 'overCap' => false])
+        ->and(Entitlement::for($f->a)->seatRefusal())->toBe('at_cap');
+    (new User)->forceFill(['id' => User::newId(), 'name' => 'fourth', 'coach_id' => $f->a->id])->save();
+    expect(Entitlement::for($f->a))->toMatchObject(['used' => 4, 'canWrite' => true, 'canTakeClient' => false, 'overCap' => true]);
+});
+
+it('keeps a paying coach on their plan, and drops one whose plan lapsed to Free', function () {
+    $f = $this->f;
+    config(['fitpal.free_cap' => 3]);
+    billingOn();
+    licence($f->a, ['status' => 'active', 'plan' => 'pro']);
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => 'active', 'plan' => 'pro', 'cap' => 30]);
+    // Over: canceled and its period gone. Free, with nothing left to bill.
+    licence($f->a, ['status' => 'canceled', 'plan' => 'pro', 'period_end' => now()->subDay()]);
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => 'free', 'plan' => 'free', 'cap' => 3, 'canWrite' => true]);
+});
+
+it('keeps a subscription Creem can still bill under its own status, with Free\'s allowance', function (string $status) {
+    $f = $this->f;
+    config(['fitpal.free_cap' => 3]);
+    billingOn();
+    licence($f->a, ['status' => $status, 'plan' => 'pro']);
+    // Its fix is the card in the portal, not a new checkout (which the server refuses): the app has
+    // to see `paused`/`unpaid` to offer it. Meanwhile the coach works as on Free.
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => $status, 'plan' => 'pro', 'cap' => 3, 'used' => 2, 'canWrite' => true, 'canTakeClient' => true]);
+})->with(['paused', 'unpaid']);
+
+it('leaves admins exempt, and billing-off coaches unlimited while FREE_CAP is unset', function () {
+    $f = $this->f;
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => 'unlicensed', 'cap' => null]);
+    config(['fitpal.free_cap' => 3]);
+    $f->a->forceFill(['admin' => true])->save();
+    expect(Entitlement::for($f->a->refresh()))->toMatchObject(['status' => 'admin', 'cap' => null]);
+});
+
+it('warns in check-config when the Free plan is as big as the smallest paid one', function () {
+    config(['fitpal.free_cap' => 10]);
+    $this->artisan('fitpal:check-config')->expectsOutputToContain('FREE_CAP (10) is not below the smallest paid plan (Solo, 10)');
+    config(['fitpal.free_cap' => 3]);
+    $this->artisan('fitpal:check-config')->doesntExpectOutputToContain('FREE_CAP (');
 });

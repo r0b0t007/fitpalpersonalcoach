@@ -223,6 +223,12 @@ it('says billing is off rather than counting coaches as paying, and counts no ad
     config(['fitpal.admin_uids' => [$f->b->id]]);   // an owner by ADMIN_UIDS, coach flag on
     $this->actingAs($f->admin, 'web');
     Livewire::test(CoachesOverview::class)->assertSee('Billing off')->assertDontSee('Paying or granted');
+    // The Free plan: a coach without a paid plan counts as on Free, never as paying.
+    config(['fitpal.free_cap' => 3]);
+    $free = Livewire::test(CoachesOverview::class)->assertSee('On Free')->assertDontSee('Billing off')->html();
+    expect(preg_match('/On Free.*?>\s*1\s*</s', $free))->toBe(1)
+        ->and(preg_match('/Paying or granted.*?>\s*0\s*</s', $free))->toBe(1);
+    config(['fitpal.free_cap' => 0]);
     Billing::on();
     Billing::licence($f->a, ['status' => 'active', 'plan' => 'pro']);
     $stats = Livewire::test(CoachesOverview::class)->assertSee('Paying or granted')->html();

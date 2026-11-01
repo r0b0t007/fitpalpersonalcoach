@@ -34,6 +34,7 @@ const { useStore } = await import('../../store/useStore.js')
 const { useUI } = await import('../../store/useUI.js')
 const { default: CoachToday } = await import('./CoachToday.jsx')
 const { default: CoachAccount } = await import('./CoachAccount.jsx')
+const { PlanSheet } = await import('./billing.jsx')
 const { default: Start, startOpen } = await import('../Start.jsx')
 const { resetCheckoutForTest } = await import('../../lib/checkout-return.js')
 
@@ -43,7 +44,14 @@ const PLANS = [
   { plan: 'studio', cap: 75, periods: ['month', 'year'] },
 ]
 const NODE_CONFIG = { invite_only: true, allow_guest: false }   // no billing at all, as the Node API sent
-const BILLED = { invite_only: true, billing: true, self_serve: true, plans: PLANS, trial_days: 14 }
+const BILLED = { invite_only: true, billing: true, self_serve: true, plans: PLANS }
+const FREE_PLAN = { plan: 'free', cap: 3, periods: [] }
+const FREE_ONLY = { invite_only: true, billing: false, free_cap: 3, self_serve: true, plans: [FREE_PLAN] }
+const FREE_AND_PAID = { ...BILLED, free_cap: 3, plans: [FREE_PLAN, ...PLANS] }
+const free = (over = {}) => ({
+  entitlement: { status: 'free', plan: 'free', cap: 3, used: 1, canWrite: true, canTakeClient: true, overCap: false, trialEndsAt: null, periodEnd: null, ...over },
+  licence: null, plans: [FREE_PLAN, ...PLANS], portal: false,
+})
 const COACH = { id: 'me', name: 'Ahmed', coach: true }
 const inDays = d => new Date(Date.now() + d * 86_400_000).toISOString()
 const me = (entitlement = {}, licence = null, portal = true) => ({
@@ -99,6 +107,9 @@ describe('on an instance without billing (none in /api/config)', () => {
     expect(startOpen(NODE_CONFIG)).toBe(false)
     expect(startOpen({ ...BILLED, self_serve: false })).toBe(false)
     expect(startOpen({ ...BILLED, billing: false, plans: [] })).toBe(false)
+    // The Free plan alone opens it: no Creem needed.
+    expect(startOpen(FREE_ONLY)).toBe(true)
+    expect(startOpen({ ...FREE_ONLY, self_serve: false })).toBe(false)
     expect(startOpen(BILLED)).toBe(true)
   })
 })
@@ -108,7 +119,6 @@ describe("Today's banner", () => {
     ME = me({ status: 'none', plan: null, cap: 0, canWrite: false }, { status: 'pending' })
     await render(<CoachToday />)
     expect(text()).toContain('Choose a plan to start coaching')
-    expect(text()).toContain('14 days free')
     await click('Choose a plan')
     expect(useUI.getState().sheets).toHaveLength(1)
   })
@@ -295,5 +305,103 @@ describe('/#/start', () => {
     await type('Email', 'not-an-address')
     await click('Create passkey and continue')
     expect(calls.find(([p]) => p === 'register')).toBe(undefined)
+  })
+})
+
+describe('the Free plan', () => {
+  const type = async (placeholder, value) => {
+    const input = container.querySelector(`input[placeholder="${placeholder}"]`)
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set
+    await act(async () => { set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })) })
+  }
+
+  it('/#/start?plan=free makes the account and opens no payment page', async () => {
+    useStore.setState({ user: null, config: FREE_AND_PAID })
+    await render(<Start />, '/start?plan=free')
+    expect(container.querySelector('.seg button.on').textContent).toBe('Free')
+    expect(text()).toContain('Up to 3 active clients')
+    expect(text()).toContain('Free, no card needed.')
+    await type('Your name', 'Salma')
+    await type('Email', 'salma@example.com')
+    await click('Create passkey and start')
+    await act(async () => {})
+    expect(calls.find(([p]) => p === 'register')).toBeTruthy()
+    expect(calls.find(([p]) => p === '/api/billing/checkout')).toBe(undefined)
+    expect(assign).not.toHaveBeenCalled()
+  })
+
+  it('works on an instance with no Creem at all', async () => {
+    useStore.setState({ user: null, config: FREE_ONLY })
+    await render(<Start />, '/start')
+    expect(container.querySelector('.seg button.on').textContent).toBe('Free')
+  })
+
+  it('Today asks for the plan with Creem off, and says nothing under the cap', async () => {
+    useStore.setState({ config: FREE_ONLY })
+    ME = { ...free(), plans: [FREE_PLAN] }
+    await render(<CoachToday />)
+    expect(billingCalls().map(([p]) => p)).toContain('/api/billing/me')
+    expect(text()).not.toContain('Choose a plan')
+  })
+
+  it('Today offers a paid plan once the Free cap is passed', async () => {
+    useStore.setState({ config: FREE_AND_PAID })
+    ME = free({ used: 4, canTakeClient: false, overCap: true })
+    await render(<CoachToday />)
+    expect(text()).toContain('4 active clients on a 3-client plan')
+    await click('Choose a plan')
+    expect(useUI.getState().sheets).toHaveLength(1)
+  })
+
+  it('the plan sheet sells paid plans only: Free is what the coach has already', async () => {
+    useStore.setState({ config: FREE_AND_PAID })
+    await render(<PlanSheet close={() => {}} />)
+    expect([...container.querySelectorAll('.seg button')].map(b => b.textContent)).not.toContain('Free')
+    expect(text()).toContain('Continue to payment')
+  })
+
+  it('Account shows Free with its seats, and an upgrade where paid plans are sold', async () => {
+    useStore.setState({ config: FREE_AND_PAID })
+    ME = free({ used: 2 })
+    await render(<CoachAccount />)
+    expect(text()).toContain('Plan & billing')
+    expect(text()).toContain('No card needed')
+    expect(text()).toContain('2 / 3 clients')
+    expect(text()).toContain('Upgrade')
+  })
+
+  it('Account offers no upgrade where nothing is sold', async () => {
+    useStore.setState({ config: FREE_ONLY })
+    ME = { ...free({ used: 2 }), plans: [FREE_PLAN] }
+    await render(<CoachAccount />)
+    expect(text()).toContain('2 / 3 clients')
+    expect(text()).not.toContain('Upgrade')
+  })
+})
+
+describe('the Free plan, after review', () => {
+  it('a paused subscription on an instance with Free still shows the card fix, and says it works as Free', async () => {
+    useStore.setState({ config: FREE_AND_PAID })
+    ME = me({ status: 'paused', plan: 'pro', cap: 3, used: 2, canWrite: true, canTakeClient: true })
+    await render(<CoachToday />)
+    expect(text()).toContain('Your plan is paused')
+    expect(text()).toContain('Until the payment goes through, you are on the Free plan: up to 3 active clients.')
+    expect(text()).toContain('Update payment')
+  })
+
+  it('a Free coach who once paid can still reach their invoices', async () => {
+    useStore.setState({ config: FREE_AND_PAID })
+    ME = { ...free({ used: 2 }), portal: true }
+    await render(<CoachAccount />)
+    expect(text()).toContain('Invoices from your earlier plan')
+  })
+
+  it('tells a Free coach over the cap to release a client where no paid plan is sold, not to upgrade', async () => {
+    useStore.setState({ config: FREE_ONLY })
+    ME = { ...free({ used: 4, canTakeClient: false, overCap: true }), plans: [FREE_PLAN] }
+    await render(<CoachToday />)
+    expect(text()).toContain('4 active clients on a 3-client plan')
+    expect(text()).not.toContain('Upgrade to invite more')
+    expect(text()).toContain('Release a client who has stopped training to invite someone new.')
   })
 })

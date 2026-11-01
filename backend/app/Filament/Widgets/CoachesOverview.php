@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Domain\Plans;
 use App\Filament\Entitlements;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
@@ -20,7 +21,7 @@ class CoachesOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $by = ['writing' => 0, 'trialing' => 0, 'failing' => 0, 'readOnly' => 0, 'unbilled' => 0];
+        $by = ['writing' => 0, 'trialing' => 0, 'failing' => 0, 'readOnly' => 0, 'unbilled' => 0, 'free' => 0];
         // Admins (by flag or ADMIN_UIDS) run the instance; they are nobody's paying coach.
         $coaches = User::query()->where('coach', true)->where('disabled', false)->get()->reject(fn (User $u) => $u->isAdmin());
         foreach ($coaches as $coach) {
@@ -28,6 +29,8 @@ class CoachesOverview extends StatsOverviewWidget
             match (true) {
                 // Billing off: every coach writes, and none of them pays.
                 $e->status === 'unlicensed' => $by['unbilled']++,
+                // The Free plan (CHW-329): writing, and paying nothing.
+                $e->status === 'free' => $by['free']++,
                 in_array($e->status, ['past_due', 'unpaid', 'paused'], true) => $by['failing']++,
                 ! $e->canWrite => $by['readOnly']++,
                 $e->status === 'trialing' => $by['trialing']++,
@@ -45,6 +48,7 @@ class CoachesOverview extends StatsOverviewWidget
         return [
             Stat::make('Coaches', (string) $coaches->count()),
             Stat::make('Paying or granted', (string) $by['writing']),
+            ...(Plans::freeCap() > 0 ? [Stat::make('On Free', (string) $by['free'])->description('up to '.Plans::freeCap().' clients, no card')] : []),
             Stat::make('On trial', (string) $by['trialing']),
             Stat::make('Payment failing', (string) $by['failing'])->description('past due, unpaid or paused')
                 ->color($by['failing'] > 0 ? 'warning' : 'gray'),

@@ -261,3 +261,19 @@ it('counts the seat and reads the licence with locking reads, after the coach\'s
     expect(array_slice(array_values(array_unique($seen)), 0, 3))->toBe(['coach for update', 'count shared', 'licence shared'])
         ->and($seen)->not->toContain('count')->not->toContain('licence');
 })->with(['redeem', 'register', 'mint']);
+
+it('lets a coach with no plan write on the Free plan, and mints no code past its cap', function () {
+    $f = $this->f;
+    config(['fitpal.free_cap' => 3]);
+    $state = fn () => collect($this->getJson('/api/coach/invites', bearer($f->a))->assertOk()->json())->only(['cap', 'used', 'canInvite', 'reason'])->all();
+    expect($state())->toBe(['cap' => 3, 'used' => 2, 'canInvite' => true, 'reason' => null]);
+    // A gated write that "refuses a coach with no plan every write it gates" turns away: it goes through on Free.
+    $this->postJson('/api/coach/programs/save', ['id' => 'prog-free', 'name' => 'Mine', 'bundle' => ['opengym_plan' => 1, 'routines' => [['id' => 'r', 'ex' => []]]]], bearer($f->a))->assertOk();
+    $this->postJson('/api/coach/invites/new', ['note' => 'x'], bearer($f->a))->assertOk();
+    seatsTaken($f->a, 3);
+    expect($state())->toBe(['cap' => 3, 'used' => 3, 'canInvite' => false, 'reason' => 'at_cap']);
+    $this->postJson('/api/coach/invites/new', ['note' => 'x'], bearer($f->a))->assertStatus(402)->assertExactJson([
+        'error' => 'your plan allows 3 clients — upgrade to invite more',
+        'msg' => ['k' => 'your plan allows {0} clients — upgrade to invite more', 'v' => [3]],
+    ]);
+});

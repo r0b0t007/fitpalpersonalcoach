@@ -11,7 +11,7 @@ import { confirmSheet } from '../../sheets.jsx'
 import { InviteSheet, MediaSheet } from './sheets.jsx'
 import { PlanBillingSection } from './billing.jsx'
 import { EmailRow } from './EmailRow.jsx'
-import { billingOn } from '../../lib/billing.js'
+import { plansOn } from '../../lib/billing.js'
 import { PairSheet } from '../Settings.jsx'
 
 /**
@@ -43,7 +43,7 @@ export default function CoachAccount() {
   const billing = useStore(s => s.billing)
   const loadBilling = useStore(s => s.loadBilling)
   const config = useStore(s => s.config)
-  const billed = billingOn(config)
+  const billed = plansOn(config)
   useEffect(() => { loadBilling() }, [billed, user?.id])
 
   // Ends the profile's sessions on every device, this one included, so on success it lands where

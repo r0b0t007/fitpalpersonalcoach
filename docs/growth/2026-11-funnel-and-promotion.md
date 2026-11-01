@@ -28,7 +28,7 @@ entreno está listo ese mismo día."
 | Stage | Where it is counted (spec §7) | Target |
 |---|---|---|
 | Visit | fitpal.ma page view (site analytics) | — |
-| Sign-up | `coach.signup` with its plan (a new event, added with CHW-329; today a self-serve coach shows only as `auth.register.ok`) | 8% of visits *(est.)* |
+| Sign-up | `auth.register.ok`, msg `self-serve` | 8% of visits *(est.)* |
 | Page published | `coach.page.save` with `open` on | 70% of sign-ups |
 | First request | first `join.request` | 65% of sign-ups within 7 days |
 | **Activated** | an accepted client whose `user_states.first_workout_at` is set | 50% of sign-ups within 7 days (about 3 in 4 of the coaches who got a request) |

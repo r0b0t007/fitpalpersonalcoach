@@ -14,7 +14,7 @@ import { Button } from '../../components/ui.jsx'
 import { dur, rel } from './parts.jsx'
 import { InviteSheet, MediaSheet } from './sheets.jsx'
 import { BillingBanner } from './billing.jsx'
-import { banner, billingOn, checkoutSettled } from '../../lib/billing.js'
+import { banner, plansOn, checkoutSettled } from '../../lib/billing.js'
 import { pendingCheckout, clearCheckout, checkoutAge, ACTIVATING_MS, POLL_MS } from '../../lib/checkout-return.js'
 
 // The coach's landing screen: what needs me, who is training, what happened. A coach opens the
@@ -43,7 +43,7 @@ export default function CoachToday() {
 
   // The plan (R4; lib/billing.js). Nothing at all on an instance that bills nobody — the Node API
   // has no billing — so Today is exactly what it was there.
-  const billed = billingOn(useStore(s => s.config))
+  const billed = plansOn(useStore(s => s.config))
   const billing = useStore(s => s.billing)
   const loadBilling = useStore(s => s.loadBilling)
   // Back from the payment page (?checkout_id=, lib/checkout-return.js): the webhook usually trails

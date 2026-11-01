@@ -32,7 +32,9 @@ final class MetaController
             // billing at all: `billing` false is the same, for an instance without Creem.
             'billing' => Plans::billingOn(),
             'plans' => Plans::offered(),
-            'trial_days' => Plans::TRIAL_DAYS,
+            // The Free plan's cap (CHW-329), 0 when there is none: the app shows plans whenever
+            // this or `billing` is set (lib/billing.js plansOn).
+            'free_cap' => Plans::freeCap(),
             // A coach's sign-in by emailed link (spec §4a). The Node API has no such routes and
             // sends no such key, and the app then offers no email path at all.
             'login_email' => true,

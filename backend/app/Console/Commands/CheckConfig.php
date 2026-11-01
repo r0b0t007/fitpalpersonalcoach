@@ -40,8 +40,14 @@ final class CheckConfig extends Command
         // Creem: a partial set leaves billing off (every coach entitled) — say so, and name any
         // CREEM_PRODUCTS entry that is ignored.
         array_push($warnings, ...Plans::problems(), ...Creem::problems());
-        if (config('fitpal.self_serve_coach') && ! Plans::billingOn()) {
-            $warnings[] = 'SELF_SERVE_COACH is on but billing is off: coach sign-up stays closed until CREEM_API_KEY, CREEM_WEBHOOK_SECRET and CREEM_PRODUCTS are set (a self-serve coach is meant to pay).';
+        // A Free plan as big as a paid one makes paying a downgrade: the coach would land over the
+        // cap of the plan they just bought.
+        $smallest = min(Plans::CAPS);
+        if (Plans::freeCap() >= $smallest) {
+            $warnings[] = 'FREE_CAP ('.Plans::freeCap().') is not below the smallest paid plan ('.ucfirst((string) array_search($smallest, Plans::CAPS, true)).", $smallest): upgrading would lower a coach's cap.";
+        }
+        if (config('fitpal.self_serve_coach') && ! Plans::selfServeOpen()) {
+            $warnings[] = 'SELF_SERVE_COACH is on but there is nothing to sign up to: set FREE_CAP for the Free plan, or CREEM_API_KEY, CREEM_WEBHOOK_SECRET and CREEM_PRODUCTS for paid plans. Coach sign-up stays closed until then.';
         }
         array_push($warnings, ...self::mailProblems(), ...LiveChecks::origin(app()->isProduction()), ...LiveChecks::vapid());
         // Live only: on a laptop the Node API and Laravel may well share a data dir under two secrets.

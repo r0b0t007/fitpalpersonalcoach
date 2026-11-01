@@ -11,13 +11,17 @@ use Carbon\CarbonInterface;
  * What a coach may do under their licence (spec §6), decided in one place:
  *
  *  1. an admin runs the instance: unlimited, writable, never a tenant;
- *  2. billing off (no Creem configured, Plans::billingOn) → `unlicensed`, writable, unlimited —
- *     a self-hosted instance and the test suite are unaffected;
- *  3. no licence → cap 0, not writable;
- *  4. writable while trialing, active, past_due (Creem is still retrying), manual, and canceled
+ *  2. billing off and no Free plan (Plans::billingOn, Plans::freeCap) → `unlicensed`, writable,
+ *     unlimited — a self-hosted instance and the test suite are unaffected;
+ *  3. a licence that writes (rule 5) → its plan and cap;
+ *  4. otherwise, with a Free plan (FREE_CAP, CHW-329) → writable, capped at FREE_CAP: `free` for no
+ *     licence or one that is over, the licence's own status for one Creem can still bill (paused,
+ *     unpaid — the app offers its card fix); without a Free plan → cap 0 and not writable (no
+ *     licence), or the licence's own read-only status;
+ *  5. writable while trialing, active, past_due (Creem is still retrying), manual, and canceled
  *     until the period that was paid for ends;
- *  5. canTakeClient = writable and under the cap; overCap = more active clients than the cap
- *     (after a downgrade: still writable, but cannot add).
+ *  6. canTakeClient = writable and under the cap; overCap = more active clients than the cap
+ *     (after a downgrade, or Free's cap reached: still writable, but cannot add).
  *
  * A licence on a plan this instance does not sell (a hand-edited row: grant and the webhook only
  * write plans that exist) is cap 0 and not writable — failing closed, so every refusal it meets
@@ -68,13 +72,29 @@ final readonly class Entitlement
             return new self($exempt, null, null, $used, true, true, false);
         }
         $licence = self::licenceOf($user, $lock ? 'share' : null);
+        if ($licence !== null && self::writable($licence)) {
+            $cap = Plans::cap($licence->plan);
+
+            return new self($licence->status, $licence->plan, $cap, $used, true, $used < $cap, $used > $cap,
+                $licence->trial_ends_at, $licence->period_end);
+        }
+        if (($free = Plans::freeCap()) > 0) {
+            // A subscription Creem can still bill (paused, unpaid) keeps its status: its fix is the
+            // card in the portal, and a checkout would be refused (BillingController::refuseHeld) —
+            // the app must see it to offer the right one. Meanwhile it works as on Free.
+            if ($licence !== null && $licence->canStillBill()) {
+                return new self($licence->status, $licence->plan, $free, $used, true, $used < $free, $used > $free,
+                    $licence->trial_ends_at, $licence->period_end);
+            }
+
+            return new self('free', 'free', $free, $used, true, $used < $free, $used > $free);
+        }
         if ($licence === null) {
             return new self('none', null, 0, $used, false, false, $used > 0);
         }
         $cap = Plans::cap($licence->plan);
-        $canWrite = self::writable($licence);
 
-        return new self($licence->status, $licence->plan, $cap ?? 0, $used, $canWrite, $canWrite && $used < $cap, $cap !== null && $used > $cap,
+        return new self($licence->status, $licence->plan, $cap ?? 0, $used, false, false, $cap !== null && $used > $cap,
             $licence->trial_ends_at, $licence->period_end);
     }
 
@@ -85,7 +105,8 @@ final readonly class Entitlement
      */
     public static function canWrite(User $user): bool
     {
-        if (self::exempt($user) !== null) {
+        // A Free plan writes whatever the licence says: answered before the licence is read.
+        if (self::exempt($user) !== null || Plans::freeCap() > 0) {
             return true;
         }
         $licence = self::licenceOf($user);
@@ -113,7 +134,7 @@ final readonly class Entitlement
         return match (true) {
             ! $user->isCoach() => 'client',
             $user->isAdmin() => 'admin',
-            ! Plans::billingOn() => 'unlicensed',
+            ! Plans::billingOn() && Plans::freeCap() === 0 => 'unlicensed',
             default => null,
         };
     }
