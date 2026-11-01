@@ -2,11 +2,26 @@
 // and the request this browser keeps. The server holds the same lists (backend/app/Coaching/
 // Intake.php) and decides; this only spares a refusal and keeps the request across a reload.
 import { normaliseHandle } from './coach-page.js'
+import { t } from './i18n.js'
 
 export const GOALS = ['strength', 'fat_loss', 'muscle', 'fitness', 'sport', 'other']
 export const LEVELS = ['beginner', 'intermediate', 'advanced']
 export const EQUIPMENT = ['gym', 'home', 'dumbbells', 'bands', 'none']
 export const INJURIES_MAX = 500
+
+// The words for each choice, shared by the follower's form and the coach's inbox. Each is its own
+// literal t() call so check-source-strings sees every key (a t(variable) is invisible to it).
+const GOAL_LABEL = {
+  strength: () => t('Get stronger'), fat_loss: () => t('Lose fat'), muscle: () => t('Build muscle'),
+  fitness: () => t('Get fit'), sport: () => t('Perform at my sport'), other: () => t('Something else'),
+}
+const LEVEL_LABEL = { beginner: () => t('Beginner'), intermediate: () => t('Intermediate'), advanced: () => t('Advanced') }
+const EQUIPMENT_LABEL = {
+  gym: () => t('Gym'), home: () => t('At home'), dumbbells: () => t('Dumbbells'), bands: () => t('Bands'), none: () => t('Nothing'),
+}
+export const goalLabel = g => GOAL_LABEL[g]?.() ?? ''
+export const levelLabel = l => LEVEL_LABEL[l]?.() ?? ''
+export const equipmentLabel = e => EQUIPMENT_LABEL[e]?.() ?? ''
 
 /** Faster than this, the server takes the form for a bot's (and quietly keeps nothing). */
 export const MIN_FILL_MS = 3000

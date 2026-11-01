@@ -14,6 +14,7 @@ import { Button } from '../../components/ui.jsx'
 import { dur, rel } from './parts.jsx'
 import { InviteSheet, MediaSheet } from './sheets.jsx'
 import { BillingBanner } from './billing.jsx'
+import { usePendingRequests } from './Requests.jsx'
 import { banner, plansOn, checkoutSettled } from '../../lib/billing.js'
 import { pendingCheckout, clearCheckout, checkoutAge, ACTIVATING_MS, POLL_MS } from '../../lib/checkout-return.js'
 
@@ -29,6 +30,8 @@ export default function CoachToday() {
   const [programs, setPrograms] = useState([])
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
+  // Followers waiting on an answer (CHW-337): first thing on Today, since each one is a client to win.
+  const requestsWaiting = usePendingRequests()
   const [members, setMembers] = useState(null)
 
   const load = () => api('/api/coach/members').then(d => setMembers(d.members)).catch(e => toast(e.message || t('Failed to load')))
@@ -96,6 +99,12 @@ export default function CoachToday() {
     </div>
 
     {notice && <BillingBanner b={notice} billing={billing} />}
+
+    {requestsWaiting > 0 && <button className="card row between" style={{ width: '100%', textAlign: 'left', gap: 12, border: '1px solid var(--acc)' }} onClick={() => nav('/requests')}>
+      <div className="grow"><div className="tt">{tp(requestsWaiting, '{0} new request', '{0} new requests')}</div>
+        <div className="ss dim">{t('People who asked to train with you from your page.')}</div></div>
+      <Icon name="chevronRight" />
+    </button>}
 
     <div className="tiles" style={{ marginBottom: 12 }}>
       <div className="tile tappable" onClick={() => nav('/clients')}><div className="l">{t('Clients')}</div><div className="v">{members ? roster.length : '—'}</div></div>

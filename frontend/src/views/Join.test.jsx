@@ -19,6 +19,8 @@ vi.mock('../lib/api.js', async orig => ({
     if (path === '/api/join/start') return { ok: true, id: START_IDS.shift() || 'req-decoy' }
     if (path === '/api/join/verify') { if (VERIFY instanceof Error) throw VERIFY; return VERIFY }
     if (path === '/api/join/status') { if (STATUS instanceof Error) throw STATUS; return STATUS }
+    if (path === '/api/join/claim') return { user: { id: 'u1', name: 'Salma', coachName: 'Yasmine' } }
+    if (path === '/api/data') return { data: null }
     throw new Error('unexpected ' + path)
   },
 }))
@@ -26,6 +28,7 @@ vi.mock('../lib/api.js', async orig => ({
 vi.mock('../lib/join.js', async orig => ({ ...(await orig()), MIN_FILL_MS: 50 }))
 const { default: Join } = await import('./Join.jsx')
 const { useUI } = await import('../store/useUI.js')
+const { useStore } = await import('../store/useStore.js')
 
 let container, root
 const text = () => container.textContent
@@ -156,5 +159,19 @@ describe('asking to join, when things go wrong', () => {
     await type('input[name="code"]', '123456')
     await click('Send my request')
     expect(calls.find(([p]) => p === '/api/join/verify')[1]).toEqual({ id: 'req1', code: '123456' })
+  })
+})
+
+describe('once the coach has accepted', () => {
+  it('signs the follower in from the request, once, and forgets it', async () => {
+    localStorage.setItem('join:yasmine.fit', JSON.stringify({ id: 'req1', token: 'tok1' }))
+    STATUS = { status: 'accepted', coachName: 'Yasmine', handle: 'yasmine.fit', theme: 'dark' }
+    useStore.setState({ user: null })
+    await render()
+    expect(text()).toContain('Yasmine accepted you')
+    await click('Start training')
+    expect(calls.find(([p]) => p === '/api/join/claim')[1]).toEqual({ id: 'req1', token: 'tok1' })
+    expect(useStore.getState().user).toMatchObject({ id: 'u1', coachName: 'Yasmine' })
+    expect(localStorage.getItem('join:yasmine.fit')).toBe(null)
   })
 })

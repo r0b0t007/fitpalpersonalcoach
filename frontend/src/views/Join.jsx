@@ -1,21 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api.js'
 import { t, getLang } from '../lib/i18n.js'
-import { EQUIPMENT, GOALS, INJURIES_MAX, LEVELS, MIN_FILL_MS, forgetRequest, intakeError, saveRequest, savedRequest } from '../lib/join.js'
+import { EQUIPMENT, GOALS, INJURIES_MAX, LEVELS, MIN_FILL_MS, equipmentLabel, forgetRequest, goalLabel, intakeError, levelLabel, saveRequest, savedRequest } from '../lib/join.js'
 import { useCoachTheme } from './PublicCoach.jsx'
+import { useNavigate } from 'react-router-dom'
+import { useStore, hasData } from '../store/useStore.js'
 import Logo from '../components/Logo.jsx'
 import { Button, Check, Notice, Segmented, TextArea, TextField } from '../components/ui.jsx'
-
-// Each label is its own literal t() call so check-source-strings sees every key (a t(variable) is
-// invisible to it).
-const GOAL_LABEL = {
-  strength: () => t('Get stronger'), fat_loss: () => t('Lose fat'), muscle: () => t('Build muscle'),
-  fitness: () => t('Get fit'), sport: () => t('Perform at my sport'), other: () => t('Something else'),
-}
-const LEVEL_LABEL = { beginner: () => t('Beginner'), intermediate: () => t('Intermediate'), advanced: () => t('Advanced') }
-const EQUIPMENT_LABEL = {
-  gym: () => t('Gym'), home: () => t('At home'), dumbbells: () => t('Dumbbells'), bands: () => t('Bands'), none: () => t('Nothing'),
-}
 
 /**
  * Asking to join a coach (CHW-336): from their public page, a short intake, the address and the
@@ -35,6 +26,8 @@ export default function Join({ handle }) {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const opened = useRef(Date.now())
+  const nav = useNavigate()
+  const { setUser, pushState, pullState } = useStore()
   const set = (k, v) => { setIntake(i => ({ ...i, [k]: v })); setError(null) }
 
   useEffect(() => {
@@ -105,6 +98,19 @@ export default function Join({ handle }) {
     setBusy(false)
   }
 
+  // Accepted (CHW-337): this browser's token signs the follower in to the account accept made —
+  // once, then the request is forgotten and the app is theirs.
+  const claim = async () => {
+    setBusy(true); setError(null)
+    try {
+      const r = await api('/api/join/claim', { method: 'POST', body: JSON.stringify({ id: request.id, token: request.token }) })
+      setUser(r.user)
+      if (hasData(useStore.getState().S)) await pushState(); else await pullState()
+      forgetRequest(handle)
+      nav('/home')
+    } catch (e) { setError(e.message); setBusy(false) }
+  }
+
   if (step === 'loading') return <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center' }}><Logo size={30} /></div>
   if (step === 'gone') return <div className="narrow gate"><Logo size={30} heading /><Notice icon="info" title={error} /></div>
 
@@ -117,9 +123,9 @@ export default function Join({ handle }) {
 
     {step === 'intake' && <>
       <h4 className="sec">{t('Your goal')}</h4>
-      <div className="chips">{GOALS.map(g => chip(intake.goal === g, GOAL_LABEL[g](), () => set('goal', g), g))}</div>
+      <div className="chips">{GOALS.map(g => chip(intake.goal === g, goalLabel(g), () => set('goal', g), g))}</div>
       <h4 className="sec">{t('Your level')}</h4>
-      <Segmented options={LEVELS.map(l => ({ value: l, label: LEVEL_LABEL[l]() }))}
+      <Segmented options={LEVELS.map(l => ({ value: l, label: levelLabel(l) }))}
         value={intake.level} onChange={v => set('level', v)} />
       <h4 className="sec">{t('Days a week you can train')}</h4>
       {/* Numbers read the same in every language. */}
@@ -134,7 +140,7 @@ export default function Join({ handle }) {
       <TextArea name="injuries" rows={3} maxLength={INJURIES_MAX} placeholder={t('Optional')}
         value={intake.injuries} onChange={e => set('injuries', e.target.value)} />
       <h4 className="sec">{t('What you can train with')}</h4>
-      <div className="chips">{EQUIPMENT.map(q => chip(intake.equipment.includes(q), EQUIPMENT_LABEL[q](),
+      <div className="chips">{EQUIPMENT.map(q => chip(intake.equipment.includes(q), equipmentLabel(q),
         () => set('equipment', intake.equipment.includes(q) ? intake.equipment.filter(x => x !== q) : [...intake.equipment, q]), q))}</div>
       <h4 className="sec">{t('WhatsApp (optional)')}</h4>
       <TextField name="phone" type="tel" placeholder="+212 6 12 34 56 78" value={intake.phone} onChange={e => set('phone', e.target.value)} />
@@ -176,11 +182,16 @@ export default function Join({ handle }) {
     </>}
 
     {step === 'sent' && <>
-      <Notice icon={request?.status === 'declined' ? 'info' : 'checkCircle'}
+      {request?.status === 'accepted' ? <>
+        <Notice icon="checkCircle" title={t('{0} accepted you', coach.name)} body={t('Your program is waiting in the app.')} />
+        {errorLine}
+        <div style={{ height: 14 }} />
+        <Button variant="primary" onClick={claim} disabled={busy}>{t('Start training')}</Button>
+      </> : <Notice icon={request?.status === 'declined' ? 'info' : 'checkCircle'}
         title={request?.status === 'declined' ? t('Not this time') : t('Request sent')}
         body={request?.status === 'declined'
           ? t('{0} cannot take you on right now.', coach.name)
-          : t('{0} has your request. You will hear back here and by email.', coach.name)} />
+          : t('{0} has your request. You will hear back here and by email.', coach.name)} />}
     </>}
 
     <div className="dim small" style={{ marginTop: 28, textAlign: 'center' }}>{t('Coached with FitPal')}</div>

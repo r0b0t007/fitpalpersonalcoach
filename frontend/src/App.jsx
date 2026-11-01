@@ -49,6 +49,7 @@ import Programs from './views/coach/Programs.jsx'
 import ProgramEditShell, { ProgramEdit, ProgramRoutineEdit } from './views/coach/ProgramEdit.jsx'
 import CoachAccount from './views/coach/CoachAccount.jsx'
 import PublicPage from './views/coach/PublicPage.jsx'
+import Requests from './views/coach/Requests.jsx'
 import { BusinessAccounts, BusinessActivity } from './views/coach/Business.jsx'
 
 // last known scrollY per route, so back-navigation can put the page where it was
@@ -115,6 +116,7 @@ function CoachRoutes({ user }) {
       </Route>
       <Route path="/account" element={<CoachAccount />} />
       <Route path="/account/page" element={<PublicPage />} />
+      <Route path="/requests" element={<Requests />} />
       {/* The two operator jobs a single coach keeps, out of the gym dashboard. Both are gated on
           user.admin inside, so a URL typed by a plain coach lands back on /account rather than on
           a screen whose every request 403s. */}
