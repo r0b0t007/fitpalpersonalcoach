@@ -39,7 +39,8 @@ vi.mock('../lib/api.js', async orig => {
     webauthnOK: () => true,
   }
 })
-vi.mock('../lib/inapp.js', () => ({ inAppBrowser: () => /Instagram/.test(UA) }))
+// Login's code-first layout follows this; the open-in-browser card is OpenInBrowser.test's.
+vi.mock('../lib/inapp.js', async orig => ({ ...(await orig()), inAppBrowser: () => /Instagram/.test(UA), inAppPlatform: () => null }))
 vi.mock('../lib/mobile.js', () => ({
   MOBILE: false, initReminderSync: () => {}, writeAutoBackup: () => {}, nativeLoad: async () => null, nativeSave: () => {}, syncReminder: () => {},
 }))

@@ -4,6 +4,7 @@ import { t } from '../lib/i18n.js'
 import { useUI } from '../store/useUI.js'
 import Logo from '../components/Logo.jsx'
 import { Notice } from '../components/ui.jsx'
+import OpenInBrowser from '../components/OpenInBrowser.jsx'
 
 /**
  * Wears a coach's chosen theme (CHW-323) while the screen is open, handed to App through useUI,
@@ -47,6 +48,7 @@ export default function PublicCoach({ handle }) {
   if (!coach) return <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center' }}><Logo size={30} /></div>
 
   return <div className="narrow gate" style={{ textAlign: 'left' }}>
+    <OpenInBrowser path={'/c/' + encodeURIComponent(handle)} style={{ marginBottom: 18 }} />
     <h1 style={{ marginBottom: 6 }}>{coach.name}</h1>
     {coach.bio && <p className="muted" style={{ fontSize: 17, lineHeight: 1.4, marginTop: 0 }}>{coach.bio}</p>}
     {coach.whatsapp && <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
