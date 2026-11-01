@@ -15,6 +15,7 @@ use App\Http\Controllers\CoachTermsController;
 use App\Http\Controllers\CreemWebhookController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\ExerciseMediaController;
+use App\Http\Controllers\HealthConsentController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\JoinController;
 use App\Http\Controllers\LoginLinkController;
@@ -95,6 +96,10 @@ $routes = static function (): void {
 
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/me', [AuthController::class, 'me']);
+        // A coached client's consent to their coach seeing their health data (CHW-360).
+        Route::get('/me/health-consent', [HealthConsentController::class, 'show']);
+        Route::post('/me/health-consent', [HealthConsentController::class, 'give']);
+        Route::post('/me/health-consent/withdraw', [HealthConsentController::class, 'withdraw']);
         // Web Push: this browser subscribed or not, and a test push to every browser subscribed.
         Route::post('/push/subscribe', [PushController::class, 'subscribe']);
         Route::post('/push/unsubscribe', [PushController::class, 'unsubscribe']);

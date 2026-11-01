@@ -57,7 +57,7 @@ final class MemberCard
      */
     public static function card(User $u, ?string $viewerId, Collection $offers, ?stdClass $live = null): array
     {
-        $s = self::state($u->id);
+        $s = HealthConsent::forCoach($u, self::state($u->id));   // health data only with consent (CHW-360)
         $trainable = self::trainable($s);
         // Sending used to be a black hole: a decline looked exactly like "hasn't opened the app".
         // Node sorted String(decidedAt) descending, so a row with no date ("undefined") came
@@ -196,7 +196,7 @@ final class MemberCard
     /** GET /api/coach/member: one client, everything <StatsPanels> and the client page read. */
     public static function detail(User $u): array
     {
-        $s = self::state($u->id);
+        $s = HealthConsent::forCoach($u, self::state($u->id));   // health data only with consent (CHW-360)
 
         return [
             'user' => ['id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso()],
@@ -209,7 +209,7 @@ final class MemberCard
             'mealDays' => ($s->mealDays ?? null) instanceof stdClass ? $s->mealDays : new stdClass,
             'nutriTarget' => $s->nutriTarget ?? null,
             // Server-owned, metadata only: the bytes are GET /api/media/photo's, behind its own check.
-            'photos' => ProgressPhoto::listed($u->id),
+            'photos' => HealthConsent::given($u) ? ProgressPhoto::listed($u->id) : [],
             'workouts' => array_reverse(Js::list($s->workouts ?? null)),
             'body' => Js::or($s->body ?? null, 'male'),
             'targetW' => $s->targetW ?? null,

@@ -35,6 +35,9 @@ export default function Settings() {
   const S = useStore(s => s.S)
   const user = useStore(s => s.user)
   const syncError = useStore(s => s.syncError)
+  // A coached client's consent to share their health data (CHW-360), read for the row below.
+  const healthConsent = useStore(s => s.healthConsent)
+  useEffect(() => { if (user?.coachName && !healthConsent) useStore.getState().loadHealthConsent().catch(() => {}) }, [user?.coachName, healthConsent])
   const { update, replaceState, setUser, pullState, pushState, signOut, signOutAll, resetDemo, disconnectServer } = useStore()
   const toast = useUI(s => s.toast)
   const fileRef = useRef(null)
@@ -227,6 +230,21 @@ export default function Settings() {
 
 
     {/* ---------- general ---------- */}
+    {/* Withdrawing deletes the data, after one confirmation that points at the export (CHW-360). */}
+    {user?.coachName && healthConsent?.consentAt && <Section title={t('Your coach')}>
+      <Row icon="lock" iconTint="var(--red)" title={t('Health data shared with {0}', user.coachName)} danger accessory="chevron"
+        subtitle={t('Withdraw your consent: your check-ins, weight, measurements, meals and photos are deleted.')}
+        onClick={() => confirmSheet({
+          title: t('Withdraw and delete your health data?'),
+          message: t('Your coach stops seeing your check-ins, weight, measurements, meals and progress photos, and they are deleted from your account. Export a backup below first if you want a copy.'),
+          confirmText: t('Withdraw and delete'), danger: true,
+          onConfirm: async () => {
+            try { await useStore.getState().withdrawHealthConsent(); toast(t('Consent withdrawn; your health data is deleted')) }
+            catch (e) { toast(e.message) }
+          },
+        })} />
+    </Section>}
+
     <Section title={t('General')} footer={t('Switching the unit offers to convert every stored weight.')}>
       <SelectRow
         icon="globe" iconTint="var(--blue)" title={t('Language')}

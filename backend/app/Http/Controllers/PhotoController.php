@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Coaching\HealthConsent;
 use App\Media\Paths;
 use App\Media\RowNotWritten;
 use App\Media\Serve;
@@ -44,6 +45,10 @@ final class PhotoController
         $pose = Js::trim(Input::searchParam($request, 'pose') ?? '');
         if (! in_array($pose, ProgressPhoto::POSES, true)) {
             return Json::error(400, 'bad pose', [], Json::CLOSE);
+        }
+        // A coached client's photo is health data their coach sees: only with their consent (CHW-360).
+        if (HealthConsent::required($user) && ! HealthConsent::given($user)) {
+            return Json::error(403, 'agree to share your health data with your coach first', [], Json::CLOSE);
         }
         // A cheap refusal before the body, so an upload that cannot be kept is not carried across
         // the wire first. Not the check that binds: that one is under the lock, below.

@@ -4,6 +4,7 @@ import { forgetCoachSecrets } from '../lib/forget-coach.js'
 import { api, setRemoteAuth, passkeyLogin } from '../lib/api.js'
 import { localTZ, todayISO } from '../lib/format.js'
 import { compactMeals } from '../lib/nutrition.js'
+import { emptyHealth } from '../lib/health-consent.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
@@ -232,6 +233,30 @@ export const useStore = create((set, get) => {
     // is on screen is always about the state the device is holding right now.
     syncError: null,
 
+    // A coached client's consent to their coach seeing their health data (CHW-360): null until
+    // asked for, then {required, consentAt} from the server. Not persisted, and dropped with the
+    // user: it is the server's to say.
+    healthConsent: null,
+    async loadHealthConsent() {
+      const c = await api('/api/me/health-consent')
+      set({ healthConsent: c })
+      return c
+    },
+    async giveHealthConsent() {
+      const c = await api('/api/me/health-consent', { method: 'POST', body: JSON.stringify({ agree: true }) })
+      set({ healthConsent: c })
+      return c
+    },
+    // Withdrawing deletes the data: on the server first, then this device's copy, then a push so
+    // the state the server holds matches.
+    async withdrawHealthConsent() {
+      const c = await api('/api/me/health-consent/withdraw', { method: 'POST', body: '{}' })
+      set({ healthConsent: c })
+      get().update(emptyHealth)
+      await get().pushState()
+      return c
+    },
+
     async loadAssignments() {
       if (!get().user) return set({ assignments: [] })
       try { const { assignments } = await api('/api/assignments'); set({ assignments: assignments || [] }) }
@@ -314,7 +339,7 @@ export const useStore = create((set, get) => {
       else localStorage.removeItem('gym_user')
       // Offers belong to whoever is signed in; leaving them behind would show one profile's
       // pending program to the next person on a shared device. The plan likewise.
-      set({ user: u, ...(u ? null : { assignments: [], billing: null }) })
+      set({ user: u, healthConsent: null, ...(u ? null : { assignments: [], billing: null }) })
     },
 
     async pushState() {

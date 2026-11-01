@@ -131,9 +131,18 @@ no advertising, sale, profiling for others, or model training (coach terms Part 
 - **Account and coaching:** the contract between client and coach, Art. 6(1)(b).
 - **Gap: health data a client logs.** Check-ins (sleep, soreness, stress, notes), body weight,
   measurements, meals and progress photos can reveal health, so they need an Art. 9(2) exception as
-  well. Explicit consent at the client's first entry is the natural one, and **is not collected
-  today** (measure M6). For a client under 16, whom only a coach can invite, that consent must come
-  from a parent or guardian.
+  well: explicit consent at the client's first entry (measure M6). For a client under 16, whom only
+  a coach can invite, that consent must come from a parent or guardian. **Implemented with
+  CHW-360:**
+  - the app asks before the first check-in, weigh-in, measurement, meal or photo;
+  - the coach's views show none of this data without consent, and photos are neither accepted nor
+    shown to the coach;
+  - withdrawal deletes the data on the server and the device;
+  - a link that ends clears the consent.
+
+  The synced state is not stripped on the server, because a client who changes coach would
+  otherwise lose their history at the next sync. So data from an app version older than CHW-360,
+  or from a second device, can be stored without consent, but it is never shown to the coach.
 - **Presence:** legitimate interest, or the contract, in letting the coach see a session in progress.
   It is disclosed nowhere today (measure M9).
 
@@ -194,10 +203,10 @@ place.
 | M3 | **Move FitPal Coach to its own hosting account**, separate from FIT'ONE | R1 | **CHW-362** | Planned |
 | M4 | Encrypt progress photos at rest in the application | R1 | Recommended, not planned | Open |
 | M5 | Coach guidance in the app and the terms: keep health answers in the app, not in chats | R8 | **CHW-363** | Planned |
-| M6 | **Explicit consent before a client's first check-in, body measurement, meal or photo** (Art. 9(2)(a)); from a parent or guardian for a client under 16 | R9, R10 | **CHW-360** | Planned |
+| M6 | **Explicit consent before a client's first check-in, body measurement, meal or photo** (Art. 9(2)(a)); from a parent or guardian for a client under 16 | R9, R10 | **CHW-360** | Implemented |
 | M7 | Self-service account deletion for clients | R11, R13 | **CHW-363** | Planned |
 | M8 | Review of these measures, the tenancy tests and this DPIA: yearly, and after any incident (as the coach terms Annex 2 promises) | All | Owner | Every November, and after incidents |
-| M9 | Tell clients their coach sees when they are training (with M6's consent text, and the legal pages) | R14 | **CHW-360** | Planned |
+| M9 | Tell clients their coach sees when they are training (with M6's consent text, and the legal pages) | R14 | **CHW-360** | Implemented |
 
 ### 4.3 Residual risk
 
@@ -216,7 +225,7 @@ Two views: **at go-live**, when the section 6 conditions (M1, M2, M6, M9, CNDP) 
 | R10 | 4 | Medium | 4 | Medium | Parental consent for invited minors under 16 (M6); the coach terms carry the duty. |
 | R11 | 6 | Medium | 4 | Medium | M7 after go-live. |
 | R13 | 4 | Medium | 2 | Low | M2 at go-live (backups encrypted); M7 after. |
-| R14 | 2 | Low | 2 | Low | Disclosed (M9). |
+| R14 | 2 | Low | 2 | Low | Disclosed (M9, done). |
 | Others | as 4.1 | Low–Medium | as 4.1 | Low–Medium | |
 
 **No risk is Very High at any stage**, so Art. 36(1) prior consultation is not required. R1 is High

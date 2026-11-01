@@ -33,7 +33,8 @@ final class Access
      */
     public static function canSeePhotos(User $viewer, User $owner): bool
     {
-        return $viewer->id === $owner->id || self::canCoachMember($viewer, $owner);
+        // Anyone else only with the client's consent to share their health data (CHW-360).
+        return $viewer->id === $owner->id || (self::canCoachMember($viewer, $owner) && $owner->health_consent_at !== null);
     }
 
     /**

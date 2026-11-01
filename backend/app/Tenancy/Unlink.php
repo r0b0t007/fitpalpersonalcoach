@@ -22,6 +22,8 @@ final class Unlink
             return;
         }
         Assignment::expirePending($member->id, $coachId);
+        // Consent to share health data was given to that coach (CHW-360): the next one asks again.
+        $member->forceFill(['health_consent_at' => null])->save();
         JoinRequest::forgetMember($coachId, $member);
     }
 }

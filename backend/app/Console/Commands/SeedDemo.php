@@ -175,8 +175,10 @@ final class SeedDemo extends Command
                 // forceFill: coach_id is not mass-assignable, as everywhere a request could reach.
                 // Joined at the start of their first day, so no session that day predates the account
                 // (the roster sends `created`, and adherence clamps its window to it).
+                // Made-up clients who have consented (CHW-360): their check-ins and photos are what the demo
+                // shows a coach.
                 (new User)->forceFill(['id' => $id, 'name' => $p['name'], 'coach_id' => $coach->id,
-                    'created_at' => $today->copy()->subDays($p['joined'])])->save();
+                    'created_at' => $today->copy()->subDays($p['joined']), 'health_consent_at' => Js::nowMs()])->save();
                 UserState::query()->create(['user_id' => $id, 'state' => Js::stringify($s), 'ts' => $s->_ts]);
 
                 // An accepted assignment is what gives the client page a "Current program".
