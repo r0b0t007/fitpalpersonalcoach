@@ -4,21 +4,27 @@
 // Nothing here decides what a coach may do: a refused request is refused by the server whatever
 // this says, and the worst a wrong answer here can do is show the wrong card.
 //
-// Off entirely on an instance without billing: its /api/config has no `billing` (nor had the Node
-// API's), so every caller asks billingOn() first and the app is exactly what it was without it.
+// Off entirely on an instance with no plans: its /api/config has neither `billing` nor a
+// `free_cap` (nor had the Node API's), so every caller asks plansOn() first and the app is exactly
+// what it was without them. A Free plan (CHW-329) turns this on even with Creem off.
 
 /** The trial banner only shows in its last days: a coach two weeks out has nothing to do yet. */
 export const TRIAL_WARN_DAYS = 3
 
 const DAY = 86_400_000
 
-export const billingOn = config => !!config?.billing
+/** Whether coaches have plans here: Creem billing, or the Free plan's cap. */
+export const plansOn = config => !!config?.billing || config?.free_cap > 0
+
+/** The plans a coach can buy: everything offered but Free. */
+export const paidPlans = plans => (Array.isArray(plans) ? plans.filter(p => p.plan !== 'free') : [])
 
 /**
  * Where the coach stands, one word per card the designs draw (C20, C21):
  *
  *   exempt     — an admin, a client, or an instance that bills nobody: no section, no banner
  *   none       — never paid, a checkout abandoned, a plan that ended or was revoked
+ *   free       — the Free plan (CHW-329): writable, up to its cap, no payment involved
  *   trialing   — in the free trial
  *   active     — paid and renewing
  *   cancelling — paid, cancelled, still writing until the period ends
@@ -34,6 +40,7 @@ export function billingState(me) {
   const e = me?.entitlement
   if (!e) return null
   if (e.status === 'admin' || e.status === 'unlicensed' || e.status === 'client') return 'exempt'
+  if (e.status === 'free') return 'free'
   // Paused before the canWrite test: it is read-only by definition, and its fix is the card, not
   // a new plan (the server refuses a second checkout while the subscription can still bill).
   if (e.status === 'paused' || e.status === 'unpaid') return 'paused'
@@ -59,17 +66,18 @@ export function daysLeft(iso, now = Date.now()) {
   return Math.max(0, Math.round((midnight(at) - midnight(now)) / DAY))
 }
 
-/** Back from the payment page and the webhook has landed: the plan is something other than "none". */
+/** Back from the payment page and the webhook has landed: a plan that is neither "none" nor Free. */
 export const checkoutSettled = me => {
   const s = billingState(me)
-  return s !== null && s !== 'none'
+  return s !== null && s !== 'none' && s !== 'free'
 }
 
 /**
  * The single banner Today shows (C21), or null. One at a time, in this order: activating while
  * the app waits on the payment page's return, even though the plan does not write yet; then
- * paused, payment failed, no plan, over the cap, and the trial only in its last days. Active and
- * granted plans show none.
+ * paused, payment failed, no plan, over the cap, and the trial only in its last days; a Free coach
+ * sees only the over-cap card, whose action is choosing a paid plan. Active and granted plans show
+ * none.
  *
  * `action` is what the banner's button does: choose (the plan sheet, then the payment page),
  * manage, update or upgrade (all three are Creem's portal — the card, the invoices and the plan
@@ -79,13 +87,16 @@ export const checkoutSettled = me => {
  */
 export function banner(me, { activating = false, now = Date.now() } = {}) {
   const state = billingState(me)
-  if (activating && (state === null || state === 'none')) return { kind: 'activating', action: null }
+  if (activating && (state === null || state === 'none' || state === 'free')) return { kind: 'activating', action: null }
   if (state === null || state === 'exempt') return null
   const e = me.entitlement
   const portal = act => (me.portal ? act : null)
   if (state === 'paused') return { kind: 'paused', action: portal('update') }
   if (state === 'past_due') return { kind: 'past_due', action: portal('update') }
   if (state === 'none') return { kind: 'none', action: 'choose' }
+  // Free over its cap: a paid plan is the way up — chosen here, since there is no subscription to
+  // change in a portal — and nothing to press on an instance that sells none.
+  if (state === 'free') return e.overCap ? { kind: 'over_cap', action: paidPlans(me.plans).length ? 'choose' : null, used: e.used, cap: e.cap, granted: false } : null
   if (e.overCap) return { kind: 'over_cap', action: portal('upgrade'), used: e.used, cap: e.cap, granted: state === 'granted' }
   if (state === 'trialing') {
     const d = daysLeft(e.trialEndsAt, now)

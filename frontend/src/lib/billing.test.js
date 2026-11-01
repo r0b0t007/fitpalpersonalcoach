@@ -2,7 +2,7 @@
 // card and its one action, but a wrong pick sends a paying coach to "choose a plan" or tells a
 // lapsed one nothing at all, so every state the designs draw is pinned here.
 import { describe, it, expect } from 'vitest'
-import { billingOn, billingState, banner, daysLeft, checkoutSettled, pickPlan, planName, TRIAL_WARN_DAYS } from './billing.js'
+import { plansOn, paidPlans, billingState, banner, daysLeft, checkoutSettled, pickPlan, planName, TRIAL_WARN_DAYS } from './billing.js'
 
 // Local times: the trial countdown is in calendar days where the coach is.
 const NOW = new Date(2026, 8, 10, 9, 0).getTime()
@@ -14,14 +14,48 @@ const me = (entitlement = {}, licence = null) => ({
   licence, plans: [], portal: true,
 })
 
-describe('billingOn', () => {
+describe('plansOn', () => {
   it('is off when /api/config has no billing at all (or could not be read)', () => {
-    expect(billingOn({ invite_only: false })).toBe(false)
-    expect(billingOn(null)).toBe(false)
+    expect(plansOn({ invite_only: false })).toBe(false)
+    expect(plansOn(null)).toBe(false)
   })
-  it('is off when Laravel says the instance bills nobody, on when it bills', () => {
-    expect(billingOn({ billing: false })).toBe(false)
-    expect(billingOn({ billing: true })).toBe(true)
+  it('is on when the instance bills, or has a Free plan, off with neither', () => {
+    expect(plansOn({ billing: false, free_cap: 0 })).toBe(false)
+    expect(plansOn({ billing: true })).toBe(true)
+    expect(plansOn({ billing: false, free_cap: 3 })).toBe(true)
+  })
+})
+
+describe('the Free plan', () => {
+  const FREE = { status: 'free', plan: 'free', cap: 3, used: 1, canWrite: true, canTakeClient: true, overCap: false, periodEnd: null }
+  const PAID = [{ plan: 'free', cap: 3, periods: [] }, { plan: 'solo', cap: 10, periods: ['month'] }]
+
+  it('is its own state, not "no plan" and not exempt', () => {
+    expect(billingState(me(FREE))).toBe('free')
+  })
+
+  it('shows no banner under the cap', () => {
+    expect(banner({ ...me(FREE), plans: PAID }, { now: NOW })).toBe(null)
+  })
+
+  it('offers a paid plan over the cap, or nothing to press where none is sold', () => {
+    const over = { ...FREE, used: 4, canTakeClient: false, overCap: true }
+    expect(banner({ ...me(over), plans: PAID }, { now: NOW })).toEqual({ kind: 'over_cap', action: 'choose', used: 4, cap: 3, granted: false })
+    expect(banner({ ...me(over), plans: [PAID[0]] }, { now: NOW })).toEqual({ kind: 'over_cap', action: null, used: 4, cap: 3, granted: false })
+  })
+
+  it('is not a settled checkout: a Free coach back from the payment page is still waiting', () => {
+    expect(checkoutSettled(me(FREE))).toBe(false)
+    expect(banner(me(FREE), { activating: true, now: NOW })).toEqual({ kind: 'activating', action: null })
+  })
+
+  it('leaves Free out of what can be bought', () => {
+    expect(paidPlans(PAID)).toEqual([PAID[1]])
+    expect(paidPlans(undefined)).toEqual([])
+  })
+
+  it('preselects Free from a link, with no period to choose', () => {
+    expect(pickPlan(PAID, 'free')).toEqual({ plan: 'free', period: undefined, cap: 3 })
   })
 })
 

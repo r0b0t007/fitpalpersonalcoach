@@ -7,7 +7,7 @@ import { compactMeals } from '../lib/nutrition.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
-import { billingOn } from '../lib/billing.js'
+import { plansOn } from '../lib/billing.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, syncReminder, writeAutoBackup } from '../lib/mobile.js'
 import { loadRemote, chooseLocal, forgetRemote, connect } from '../lib/remote.js'
 import { browserLang } from '../lib/i18n-core.js'
@@ -291,11 +291,12 @@ export const useStore = create((set, get) => {
 
     // The coach's plan, GET /api/billing/me ({entitlement, licence, plans, portal}; lib/billing.js
     // reads it). Server-owned and never persisted, like `assignments`. Only asked on an instance
-    // that bills (`billing` in /api/config — the Node API has no such route) and only for a coach.
+    // with plans (`billing` or `free_cap` in /api/config — the Node API has no such route) and only
+    // for a coach.
     billing: null,
     async loadBilling() {
       const { config, user } = get()
-      if (!billingOn(config) || !user?.coach) { if (get().billing) set({ billing: null }); return null }
+      if (!plansOn(config) || !user?.coach) { if (get().billing) set({ billing: null }); return null }
       // Kept only if the same coach is still signed in when it answers: a reply landing after a
       // sign-out would otherwise put one coach's plan in front of the next on a shared device.
       const asked = user.id
