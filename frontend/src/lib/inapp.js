@@ -13,25 +13,23 @@ const APPS = [
 ]
 
 const ua = () => (typeof navigator === 'undefined' ? '' : navigator.userAgent)
+const touchPoints = () => (typeof navigator === 'undefined' ? 0 : navigator.maxTouchPoints || 0)
 
-const appOf = agent => APPS.find(a => a.re.test(agent || ''))
-
-export const inAppBrowser = (agent = ua()) => !!appOf(agent)
-
-/** Which app's browser this is, to name it, or null. */
-export const inAppName = (agent = ua()) => appOf(agent)?.name ?? null
+/** A touch iPhone or iPad, one that says "Macintosh" included: lib/api.js's IS_IOS is this. */
+export const isIosAgent = (agent, touch) => /iPhone|iPad|iPod/.test(agent) || (/Macintosh/.test(agent) && touch > 1)
 
 /**
- * 'ios' | 'android' | 'other' inside an in-app browser; null in a real one. iOS as lib/api.js's
- * IS_IOS reads it, an iPad that says "Macintosh" included, for the live user agent.
+ * The in-app browser this is: {name, platform} with platform 'ios' | 'android' | 'other', or null
+ * in a real browser. One read of the user agent for both.
  */
-export function inAppPlatform(agent = ua()) {
-  if (!inAppBrowser(agent)) return null
-  if (/Android/.test(agent)) return 'android'
-  const ipadAsMac = agent === ua() && /Macintosh/.test(agent) && typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1
-  if (/iPhone|iPad|iPod/.test(agent) || ipadAsMac) return 'ios'
-  return 'other'
+export function inApp(agent = ua(), touch = touchPoints()) {
+  const app = APPS.find(a => a.re.test(agent || ''))
+  if (!app) return null
+  const platform = /Android/.test(agent) ? 'android' : isIosAgent(agent, touch) ? 'ios' : 'other'
+  return { name: app.name, platform }
 }
+
+export const inAppBrowser = (agent = ua()) => inApp(agent) !== null
 
 /**
  * A link that leaves the in-app browser for the phone's own: an Android intent for Chrome, which

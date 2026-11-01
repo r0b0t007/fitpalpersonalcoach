@@ -39,8 +39,11 @@ vi.mock('../lib/api.js', async orig => {
     webauthnOK: () => true,
   }
 })
-// Login's code-first layout follows this; the open-in-browser card is OpenInBrowser.test's.
-vi.mock('../lib/inapp.js', async orig => ({ ...(await orig()), inAppBrowser: () => /Instagram/.test(UA), inAppPlatform: () => null }))
+// Login's layout and its open-in-browser card follow this user agent.
+vi.mock('../lib/inapp.js', async orig => {
+  const real = await orig()
+  return { ...real, inAppBrowser: () => /Instagram/.test(UA), inApp: () => real.inApp(UA, 5) }
+})
 vi.mock('../lib/mobile.js', () => ({
   MOBILE: false, initReminderSync: () => {}, writeAutoBackup: () => {}, nativeLoad: async () => null, nativeSave: () => {}, syncReminder: () => {},
 }))
@@ -259,6 +262,18 @@ describe('Login’s code (CHW-331)', () => {
     expect(container.querySelector('input[type="email"]')).toBeTruthy()
     expect(text()).not.toContain('Get a code by email')
     expect([...container.querySelectorAll('button')].find(b => b.textContent === 'Sign in with passkey').className).not.toContain('primary')
+  })
+
+  it('inside Instagram, says the code works here, and to go when an invite needs a passkey', async () => {
+    UA = 'Mozilla/5.0 (iPhone) Mobile/15E148 Instagram 330.0'
+    await render(<Login />, '/home')
+    expect(text()).toContain('You can carry on here')
+    expect(text()).toContain('Not now')
+    act(() => root.unmount()); root = createRoot(container)
+    useStore.setState({ config: { ...LARAVEL, login_email: false, allow_guest: false } })
+    await render(<Login />, '/home')
+    expect(text()).toContain('Signing in works in Safari, not in here')
+    expect(text()).not.toContain('Not now')
   })
 
   it('sends the code again from the same screen', async () => {

@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { browserUrl, inAppBrowser, inAppName, inAppPlatform } from './inapp.js'
+import { browserUrl, inApp, inAppBrowser, isIosAgent } from './inapp.js'
+
+const platformOf = ua => inApp(ua, 0)?.platform ?? null
+const nameOf = ua => inApp(ua, 0)?.name ?? null
 
 // Real user agents, as each app sends them.
 const IG_IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 330.0.0.40.92 (iPhone14,5; iOS 17_5; fr_FR; fr; scale=3.00; 1170x2532)'
@@ -14,20 +17,24 @@ const CHROME_IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Apple
 describe('inAppBrowser', () => {
   it('knows Instagram, Facebook and TikTok inside their apps, on both platforms', () => {
     for (const ua of [IG_IOS, IG_ANDROID, FB_ANDROID, FB_IOS, TIKTOK_IOS]) expect(inAppBrowser(ua)).toBe(true)
-    expect([IG_IOS, IG_ANDROID, FB_IOS, FB_ANDROID, TIKTOK_IOS].map(inAppPlatform)).toEqual(['ios', 'android', 'ios', 'android', 'ios'])
-    expect([IG_IOS, IG_ANDROID, FB_IOS, FB_ANDROID, TIKTOK_IOS].map(inAppName)).toEqual(['Instagram', 'Instagram', 'Facebook', 'Facebook', 'TikTok'])
+    expect([IG_IOS, IG_ANDROID, FB_IOS, FB_ANDROID, TIKTOK_IOS].map(platformOf)).toEqual(['ios', 'android', 'ios', 'android', 'ios'])
+    expect([IG_IOS, IG_ANDROID, FB_IOS, FB_ANDROID, TIKTOK_IOS].map(nameOf)).toEqual(['Instagram', 'Instagram', 'Facebook', 'Facebook', 'TikTok'])
   })
 
   it('names Snapchat and LINE too, from the same list that detects them', () => {
-    expect(inAppName('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Mobile/15E148 Snapchat/13.10.0.40')).toBe('Snapchat')
-    expect(inAppName('Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) Chrome/124.0 Mobile Safari/537.36 Line/14.6.0')).toBe('LINE')
-    expect(inAppPlatform('Mozilla/5.0 (Windows NT 10.0; Win64; x64) [FBAN/EMA;FBAV/460.0]')).toBe('other')
+    expect(nameOf('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Mobile/15E148 Snapchat/13.10.0.40')).toBe('Snapchat')
+    expect(nameOf('Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) Chrome/124.0 Mobile Safari/537.36 Line/14.6.0')).toBe('LINE')
+    expect(platformOf('Mozilla/5.0 (Windows NT 10.0; Win64; x64) [FBAN/EMA;FBAV/460.0]')).toBe('other')
+    // An iPad that says Macintosh, told apart from a Mac by its touch screen, as IS_IOS does.
+    const IPAD = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Mobile/15E148 Instagram 330.0'
+    expect([inApp(IPAD, 5).platform, inApp(IPAD, 0).platform]).toEqual(['ios', 'other'])
+    expect([isIosAgent(IPAD, 5), isIosAgent(IPAD, 0), isIosAgent('iPhone', 0)]).toEqual([true, false, true])
   })
 
   it('leaves Safari, Chrome and the installed app alone', () => {
     for (const ua of [SAFARI, CHROME_ANDROID, CHROME_IOS, '']) {
       expect(inAppBrowser(ua)).toBe(false)
-      expect(inAppPlatform(ua)).toBe(null)
+      expect(inApp(ua)).toBe(null)
     }
   })
 })

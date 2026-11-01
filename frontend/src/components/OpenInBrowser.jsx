@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { t } from '../lib/i18n.js'
-import { browserUrl, inAppName, inAppPlatform } from '../lib/inapp.js'
+import { browserUrl, inApp } from '../lib/inapp.js'
 import Icon from './Icon.jsx'
 import { Button } from './ui.jsx'
 
@@ -15,10 +15,10 @@ const KEY = 'gym_inapp_later'
 const later = () => { try { return sessionStorage.getItem(KEY) === '1' } catch { return false } }
 
 export default function OpenInBrowser({ path, canStay = true, style }) {
-  const platform = inAppPlatform()
+  const app = inApp()
   const [hidden, setHidden] = useState(later)
-  if (!platform || hidden) return null
-  const name = inAppName()
+  if (!app || hidden) return null
+  const { name, platform } = app
   // 'other' (a webview on a desktop, say) has neither: it is told "your browser".
   const browser = platform === 'android' ? 'Chrome' : platform === 'ios' ? 'Safari' : null
   // The in-app menu: three dots across on iOS, down on Android.

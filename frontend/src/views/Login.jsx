@@ -201,7 +201,8 @@ export default function Login() {
   const [waited, setWaited] = useState(false)
   useEffect(() => { const tm = setTimeout(() => setWaited(true), INVITE_WAIT_MS); return () => clearTimeout(tm) }, [])
   useEffect(() => {
-    if (DEMO || opened.current || !config || !webauthnOK() || !pendingInvite() || (invite === undefined && !waited) || full) return
+    // Not inside Instagram's browser: the passkey would fail there, and the card above says to go.
+    if (DEMO || opened.current || !config || !webauthnOK() || inAppBrowser() || !pendingInvite() || (invite === undefined && !waited) || full) return
     opened.current = true
     useUI.getState().openSheet(close => <RegisterSheet close={close} />)
   }, [config, invite, waited])
@@ -243,9 +244,10 @@ export default function Login() {
       {full && <div className="card small" role="status" style={{ textAlign: 'left', marginBottom: 20, lineHeight: 1.4 }}>
         {t('{0} cannot take on new clients right now. Ask them about it — this link will work once they can.', inviter)}
       </div>}
-      {/* Its own address, so an invite link keeps its code. Without the email path, a passkey is
-          the only way in, and it fails in there: the card then says to go, not to stay. */}
-      <OpenInBrowser canStay={!config || emailPath} style={{ marginBottom: 14 }} />
+      {/* Its own address, so an invite link keeps its code. Shown once config is in, as staying
+          depends on it: an invite registers with a passkey, which fails in there, and without the
+          email path or a guest profile a passkey is the only way in. Then the card says to go. */}
+      {config && <OpenInBrowser canStay={!pendingInvite() && (emailPath || canGuest)} style={{ marginBottom: 14 }} />}
       {codeFirst && <><EmailSignIn focus /><div style={{ height: 14 }} /></>}
       {webauthnOK() ? <>
         <Button variant={codeFirst ? undefined : 'primary'} icon="person" onClick={signIn}>{t('Sign in with passkey')}</Button>

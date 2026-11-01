@@ -88,7 +88,9 @@ export const canPrompt = () => !!deferred
 // desktop included), 'ios' (Safari's share sheet), 'android' (Chrome's menu, while the event
 // hasn't fired), or null (nothing worth describing — desktop Firefox/Safari, in-app WebViews…).
 export function installPath() {
-  if (inAppBrowser()) return null   // nothing installs from in there: OpenInBrowser says where to go
+  // Nothing installs from in there: OpenInBrowser says where to go, on Login, the coach's page,
+  // the join form and Home, the signed-in client's way to the same offer.
+  if (inAppBrowser()) return null
   if (canPrompt()) return 'prompt'
   if (IS_IOS) return isIosSafari() ? 'ios' : null
   if (IS_ANDROID_CHROME) return 'android'
