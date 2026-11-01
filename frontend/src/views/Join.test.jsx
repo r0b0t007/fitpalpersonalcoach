@@ -51,7 +51,7 @@ const type = async (selector, value) => {
 // Sending waits out the (shortened) minimum fill time on a timer, which act() does not wait for.
 const send = async label => {
   await click(label)
-  await act(() => new Promise(r => setTimeout(r, 80)))
+  await act(() => new Promise(r => setTimeout(r, 120)))
 }
 // The age box and the consent box: both ticked.
 const checkConsent = async () => {
