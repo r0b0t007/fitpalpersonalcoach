@@ -8,7 +8,8 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 /**
- * The account mails (spec §4a), one class for the three: a sign-in link (`signin`), a link
+ * The account mails (spec §4a), one class for them all — and since CHW-337 a fourth, `request`:
+ * a coach told that someone asked to train with them (no name: that is text a stranger typed). The first three: a sign-in link (`signin`), a link
  * confirming a new sign-in address (`confirm`, sent to that address), and the notice to the old
  * address that it was replaced (`changed`, no link). HTML and plain-text parts, the same words,
  * in the coach's language (MailCopy).

@@ -40,6 +40,7 @@ final class SendPush implements ShouldQueue
             'assignment' => Messages::assignment($lang, (string) $this->args[0], (string) config('fitpal.rp_name')),
             'day-reminder' => Messages::dayReminder($lang, $this->args[0] ?? null),
             'checkin-reminder' => Messages::checkinReminder($lang),
+            'join-request' => Messages::joinRequest($lang, (string) $this->args[0], (string) config('fitpal.rp_name')),
         });
     }
 }

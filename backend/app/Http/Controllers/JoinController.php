@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Audit\Audit;
 use App\Audit\ClientIp;
+use App\Auth\SessionToken;
 use App\Coaching\Handle;
 use App\Coaching\Intake;
+use App\Jobs\SendPush;
+use App\Mail\AccountMail;
 use App\Mail\JoinCodeMail;
 use App\Mail\SendAfterResponse;
 use App\Models\CoachPage;
@@ -164,8 +167,56 @@ final class JoinController
             throw $refusal;
         }
         Audit::record($request, 'join.verify', ['ok' => true, 'msg' => CoachPage::acrossCoaches()->find($join->coach_id)?->handle]); // across coaches: the page of the request's coach, for the log
+        self::tellCoach($join);
 
         return Json::ok(['ok' => true, 'token' => $token, 'status' => $join->status]);
+    }
+
+    /**
+     * A request now waits on its coach (CHW-337): a push to their devices, with the name the
+     * follower gave, and a mail without it — the mail goes further than the coach's own screen, and
+     * the name is text a stranger typed. Only to an address the coach has proven. Both after the
+     * response, both best-effort: the request is in the inbox whatever they do.
+     */
+    private static function tellCoach(JoinRequest $join): void
+    {
+        SendPush::dispatch($join->coach_id, 'join-request', [$join->name]);
+        $coach = User::query()->find($join->coach_id);
+        if ($coach?->email !== null && $coach->email_verified_at !== null) {
+            SendAfterResponse::to($coach->email, new AccountMail('request', $coach, rtrim((string) config('fitpal.origin'), '/').'/#/requests'));
+        }
+    }
+
+    /**
+     * POST /api/join/claim {id, token} → {user} with a session: once the coach has accepted, the
+     * browser that sent the request is signed in to the account accept made — once, the token is
+     * spent. Anywhere else, the follower signs in as any client does.
+     */
+    public function claim(Request $request): JsonResponse
+    {
+        $id = Input::jsString($request, 'id');
+        $token = Input::jsString($request, 'token');
+        $user = DB::transaction(function () use ($id, $token): ?User {
+            $join = $id === '' ? null : JoinRequest::acrossCoaches()->whereKey($id)->lockForUpdate()->first(); // across coaches: a public route finds a request by its id
+            if ($join === null || $join->status !== 'accepted' || $join->token_hash === null || ! hash_equals($join->token_hash, JoinRequest::hash($token))) {
+                return null;
+            }
+            // Still that coach's client, and still allowed in: a release or a disable since the
+            // accept leaves nothing to sign in to here.
+            $user = User::query()->where('email', $join->email)->first();
+            if ($user === null || $user->disabled || $user->coach_id !== $join->coach_id) {
+                return null;
+            }
+            $join->forceFill(['token_hash' => null])->save();
+
+            return $user;
+        });
+        if ($user === null) {
+            throw new ClientSafe(404, 'no such request');
+        }
+        Audit::record($request, 'join.claim', ['user' => $user]);
+
+        return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));
     }
 
     /**
