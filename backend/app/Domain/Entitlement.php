@@ -11,13 +11,16 @@ use Carbon\CarbonInterface;
  * What a coach may do under their licence (spec §6), decided in one place:
  *
  *  1. an admin runs the instance: unlimited, writable, never a tenant;
- *  2. billing off (no Creem configured, Plans::billingOn) → `unlicensed`, writable, unlimited —
- *     a self-hosted instance and the test suite are unaffected;
- *  3. no licence → cap 0, not writable;
- *  4. writable while trialing, active, past_due (Creem is still retrying), manual, and canceled
+ *  2. billing off and no Free plan (Plans::billingOn, Plans::freeCap) → `unlicensed`, writable,
+ *     unlimited — a self-hosted instance and the test suite are unaffected;
+ *  3. a licence that writes (rule 5) → its plan and cap;
+ *  4. otherwise, with a Free plan (FREE_CAP, CHW-329) → `free`: writable, capped at FREE_CAP — no
+ *     licence yet, or one that lapsed; without a Free plan → cap 0 and not writable (no licence),
+ *     or the licence's own read-only status;
+ *  5. writable while trialing, active, past_due (Creem is still retrying), manual, and canceled
  *     until the period that was paid for ends;
- *  5. canTakeClient = writable and under the cap; overCap = more active clients than the cap
- *     (after a downgrade: still writable, but cannot add).
+ *  6. canTakeClient = writable and under the cap; overCap = more active clients than the cap
+ *     (after a downgrade, or Free's cap reached: still writable, but cannot add).
  *
  * A licence on a plan this instance does not sell (a hand-edited row: grant and the webhook only
  * write plans that exist) is cap 0 and not writable — failing closed, so every refusal it meets
@@ -68,13 +71,21 @@ final readonly class Entitlement
             return new self($exempt, null, null, $used, true, true, false);
         }
         $licence = self::licenceOf($user, $lock ? 'share' : null);
+        if ($licence !== null && self::writable($licence)) {
+            $cap = Plans::cap($licence->plan);
+
+            return new self($licence->status, $licence->plan, $cap, $used, true, $used < $cap, $used > $cap,
+                $licence->trial_ends_at, $licence->period_end);
+        }
+        if (($free = Plans::freeCap()) > 0) {
+            return new self('free', 'free', $free, $used, true, $used < $free, $used > $free);
+        }
         if ($licence === null) {
             return new self('none', null, 0, $used, false, false, $used > 0);
         }
         $cap = Plans::cap($licence->plan);
-        $canWrite = self::writable($licence);
 
-        return new self($licence->status, $licence->plan, $cap ?? 0, $used, $canWrite, $canWrite && $used < $cap, $cap !== null && $used > $cap,
+        return new self($licence->status, $licence->plan, $cap ?? 0, $used, false, false, $cap !== null && $used > $cap,
             $licence->trial_ends_at, $licence->period_end);
     }
 
@@ -90,7 +101,7 @@ final readonly class Entitlement
         }
         $licence = self::licenceOf($user);
 
-        return $licence !== null && self::writable($licence);
+        return ($licence !== null && self::writable($licence)) || Plans::freeCap() > 0;
     }
 
     /**
@@ -113,7 +124,7 @@ final readonly class Entitlement
         return match (true) {
             ! $user->isCoach() => 'client',
             $user->isAdmin() => 'admin',
-            ! Plans::billingOn() => 'unlicensed',
+            ! Plans::billingOn() && Plans::freeCap() === 0 => 'unlicensed',
             default => null,
         };
     }

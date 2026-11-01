@@ -166,3 +166,38 @@ it('keeps the newest webhook ids and prunes the rest', function () {
         ->and(BillingEvent::query()->find('evt_1'))->toBeNull()
         ->and(BillingEvent::query()->find('evt_'.(BillingEvent::KEEP + 5)))->not->toBeNull();
 });
+
+it('puts a coach without a paid plan on Free when FREE_CAP is set, billing off or on', function () {
+    $f = $this->f;
+    config(['fitpal.free_cap' => 3]);
+    // Billing off: Free, not unlicensed.
+    expect(Entitlement::for($f->a)->toArray())->toMatchArray(['status' => 'free', 'plan' => 'free', 'cap' => 3, 'used' => 2, 'canWrite' => true, 'canTakeClient' => true, 'overCap' => false])
+        ->and(Entitlement::canWrite($f->a))->toBeTrue();
+    // Billing on and no licence: Free too, where it used to be read-only.
+    billingOn();
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => 'free', 'cap' => 3, 'canWrite' => true]);
+    // A third client fills it; a fourth puts the coach over, still writable.
+    (new User)->forceFill(['id' => User::newId(), 'name' => 'third', 'coach_id' => $f->a->id])->save();
+    expect(Entitlement::for($f->a))->toMatchObject(['used' => 3, 'canTakeClient' => false, 'overCap' => false])
+        ->and(Entitlement::for($f->a)->seatRefusal())->toBe('at_cap');
+    (new User)->forceFill(['id' => User::newId(), 'name' => 'fourth', 'coach_id' => $f->a->id])->save();
+    expect(Entitlement::for($f->a))->toMatchObject(['used' => 4, 'canWrite' => true, 'canTakeClient' => false, 'overCap' => true]);
+});
+
+it('keeps a paying coach on their plan, and drops one whose plan lapsed to Free', function () {
+    $f = $this->f;
+    config(['fitpal.free_cap' => 3]);
+    billingOn();
+    licence($f->a, ['status' => 'active', 'plan' => 'pro']);
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => 'active', 'plan' => 'pro', 'cap' => 30]);
+    licence($f->a, ['status' => 'paused', 'plan' => 'pro']);
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => 'free', 'plan' => 'free', 'cap' => 3, 'canWrite' => true]);
+});
+
+it('leaves admins exempt, and billing-off coaches unlimited while FREE_CAP is unset', function () {
+    $f = $this->f;
+    expect(Entitlement::for($f->a))->toMatchObject(['status' => 'unlicensed', 'cap' => null]);
+    config(['fitpal.free_cap' => 3]);
+    $f->a->forceFill(['admin' => true])->save();
+    expect(Entitlement::for($f->a->refresh()))->toMatchObject(['status' => 'admin', 'cap' => null]);
+});
