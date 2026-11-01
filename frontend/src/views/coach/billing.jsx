@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
 import { api } from '../../lib/api.js'
-import { billingState, pickPlan, planName } from '../../lib/billing.js'
+import { billingState, paidPlans, pickPlan, planName } from '../../lib/billing.js'
 import { fmtDate, isoOf } from '../../lib/format.js'
 import { t, tp } from '../../lib/i18n.js'
 import { Button, Notice, Row, Section, Segmented } from '../../components/ui.jsx'
@@ -13,7 +13,7 @@ import { Button, Notice, Row, Section, Segmented } from '../../components/ui.jsx
 //
 // No prices anywhere: they live on the payment page, so the app can never show a stale one. The
 // public prices are fitpal.ma's (CHW-318); the app states only what it can read from the server —
-// the plan, its client cap and the trial.
+// the plan and its client cap. The Free plan (CHW-329) replaced the trial.
 
 // With the year when it is more than about half a year away: a yearly plan's "Renews 20 Oct" a
 // year out otherwise reads as next week.
@@ -48,24 +48,25 @@ export function runBillingAction(action) {
  * The plan and the period, and what they mean (S4's card). `plans` is /api/config's list; `value`
  * is pickPlan()'s {plan, period}.
  */
-export function PlanPicker({ plans, value, onChange, trialDays }) {
+export function PlanPicker({ plans, value, onChange }) {
   const current = plans.find(p => p.plan === value.plan) || plans[0]
   const periods = current?.periods || []
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
     <Segmented options={plans.map(p => ({ value: p.plan, label: planName(p.plan) }))} value={value.plan}
       onChange={plan => onChange(pickPlan(plans, plan, value.period))} />
     <div className="muted">{t('Up to {0} active clients', current?.cap)}</div>
-    {/* A plan sold in one period only has nothing to choose. */}
+    {/* A plan sold in one period only has nothing to choose; Free has none. */}
     {periods.length > 1 && <Segmented options={periods.map(p => ({ value: p, label: p === 'year' ? t('Yearly') : t('Monthly') }))}
       value={value.period} onChange={period => onChange(pickPlan(plans, value.plan, period))} />}
-    {trialDays > 0 && <div className="dim small">{t('{0} days free, then billed by Creem. Cancel any time from Account.', trialDays)}</div>}
+    {current?.plan === 'free' && <div className="dim small">{t('Free, no card needed.')}</div>}
   </div>
 }
 
 /** S4b: the plan card alone, for a coach who is signed in and has no plan. */
 export function PlanSheet({ close }) {
   const config = useStore(s => s.config)
-  const plans = config?.plans || []
+  // Paid plans only: a coach choosing here is on Free already, or on no plan.
+  const plans = paidPlans(config?.plans)
   const [choice, setChoice] = useState(() => pickPlan(plans))
   const [busy, setBusy] = useState(false)
   const go = async () => {
@@ -80,7 +81,7 @@ export function PlanSheet({ close }) {
   return <>
     <h3>{t('Choose a plan')}</h3>
     <div className="card">
-      <PlanPicker plans={plans} value={choice} onChange={setChoice} trialDays={config?.trial_days} />
+      <PlanPicker plans={plans} value={choice} onChange={setChoice} />
     </div>
     <div style={{ height: 12 }} />
     <Button variant="primary" onClick={go} disabled={busy}>{busy ? t('Opening the payment page…') : t('Continue to payment')}</Button>
@@ -98,15 +99,10 @@ const BANNER_LOOK = {
 
 /** C21: one card between Today's title and its tiles. `b` is banner()'s answer, never null here. */
 export function BillingBanner({ b, billing }) {
-  const config = useStore(s => s.config)
   const e = billing?.entitlement
-  // The trial is the server's to state (config.trial_days); none promised when it offers none.
-  const trial = config?.trial_days > 0
   const copy = {
     activating: [t('Setting up your plan…'), t('This takes a few seconds.')],
-    none: [t('Choose a plan to start coaching'), trial
-      ? t('Inviting clients and sending programs open as soon as you pick one. {0} days free.', config.trial_days)
-      : t('Inviting clients and sending programs open as soon as you pick one.')],
+    none: [t('Choose a plan to start coaching'), t('Inviting clients and sending programs open as soon as you pick one.')],
     trialing: [b.daysLeft > 0 ? tp(b.daysLeft, 'Free trial · {0} day left', 'Free trial · {0} days left') : t('Free trial · ends today'),
       t('Your {0} plan starts on {1}.', planName(e?.plan), day(e?.trialEndsAt))],
     past_due: [t('Payment didn’t go through'), t('It will be retried automatically. Everything keeps working meanwhile.')],
@@ -137,13 +133,16 @@ export function InviteBlocked({ reason, cap, used, onManageClients }) {
   // upgrade in: the larger plan is the owner's to give. Until /billing/me answers the copy is the
   // ordinary one, and the button waits for a portal to exist.
   const granted = state === 'granted'
+  const free = state === 'free'
   if (reason === 'at_cap') return <Notice tone="caution" icon="people" wide
     title={tp(cap, 'Your plan allows {0} client', 'Your plan allows {0} clients')} body={granted
       ? tp(used, 'You have {0} active client. Ask FitPal for a larger plan — or release a client who has stopped training, from their page: that frees a seat.',
         'You have {0} active clients. Ask FitPal for a larger plan — or release a client who has stopped training, from their page: that frees a seat.')
       : tp(used, 'You have {0} active client. Upgrade to invite more — or release a client who has stopped training, from their page: that frees a seat.',
         'You have {0} active clients. Upgrade to invite more — or release a client who has stopped training, from their page: that frees a seat.')}>
-    {!granted && billing?.portal && <Button variant="primary" onClick={openPortal}>{t('Upgrade')}</Button>}
+    {free
+      ? paidPlans(billing?.plans).length > 0 && <Button variant="primary" onClick={() => runBillingAction('choose')}>{t('Choose a plan')}</Button>
+      : !granted && billing?.portal && <Button variant="primary" onClick={openPortal}>{t('Upgrade')}</Button>}
     <Button onClick={onManageClients}>{t('Manage clients')}</Button>
   </Notice>
 
@@ -178,6 +177,12 @@ export function PlanBillingSection({ billing }) {
       accessory="chevron" onClick={() => runBillingAction('choose')} />
     {/* An ended plan still has its invoices in the portal. */}
     {manage(t('Invoices from your earlier plan'))}
+  </Section>
+
+  if (state === 'free') return <Section title={t('Plan & billing')} footer={footer}>
+    <Row icon="sparkles" iconTint="var(--acc)" title={planName('free')} subtitle={t('No card needed')} value={seats} />
+    {paidPlans(plans).length > 0 && <Row icon="arrowUp" iconTint="var(--acc)" title={t('Upgrade')}
+      subtitle={t('More active clients, billed by Creem')} accessory="chevron" onClick={() => runBillingAction('choose')} />}
   </Section>
 
   if (state === 'paused') return <Section title={t('Plan & billing')} footer={footer}>
