@@ -4,9 +4,15 @@
 // preview tags, the public card the app draws, and the editor's save.
 
 use App\Coaching\Handle;
+use App\Http\Controllers\CoachPageController;
 use App\Models\CoachPage;
+use App\Models\User;
+use App\Support\ClientSafe;
 use App\Support\Phone;
+use App\Tenancy\CoachContext;
 use App\Tenancy\Detach;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Request;
 use Tests\Support\Billing;
 use Tests\Support\Coaching;
 
@@ -132,4 +138,24 @@ it('closes the page of a coach who loses the role', function () {
     openPage($this->f->a);
     Detach::coach($this->f->a);
     expect(CoachPage::acrossCoaches()->find($this->f->a->id)->open)->toBeFalse(); // across coaches: test reads A's page with no context
+});
+
+it('judges the coach again on the locked row: a save that waited behind a detach does not reopen the page', function () {
+    // The request was let through as an enabled coach; the detach committed while the save waited
+    // for the coach's lock. The row it then locks is the truth, and it says no.
+    $stale = User::query()->find($this->f->a->id);
+    User::query()->whereKey($stale->id)->update(['disabled' => true]);
+    app(CoachContext::class)->set($stale);
+    $request = Request::create('/api/coach/page/save', 'POST', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode(['handle' => 'sara.fit', 'open' => true]));
+    $request->setUserResolver(fn () => $stale);
+    // Called past the HTTP layer, so the refusal arrives as the exception the handler renders as 401.
+    expect(fn () => app(CoachPageController::class)->save($request))->toThrow(ClientSafe::class, 'not signed in')
+        ->and(CoachPage::acrossCoaches()->count())->toBe(0); // across coaches: test counts every row
+});
+
+it('keeps a page with its coach: a coach with a page cannot be deleted out from under it', function () {
+    // A coach with nothing else to their name, so only the page's key can stop the delete.
+    $lone = tap((new User)->forceFill(['id' => 'tCoachLone000000', 'name' => 'Lone', 'coach' => true]))->save();
+    openPage($lone, ['handle' => 'lone.coach']);
+    expect(fn () => $lone->delete())->toThrow(QueryException::class);
 });

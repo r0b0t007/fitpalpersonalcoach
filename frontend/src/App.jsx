@@ -160,17 +160,21 @@ function Shell() {
     sentInvite.current = true
     navigate('/mycoach')
   }, [ready, user, navigate])
-  useEffect(() => { applyPrefs(S.theme, S.accent) }, [S.theme, S.accent])
+  // A screen that wears someone else's theme (a coach's public page) says so in useUI, and this one
+  // place applies it — the status-bar colour with it — so a sync landing meanwhile cannot flip it
+  // back, and leaving gives the person's own theme as it now is.
+  const theme = useUI(s => s.themeOverride) || S.theme
+  useEffect(() => { applyPrefs(theme, S.accent) }, [theme, S.accent])
   // 'system' needs to react live if the OS theme flips while the app is open, not just on
   // the next mount — a fixed 'dark'/'light' choice never re-fires this since matchMedia
   // isn't consulted for those.
   useEffect(() => {
-    if (S.theme !== 'system' || !window.matchMedia) return
+    if (theme !== 'system' || !window.matchMedia) return
     const mql = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => applyPrefs(S.theme, S.accent)
+    const onChange = () => applyPrefs(theme, S.accent)
     mql.addEventListener('change', onChange)
     return () => mql.removeEventListener('change', onChange)
-  }, [S.theme, S.accent])
+  }, [theme, S.accent])
   useEffect(() => { setLang(S.lang || DEFAULT_LANG) }, [S.lang])
   // The coach's exercise demos. Server state, so it lives in a plain module registry rather than
   // in `S` (lib/coach-media.js argues that at length) and this is its single load — one request

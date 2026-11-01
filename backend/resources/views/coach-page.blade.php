@@ -1,5 +1,6 @@
 <!doctype html>
-<html lang="fr">
+{{-- No lang: the bio is in whatever language the coach writes, which nothing here knows. --}}
+<html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api.js'
 import { BIO_MAX, normaliseHandle, validHandle } from '../../lib/coach-page.js'
 import { t } from '../../lib/i18n.js'
-import { Button, Row, Section, Segmented, Switch, TextArea, TextField } from '../../components/ui.jsx'
+import { Button, Notice, Row, Section, Segmented, Switch, TextArea, TextField } from '../../components/ui.jsx'
 
 /**
  * Account › My page (CHW-330): the coach's public page — the one link in their Instagram bio. The
@@ -13,17 +13,22 @@ import { Button, Row, Section, Segmented, Switch, TextArea, TextField } from '..
 export default function PublicPage() {
   const nav = useNavigate()
   const [loaded, setLoaded] = useState(false)
-  const [url, setUrl] = useState(null)
-  const [form, setForm] = useState({ handle: '', bio: '', whatsapp: '', open: false, theme: 'dark' })
+  // What the server holds, apart from what is being typed: the link and "See my page" are the
+  // saved page's, never a half-typed handle's.
+  const [saved, setSaved] = useState(null)
+  // A new page starts open: a coach making one wants it live, and a closed one only tells visitors
+  // "not taking requests".
+  const [form, setForm] = useState({ handle: '', bio: '', whatsapp: '', open: true, theme: 'dark' })
   const [error, setError] = useState(null)
+  const [loadError, setLoadError] = useState(null)
   const [busy, setBusy] = useState(false)
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError(null) }
+  const took = r => { if (r.page) { setForm(r.page); setSaved({ handle: r.page.handle, url: r.url }) } }
 
   useEffect(() => {
-    api('/api/coach/page').then(r => {
-      if (r.page) setForm(r.page)
-      setUrl(r.url); setLoaded(true)
-    }).catch(e => { setError(e.message); setLoaded(true) })
+    api('/api/coach/page').then(r => { took(r); setLoaded(true) })
+      // No form on a failed load: saved, its blanks would overwrite the page the coach has.
+      .catch(e => { setLoadError(e.message || t('Could not load this page')); setLoaded(true) })
   }, [])
 
   const save = async () => {
@@ -31,18 +36,23 @@ export default function PublicPage() {
     if (!validHandle(handle)) { setError(t('Handles are 3–30 letters, numbers, dots or underscores')); return }
     setBusy(true)
     try {
-      const r = await api('/api/coach/page/save', { method: 'POST', body: JSON.stringify({ ...form, handle }) })
-      setForm(r.page); setUrl(r.url); setError(null)
+      took(await api('/api/coach/page/save', { method: 'POST', body: JSON.stringify({ ...form, handle }) }))
+      setError(null)
     } catch (e) { setError(e.message) }
     setBusy(false)
   }
 
   if (!loaded) return null
+  const header = <div className="hdr"><div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>{t('My page')}</h1>
+    <div className="sub">{t('The one link for your Instagram bio.')}</div></div></div>
+  if (loadError) return <div className="narrow">
+    {header}
+    <Notice icon="warning" tone="warn" title={loadError} />
+  </div>
   return <div className="narrow">
-    <div className="hdr"><div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>{t('My page')}</h1>
-      <div className="sub">{t('The one link for your Instagram bio.')}</div></div></div>
+    {header}
 
-    <Section title={t('Your link')} footer={url || t('Pick a handle — your Instagram name works.')}>
+    <Section title={t('Your link')} footer={saved?.url || t('Pick a handle — your Instagram name works.')}>
       <div style={{ padding: '10px 16px' }}>
         <TextField name="handle" placeholder="sara.fit" autoCapitalize="none" autoCorrect="off" maxLength={31}
           value={form.handle} onChange={e => set('handle', e.target.value)} />
@@ -78,9 +88,10 @@ export default function PublicPage() {
 
     {error && <div className="small" role="alert" style={{ color: 'var(--red)', margin: '0 4px 12px' }}>{error}</div>}
     <Button variant="primary" onClick={save} disabled={busy}>{t('Save')}</Button>
-    {url && form.open && <>
+    {/* Open or closed: a closed page shows what visitors get, which is the thing to check. */}
+    {saved && <>
       <div style={{ height: 10 }} />
-      <Button icon="link" onClick={() => nav('/c/' + form.handle)}>{t('See my page')}</Button>
+      <Button icon="link" onClick={() => nav('/c/' + saved.handle)}>{t('See my page')}</Button>
     </>}
   </div>
 }

@@ -28,6 +28,12 @@ class CoachPage extends Model
         return ['open' => 'boolean', 'created' => 'integer', 'updated' => 'integer'];
     }
 
+    /** The link for the bio: ORIGIN/c/<handle>, which the docroot .htaccess hands to the API. */
+    public static function url(string $handle): string
+    {
+        return rtrim((string) config('fitpal.origin'), '/').'/c/'.$handle;
+    }
+
     /** As the editor reads it. */
     public function toCoach(): array
     {

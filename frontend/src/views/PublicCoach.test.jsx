@@ -16,6 +16,7 @@ vi.mock('../lib/api.js', async orig => ({
   },
 }))
 const { default: PublicCoach } = await import('./PublicCoach.jsx')
+const { useUI } = await import('../store/useUI.js')
 
 let container, root
 const text = () => container.textContent
@@ -31,23 +32,24 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); container.remove() })
 
 describe("a coach's public page", () => {
-  it('shows the coach, their bio, the way to ask, and WhatsApp when they gave a number', async () => {
+  it('shows the coach, their bio, and WhatsApp when they gave a number', async () => {
     ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: 'Force pour femmes.', whatsapp: '212612345678', theme: 'dark' } }
     await render(<PublicCoach handle="yasmine.fit" />)
     expect(text()).toContain('Yasmine')
     expect(text()).toContain('Force pour femmes.')
-    expect(text()).toContain('Ask to join')
     expect(container.querySelector('a[href="https://wa.me/212612345678"]')).toBeTruthy()
     expect(text()).toContain('Coached with FitPal')
+    // No way to ask that leads nowhere: asking to join arrives with the join flow (CHW-336).
+    expect(text()).not.toContain('Ask to join')
   })
 
-  it("wears the coach's theme while it is open, and gives the app its own back after", async () => {
+  it("asks App for the coach's theme while it is open, and hands the person's own back after", async () => {
     ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'light' } }
     await render(<PublicCoach handle="yasmine.fit" />)
-    expect(document.documentElement.dataset.theme).toBe('light')
+    expect(useUI.getState().themeOverride).toBe('light')
     expect(container.querySelector('a[href^="https://wa.me"]')).toBe(null)
     act(() => root.unmount()); root = createRoot(container)
-    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(useUI.getState().themeOverride).toBe(null)
   })
 
   it('says why there is nothing to show', async () => {

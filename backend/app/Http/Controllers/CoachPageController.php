@@ -54,13 +54,23 @@ final class CoachPageController
 
         try {
             $page = DB::transaction(function () use ($coach, $handle, $bio, $whatsapp, $open, $theme): CoachPage {
-                CoachLock::take($coach->id);
+                $me = CoachLock::take($coach->id);
+                // Judged again on the locked row: a detach (role revoked, account disabled) closes the
+                // page under this lock, and a save that waited behind it must not open it again.
+                // Refused as RequireCoach would refuse the next request.
+                if (! $me || $me->disabled) {
+                    throw new ClientSafe(401, 'not signed in');
+                }
+                if (! $me->isCoach()) {
+                    throw new ClientSafe(403, 'forbidden');
+                }
                 $holder = CoachPage::acrossCoaches()->where('handle', $handle)->first(); // across coaches: a handle is unique across every coach
                 if ($holder !== null && $holder->coach_id !== $coach->id) {
                     throw new ClientSafe(409, 'that handle is taken');
                 }
                 $now = Js::nowMs();
-                $page = CoachPage::query()->first() ?? (new CoachPage)->forceFill(['created' => $now]);
+                // The holder of the handle, when it is this coach, is already their page.
+                $page = $holder ?? CoachPage::query()->first() ?? (new CoachPage)->forceFill(['created' => $now]);
                 $page->forceFill(['handle' => $handle, 'bio' => $bio, 'whatsapp' => $whatsapp, 'open' => $open, 'theme' => $theme, 'updated' => $now])->save();
 
                 return $page;
@@ -77,6 +87,6 @@ final class CoachPageController
     /** @return array{page: array<string, mixed>|null, url: string|null} */
     private static function answer(?CoachPage $page): array
     {
-        return ['page' => $page?->toCoach(), 'url' => $page ? rtrim((string) config('fitpal.origin'), '/').'/c/'.$page->handle : null];
+        return ['page' => $page?->toCoach(), 'url' => $page ? CoachPage::url($page->handle) : null];
     }
 }

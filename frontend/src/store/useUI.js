@@ -70,6 +70,7 @@ export const useUI = create((set, get) => ({
                        // forIdx: index of the active entry whose set started the rest (undefined when unknown)
   work: null,          // work countdown DURING a timed set (issue #16) — { left, total, endsAt, label }
   timerFlashId: 0,     // changing the id retriggers the theme-blink visual alert
+  themeOverride: null, // 'dark' | 'light' while a screen wears someone else's theme (a coach's public page, CHW-330)
 
   flashTimer() {
     if (!useStore.getState().S.timerFlash) return

@@ -11,7 +11,7 @@ namespace App\Coaching;
 final class Handle
 {
     /** The app's own paths and words a visitor would mistake for FitPal speaking. */
-    public const RESERVED = ['api', 'admin', 'c', 'join', 'start', 'link', 'home', 'today', 'clients', 'programs',
+    public const RESERVED = ['api', 'admin', 'join', 'start', 'link', 'home', 'today', 'clients', 'programs',
         'account', 'settings', 'login', 'fitpal', 'coach', 'support', 'help', 'www', 'app'];
 
     public static function normalise(mixed $raw): string

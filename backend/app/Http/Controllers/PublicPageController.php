@@ -41,13 +41,12 @@ final class PublicPageController
         $handle = Handle::normalise($handle);
         [$page, $coach] = self::find($handle);
         $shown = $page !== null && $coach !== null && $page->open;
-        $origin = rtrim((string) config('fitpal.origin'), '/');
 
         return response()->view('coach-page', [
             'page' => $shown ? $page : null,
             'name' => $coach?->name,
-            'url' => $origin.'/c/'.$handle,
-            'image' => $origin.'/icon-512.png',
+            'url' => CoachPage::url($handle),
+            'image' => rtrim((string) config('fitpal.origin'), '/').'/icon-512.png',
             'app' => '/#/c/'.$handle,
         ], $shown ? 200 : 404)->header('Content-Type', 'text/html; charset=UTF-8');
     }

@@ -20,6 +20,9 @@ return new class extends Migration
             // Epoch milliseconds, as every other coach table keeps them.
             $table->bigInteger('created');
             $table->bigInteger('updated');
+            // As every tenant table: a coach with a page cannot be deleted out from under it (a
+            // stray row would hold its handle for good and answer 404 for ever).
+            $table->foreign('coach_id')->references('id')->on('users')->restrictOnDelete();
         });
     }
 
