@@ -191,12 +191,16 @@ function WeightInput({ value, setValue, unit }) {
 // CHW-360: a coach's client agrees once before their first check-in, weigh-in, measurement, meal
 // or photo that their coach may see these (GDPR Art. 9(2)(a)). Without it nothing is recorded.
 
-/** The client's consent, asked of the server once per session; offline, a coached client is asked. */
+/**
+ * The client's consent, asked of the server once per session. Someone with no coach is never
+ * asked; offline, the answer kept with the signed-in user stands in, so a client who agreed can
+ * still log in a gym basement.
+ */
 async function healthConsent() {
   const st = useStore.getState()
-  if (!st.user) return { required: false }
+  if (!st.user?.coachName) return { required: false }
   if (st.healthConsent) return st.healthConsent
-  try { return await st.loadHealthConsent() } catch { return { required: !!st.user.coachName, consentAt: null } }
+  try { return await st.loadHealthConsent() } catch { return { required: true, consentAt: st.user.healthConsentAt ?? null } }
 }
 
 /** Runs fn — the entry that records health data — once the client has agreed, asking first if needed. */
@@ -214,7 +218,7 @@ function HealthConsentSheet({ then, close }) {
     if (!agreed) { setError(t('Tick the box to agree')); return }
     setBusy(true); setError(null)
     try { await useStore.getState().giveHealthConsent(); close(); then && then() }
-    catch (e) { setError(e.message); setBusy(false) }
+    catch (e) { setError(e.status ? e.message : t('Could not connect')); setBusy(false) }
   }
   return <>
     <h3>{t('Your health data and your coach')}</h3>
@@ -2076,12 +2080,17 @@ export function WorkoutRow({ w, onClick }) {
 /* ============================ workout lifecycle ============================ */
 // `routineIds` accepts `string | string[] | null` — `[r.id]` for one routine,
 // `effectiveRoutineIds(...)` for today's planned session, `[]` / null for explicit freestyle.
+let starting = false
 export function startFlow(routineIds) {
   // The weigh-in before a workout is health data too (CHW-360): without consent the workout starts
-  // without one, rather than asking for consent every time someone wants to train.
+  // without one, rather than asking for consent every time someone wants to train. The answer can
+  // take a round trip, so a second tap while it is out starts nothing.
+  if (starting) return
+  starting = true
   healthConsent().then(c => mustAsk(c)
     ? beginWorkout(routineIds, null)
     : openBwSheet({ required: true, onDone: bw => beginWorkout(routineIds, bw) }))
+    .finally(() => { starting = false })
 }
 export function beginWorkout(routineIds, bw) {
   const st = S()

@@ -9,10 +9,12 @@ import { createRoot } from 'react-dom/client'
 
 const calls = []
 let CONSENT = null
+let OFFLINE = false
 vi.mock('./lib/api.js', async orig => ({
   ...(await orig()),
   api: async (path, opts) => {
     calls.push([path, opts?.method || 'GET', opts?.body ? JSON.parse(opts.body) : undefined])
+    if (OFFLINE) throw new TypeError('Failed to fetch')
     if (path === '/api/me/health-consent' && !opts) return CONSENT
     if (path === '/api/me/health-consent') { CONSENT = { required: true, consentAt: 5 }; return CONSENT }
     if (path === '/api/me/health-consent/withdraw') { CONSENT = { required: true, consentAt: null }; return CONSENT }
@@ -41,6 +43,7 @@ beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true
   calls.length = 0
   CONSENT = { required: true, consentAt: null }
+  OFFLINE = false
   useUI.setState({ sheets: [], toasts: [] })
   useStore.setState(s => ({ user: { id: 'c1', name: 'Salma', coachName: 'Yasmine' }, healthConsent: null, S: { ...s.S, active: null, routines: [] } }))
   document.body.innerHTML = ''
@@ -62,6 +65,7 @@ describe('health data and the coach', () => {
     act(() => { button(host, 'Agree and continue').click() })
     await settle()
     expect(calls.find(([p, m]) => p === '/api/me/health-consent' && m === 'POST')[2]).toEqual({ agree: true })
+    expect(useStore.getState().user.healthConsentAt).toBe(5)   // kept on the device, for offline
     // The consent sheet closed and the measurement sheet opened in its place.
     expect(useUI.getState().sheets).toHaveLength(1)
     expect(mountTopSheet().textContent).not.toContain('Agree and continue')
@@ -96,5 +100,38 @@ describe('health data and the coach', () => {
     expect([S.bodyweight, S.checkins, S.measurements, S.meals, S.mealDays]).toEqual([[], [], [], [], {}])
     expect(useStore.getState().healthConsent).toEqual({ required: true, consentAt: null })
     expect(calls.some(([p]) => p === '/api/me/health-consent/withdraw')).toBe(true)
+  })
+
+  it('asks the server nothing for someone with no coach', async () => {
+    useStore.setState({ user: { id: 'u1', name: 'Solo', coachName: null } })
+    measureSheet()
+    await settle()
+    expect(calls).toEqual([])
+    expect(mountTopSheet().textContent).not.toContain('Agree and continue')
+  })
+
+  it('offline, takes the consent kept with the user, and asks a client who has not agreed', async () => {
+    OFFLINE = true
+    useStore.setState(s => ({ user: { ...s.user, healthConsentAt: 5 } }))
+    measureSheet()
+    await settle()
+    expect(mountTopSheet().textContent).not.toContain('Agree and continue')
+    useUI.setState({ sheets: [] })
+    useStore.setState(s => ({ user: { ...s.user, healthConsentAt: null } }))
+    measureSheet()
+    await settle()
+    const host = mountTopSheet()
+    act(() => { host.querySelector('[role="checkbox"]').click() })
+    act(() => { button(host, 'Agree and continue').click() })
+    await settle()
+    expect(host.textContent).toContain('Could not connect')
+  })
+
+  it('starts one workout from two quick taps', async () => {
+    startFlow([])
+    startFlow([])
+    await settle()
+    expect(calls.filter(([p]) => p === '/api/me/health-consent')).toHaveLength(1)
+    expect(useStore.getState().S.active).toBeTruthy()
   })
 })

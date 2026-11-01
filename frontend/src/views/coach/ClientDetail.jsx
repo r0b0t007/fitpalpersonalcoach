@@ -7,7 +7,7 @@ import { fmtDate, fmtVol, fmtDur, DAYN } from '../../lib/format.js'
 import { t, tp } from '../../lib/i18n.js'
 import { workoutVolume, setsDone } from '../../lib/history.js'
 import Icon from '../../components/Icon.jsx'
-import { Button, Segmented } from '../../components/ui.jsx'
+import { Button, Notice, Segmented } from '../../components/ui.jsx'
 import { StatsPanels } from '../Stats.jsx'
 import { AdherenceCard, CheckinsCard, PhotosCard, memberAdherence, memberState } from './parts.jsx'
 import { SendSheet } from './sheets.jsx'
@@ -129,6 +129,10 @@ export default function ClientDetail() {
           <span className="dim small">{t('Sent {0}', fmtDate(String(a.created).slice(0, 10)))}</span>
           <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => withdraw(a)}>{t('Withdraw')}</button>
         </div>)}
+      </div>}
+      {/* Withheld, not missing (CHW-360): `false` only, as an API from before the field sends nothing. */}
+      {d.healthShared === false && <div style={{ marginBottom: 12 }}>
+        <Notice icon="lock" title={t('Health data not shared yet')} body={t('Check-ins, weight and photos show once they agree in the app')} />
       </div>}
       <div className="tiles" style={{ textAlign: 'left', margin: '10px 0' }}>
         <div className="tile"><div className="l">{t('Workouts')}</div><div className="v" style={{ fontSize: '1.1rem' }}>{d.workouts.length}</div></div>

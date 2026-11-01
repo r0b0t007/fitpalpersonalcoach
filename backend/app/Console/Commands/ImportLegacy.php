@@ -322,6 +322,8 @@ final class ImportLegacy extends Command
                 'id' => $id, 'name' => $u['name'] ?? null, 'admin' => $isAdmin,
                 'coach' => ($u['coach'] ?? null) === true || $isAdmin,
                 'coachName' => $coach['name'] ?? null,
+                // Node asked no consent to share health data (CHW-360): an imported account has given none.
+                'healthConsentAt' => null,
             ];
             $got = json_decode((string) $me->getContent(), true)['user'] ?? null;
             if ($got !== $want) {

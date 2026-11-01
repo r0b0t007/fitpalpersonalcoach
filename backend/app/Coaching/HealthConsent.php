@@ -13,7 +13,8 @@ use stdClass;
  * A coached client's explicit consent to their coach seeing the health data they log (CHW-360;
  * GDPR Art. 9(2)(a); the DPIA's M6 and M9): weekly check-ins, body weight, measurements, meals
  * and progress photos. Given once in the app (frontend lib/health-consent.js), to the coach they
- * have now: a link that ends clears it (Unlink, Detach). Withdrawing it deletes that data.
+ * have now: any change of coach clears it (User::booted).
+ * Withdrawing it deletes that data.
  *
  * Without it the coach's views leave the data out and photos are neither taken nor shown to the
  * coach; the app asks before the first entry. The synced state itself is not stripped on save:
@@ -25,6 +26,12 @@ final class HealthConsent
     /** The state keys that hold health data a client logs, and what each is when empty. */
     public const KEYS = ['bodyweight' => [], 'measurements' => [], 'checkins' => [], 'meals' => [], 'mealDays' => null];
 
+    /**
+     * The body weight a workout carries: the weigh-in before it (finish-workout.js `bw`), and the
+     * spellings recovery.js also reads. The workout itself stays: training is not health data here.
+     */
+    public const WORKOUT_KEYS = ['bw', 'bwUnit', 'bodyweight', 'bodyweightUnit'];
+
     public static function required(User $client): bool
     {
         return $client->coach_id !== null;
@@ -35,16 +42,29 @@ final class HealthConsent
         return $client->health_consent_at !== null;
     }
 
-    /** The client's state as their coach may see it: the health keys emptied unless they consented. */
+    /** A coached client who has not agreed: nothing they log reaches their coach. */
+    public static function missing(User $client): bool
+    {
+        return self::required($client) && ! self::given($client);
+    }
+
+    /** The client's state as their coach may see it: the health data emptied unless they consented. */
     public static function forCoach(User $client, stdClass $state): stdClass
     {
         return self::given($client) ? $state : self::emptied($state);
     }
 
-    /** Withdrawal: the health keys emptied in the stored state, and every progress photo deleted. */
-    public static function erase(User $client): void
+    /**
+     * Withdrawal's rows: the health data emptied in the stored state, and every progress photo's
+     * row deleted. Call it in a transaction with the client's row locked. Returns the photo files,
+     * for the caller to delete once that transaction has committed: a rollback must not leave rows
+     * pointing at files that are gone.
+     *
+     * @return list<string>
+     */
+    public static function erase(User $client): array
     {
-        $row = UserState::query()->whereKey($client->id)->first();
+        $row = UserState::query()->whereKey($client->id)->lockForUpdate()->first();
         if ($row !== null) {
             $state = json_decode((string) $row->state);
             if ($state instanceof stdClass) {
@@ -52,10 +72,10 @@ final class HealthConsent
             }
         }
         $dir = Paths::photoDir($client->id);
-        foreach (ProgressPhoto::of($client->id)->get() as $photo) {
-            @unlink($dir.DIRECTORY_SEPARATOR.basename((string) $photo->file));
-            $photo->delete();
-        }
+        $photos = ProgressPhoto::of($client->id)->get();
+        ProgressPhoto::query()->whereKey($photos->modelKeys())->delete();
+
+        return $photos->map(fn (ProgressPhoto $p) => $dir.DIRECTORY_SEPARATOR.basename((string) $p->file))->all();
     }
 
     private static function emptied(stdClass $state): stdClass
@@ -64,7 +84,23 @@ final class HealthConsent
         foreach (self::KEYS as $key => $empty) {
             $copy->{$key} = $empty ?? new stdClass;
         }
+        if (is_array($copy->workouts ?? null)) {
+            $copy->workouts = array_map(fn ($w) => is_object($w) ? self::withoutWeight($w) : $w, $copy->workouts);
+        }
+        if (is_object($copy->active ?? null)) {
+            $copy->active = self::withoutWeight($copy->active);
+        }
 
         return $copy;
+    }
+
+    private static function withoutWeight(stdClass $workout): stdClass
+    {
+        $w = clone $workout;
+        foreach (self::WORKOUT_KEYS as $key) {
+            unset($w->{$key});
+        }
+
+        return $w;
     }
 }

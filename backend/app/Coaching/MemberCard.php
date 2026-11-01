@@ -81,6 +81,8 @@ final class MemberCard
                 ? ['status' => $lastDecided->status] + ($lastDecided->decided_at === null ? [] : ['at' => $lastDecided->decided_at])
                 : null,
             'adherence' => self::adherenceParts($s, $u, $trainable),
+            // False while the client has not agreed: their check-ins are withheld, not missing (CHW-360).
+            'healthShared' => HealthConsent::given($u),
             'lastCheckin' => self::lastCheckin($s),
             'checkinDay' => self::checkinDay($s->checkinDay ?? null),
             'routines' => count($trainable),
@@ -201,6 +203,7 @@ final class MemberCard
         return [
             'user' => ['id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso()],
         ] + self::drillDown($s) + [
+            'healthShared' => HealthConsent::given($u),
             'measurements' => Js::or($s->measurements ?? null, []),
             // Authored by the client and read-only here: the server never writes their state.
             'checkins' => Js::or($s->checkins ?? null, []),

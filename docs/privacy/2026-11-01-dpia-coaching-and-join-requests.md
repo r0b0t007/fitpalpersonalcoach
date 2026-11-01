@@ -135,10 +135,12 @@ no advertising, sale, profiling for others, or model training (coach terms Part 
   a coach can invite, that consent must come from a parent or guardian. **Implemented with
   CHW-360:**
   - the app asks before the first check-in, weigh-in, measurement, meal or photo;
-  - the coach's views show none of this data without consent, and photos are neither accepted nor
-    shown to the coach;
-  - withdrawal deletes the data on the server and the device;
-  - a link that ends clears the consent.
+  - the coach's views show none of this data without consent, including the weigh-in stored on each
+    workout, and photos are neither accepted nor shown to the coach. The roster says the data is not
+    shared yet, rather than that the client never checked in;
+  - withdrawal deletes the data on the server and the device, the workouts' weigh-ins included;
+  - consent can only be given to a coach the client has. Any change of coach clears it, so the next
+    coach is asked for again.
 
   The synced state is not stripped on the server, because a client who changes coach would
   otherwise lose their history at the next sync. So data from an app version older than CHW-360,

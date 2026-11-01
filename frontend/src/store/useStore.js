@@ -234,24 +234,25 @@ export const useStore = create((set, get) => {
     syncError: null,
 
     // A coached client's consent to their coach seeing their health data (CHW-360): null until
-    // asked for, then {required, consentAt} from the server. Not persisted, and dropped with the
-    // user: it is the server's to say.
+    // asked for, then {required, consentAt} from the server, and dropped with the user: it is the
+    // server's to say. Its date is copied onto the user, which the device keeps, for offline.
     healthConsent: null,
-    async loadHealthConsent() {
-      const c = await api('/api/me/health-consent')
+    keepHealthConsent(c) {
+      const u = get().user
+      if (u) get().setUser({ ...u, healthConsentAt: c.consentAt ?? null })
       set({ healthConsent: c })
       return c
     },
+    async loadHealthConsent() {
+      return get().keepHealthConsent(await api('/api/me/health-consent'))
+    },
     async giveHealthConsent() {
-      const c = await api('/api/me/health-consent', { method: 'POST', body: JSON.stringify({ agree: true }) })
-      set({ healthConsent: c })
-      return c
+      return get().keepHealthConsent(await api('/api/me/health-consent', { method: 'POST', body: JSON.stringify({ agree: true }) }))
     },
     // Withdrawing deletes the data: on the server first, then this device's copy, then a push so
     // the state the server holds matches.
     async withdrawHealthConsent() {
-      const c = await api('/api/me/health-consent/withdraw', { method: 'POST', body: '{}' })
-      set({ healthConsent: c })
+      const c = get().keepHealthConsent(await api('/api/me/health-consent/withdraw', { method: 'POST', body: '{}' }))
       get().update(emptyHealth)
       await get().pushState()
       return c
