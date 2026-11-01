@@ -23,6 +23,7 @@ const LABELS = {
   'auth.logout.all': () => t('Signed out everywhere'),
   'login.link': () => t('Signed in with an email link'),
   'login.code': () => t('Signed in with an email code'),
+  'coach.request.auto': () => t('Joined a coach whose page accepts requests automatically'),
   'login.link.throttled': () => t('Too many sign-in links asked for'),
   'account.email': () => t('Changed the sign-in email'),
   'auth.passkey.add': () => t('Added a passkey'),

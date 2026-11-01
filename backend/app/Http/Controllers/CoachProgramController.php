@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Audit\Audit;
 use App\Coaching\PlanBundle;
+use App\Models\CoachPage;
 use App\Models\CoachProgram;
 use App\Support\ClientSafe;
 use App\Support\Input;
@@ -82,6 +83,11 @@ final class CoachProgramController
             CoachLock::take($coach->id);
             $gone = is_string($id) ? CoachProgram::query()->where('program_id', $id)->first() : null;
             $gone?->delete();
+            // Nor the page's starter any more (CHW-338): the page would otherwise refuse every save.
+            $page = $gone ? CoachPage::query()->first() : null;
+            if ($page !== null && $page->starter_program_id === $id) {
+                $page->forceFill(['starter_program_id' => null])->save();
+            }
 
             return $gone;
         });

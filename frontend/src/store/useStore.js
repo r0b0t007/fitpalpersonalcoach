@@ -5,6 +5,8 @@ import { api, setRemoteAuth, passkeyLogin, signInWithCode } from '../lib/api.js'
 import { localTZ, todayISO } from '../lib/format.js'
 import { compactMeals } from '../lib/nutrition.js'
 import { emptyHealth } from '../lib/health-consent.js'
+import { parsePlan } from '../lib/plan-share.js'
+import { applyStarter } from '../lib/starter-accept.js'
 import { registerCustom } from '../lib/exercises.js'
 import { DEMO, DEMO_SEEDED } from '../lib/demo.js'
 import { guestAllowed } from '../lib/guest.js'
@@ -260,8 +262,30 @@ export const useStore = create((set, get) => {
 
     async loadAssignments() {
       if (!get().user) return set({ assignments: [] })
-      try { const { assignments } = await api('/api/assignments'); set({ assignments: assignments || [] }) }
-      catch { /* offline, or an older server without the route — no offers is the safe answer */ }
+      let list
+      try { list = (await api('/api/assignments')).assignments || [] }
+      catch { return /* offline, or an older server without the route — no offers is the safe answer */ }
+      // A page's starter program (CHW-338) is taken in here, not offered: it came with the accept
+      // the client asked for. One that cannot be read stays an ordinary offer, whose sheet says so.
+      const starters = []
+      for (const a of list) {
+        if (!a.auto) continue
+        try { starters.push([a, parsePlan(a.bundle)]) } catch { /* shown as an offer */ }
+      }
+      set({ assignments: list.filter(a => !starters.some(([s]) => s.id === a.id)) })
+      for (const [a, bundle] of starters) await get().takeStarter(a, bundle)
+    },
+    // Merged once per offer — the id is kept in the state, so a decide call that fails and brings
+    // the offer back does not add the routines twice — and then accepted, as a tap on Accept would.
+    async takeStarter(offer, bundle) {
+      if (!(get().S.startersTaken || []).includes(offer.id)) {
+        get().update(s => {
+          applyStarter(s, bundle, todayISO())
+          s.startersTaken = [...(s.startersTaken || []), offer.id].slice(-20)
+        })
+      }
+      try { await api('/api/assignments/decide', { method: 'POST', body: JSON.stringify({ id: offer.id, accept: true }) }) }
+      catch { /* it stays pending, and is accepted on the next load without being merged again */ }
     },
 
     /* Instance capabilities from GET /api/config: whether signup needs an invite, whether guests

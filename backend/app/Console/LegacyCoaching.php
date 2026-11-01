@@ -303,7 +303,8 @@ final class LegacyCoaching
         $mine = $ctx['byMember'][$u->id] ?? [];
         $want['GET /api/assignments'] = array_map(fn (stdClass $a) => [
             'id' => $a->id, 'coachName' => $a->coachName, 'note' => $a->note, 'created' => $a->created,
-            'schedule' => Js::truthy($a->schedule ?? null), 'bundle' => $a->bundle,
+            // Node had no starter programs (CHW-338): every offer it held was the coach's own send.
+            'schedule' => Js::truthy($a->schedule ?? null), 'auto' => false, 'bundle' => $a->bundle,
         ], array_values(array_filter($mine, fn ($a) => $a->status === 'pending')));
         $decided = array_values(array_filter($mine, fn ($a) => in_array($a->status, ['accepted', 'declined'], true)));
         $key = fn (stdClass $a) => Js::string(Js::or($a->decidedAt ?? null, Js::or($a->created, '')));

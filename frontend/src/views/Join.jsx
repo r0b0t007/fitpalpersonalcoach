@@ -61,6 +61,9 @@ export default function Join({ handle }) {
   // Waiting on the coach: look again every 20 s and when the tab comes back, so an accept shows
   // (and can be claimed) without a reload. The mail says the same thing; this is for whoever stayed.
   const waiting = step === 'sent' && request?.status === 'pending' && !!request?.token
+  // Declined, or lapsed: a follower already with another coach, or an auto-accept that could not
+  // take them (CHW-338). Either way an answer, not something to keep waiting for.
+  const answeredNo = request?.status === 'declined' || request?.status === 'expired'
   useEffect(() => {
     if (!waiting) return
     let live = true
@@ -223,9 +226,9 @@ export default function Join({ handle }) {
         {errorLine}
         <div style={{ height: 14 }} />
         <Button variant="primary" onClick={claim} disabled={busy}>{t('Start training')}</Button>
-      </> : <Notice icon={request?.status === 'declined' ? 'info' : 'checkCircle'}
-        title={request?.status === 'declined' ? t('Not this time') : t('Request sent')}
-        body={request?.status === 'declined'
+      </> : <Notice icon={answeredNo ? 'info' : 'checkCircle'}
+        title={answeredNo ? t('Not this time') : t('Request sent')}
+        body={answeredNo
           ? t('{0} cannot take you on right now.', coach.name)
           : t('{0} has your request. You will hear back here and by email.', coach.name)} />}
     </>}

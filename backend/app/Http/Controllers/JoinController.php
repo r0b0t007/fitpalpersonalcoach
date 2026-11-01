@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Audit\ClientIp;
 use App\Auth\SessionToken;
+use App\Coaching\AssignmentSent;
 use App\Coaching\Handle;
 use App\Coaching\Intake;
+use App\Coaching\JoinAccept;
 use App\Jobs\SendPush;
 use App\Mail\AccountMail;
 use App\Mail\JoinCodeMail;
@@ -20,6 +22,7 @@ use App\Support\ClientSafe;
 use App\Support\Input;
 use App\Support\Js;
 use App\Support\Json;
+use App\Tenancy\CoachContext;
 use App\Tenancy\CoachLock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -173,10 +176,51 @@ final class JoinController
         if ($refusal !== null) {
             throw $refusal;
         }
-        Audit::record($request, 'join.verify', ['ok' => true, 'msg' => CoachPage::acrossCoaches()->find($join->coach_id)?->handle]); // across coaches: the page of the request's coach, for the log
-        self::tellCoach($join, $coach);
+        $page = CoachPage::acrossCoaches()->find($join->coach_id); // across coaches: the page of the request's coach
+        Audit::record($request, 'join.verify', ['ok' => true, 'msg' => $page?->handle]);
 
-        return Json::ok(['ok' => true, 'token' => $token, 'status' => $join->status]);
+        return Json::ok(['ok' => true, 'token' => $token, 'status' => self::autoAccept($request, $join, $coach, $page)]);
+    }
+
+    /**
+     * A page that accepts every request (CHW-338): the coach's own accept, run now, in its own
+     * transaction once the request waits, so its locks come in the order the coach's would. Where
+     * it cannot (the plan's seats are full, say), the request waits on the coach as any other and
+     * they are told. Returns the request's status as the follower's page should show it.
+     */
+    private static function autoAccept(Request $request, JoinRequest $join, User $coach, ?CoachPage $page): string
+    {
+        if ($page === null || ! $page->auto_accept) {
+            self::tellCoach($join, $coach);
+
+            return $join->status;
+        }
+        // From here this request acts as the coach: their queue, their library, their roster.
+        app(CoachContext::class)->set($coach);
+        try {
+            [$refusal, $member, , $starter] = JoinAccept::decide($coach, $join->id, true);
+        } catch (ClientSafe $e) {
+            // A race lost (another coach took them this instant), after verify committed the
+            // request: it waits on the coach, and this browser keeps its token to follow it.
+            [$refusal, $member, $starter] = [$e, null, false];
+        }
+        $status = (string) JoinRequest::query()->whereKey($join->id)->value('status');
+        if ($refusal !== null || $member === null) {
+            if ($status === 'pending') {
+                self::tellCoach($join, $coach);
+            }
+
+            return $status;
+        }
+        Audit::record($request, 'coach.request.auto', ['user' => $member, 'msg' => $page->handle]);
+        JoinAccept::tellFollower($join, $coach, true);
+        // Nothing waits on the coach, but a new client took a seat: they hear who.
+        SendPush::dispatch($coach->id, 'join-auto', [$member->name]);
+        if ($starter) {
+            AssignmentSent::dispatch($coach, [$member->id]);
+        }
+
+        return $status;
     }
 
     /**

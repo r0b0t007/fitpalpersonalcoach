@@ -23,6 +23,7 @@ final class Messages
             'checkinBody' => 'Five quick scales and anything your coach should know.',
             'assignmentBody' => '{0} sent you a program',
             'joinRequestBody' => '{0} asked to train with you',
+            'joinAutoBody' => '{0} joined you as a client',
         ],
         'de' => [
             'restTitle' => 'Pause vorbei 💪',
@@ -35,6 +36,7 @@ final class Messages
             'checkinBody' => 'Fünf kurze Skalen und alles, was dein Coach wissen sollte.',
             'assignmentBody' => '{0} hat dir ein Programm geschickt',
             'joinRequestBody' => '{0} möchte mit dir trainieren',
+            'joinAutoBody' => '{0} trainiert jetzt mit dir',
         ],
         'es' => [
             'restTitle' => 'Descanso terminado 💪',
@@ -47,6 +49,7 @@ final class Messages
             'checkinBody' => 'Cinco escalas rápidas y lo que tu entrenador deba saber.',
             'assignmentBody' => '{0} te ha enviado un programa',
             'joinRequestBody' => '{0} quiere entrenar contigo',
+            'joinAutoBody' => '{0} ya entrena contigo',
         ],
         'fr' => [
             'restTitle' => 'Repos terminé 💪',
@@ -59,6 +62,7 @@ final class Messages
             'checkinBody' => 'Cinq échelles rapides et ce que votre coach doit savoir.',
             'assignmentBody' => '{0} vous a envoyé un programme',
             'joinRequestBody' => '{0} souhaite s’entraîner avec vous',
+            'joinAutoBody' => '{0} s’entraîne désormais avec vous',
         ],
     ];
 
@@ -113,6 +117,12 @@ final class Messages
     public static function joinRequest(mixed $lang, string $name, string $appName): array
     {
         return ['title' => $appName, 'body' => str_replace('{0}', $name, self::copy($lang)['joinRequestBody']), 'tag' => 'join-request'];
+    }
+
+    /** A page that accepts every request took someone on (CHW-338) — in the COACH's language. */
+    public static function joinAuto(mixed $lang, string $name, string $appName): array
+    {
+        return ['title' => $appName, 'body' => str_replace('{0}', $name, self::copy($lang)['joinAutoBody']), 'tag' => 'join-auto'];
     }
 
     /** A coach sent this member a program — in the MEMBER's language. */
