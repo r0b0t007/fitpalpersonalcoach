@@ -4,6 +4,7 @@ import { effectiveRoutineIds, effectiveRoutines } from '../lib/history.js'
 import { todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { isCoached } from '../lib/features.js'
+import { unreadCount } from '../lib/notes.js'
 import Icon from './Icon.jsx'
 
 // Everything the You hub owns. /stats and /library lost their own cells; /settings, /history and
@@ -20,6 +21,7 @@ export default function TabBar({ onStart }) {
   const isGuest = useStore(s => s.isGuest())
   const assignments = useStore(s => s.assignments)
   const coached = isCoached(user)
+  const unreadNotes = useStore(s => unreadCount(s.notes))
   if (!user && !isGuest) return null
   const cur = loc.pathname.split('/')[1] || 'home'
   // Several routes have no cell of their own and all belong to the hub, so it stays lit while you
@@ -56,7 +58,7 @@ export default function TabBar({ onStart }) {
       {/* The dot moved here from You with the offers themselves: an unanswered program is the one
           thing on this tab that is waiting on the client, and a dot on the hub pointed at a screen
           that no longer carries it. */}
-      <Tab k="mycoach" icon="people" to="/mycoach" label={t('Coach')} dot={!!assignments?.length} />
+      <Tab k="mycoach" icon="people" to="/mycoach" label={t('Coach')} dot={!!assignments?.length || unreadNotes > 0} />
       <Tab k="you" icon="personCircle" to="/you" label={t('You')} />
     </nav>
   )

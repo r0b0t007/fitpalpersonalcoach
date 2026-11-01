@@ -17,6 +17,7 @@ import LineChart from '../components/LineChart.jsx'
 import Icon from '../components/Icon.jsx'
 import InstallCard from '../components/InstallCard.jsx'
 import { can } from '../lib/features.js'
+import { latestUnread } from '../lib/notes.js'
 import OpenInBrowser from '../components/OpenInBrowser.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
@@ -142,6 +143,7 @@ export default function Home() {
 
   // A coached client follows their coach's days and moves none of them (CHW-333).
   const moveDays = can(user, 'dayOverride')
+  const newNote = latestUnread(useStore(s => s.notes))
   const ws = weekStartOf(S)
   // The first day of the shown week. Named for the role, not for Monday — which day that is
   // is the setting.
@@ -213,6 +215,18 @@ export default function Home() {
           : moveDays ? <Icon name="plus" className="chev" /> : null}
       </div>
     </div>
+
+    {/* A reply from their coach not read yet (CHW-340): the coaching relationship, on the first
+        screen. Opening it reads it, on the Coach tab. */}
+    {newNote && <div className="card" style={{ marginBottom: 12 }} {...tappable(() => nav('/mycoach'))}>
+      <div className="row between" style={{ gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="small" style={{ fontWeight: 600, color: 'var(--acc)' }}>{t('{0} replied', user?.coachName || t('Your coach'))}</div>
+          <div className="small" style={{ marginTop: 3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{newNote.body}</div>
+        </div>
+        <Icon name="chevronRight" className="chev" />
+      </div>
+    </div>}
 
     {/* Only when one is owed, and it disappears the moment it is filed. A permanent "check in"
         button is ignored within a fortnight; a card that appears because something is actually

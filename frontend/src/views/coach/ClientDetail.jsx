@@ -11,6 +11,7 @@ import { Button, Notice, Segmented } from '../../components/ui.jsx'
 import { StatsPanels } from '../Stats.jsx'
 import { AdherenceCard, CheckinsCard, PhotosCard, memberAdherence, memberState } from './parts.jsx'
 import { SendSheet } from './sheets.jsx'
+import NoteThread from './NoteThread.jsx'
 import { confirmSheet } from '../../sheets.jsx'
 
 // One client, as a page rather than the sheet it used to be: Today's attention rows deep-link
@@ -77,6 +78,9 @@ export default function ClientDetail() {
   // in date order by upsertCheckin, but a coach-side judgement should not depend on that holding:
   // if it ever slipped, this tile and Today's "check-in overdue" row would disagree about one
   // client in front of the coach.
+  // A reply sent anywhere on the page brings the whole list back (CHW-340).
+  const onNotes = notes => setD(x => ({ ...x, notes }))
+  const thread = w => <NoteThread notes={d.notes} refType="workout" refKey={w.id} memberId={d.user.id} onNotes={onNotes} />
   const lastCheckin = (d.checkins || []).reduce((max, c) => (c && c.d > max ? c.d : max), '') || null
   const byId = Object.fromEntries((d.routines || []).map(r => [r.id, r]))
   const week = d.week || {}
@@ -143,10 +147,13 @@ export default function ClientDetail() {
       <AdherenceCard a={memberAdherence(d)} />
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="small" style={{ fontWeight: 600, marginBottom: 4 }}>{t('Last workouts')}</div>
-        {d.workouts.length ? d.workouts.slice(0, 5).map(w => <div key={w.id} className="row between" style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)' }}>
-          <div><div className="small" style={{ fontWeight: 600 }}>{w.name}</div>
-            <div className="dim" style={{ fontSize: '.72rem' }}>{workoutLine(w)}</div></div>
-          <span className="small muted">{fmtVol(w.vol ?? workoutVolume(w), d.unit)}</span>
+        {d.workouts.length ? d.workouts.slice(0, 5).map(w => <div key={w.id} style={{ padding: '8px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <div className="row between">
+            <div><div className="small" style={{ fontWeight: 600 }}>{w.name}</div>
+              <div className="dim" style={{ fontSize: '.72rem' }}>{workoutLine(w)}</div></div>
+            <span className="small muted">{fmtVol(w.vol ?? workoutVolume(w), d.unit)}</span>
+          </div>
+          {thread(w)}
         </div>) : <div className="dim small">{t('No workouts logged.')}</div>}
       </div>
       <Button variant="danger" onClick={release}>{t('Release client')}</Button>
@@ -174,15 +181,18 @@ export default function ClientDetail() {
       </div>
       <h4 className="sec">{t('Workout history')}</h4>
       {d.workouts.length ? <div className="list" style={{ rowGap: 0 }}>
-        {d.workouts.slice(0, 60).map(w => <div key={w.id} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
-          <div><div className="small" style={{ fontWeight: 600 }}>{w.name}</div>
-            <div className="dim" style={{ fontSize: '.72rem' }}>{workoutLine(w)}</div></div>
-          <span className="small muted">{fmtVol(w.vol ?? workoutVolume(w), d.unit)}</span>
+        {d.workouts.slice(0, 60).map(w => <div key={w.id} style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <div className="row between">
+            <div><div className="small" style={{ fontWeight: 600 }}>{w.name}</div>
+              <div className="dim" style={{ fontSize: '.72rem' }}>{workoutLine(w)}</div></div>
+            <span className="small muted">{fmtVol(w.vol ?? workoutVolume(w), d.unit)}</span>
+          </div>
+          {thread(w)}
         </div>)}
       </div> : <div className="empty small">{t('No workouts logged.')}</div>}
     </>}
 
-    {tab === 'checkins' && <CheckinsCard checkins={d.checkins} />}
+    {tab === 'checkins' && <CheckinsCard checkins={d.checkins} notes={d.notes} memberId={d.user.id} onNotes={onNotes} />}
 
     {/* Server-owned, so it comes from the payload's own `photos` field rather than from
         memberState() — readState never sees these, by design. */}

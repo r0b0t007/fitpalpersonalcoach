@@ -24,6 +24,7 @@ const LABELS = {
   'login.link': () => t('Signed in with an email link'),
   'login.code': () => t('Signed in with an email code'),
   'coach.request.auto': () => t('Joined a coach whose page accepts requests automatically'),
+  'coach.note.create': () => t('Replied to a client'),
   'login.link.throttled': () => t('Too many sign-in links asked for'),
   'account.email': () => t('Changed the sign-in email'),
   'auth.passkey.add': () => t('Added a passkey'),
