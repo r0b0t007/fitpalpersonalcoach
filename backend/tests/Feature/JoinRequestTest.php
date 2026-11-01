@@ -254,12 +254,12 @@ it('judges the coach again when the code comes back: gone, closed, or no longer 
     expect(JoinRequest::acrossCoaches()->where('status', 'pending')->count())->toBe(0); // across coaches: test counts every row
 })->with(['closed', 'disabled', 'uncoached']);
 
-it('turns away someone already with this coach, as a client or an accepted request', function () {
+it('turns away someone already with this coach, as a client or a waiting request', function () {
     joinPage($this->f->a);
     $this->f->a1->forceFill(['email' => 'client.a1@example.com'])->save();
     [$id, $code] = startedJoin(['email' => 'client.a1@example.com']);
     verifyJoin($id, $code)->assertStatus(409)->assertExactJson(['error' => 'you already asked to join this coach']);
-    Coaching::own(new JoinRequest, $this->f->a, ['id' => JoinRequest::newId(), 'email' => 'salma@example.com', 'name' => 'Salma', 'intake' => '{}', 'status' => 'accepted', 'created' => 1]);
+    Coaching::own(new JoinRequest, $this->f->a, ['id' => JoinRequest::newId(), 'email' => 'salma@example.com', 'name' => 'Salma', 'intake' => '{}', 'status' => 'pending', 'created' => 1]);
     [$id2, $code2] = startedJoin();
     verifyJoin($id2, $code2)->assertStatus(409);
 });
@@ -278,4 +278,18 @@ it('lets a request nobody answers lapse after 14 days, so a queue cannot fill fo
 it('says how long a code lasts from the same number that decides it', function () {
     $mail = new JoinCodeMail('123456', 'Coach A', 'fr');
     expect($mail->words['body'])->toContain((string) JoinRequest::CODE_MINUTES);
+});
+
+it('lets a released client ask the same coach again', function () {
+    joinPage($this->f->a);
+    // Accepted once, then released: the old accepted request stays, the roster no longer has them.
+    Coaching::own(new JoinRequest, $this->f->a, ['id' => JoinRequest::newId(), 'email' => 'salma@example.com', 'name' => 'Salma', 'intake' => '{}', 'status' => 'accepted', 'created' => 1, 'decided' => 2]);
+    [$id, $code] = startedJoin();
+    verifyJoin($id, $code)->assertOk()->assertJsonPath('status', 'pending');
+});
+
+it('keeps the follower\'s language with the request, for the answer', function () {
+    joinPage($this->f->a);
+    $id = startJoin(['lang' => 'es'])->json('id');
+    expect(JoinRequest::acrossCoaches()->find($id)->lang)->toBe('es'); // across coaches: the test reads the row the public route wrote
 });

@@ -6,12 +6,12 @@ import { useUI } from '../../store/useUI.js'
 import { Button, Notice } from '../../components/ui.jsx'
 import { rel } from './parts.jsx'
 
-/** How many requests wait on this coach, for Today's card; null until known (and on a failed read). */
+/** How many requests wait on this coach, for Today's card — a count, no intakes; null until known (and on a failed read). */
 export function usePendingRequests() {
   const [n, setN] = useState(null)
   useEffect(() => {
     let live = true
-    api('/api/coach/requests').then(r => { if (live) setN(r.requests.filter(x => x.status === 'pending').length) }).catch(() => {})
+    api('/api/coach/requests/count').then(r => { if (live) setN(r.pending) }).catch(() => {})
     return () => { live = false }
   }, [])
   return n
@@ -32,9 +32,8 @@ export default function Requests() {
   const [busy, setBusy] = useState(false)
   const toast = msg => useUI.getState().toast(msg)
 
-  useEffect(() => {
-    api('/api/coach/requests').then(r => setList(r.requests)).catch(e => setError(e.message))
-  }, [])
+  const load = () => api('/api/coach/requests').then(r => setList(r.requests))
+  useEffect(() => { load().catch(e => setError(e.message)) }, [])
 
   const decide = async (r, accept) => {
     setBusy(true); setError(null)
@@ -42,7 +41,12 @@ export default function Requests() {
       const res = await api('/api/coach/requests/decide', { method: 'POST', body: JSON.stringify({ id: r.id, accept }) })
       setList(res.requests); setOpen(null)
       if (res.member) toast(t('{0} is on your roster', res.member.name))
-    } catch (e) { setError(e.message) }
+    } catch (e) {
+      // Refused, but not always unchanged: a follower who found another coach meanwhile has lapsed,
+      // a request answered elsewhere is gone. The list is read again so it shows what is true now.
+      setError(e.message); setOpen(null)
+      await load().catch(() => {})
+    }
     setBusy(false)
   }
 

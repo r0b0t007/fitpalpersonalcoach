@@ -4,7 +4,7 @@ import { t, getLang } from '../lib/i18n.js'
 import { EQUIPMENT, GOALS, INJURIES_MAX, LEVELS, MIN_FILL_MS, equipmentLabel, forgetRequest, goalLabel, intakeError, levelLabel, saveRequest, savedRequest } from '../lib/join.js'
 import { useCoachTheme } from './PublicCoach.jsx'
 import { useNavigate } from 'react-router-dom'
-import { useStore, hasData } from '../store/useStore.js'
+import { useStore } from '../store/useStore.js'
 import Logo from '../components/Logo.jsx'
 import { Button, Check, Notice, Segmented, TextArea, TextField } from '../components/ui.jsx'
 
@@ -27,7 +27,7 @@ export default function Join({ handle }) {
   const [busy, setBusy] = useState(false)
   const opened = useRef(Date.now())
   const nav = useNavigate()
-  const { setUser, pushState, pullState } = useStore()
+  const { setUser, pullState, forgetLocalSession } = useStore()
   const set = (k, v) => { setIntake(i => ({ ...i, [k]: v })); setError(null) }
 
   useEffect(() => {
@@ -56,6 +56,21 @@ export default function Join({ handle }) {
   }, [handle])
 
   useCoachTheme(coach?.theme)
+
+  // Waiting on the coach: look again every 20 s and when the tab comes back, so an accept shows
+  // (and can be claimed) without a reload. The mail says the same thing; this is for whoever stayed.
+  const waiting = step === 'sent' && request?.status === 'pending' && !!request?.token
+  useEffect(() => {
+    if (!waiting) return
+    let live = true
+    const look = () => api('/api/join/status', { method: 'POST', body: JSON.stringify({ id: request.id, token: request.token }) })
+      .then(s => { if (live && s.status !== 'pending') setRequest(req => ({ ...req, status: s.status })) })
+      .catch(() => {})
+    const seen = () => { if (document.visibilityState === 'visible') look() }
+    const every = setInterval(look, 20_000)
+    document.addEventListener('visibilitychange', seen)
+    return () => { live = false; clearInterval(every); document.removeEventListener('visibilitychange', seen) }
+  }, [waiting, request?.id, request?.token])
 
   const next = (to, check) => () => {
     const why = check()
@@ -98,14 +113,17 @@ export default function Join({ handle }) {
     setBusy(false)
   }
 
-  // Accepted (CHW-337): this browser's token signs the follower in to the account accept made —
-  // once, then the request is forgotten and the app is theirs.
+  // Accepted (CHW-337): this browser's token signs the follower in to the account accept made, and
+  // the request is forgotten. Whatever this browser held before — another account signed in, a
+  // guest's log — is dropped, never pushed: the session is already the follower's, and their own
+  // history (an account accept bound) is on the server. As an emailed link to another account does.
   const claim = async () => {
     setBusy(true); setError(null)
     try {
       const r = await api('/api/join/claim', { method: 'POST', body: JSON.stringify({ id: request.id, token: request.token }) })
+      forgetLocalSession()
       setUser(r.user)
-      if (hasData(useStore.getState().S)) await pushState(); else await pullState()
+      await pullState()
       forgetRequest(handle)
       nav('/home')
     } catch (e) { setError(e.message); setBusy(false) }

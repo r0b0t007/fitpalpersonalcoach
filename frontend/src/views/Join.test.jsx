@@ -136,6 +136,33 @@ describe('asking to join a coach', () => {
     expect(text()).toContain('Get stronger')
     expect(localStorage.getItem('join:yasmine.fit')).toBe(null)
   })
+
+  it('never writes the profile this browser held before into the account of the follower', async () => {
+    localStorage.setItem('join:yasmine.fit', JSON.stringify({ id: 'req1', token: 'tok1' }))
+    STATUS = { status: 'accepted', coachName: 'Yasmine', handle: 'yasmine.fit', theme: 'dark' }
+    useStore.setState(s => ({ user: { id: 'someone-else' }, S: { ...s.S, workouts: [{ id: 'w1', date: '2026-10-01' }] } }))
+    await render()
+    await click('Start training')
+    expect(calls.filter(([p, body]) => p === '/api/data' && body !== undefined)).toEqual([])
+    expect(useStore.getState().S.workouts).toEqual([])
+    expect(useStore.getState().user).toMatchObject({ id: 'u1' })
+  })
+})
+
+describe('while the request waits', () => {
+  it('looks again for the answer, so an accept shows without a reload', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      localStorage.setItem('join:yasmine.fit', JSON.stringify({ id: 'req1', token: 'tok1' }))
+      STATUS = { status: 'pending', coachName: 'Yasmine', handle: 'yasmine.fit', theme: 'dark' }
+      await render()
+      expect(text()).toContain('Request sent')
+      STATUS = { ...STATUS, status: 'accepted' }
+      await act(async () => { vi.advanceTimersByTime(21_000) })
+      await act(async () => {})
+      expect(text()).toContain('Yasmine accepted you')
+    } finally { vi.useRealTimers() }
+  })
 })
 
 describe('asking to join, when things go wrong', () => {

@@ -1406,6 +1406,8 @@ export default {
   'that is your own page': 'esa es tu propia página',
   'you already asked to join this coach': 'ya pediste unirte a este coach',
   'they already train with another coach': 'esta persona ya entrena con otro coach',
+  'that address belongs to a coach account': 'esa dirección pertenece a una cuenta de coach',
+  'accept must be true or false': 'accept debe ser true o false',
   'your plan allows {0} clients — upgrade to accept more': 'tu plan permite {0} clientes — mejóralo para aceptar más',
   'Accepted a request to join': 'Aceptó una solicitud',
   'Declined a request to join': 'Rechazó una solicitud',

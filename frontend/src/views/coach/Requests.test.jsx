@@ -17,11 +17,12 @@ vi.mock('../../lib/api.js', async orig => ({
   api: async (path, opts) => {
     calls.push([path, opts?.body ? JSON.parse(opts.body) : undefined])
     if (path === '/api/coach/requests') return { requests: LIST }
+    if (path === '/api/coach/requests/count') return { pending: LIST.filter(r => r.status === 'pending').length }
     if (path === '/api/coach/requests/decide') { if (DECIDE instanceof Error) throw DECIDE; return DECIDE }
     throw new Error('unexpected ' + path)
   },
 }))
-const { default: Requests } = await import('./Requests.jsx')
+const { default: Requests, usePendingRequests } = await import('./Requests.jsx')
 
 let container, root
 const text = () => container.textContent
@@ -79,6 +80,26 @@ describe('the requests inbox', () => {
     await click('Accept')
     expect(text()).toContain('Your plan allows 3 clients')
     expect(text()).toContain('Salma')
+  })
+
+  it('reads the inbox again after a refusal, so a lapsed request leaves the waiting list', async () => {
+    DECIDE = new Error('They already train with another coach')
+    await render()
+    await click('Salma')
+    LIST = [{ ...salma, status: 'expired', decided: Date.now() }]
+    await click('Accept')
+    expect(text()).toContain('They already train with another coach')
+    expect(text()).toContain('Lapsed')
+    expect([...container.querySelectorAll('button')].some(b => b.textContent.includes('Accept'))).toBe(false)
+  })
+
+  it('counts the waiting requests for Today from the count route, not the inbox', async () => {
+    let n
+    const Probe = () => { n = usePendingRequests(); return null }
+    await act(async () => { root.render(<Probe />) })
+    await act(async () => {})
+    expect(n).toBe(1)
+    expect(calls.map(([p]) => p)).toEqual(['/api/coach/requests/count'])
   })
 
   it('says so when nobody has asked yet', async () => {

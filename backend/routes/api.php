@@ -147,6 +147,7 @@ $routes = static function (): void {
             Route::post('/coach/page/save', [CoachPageController::class, 'save'])->middleware(RequireWriter::class);
             // The followers who asked to join from that page (CHW-337).
             Route::get('/coach/requests', [CoachRequestController::class, 'index']);
+            Route::get('/coach/requests/count', [CoachRequestController::class, 'count']);
             Route::post('/coach/requests/decide', [CoachRequestController::class, 'decide'])->middleware(RequireWriter::class);
             Route::post('/coach/assign', [AssignmentController::class, 'assign'])->middleware(RequireWriter::class);
             Route::post('/coach/assignments/withdraw', [AssignmentController::class, 'withdraw']);
