@@ -208,3 +208,18 @@ it('tells the browser holding the token where its request stands, and nobody els
     $this->getJson("/api/join/status?id=$id&token=".str_repeat('0', 64))->assertStatus(404)->assertExactJson(['error' => 'no such request']);
     $this->getJson("/api/join/status?id=$id")->assertStatus(404);
 });
+
+it('prunes unverified requests after a day, and declined or expired ones after 30', function () {
+    $day = 86_400_000;
+    $now = (int) (microtime(true) * 1000);
+    $row = fn (string $id, string $status, int $age) => Coaching::own(new JoinRequest, $this->f->a, ['id' => $id, 'email' => "$id@example.com", 'name' => $id, 'intake' => '{}', 'status' => $status, 'created' => $now - $age]);
+    $row('freshunverified', 'unverified', $day - 60_000);
+    $row('oldunverified', 'unverified', $day + 60_000);
+    $row('oldpending', 'pending', 40 * $day);
+    $row('recentdeclined', 'declined', 29 * $day);
+    $row('olddeclined', 'declined', 31 * $day);
+    $row('oldexpired', 'expired', 31 * $day);
+    $this->artisan('fitpal:prune')->assertSuccessful();
+    expect(JoinRequest::acrossCoaches()->orderBy('id')->pluck('id')->all()) // across coaches: test reads every row
+        ->toBe(['freshunverified', 'oldpending', 'recentdeclined']);
+});

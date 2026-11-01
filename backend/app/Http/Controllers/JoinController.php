@@ -111,30 +111,31 @@ final class JoinController
     {
         $id = Input::jsString($request, 'id');
         $code = Input::jsString($request, 'code');
-        // Decided under the row's lock and committed, whatever the answer: a wrong code must count.
+        // Decided under the row's lock and committed, whatever the answer — a wrong code must count —
+        // so a refusal is returned from the transaction and thrown after it.
         [$refusal, $join, $token] = DB::transaction(function () use ($id, $code): array {
             $join = $id === '' ? null : JoinRequest::acrossCoaches()->whereKey($id)->lockForUpdate()->first(); // across coaches: a public route finds a request by its id
             if ($join === null || $join->status !== 'unverified' || $join->code_expires < Js::nowMs()) {
-                return [[400, 'that code has expired — ask for a new one'], null, null];
+                return [new ClientSafe(400, 'that code has expired — ask for a new one'), null, null];
             }
             if ($join->attempts >= JoinRequest::MAX_ATTEMPTS) {
-                return [[429, 'too many tries — request a new code'], null, null];
+                return [new ClientSafe(429, 'too many tries — request a new code'), null, null];
             }
             if (! hash_equals((string) $join->code_hash, JoinRequest::hash($code))) {
                 $join->forceFill(['attempts' => $join->attempts + 1])->save();
 
-                return [[400, 'that code is wrong — check the email and try again'], null, null];
+                return [new ClientSafe(400, 'that code is wrong — check the email and try again'), null, null];
             }
             $coach = User::query()->find($join->coach_id);
             if ($coach !== null && $coach->email !== null && LoginLink::normaliseEmail($coach->email) === $join->email) {
                 $join->delete();
 
-                return [[400, 'that is your own page'], null, null];
+                return [new ClientSafe(400, 'that is your own page'), null, null];
             }
             if (JoinRequest::queueOf($coach)->where('email', $join->email)->where('status', 'pending')->exists()) {
                 $join->delete();
 
-                return [[409, 'you already asked to join this coach'], null, null];
+                return [new ClientSafe(409, 'you already asked to join this coach'), null, null];
             }
             $token = bin2hex(random_bytes(32));
             $join->forceFill(['status' => 'pending', 'code_hash' => null, 'token_hash' => JoinRequest::hash($token)])->save();
@@ -142,7 +143,7 @@ final class JoinController
             return [null, $join, $token];
         });
         if ($refusal !== null) {
-            throw new ClientSafe(...$refusal);
+            throw $refusal;
         }
         Audit::record($request, 'join.verify', ['ok' => true, 'msg' => CoachPage::acrossCoaches()->find($join->coach_id)?->handle]); // across coaches: the page of the request's coach, for the log
 

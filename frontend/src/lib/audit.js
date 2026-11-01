@@ -58,6 +58,9 @@ const LABELS = {
   // A coach taking a client on, rather than an admin assigning one.
   'coach.program.save': () => t('Saved a program'),
   'coach.page.save': () => t('Saved their public page'),
+  'join.request': () => t('Asked to join a coach'),
+  'join.request.throttled': () => t('Too many join requests asked for'),
+  'join.verify': () => t('Confirmed a join request by email'),
   'coach.program.delete': () => t('Deleted a program'),
   'coach.invite.create': () => t('Created a client code'),
   'coach.invite.revoke': () => t('Revoked a client code'),
