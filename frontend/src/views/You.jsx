@@ -5,6 +5,7 @@ import { MOBILE } from '../lib/mobile.js'
 import { DEMO } from '../lib/demo.js'
 import { Section, Row } from '../components/ui.jsx'
 import { isCoach, setShellPref, homeFor } from '../lib/role.js'
+import { can } from '../lib/features.js'
 
 // The hub the tab bar gained when it lost two of its six cells.
 //
@@ -44,8 +45,8 @@ export default function You() {
         accessory="chevron" onClick={() => nav('/nutrition')} />
       {/* Kept one tap from a tab even though it left the bar: it is a reference catalogue, but a
           1,324-entry one that people do browse. */}
-      <Row icon="list" iconTint="var(--teal)" title={t('Exercises')}
-        accessory="chevron" onClick={() => nav('/library')} />
+      {can(user, 'library') && <Row icon="list" iconTint="var(--teal)" title={t('Exercises')}
+        accessory="chevron" onClick={() => nav('/library')} />}
     </Section>
 
     <Section>

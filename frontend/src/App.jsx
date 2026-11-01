@@ -12,6 +12,7 @@ import { setCoachMedia } from './lib/coach-media.js'
 import { initBackButton } from './lib/back.js'
 import { useWakeLock } from './lib/wakelock.js'
 import { shellFor, useShellPref } from './lib/role.js'
+import { can } from './lib/features.js'
 import { installViewportGuard } from './lib/viewport-guard.js'
 import { startFlow } from './sheets.jsx'
 import Logo from './components/Logo.jsx'
@@ -78,17 +79,21 @@ function applyPrefs(theme, accent) {
 // home, which is also what happens after sign-in: Login never navigates, so a coach still
 // sitting on #/home lands on /today because this table has no /home.
 function ClientRoutes() {
+  // A coached client's app (CHW-333, lib/features.js): the coach's program is theirs to follow,
+  // not to rewrite, so the catalogue, the muscle map and the routine editor lead back home.
+  const user = useStore(s => s.user)
+  const home = <Navigate to="/home" replace />
   return (
     <Routes>
       <Route path="/home" element={<Home />} />
       <Route path="/plan" element={<Plan />} />
-      <Route path="/plan/r/:id" element={<RoutineEdit />} />
+      <Route path="/plan/r/:id" element={can(user, 'editPlan') ? <RoutineEdit /> : <Navigate to="/plan" replace />} />
       <Route path="/workout" element={<Workout />} />
       <Route path="/stats" element={<Stats />} />
       <Route path="/nutrition" element={<Nutrition />} />
       <Route path="/history" element={<History />} />
-      <Route path="/library" element={<Library />} />
-      <Route path="/muscles" element={<Muscles />} />
+      <Route path="/library" element={can(user, 'library') ? <Library /> : home} />
+      <Route path="/muscles" element={can(user, 'muscles') ? <Muscles /> : home} />
       {/* /mycoach, not /coach — upstream's AI chat took that path during the 401-commit merge,
           and it is the client table so both have to coexist. */}
       <Route path="/mycoach" element={<MyCoach />} />

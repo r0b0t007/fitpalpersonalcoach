@@ -7,11 +7,14 @@ import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
+import { can } from '../lib/features.js'
 
 export default function Plan() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
+  // A coached client reads their coach's week and routines here, and changes none of it (CHW-333).
+  const edit = can(useStore(s => s.user), 'editPlan')
 
   const addRoutine = () => {
     const r = { id: uid(), name: t('New routine'), emoji: DEFAULT_GLYPH, ex: [] }
@@ -27,13 +30,13 @@ export default function Plan() {
 
   return <>
     <div className="hdr">
-      <div><h1>{t('Plan')}</h1><div className="sub">{t('Your weekly routine')}</div></div>
-      <div className="row" style={{ gap: 8 }}>
+      <div><h1>{t('Plan')}</h1><div className="sub">{edit ? t('Your weekly routine') : t('Your coach’s program')}</div></div>
+      {edit && <div className="row" style={{ gap: 8 }}>
         {/* The catalogue left the tab bar, and Plan is where you reach for it — this is the
            screen you are on when you want to know what to put in a routine. */}
         <button className="iconbtn" onClick={() => nav('/library')} aria-label={t('Exercises')} title={t('Exercises')}><Icon name="magnifier" /></button>
         <button className="iconbtn" onClick={planToolsSheet} aria-label={t('Share your plan')} title={t('Share your plan')}><Icon name="upload" /></button>
-      </div>
+      </div>}
     </div>
     <div className="cols"><div>
       <h4 className="sec">{t('Week schedule')}</h4>
@@ -41,10 +44,10 @@ export default function Plan() {
         {weekOrder(weekStartOf(S)).map(d => {
           const dayRoutines = [].concat(S.week[d] || []).map(id => S.routines.find(x => x.id === id)).filter(Boolean)
           // An empty day stays one tappable row → pick its first routine (today's behaviour).
-          if (!dayRoutines.length) return <div key={d} className="item" {...tappable(() => dayAssignSheet(d))}>
+          if (!dayRoutines.length) return <div key={d} className="item" {...(edit ? tappable(() => dayAssignSheet(d)) : {})}>
             <div className="grow"><div className="tt">{t(DAYN[d])}</div></div>
             <span className="tag">{t('Rest')}</span>
-            <Icon name="chevronRight" className="chev" /></div>
+            {edit && <Icon name="chevronRight" className="chev" />}</div>
           // A populated day: always-visible routine sub-rows + inline ✕, then ＋ Add routine.
           return <div key={d} className="item" style={{ display: 'block', padding: '10px 14px' }}>
             <div className="row between" style={{ marginBottom: 6 }}>
@@ -54,26 +57,26 @@ export default function Plan() {
             {dayRoutines.map(r => <div key={r.id} className="row" style={{ gap: 8, padding: '4px 0 4px 8px' }}>
               <span className="lrow-i" style={{ width: 26, height: 26, fontSize: 14 }}><Icon name={glyphOf(r.emoji)} /></span>
               <div className="grow" style={{ minWidth: 0 }}><div className="tt" style={{ fontSize: 14 }}>{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
-              <button className="iconbtn sm" aria-label={t('Remove')} onClick={() => removeFromDay(d, r.id)}><Icon name="xmark" /></button>
+              {edit && <button className="iconbtn sm" aria-label={t('Remove')} onClick={() => removeFromDay(d, r.id)}><Icon name="xmark" /></button>}
             </div>)}
-            <button className="btn ghost sm" style={{ marginTop: 4, marginLeft: 8 }} onClick={() => dayAddRoutineSheet(d)}>
+            {edit && <button className="btn ghost sm" style={{ marginTop: 4, marginLeft: 8 }} onClick={() => dayAddRoutineSheet(d)}>
               <Icon name="plus" /> {t('Add routine')}
-            </button>
+            </button>}
           </div>
         })}
       </div>
     </div><div>
       <div className="row between" style={{ marginTop: 22, marginBottom: 10 }}>
         <h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
-        <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>
+        {edit && <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>}
       </div>
-      {S.routines.length ? <div className="list">{S.routines.map(r => <div key={r.id} className="item" {...tappable(() => nav('/plan/r/' + r.id))}>
+      {S.routines.length ? <div className="list">{S.routines.map(r => <div key={r.id} className="item" {...(edit ? tappable(() => nav('/plan/r/' + r.id)) : {})}>
         <span className="lrow-i"><Icon name={glyphOf(r.emoji)} /></span>
         <div className="grow"><div className="tt">{r.name}</div><div className="ss">{exCount(r.ex.length)}</div></div>
-        <Icon name="chevronRight" className="chev" /></div>)}</div> : <>
+        {edit && <Icon name="chevronRight" className="chev" />}</div>)}</div> : edit ? <>
         <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>
         <Button icon="sparkles" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
-      </>}
+      </> : <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('Your coach is preparing your program.')}</div>}
     </div></div>
   </>
 }

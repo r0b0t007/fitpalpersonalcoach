@@ -36,6 +36,7 @@ import { BRAND, FILE_PREFIX } from './lib/brand.js'
 import { buildCompletedWorkout } from './lib/finish-workout.js'
 import { api, fetchMyPhotos, uploadProgressPhoto } from './lib/api.js'
 import { mustAsk } from './lib/health-consent.js'
+import { can } from './lib/features.js'
 import { privacyUrl } from './lib/join.js'
 import { isWarmupRow } from './lib/workout-model.js'
 import { nextUnfinishedUnit } from './lib/supersetFlow.js'
@@ -2041,7 +2042,8 @@ function Calendar({ start, close }) {
     const ws = byDay[iso], planned = effectiveRoutineIds(st, iso).length > 0, ovr = st.dayPlan[iso] !== undefined
     const dotCls = ws ? 'done' : ovr && planned ? 'ovr' : planned ? 'plan' : ''
     cells.push(<button key={d} className={'cal-d' + (ws ? ' has' : '') + (iso === todayISO() ? ' today' : '')} onClick={() => {
-      if (!ws) { close(); dayOverrideSheet(iso); return }
+      // A coached client follows their coach's days and moves none (CHW-333): an empty day is just that.
+      if (!ws) { if (can(useStore.getState().user, 'dayOverride')) { close(); dayOverrideSheet(iso) } return }
       if (ws.length === 1) { close(); workoutDetailSheet(ws[0]); return }
       close(); ui().openSheet(c2 => <><h3>{fmtDate(iso, true)}</h3><div className="list">{ws.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { c2(); workoutDetailSheet(w) }} />)}</div></>)
     }}><span>{d}</span><i className={dotCls} /></button>)

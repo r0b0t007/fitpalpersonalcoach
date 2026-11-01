@@ -17,6 +17,7 @@ import { loadOfWorkouts, muscleBalanceWindow, rankOf, MUSCLE_NAME, musclesOf } f
 import { fatigueOf, strengthOf, STRENGTH_FLOOR, LB_TO_KG } from '../lib/recovery.js'
 import { strengthExerciseRowsForMuscle } from '../lib/strength-exercises.js'
 import { fatigueStateOf } from '../lib/recovery-view.js'
+import { can } from '../lib/features.js'
 import { e1rmSeries, best1RM } from '../lib/onerm.js'
 import {
   hasEffort, displayScale, scaleName, toScale, avgRir, effortSummary, effortWeeks,
@@ -290,10 +291,13 @@ function EffortCard({ S }) {
 export default function Stats() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
+  // A coached client's own charts, without the recovery, muscle-balance and effort panels their
+  // coach reads (CHW-333). Decided here, so the panels below stay prop-driven.
+  const simple = !can(useStore(s => s.user), 'recovery')
   return <>
     <div className="hdr"><div><h1>{t('Stats')}</h1><div className="sub">{t('Progress & history')}</div></div>
       <button className="iconbtn" onClick={() => nav('/history')} aria-label={t('History')}><Icon name="history" /></button></div>
-    <StatsPanels S={S} />
+    <StatsPanels S={S} simple={simple} />
   </>
 }
 
@@ -388,7 +392,7 @@ function NutritionCard({ S, readOnly }) {
   </div>
 }
 
-export function StatsPanels({ S, readOnly = false }) {
+export function StatsPanels({ S, readOnly = false, simple = false }) {
   const nav = useNavigate()
   const [range, setRange] = useState(90)
   const [exId, setExId] = useState(null)
@@ -547,8 +551,8 @@ export function StatsPanels({ S, readOnly = false }) {
       <Heatmap S={S} onDay={readOnly ? undefined : iso => { const ws = workouts.filter(w => w.d === iso); if (ws.length === 1) workoutDetailSheet(ws[0]); else if (ws.length) calendarSheet(iso) }} />
     </div>
 
-    {workouts.length > 0 && <MuscleBalance S={S} />}
-    {hasEffort(S) && <EffortCard S={S} />}
+    {!simple && workouts.length > 0 && <MuscleBalance S={S} />}
+    {!simple && hasEffort(S) && <EffortCard S={S} />}
 
     <div className="cols">
       <div className="card">
