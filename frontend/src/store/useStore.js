@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { setShellPref } from '../lib/role.js'
 import { forgetCoachSecrets } from '../lib/forget-coach.js'
-import { api, setRemoteAuth, passkeyLogin } from '../lib/api.js'
+import { api, setRemoteAuth, passkeyLogin, signInWithCode } from '../lib/api.js'
 import { localTZ, todayISO } from '../lib/format.js'
 import { compactMeals } from '../lib/nutrition.js'
 import { emptyHealth } from '../lib/health-consent.js'
@@ -390,6 +390,13 @@ export const useStore = create((set, get) => {
     // A passkey sign-in, as Login and the link page both do it: the user, then their synced state.
     async passkeySignIn() {
       const u = await passkeyLogin()
+      get().setUser(u)
+      await get().pullState()
+      return u
+    },
+    // The emailed code (CHW-331), signed in as a passkey does.
+    async codeSignIn(email, code) {
+      const { user: u } = await signInWithCode(email, code)
       get().setUser(u)
       await get().pullState()
       return u

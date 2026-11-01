@@ -1,6 +1,7 @@
 import { useStore } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { api, webauthnOK, passkeyRegister, bioLabel, requestLoginLink } from '../lib/api.js'
+import { AddPasskeySheet, shouldOfferPasskey } from '../components/AddPasskeySheet.jsx'
 import { useLocation } from 'react-router-dom'
 import { hasData } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
@@ -11,7 +12,7 @@ import { useState, useRef, useEffect } from 'react'
 import { BRAND } from '../lib/brand.js'
 import Logo from '../components/Logo.jsx'
 import InstallCard from '../components/InstallCard.jsx'
-import { Button } from '../components/ui.jsx'
+import { Button, CodeField } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
 import { isEmail } from '../lib/email.js'
 
@@ -116,37 +117,59 @@ function RegisterSheet({ close }) {
 }
 
 /**
- * S5: a coach's way back in when the passkey is gone — a link by email (R4, Laravel only, where
- * /api/config says `login_email`). The passkey stays first; this is the fallback under it.
+ * S5: signing in by email (R4, Laravel only, where /api/config says `login_email`): a coach's way
+ * back in when the passkey is gone, and since CHW-331 a client's main one, as passkeys fail inside
+ * Instagram's browser. The mail has a 6-digit code and a link. The code is typed here, so it signs
+ * in this browser; the link opens another one (and leaves Instagram's), so it is the backup.
  *
- * "Check your inbox" is said the same whether or not the address belongs to anyone: the server
- * answers alike for both, deliberately, so the screen cannot be used to find out who is a coach.
+ * "Check your inbox" is said the same whether or not the address belongs to anyone, and a wrong
+ * code reads the same as an unknown address: the server answers alike, deliberately, so the screen
+ * cannot be used to find out who has an account.
  */
-function EmailSignIn({ focus }) {
+export function EmailSignIn({ focus }) {
+  const codeSignIn = useStore(s => s.codeSignIn)
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
+  const [code, setCode] = useState('')
+  const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const ref = useRef(null)
+  const codeRef = useRef(null)
   useEffect(() => { if (focus && !sent) setTimeout(() => ref.current?.focus(), 50) }, [focus, sent])
+  useEffect(() => { if (sent) setTimeout(() => codeRef.current?.focus(), 50) }, [sent])
   const go = async () => {
     const e = email.trim()
     if (!isEmail(e)) { useUI.getState().toast(t('Enter your email address')); return }
-    setBusy(true)
-    try { await requestLoginLink(e); setSent(true) }
-    catch (err) { useUI.getState().toast(err.message || t('Could not send the link')) }
+    setBusy(true); setError(null)
+    try { await requestLoginLink(e); setCode(''); setSent(true) }
+    catch (err) { useUI.getState().toast(err.message || t('Could not send the code')) }
     finally { setBusy(false) }
   }
-  if (sent) return <div className="card" role="status" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-    <Icon name="link" size={28} style={{ color: 'var(--acc)' }} />
-    <div style={{ fontWeight: 600, marginTop: 4 }}>{t('Check your inbox')}</div>
-    <div className="small muted" style={{ lineHeight: 1.38 }}>{t('If that address belongs to a coach, a sign-in link is on its way. It works once, for 15 minutes.')}</div>
-    <Button style={{ marginTop: 6 }} onClick={() => { setSent(false); setEmail('') }}>{t('Use another address')}</Button>
+  const verify = async () => {
+    setBusy(true); setError(null)
+    try {
+      const u = await codeSignIn(email.trim(), code)
+      useUI.getState().toast(t('Welcome back, {0}', u.name))
+      if (shouldOfferPasskey()) useUI.getState().openSheet(close => <AddPasskeySheet close={close} />)
+    } catch (err) { setError(err.status ? err.message : t('Could not connect')); setBusy(false) }
+  }
+  if (sent) return <div className="card" role="status" style={{ textAlign: 'left' }}>
+    <div style={{ fontWeight: 600 }}>{t('Check your inbox')}</div>
+    <div className="small muted" style={{ lineHeight: 1.38, margin: '4px 0 12px' }}>{t('If that address has an account, a 6-digit code is on its way to {0}. Enter it here; it works once, for 15 minutes.', email.trim())}</div>
+    <CodeField ref={codeRef} value={code} onChange={v => { setCode(v); setError(null) }}
+      onKeyDown={e => { if (e.key === 'Enter' && code.length === 6) verify() }} />
+    {error && <div className="small" role="alert" style={{ color: 'var(--red)', marginTop: 8 }}>{error}</div>}
+    <div style={{ height: 10 }} />
+    <Button variant="primary" onClick={verify} disabled={busy || code.length !== 6}>{t('Sign in')}</Button>
+    <div style={{ height: 8 }} />
+    <Button onClick={go} disabled={busy}>{t('Send the code again')}</Button>
+    <Button variant="ghost" className="dim" onClick={() => { setSent(false); setEmail(''); setCode(''); setError(null) }}>{t('Use another address')}</Button>
   </div>
   return <div className="card" style={{ textAlign: 'left' }}>
     <input ref={ref} className="input" type="email" placeholder={t('Your email')} maxLength={254} autoComplete="email"
       value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') go() }} />
     <div style={{ height: 10 }} />
-    <Button variant="primary" onClick={go} disabled={busy}>{busy ? t('Sending…') : t('Send me a link')}</Button>
+    <Button variant="primary" onClick={go} disabled={busy}>{busy ? t('Sending…') : t('Send me a code')}</Button>
   </div>
 }
 
@@ -184,7 +207,7 @@ export default function Login() {
   const head = <Logo size={40} heading />
   const emailButton = <>
     <Button variant="ghost" icon="link" style={{ color: 'var(--label-2)' }} onClick={() => setEmailOpen(o => !o)}
-      aria-expanded={emailOpen}>{t('Sign in with email')}</Button>
+      aria-expanded={emailOpen}>{t('Get a code by email')}</Button>
     {emailOpen && <EmailSignIn focus />}
   </>
 

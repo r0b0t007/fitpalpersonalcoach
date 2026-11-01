@@ -16,7 +16,8 @@ Three files, same design, one per language:
 ## The sign-in mail (generated, do not edit by hand)
 
 `signin-link-{fr,en,es,de}.html` is the sign-in link mail exactly as the Laravel backend renders
-it, for a sample coach "Ahmed" and a sample link: the app's four languages
+it, for a sample coach "Ahmed", a sample code and a sample link (since CHW-331 the mail is headed
+by a 6-digit code, with the link as its button): the app's four languages
 (`frontend/src/lib/i18n-core.js`), with `en` the fallback for anything else. It is transactional,
 not outreach: sent through Resend, text and HTML parts, in the coach's language. The design is
 `E1 Sign-in mail` in the Claude Design project "FitPal Coach R4 screens" (CHW-234); the backend

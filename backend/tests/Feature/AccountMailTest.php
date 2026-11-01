@@ -14,11 +14,13 @@ use App\Models\User;
 
 const MAIL_REFERENCE_URL = 'https://coach.fitpal.ma/#/link?t=EXAMPLE-TOKEN-0123456789abcdef';
 
+const MAIL_REFERENCE_CODE = '482913';
+
 function accountMail(string $kind, string $lang, string $name = 'Ahmed'): AccountMail
 {
     $url = $kind === 'changed' ? null : MAIL_REFERENCE_URL;
 
-    return new AccountMail($kind, new User(['name' => $name]), $url, 'new@example.com', $lang);
+    return new AccountMail($kind, new User(['name' => $name]), $url, 'new@example.com', $lang, $kind === 'signin' ? MAIL_REFERENCE_CODE : null);
 }
 
 function accountMailText(AccountMail $mail): string
@@ -84,4 +86,10 @@ it('is the markup of email/signin-link-{lang}.html', function (string $lang) {
     }
     expect(is_file($file))->toBeTrue("missing {$file}: regenerate it (see the top of this file)")
         ->and(str_replace("\r\n", "\n", (string) file_get_contents($file)))->toBe($html);
+})->with(MailCopy::LANGS);
+
+it('heads the sign-in mail with its code, in the subject too, and keeps the link beside it (CHW-331)', function (string $lang) {
+    $mail = accountMail('signin', $lang);
+    expect($mail->words['heading'])->toBe(MAIL_REFERENCE_CODE)->and($mail->words['subject'])->toEndWith(MAIL_REFERENCE_CODE)
+        ->and(accountMailText($mail))->toStartWith(MAIL_REFERENCE_CODE)->toContain(MAIL_REFERENCE_URL);
 })->with(MailCopy::LANGS);

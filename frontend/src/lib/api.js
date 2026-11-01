@@ -271,6 +271,8 @@ export const passkeyAdd = () => registerWith('/api/passkeys', {}).then(() => {})
 // cookie) or {email} for a confirmed address change.
 export const requestLoginLink = email => api('/api/login/email', { method: 'POST', body: JSON.stringify({ email }) })
 export const redeemLoginLink = token => api('/api/login/link', { method: 'POST', body: JSON.stringify({ t: token }) })
+// The 6-digit code in the same mail (CHW-331): typed in this browser, so it signs this browser in.
+export const signInWithCode = (email, code) => api('/api/login/code', { method: 'POST', body: JSON.stringify({ email, code }) })
 // The caller's own address: {email, pendingEmail, verified}. A change is confirmed by a link to the new one.
 export const fetchAccount = () => api('/api/account')
 export const changeEmail = email => api('/api/account/email', { method: 'POST', body: JSON.stringify({ email }) })
