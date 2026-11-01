@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Tenancy\OwnedByCoach;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -33,6 +34,15 @@ class JoinRequest extends Model
     protected function casts(): array
     {
         return ['attempts' => 'integer', 'code_expires' => 'integer', 'created' => 'integer', 'decided' => 'integer'];
+    }
+
+    /**
+     * One coach's requests, for the public routes, which act for no coach: the filter the scope
+     * would add if that coach were acting.
+     */
+    public static function queueOf(User $coach): Builder
+    {
+        return self::acrossCoaches()->where('coach_id', $coach->id); // across coaches: the public routes act for no coach, so this is the scope written out for one
     }
 
     public static function newId(): string
