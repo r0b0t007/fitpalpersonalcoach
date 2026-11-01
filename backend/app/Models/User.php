@@ -56,6 +56,18 @@ class User extends Authenticatable implements FilamentUser, WebAuthnAuthenticata
         return $this->belongsTo(self::class, 'coach_id');
     }
 
+    protected static function booted(): void
+    {
+        // Consent to share health data is given to one coach (CHW-360): every save that changes
+        // the coach clears it, whichever path makes the change, unless that save sets it too
+        // (the demo seeder). A query-builder update skips this, so Detach clears it itself.
+        static::saving(function (User $u): void {
+            if ($u->isDirty('coach_id') && ! $u->isDirty('health_consent_at')) {
+                $u->health_consent_at = null;
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -136,6 +148,8 @@ class User extends Authenticatable implements FilamentUser, WebAuthnAuthenticata
         return [
             'id' => $this->id, 'name' => $this->name, 'admin' => $this->isAdmin(), 'coach' => $this->isCoach(),
             'coachName' => $coach?->name,
+            // Kept on the device with the rest of this, so the app knows offline that they agreed (CHW-360).
+            'healthConsentAt' => $this->health_consent_at,
         ];
     }
 

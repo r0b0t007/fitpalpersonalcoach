@@ -27,10 +27,12 @@ final class Coaching
             'a' => $u('tCoachA000000000', 'Coach A', ['coach' => true]),
             'b' => $u('tCoachB000000000', 'Coach B', ['coach' => true]),
         ];
-        $f->a1 = $u('tA1000000000000x', 'Client A1', ['coach_id' => $f->a->id]);
-        $f->a2 = $u('tA2000000000000x', 'Client A2', ['coach_id' => $f->a->id]);
-        $f->d1 = $u('tD1000000000000x', 'Disabled A', ['coach_id' => $f->a->id, 'disabled' => true]);
-        $f->b1 = $u('tB1000000000000x', 'Client B1', ['coach_id' => $f->b->id]);
+        // Clients who have consented to their coach seeing their health data (CHW-360); the tests of
+        // that consent start from one who has not.
+        $f->a1 = $u('tA1000000000000x', 'Client A1', ['coach_id' => $f->a->id, 'health_consent_at' => 1]);
+        $f->a2 = $u('tA2000000000000x', 'Client A2', ['coach_id' => $f->a->id, 'health_consent_at' => 1]);
+        $f->d1 = $u('tD1000000000000x', 'Disabled A', ['coach_id' => $f->a->id, 'disabled' => true, 'health_consent_at' => 1]);
+        $f->b1 = $u('tB1000000000000x', 'Client B1', ['coach_id' => $f->b->id, 'health_consent_at' => 1]);
         $f->u1 = $u('tU1000000000000x', 'Unassigned');
 
         // One row per coach in every tenant-owned table, written with no context (as the import does).

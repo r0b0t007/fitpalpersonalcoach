@@ -66,11 +66,19 @@ const REASONS = [
     detail: () => t('Nothing on their plan to train'),
   },
   {
+    // Their check-ins are withheld until they agree in the app (CHW-360), so "overdue" would be a
+    // guess. `false` only: an API from before the field sends nothing (see 'no-program').
+    type: 'health-not-shared',
+    when: m => m.healthShared === false,
+    title: () => t('Health data not shared yet'),
+    detail: () => t('Check-ins, weight and photos show once they agree in the app'),
+  },
+  {
     type: 'checkin-overdue',
     // Only once they have something to train — a check-in on an empty plan is not a habit anyone
     // agreed to yet, and the row above already says what is missing. `undefined` is an API that
     // predates the field (see 'no-program'); `null` is a client who has genuinely never filed one.
-    when: (m, today) => m.lastCheckin !== undefined && checkinOverdue(m, today),
+    when: (m, today) => m.lastCheckin !== undefined && m.healthShared !== false && checkinOverdue(m, today),
     title: () => t('Check-in overdue'),
     detail: (m, today) => (m.lastCheckin ? t('Last one {0}', ago(daysSince(m.lastCheckin, today))) : t('None filed yet')),
   },

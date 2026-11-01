@@ -58,6 +58,12 @@ describe('one reason per client', () => {
     expect(reasonFor(m, TODAY)).toMatchObject({ type: 'checkin-overdue', detail: 'Last one 5 days ago' })
     expect(reasonFor(with_({ lastCheckin: null }), TODAY)).toMatchObject({ type: 'checkin-overdue', detail: 'None filed yet' })
   })
+  it('a client who has not agreed to share health data is that, not overdue', () => {
+    // Their check-ins are withheld (CHW-360), so the roster sends none: it is not a missed one.
+    expect(reasonFor(with_({ healthShared: false, lastCheckin: null }), TODAY)).toMatchObject({ type: 'health-not-shared', title: 'Health data not shared yet' })
+    expect(reasonFor(with_({ healthShared: true }), TODAY)).toBeNull()
+    expect(reasonFor(with_({ healthShared: false, routines: 0 }), TODAY)).toMatchObject({ type: 'no-program' })
+  })
   it('respects the client’s own check-in day', () => {
     // Check-in day Wednesday (3): the period started the 9th, and a check-in on the 8th is late.
     expect(reasonFor(with_({ checkinDay: 3, lastCheckin: '2026-09-08' }), TODAY)?.type).toBe('checkin-overdue')

@@ -19,7 +19,7 @@ import LineChart from './components/LineChart.jsx'
 import { TargetRows } from './components/MacroRows.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
-import { Button, Slider, Switch, Segmented, SelectRow, Row, TextField, TextArea, NumberField, MultiSelectRow } from './components/ui.jsx'
+import { Button, Check, Notice, Slider, Switch, Segmented, SelectRow, Row, TextField, TextArea, NumberField, MultiSelectRow } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import MuscleExplorer from './components/MuscleExplorer.jsx'
@@ -35,6 +35,8 @@ import { MOBILE, shareExport } from './lib/mobile.js'
 import { BRAND, FILE_PREFIX } from './lib/brand.js'
 import { buildCompletedWorkout } from './lib/finish-workout.js'
 import { api, fetchMyPhotos, uploadProgressPhoto } from './lib/api.js'
+import { mustAsk } from './lib/health-consent.js'
+import { privacyUrl } from './lib/join.js'
 import { isWarmupRow } from './lib/workout-model.js'
 import { nextUnfinishedUnit } from './lib/supersetFlow.js'
 import { swapActiveExercise } from './lib/active-exercise-swap.js'
@@ -185,6 +187,61 @@ function WeightInput({ value, setValue, unit }) {
   </>
 }
 
+/* ============================ health data consent ============================ */
+// CHW-360: a coach's client agrees once before their first check-in, weigh-in, measurement, meal
+// or photo that their coach may see these (GDPR Art. 9(2)(a)). Without it nothing is recorded.
+
+/**
+ * The client's consent, asked of the server once per session. Someone with no coach is never
+ * asked; offline, the answer kept with the signed-in user stands in, so a client who agreed can
+ * still log in a gym basement.
+ */
+async function healthConsent() {
+  const st = useStore.getState()
+  if (!st.user?.coachName) return { required: false }
+  if (st.healthConsent) return st.healthConsent
+  try { return await st.loadHealthConsent() } catch { return { required: true, consentAt: st.user.healthConsentAt ?? null } }
+}
+
+/** Runs fn — the entry that records health data — once the client has agreed, asking first if needed. */
+export async function withHealthConsent(fn) {
+  if (!mustAsk(await healthConsent())) return fn()
+  ui().openSheet(close => <HealthConsentSheet then={fn} close={close} />)
+}
+
+function HealthConsentSheet({ then, close }) {
+  const coach = useStore(s => s.user?.coachName) || t('your coach')
+  const [agreed, setAgreed] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const agree = async () => {
+    if (!agreed) { setError(t('Tick the box to agree')); return }
+    setBusy(true); setError(null)
+    try { await useStore.getState().giveHealthConsent(); close(); then && then() }
+    catch (e) { setError(e.status ? e.message : t('Could not connect')); setBusy(false) }
+  }
+  return <>
+    <h3>{t('Your health data and your coach')}</h3>
+    <p className="muted small">{t('Check-ins, body weight, measurements, meals and progress photos can say something about your health. {0} sees them to coach you, and nobody else does.', coach)}</p>
+    <p className="muted small">{t('{0} also sees when you are training, while a workout is open; nothing of that is kept.', coach)}</p>
+    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', margin: '14px 0 8px' }}>
+      <Check checked={agreed} onChange={v => { setAgreed(v); setError(null) }} labelledBy="health-agree" />
+      <span id="health-agree" className="small" onClick={() => { setAgreed(!agreed); setError(null) }}>
+        {t('I agree that {0} sees this data to coach me. I am 16 or older, or a parent or guardian agrees.', coach)}
+      </span>
+    </div>
+    <div className="dim small">
+      {t('You can withdraw this in Settings at any time; your health data is then deleted.')}{' '}
+      <a href={privacyUrl(getLang())} target="_blank" rel="noopener noreferrer">{t('Your data and your rights')}</a>
+    </div>
+    {error && <div style={{ marginTop: 10 }}><Notice icon="warning" tone="warn" title={error} /></div>}
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={agree} disabled={busy}>{t('Agree and continue')}</Button>
+    <div style={{ height: 6 }} />
+    <Button variant="ghost" className="dim" onClick={() => close()}>{t('Not now')}</Button>
+  </>
+}
+
 /* ============================ body weight ============================ */
 function BwSheet({ required, onDone, close }) {
   const st = useStore(s => s.S)
@@ -238,10 +295,10 @@ function BwSheet({ required, onDone, close }) {
     </>}
   </>
 }
-export function bwSheet(opts = {}) {
-  const h = ui().openSheet(close => <BwSheet {...opts} close={close} />, { locked: !!opts.required })
-  return h
+function openBwSheet(opts = {}) {
+  return ui().openSheet(close => <BwSheet {...opts} close={close} />, { locked: !!opts.required })
 }
+export function bwSheet(opts = {}) { return withHealthConsent(() => openBwSheet(opts)) }
 
 // getDay() order, 0 = Sunday, matching lib/checkins.js. A function rather than a lookup object so
 // t() runs at render, after the language is known — a const map would freeze whatever the language
@@ -303,7 +360,7 @@ function MeasureSheet({ close }) {
     </div>
   </>
 }
-export function measureSheet() { return ui().openSheet(close => <MeasureSheet close={close} />) }
+export function measureSheet() { return withHealthConsent(() => ui().openSheet(close => <MeasureSheet close={close} />)) }
 
 /* ============================ weekly check-in ============================ */
 // Five scales and a note. Deliberately short: a check-in someone dreads is a check-in that stops
@@ -462,7 +519,7 @@ function CheckinPhotos({ d }) {
   </>
 }
 
-export function checkinSheet() { return ui().openSheet(close => <CheckinSheet close={close} />) }
+export function checkinSheet() { return withHealthConsent(() => ui().openSheet(close => <CheckinSheet close={close} />)) }
 
 /* ============================ import from another app ============================ */
 // Shows what a parsed export would actually do before anything is written. An import is
@@ -2023,8 +2080,17 @@ export function WorkoutRow({ w, onClick }) {
 /* ============================ workout lifecycle ============================ */
 // `routineIds` accepts `string | string[] | null` — `[r.id]` for one routine,
 // `effectiveRoutineIds(...)` for today's planned session, `[]` / null for explicit freestyle.
+let starting = false
 export function startFlow(routineIds) {
-  bwSheet({ required: true, onDone: bw => beginWorkout(routineIds, bw) })
+  // The weigh-in before a workout is health data too (CHW-360): without consent the workout starts
+  // without one, rather than asking for consent every time someone wants to train. The answer can
+  // take a round trip, so a second tap while it is out starts nothing.
+  if (starting) return
+  starting = true
+  healthConsent().then(c => mustAsk(c)
+    ? beginWorkout(routineIds, null)
+    : openBwSheet({ required: true, onDone: bw => beginWorkout(routineIds, bw) }))
+    .finally(() => { starting = false })
 }
 export function beginWorkout(routineIds, bw) {
   const st = S()

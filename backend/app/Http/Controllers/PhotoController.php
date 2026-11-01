@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Coaching\HealthConsent;
 use App\Media\Paths;
 use App\Media\RowNotWritten;
 use App\Media\Serve;
@@ -45,6 +46,10 @@ final class PhotoController
         if (! in_array($pose, ProgressPhoto::POSES, true)) {
             return Json::error(400, 'bad pose', [], Json::CLOSE);
         }
+        // A coached client's photo is health data their coach sees: only with their consent (CHW-360).
+        if (HealthConsent::missing($user)) {
+            return Json::error(403, 'agree to share your health data with your coach first', [], Json::CLOSE);
+        }
         // A cheap refusal before the body, so an upload that cannot be kept is not carried across
         // the wire first. Not the check that binds: that one is under the lock, below.
         if ($error = self::capError($user->id, $d, $pose, 0)) {
@@ -74,6 +79,10 @@ final class PhotoController
                 $me = User::query()->whereKey($user->id)->lockForUpdate()->first();
                 if (! $me || $me->disabled) {
                     return Json::error(401, 'not signed in');
+                }
+                // Consent again, on the locked row: withdrawn while the file streamed, it files nothing.
+                if (HealthConsent::missing($me)) {
+                    return Json::error(403, 'agree to share your health data with your coach first');
                 }
                 // The caps again, with the real size: the first ask was a promise about the past.
                 if ($error = self::capError($user->id, $d, $pose, $up['bytes'])) {

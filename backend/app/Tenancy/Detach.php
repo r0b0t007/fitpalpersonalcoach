@@ -31,7 +31,7 @@ final class Detach
     {
         // Their members are left with no coach rather than pointing at a non-coach: re-granting
         // the role later must not hand back a roster nobody reviewed.
-        User::clientsOf($coach)->update(['coach_id' => null]);
+        User::clientsOf($coach)->update(['coach_id' => null, 'health_consent_at' => null]);   // consent was to this coach (CHW-360)
         Assignment::expireAllFrom($coach->id);
         // A code minted by a role that can be taken away dies with it: the registration gate only
         // asks whether a code is unused and unrevoked, so a coach let go on Monday would otherwise

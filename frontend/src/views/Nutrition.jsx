@@ -10,6 +10,7 @@ import {
 import { MacroRows, MACRO_LABEL, MACRO_UNIT } from '../components/MacroRows.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, NumberField, SearchField, TextField } from '../components/ui.jsx'
+import { withHealthConsent } from '../sheets.jsx'
 
 // Log a food with grams, see four numbers against the target the coach set. That is the whole
 // screen, and keeping it that small is the feature: every tracker that opens with recipes, meal
@@ -47,12 +48,15 @@ export default function Nutrition() {
     // The only thing log() can reject is the grams box, so it must say so. It used to borrow the
     // per-100 g form's message, which is advice about a form that is not on screen on this path.
     if (!isValidGrams(grams)) { toast(t('Enter a weight in grams, up to 5000.')); return }
-    update(s => {
-      s.foods = rememberFood(s.foods, { ...food, id })
-      s.meals = addMeal(s.meals, loggedFood({ ...food, id }, grams, { id: uid(), d: today }))
+    // A meal is health data a coach sees (CHW-360): logged once the client has agreed.
+    withHealthConsent(() => {
+      update(s => {
+        s.foods = rememberFood(s.foods, { ...food, id })
+        s.meals = addMeal(s.meals, loggedFood({ ...food, id }, grams, { id: uid(), d: today }))
+      })
+      setQuery(''); setPicked(null); setFresh(null); setGrams(100)
+      toast(t('Added {0}', food.n))
     })
-    setQuery(''); setPicked(null); setFresh(null); setGrams(100)
-    toast(t('Added {0}', food.n))
   }
 
   const addKnown = () => log(picked, picked.id)

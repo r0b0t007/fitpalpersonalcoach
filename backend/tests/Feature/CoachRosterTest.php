@@ -122,7 +122,7 @@ it('answers a client with no state yet with the defaults Node gave', function ()
     $f = $this->f;
     $this->getJson('/api/coach/member?id='.$f->a2->id, bearer($f->a))->assertOk()->assertExactJson([
         'user' => ['id' => $f->a2->id, 'name' => 'Client A2', 'created' => $f->a2->createdIso()],
-        'unit' => 'kg', 'lastSync' => null, 'routines' => [], 'bodyweight' => [], 'measurements' => [],
+        'unit' => 'kg', 'lastSync' => null, 'routines' => [], 'healthShared' => true, 'bodyweight' => [], 'measurements' => [],
         'checkins' => [], 'checkinDay' => null, 'meals' => [], 'mealDays' => [], 'nutriTarget' => null,
         'photos' => [], 'workouts' => [], 'body' => 'male', 'targetW' => null, 'effort' => null, 'showRir' => null,
         'week' => [], 'dayPlan' => [],

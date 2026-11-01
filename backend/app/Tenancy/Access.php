@@ -2,6 +2,7 @@
 
 namespace App\Tenancy;
 
+use App\Coaching\HealthConsent;
 use App\Models\ExerciseMedia;
 use App\Models\User;
 
@@ -33,7 +34,8 @@ final class Access
      */
     public static function canSeePhotos(User $viewer, User $owner): bool
     {
-        return $viewer->id === $owner->id || self::canCoachMember($viewer, $owner);
+        // Anyone else only with the client's consent to share their health data (CHW-360).
+        return $viewer->id === $owner->id || (self::canCoachMember($viewer, $owner) && HealthConsent::given($owner));
     }
 
     /**
