@@ -18,6 +18,7 @@ use App\Http\Controllers\LoginLinkController;
 use App\Http\Controllers\MetaController;
 use App\Http\Controllers\PairController;
 use App\Http\Controllers\PhotoController;
+use App\Http\Controllers\PublicPageController;
 use App\Http\Controllers\PushController;
 use App\Http\Middleware\CloseOnRefusal;
 use App\Http\Middleware\RequireAdmin;
@@ -56,6 +57,10 @@ $routes = static function (): void {
     Route::post('/pair/redeem', [PairController::class, 'redeem']);
     // The invite landing screen, before the person has an account.
     Route::get('/invite', [InviteController::class, 'show']);
+    // A coach's public page (CHW-330): the link in their bio (HTML, for the link preview), and the
+    // card the app draws from it. Anyone with the link.
+    Route::get('/c/{handle}', [PublicPageController::class, 'html']);
+    Route::get('/public/coach', [PublicPageController::class, 'json']);
 
     // A coach's exercise demo: the file is the body. Outside the groups below so CloseOnRefusal
     // wraps the sign-in, coach and licence checks too — their refusals must close the connection

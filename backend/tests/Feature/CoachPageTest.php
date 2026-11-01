@@ -84,3 +84,51 @@ it('lets a client nowhere near it, and stops a read-only coach saving', function
     savePage($this->f->a, ['handle' => 'sara.fit'])->assertStatus(402);
     $this->getJson('/api/coach/page', bearer($this->f->a))->assertOk();
 });
+
+function openPage(object $coach, array $fields = []): CoachPage
+{
+    return Coaching::own(new CoachPage, $coach, $fields + ['handle' => 'sara.fit', 'bio' => 'Force <b>& co</b>', 'whatsapp' => '212612345678', 'open' => true, 'theme' => 'light', 'created' => 1, 'updated' => 1]);
+}
+
+it('answers the public card for an open page, by any spelling of its handle', function () {
+    openPage($this->f->a);
+    $this->getJson('/api/public/coach?h=@Sara.FIT')->assertOk()->assertExactJson(['coach' => [
+        'name' => 'Coach A', 'handle' => 'sara.fit', 'bio' => 'Force <b>& co</b>', 'whatsapp' => '212612345678', 'theme' => 'light',
+    ]]);
+});
+
+it('tells a closed page from a missing one, and hides the page of a coach who is gone', function () {
+    $this->getJson('/api/public/coach?h=nobody')->assertStatus(404)->assertExactJson(['error' => 'no such coach page']);
+    $page = openPage($this->f->a, ['open' => false]);
+    $this->getJson('/api/public/coach?h=sara.fit')->assertStatus(404)->assertExactJson(['error' => 'this coach is not taking requests right now']);
+    $page->forceFill(['open' => true])->save();
+    $this->f->a->forceFill(['disabled' => true])->save();
+    $this->getJson('/api/public/coach?h=sara.fit')->assertStatus(404)->assertExactJson(['error' => 'no such coach page']);
+});
+
+it('serves the link page with escaped preview tags, and sends the visitor on to the app', function () {
+    openPage($this->f->a);
+    $html = $this->get('/api/c/SARA.fit')->assertOk()->assertHeader('Content-Type', 'text/html; charset=UTF-8')->getContent();
+    expect($html)->toContain('<meta property="og:title" content="Coach A · FitPal Coach">')
+        ->toContain('<meta property="og:description" content="Force &lt;b&gt;&amp; co&lt;/b&gt;">')
+        ->toContain('<meta property="og:url" content="https://coach.example/c/sara.fit">')
+        ->toContain('<meta property="og:image" content="https://coach.example/icon-512.png">')
+        ->toContain('location.replace("\/#\/c\/sara.fit")')
+        ->not->toContain('<b>& co</b>');
+    // Served at both mounts, as every route here is.
+    $this->get('/c/sara.fit')->assertOk();
+});
+
+it('answers 404 with no preview for a closed or unknown page, and still hands the visitor to the app', function () {
+    openPage($this->f->a, ['open' => false]);
+    foreach (['/api/c/sara.fit', '/api/c/nobody'] as $path) {
+        $html = $this->get($path)->assertStatus(404)->getContent();
+        expect($html)->not->toContain('og:title')->toContain('<meta name="robots" content="noindex">')->toContain('location.replace(');
+    }
+});
+
+it('closes the page of a coach who loses the role', function () {
+    openPage($this->f->a);
+    \App\Tenancy\Detach::coach($this->f->a);
+    expect(CoachPage::acrossCoaches()->find($this->f->a->id)->open)->toBeFalse(); // across coaches: test reads A's page with no context
+});

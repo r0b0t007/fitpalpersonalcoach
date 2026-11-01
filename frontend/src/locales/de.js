@@ -1412,6 +1412,8 @@ export default {
   'that handle is taken': 'dieser Name ist schon vergeben',
   'keep the bio to 160 characters': 'die Bio darf höchstens 160 Zeichen haben',
   'that is not a phone number — include the country code': 'das ist keine Telefonnummer — mit Ländervorwahl angeben',
+  'no such coach page': 'diese Coach-Seite gibt es nicht',
+  'this coach is not taking requests right now': 'dieser Coach nimmt gerade keine Anfragen an',
   'Saved their public page': 'Hat die öffentliche Seite gespeichert',
   'too many codes made on this account — ask an admin': 'zu viele Codes für dieses Konto — frag einen Admin',
   'no such code': 'Code nicht gefunden',

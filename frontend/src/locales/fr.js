@@ -1394,6 +1394,8 @@ export default {
   'that handle is taken': 'cet identifiant est déjà pris',
   'keep the bio to 160 characters': 'la bio ne doit pas dépasser 160 caractères',
   'that is not a phone number — include the country code': 'ce n’est pas un numéro de téléphone — ajoutez l’indicatif du pays',
+  'no such coach page': 'cette page coach n’existe pas',
+  'this coach is not taking requests right now': 'ce coach ne prend pas de demandes pour le moment',
   'Saved their public page': 'A enregistré sa page publique',
   'too many codes made on this account — ask an admin': 'trop de codes créés sur ce compte — demandez à un administrateur',
   'no such code': 'code introuvable',
