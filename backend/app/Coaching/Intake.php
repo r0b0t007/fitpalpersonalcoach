@@ -44,13 +44,14 @@ final class Intake
         if ($phone === null) {
             throw new ClientSafe(400, 'that is not a phone number — include the country code');
         }
-        if (($raw->consent ?? null) !== true) {
-            throw new ClientSafe(400, 'please agree to share your answers with your coach');
-        }
         // 16, the highest age of digital consent in the markets served (GDPR art. 8): no parental
-        // consent to collect anywhere. Checked, not stored — consent_at is the record.
+        // consent to collect anywhere. Checked, not stored — consent_at is the record. Before the
+        // consent, as the form shows the boxes.
         if (($raw->over16 ?? null) !== true) {
             throw new ClientSafe(400, 'you must be 16 or older to ask');
+        }
+        if (($raw->consent ?? null) !== true) {
+            throw new ClientSafe(400, 'please agree to share your answers with your coach');
         }
         $equipment = is_array($raw->equipment ?? null) ? $raw->equipment : [];
 

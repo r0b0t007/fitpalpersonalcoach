@@ -249,11 +249,13 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, classNam
 
 /* ============================ checkbox ============================ */
 
-export function Check({ checked, onChange, className = '', size }) {
+// labelledBy: the id of the text beside the box, which names it for a screen reader.
+export function Check({ checked, onChange, className = '', size, labelledBy }) {
   return (
     <button
       role="checkbox"
       aria-checked={!!checked}
+      aria-labelledby={labelledBy}
       className={'chk' + (checked ? ' on' : '') + ' ' + className}
       style={size ? { width: size, height: size } : null}
       onClick={() => onChange(!checked)}

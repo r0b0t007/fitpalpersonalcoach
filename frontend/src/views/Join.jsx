@@ -81,7 +81,7 @@ export default function Join({ handle }) {
     if (why) { setError(why); return }
     setError(null); setStep(to)
   }
-  const basics = () => intakeError({ ...intake, consent: true, over16: true }) === 'basics' ? t('Tell us your goal, level and days a week') : null
+  const basics = () => intakeError(intake) === 'basics' ? t('Tell us your goal, level and days a week') : null
   const about = () => ({
     injuries: t('Keep it under {0} characters', INJURIES_MAX),
     consent: t('Please agree to share your answers with your coach'),
@@ -168,12 +168,12 @@ export default function Join({ handle }) {
       <h4 className="sec">{t('WhatsApp (optional)')}</h4>
       <TextField name="phone" type="tel" placeholder="+212 6 12 34 56 78" value={intake.phone} onChange={e => set('phone', e.target.value)} />
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 18 }}>
-        <Check checked={intake.over16} onChange={v => set('over16', v)} />
-        <div className="small">{t('I am 16 or older')}</div>
+        <Check checked={intake.over16} onChange={v => set('over16', v)} labelledBy="join-age" />
+        <div id="join-age" className="small" onClick={() => set('over16', !intake.over16)}>{t('I am 16 or older')}</div>
       </div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 12 }}>
-        <Check checked={intake.consent} onChange={v => set('consent', v)} />
-        <div className="small">{t('I agree that {0} sees these answers, injuries included, to prepare my program. Nobody else sees them.', coach.name)}</div>
+        <Check checked={intake.consent} onChange={v => set('consent', v)} labelledBy="join-consent" />
+        <div id="join-consent" className="small" onClick={() => set('consent', !intake.consent)}>{t('I agree that {0} sees these answers, injuries included, to prepare my program. Nobody else sees them.', coach.name)}</div>
       </div>
       <div className="small dim" style={{ marginTop: 8 }}>
         {t('Your answers are erased as soon as {0} says no, and deleted when your coaching with them ends.', coach.name)}{' '}
