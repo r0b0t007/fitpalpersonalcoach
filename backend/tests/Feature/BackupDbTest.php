@@ -5,6 +5,7 @@
 // a re-run never over an earlier dump; only the newest few kept. Also the nightly dump the
 // schedule takes into its own folder (CHW-306).
 
+use App\Console\Commands\BackupDb;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Process;
@@ -139,4 +140,18 @@ it('is scheduled nightly into its own folder, in the background', function () {
         ->and($nightly->withoutOverlapping)->toBeTrue()
         ->and($nightly->output)->toBe(storage_path('logs/backup.log'))
         ->and($nightly->shouldAppendOutput)->toBeTrue();
+});
+
+it('deletes a dump taken before a deploy once it is 90 days old, and leaves the nightly ones to their rotation', function () {
+    @mkdir(storage_path('backups/nightly'), 0775, true);
+    $old = storage_path('backups/db-20260101-000000-a.sql.gz');
+    $fresh = storage_path('backups/db-20261101-000000-b.sql.gz');
+    $nightly = storage_path('backups/nightly/db-20260101-000000-n.sql.gz');
+    foreach ([$old, $fresh, $nightly] as $f) {
+        file_put_contents($f, 'x');
+    }
+    touch($old, time() - (BackupDb::DEPLOY_DUMP_DAYS + 1) * 86400);
+    touch($nightly, time() - 200 * 86400);   // the nightly folder keeps its own count (--keep=14)
+    $this->artisan('fitpal:prune')->assertSuccessful();
+    expect(file_exists($old))->toBeFalse()->and(file_exists($fresh))->toBeTrue()->and(file_exists($nightly))->toBeTrue();
 });

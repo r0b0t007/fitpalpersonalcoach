@@ -9,6 +9,7 @@ use App\Auth\CoachSeat;
 use App\Auth\InviteGate;
 use App\Auth\SessionToken;
 use App\Auth\TokenGuard;
+use App\Coaching\Terms;
 use App\Domain\Plans;
 use App\Mail\AccountMail;
 use App\Mail\SendAfterResponse;
@@ -323,7 +324,11 @@ final class AuthController
             return Json::error(429, 'too many sign-ups from here — try again later');
         }
 
-        return $this->newAccountOptions($request, $name, ['code' => '', 'coach' => true, 'email' => $email, 'lang' => Input::jsString($request, 'lang')]);
+        return $this->newAccountOptions($request, $name, ['code' => '', 'coach' => true, 'email' => $email, 'lang' => Input::jsString($request, 'lang'),
+            // The coach terms the Start page showed (CHW-357), kept only if they are the current ones.
+            // Not refused otherwise: an app from before them, or a tab open across a new version,
+            // signs up all the same, and the app asks for the current terms before anything else.
+            'terms' => Input::jsString($request, 'terms') === Terms::VERSION ? Terms::VERSION : null]);
     }
 
     /**
@@ -341,13 +346,21 @@ final class AuthController
             return Json::error(403, 'coach sign-up is not open on this server');
         }
         $email = (string) $extra['email'];
-        DB::transaction(function () use ($user, $validation, $email) {
+        $terms = $extra['terms'] ?? null;   // the current version if accepted at options, else null
+        DB::transaction(function () use ($user, $validation, $email, $terms) {
             $user->forceFill(['coach' => true, 'self_serve' => true, 'pending_email' => $email])->save();
+            if ($terms === Terms::VERSION) {
+                $user->forceFill(['terms_version' => $terms, 'terms_at' => Js::nowMs()])->save();
+            }
             $credential = $validation->credential;
             $credential->authenticatable_id = $user->id;
             $credential->save();
         });
         Audit::record($request, 'auth.register.ok', ['user' => $user, 'msg' => 'self-serve']);
+        // The same evidence as accepting in the app: who, which version, when.
+        if ($terms === Terms::VERSION) {
+            Audit::record($request, 'coach.terms.accept', ['user' => $user, 'msg' => $terms]);
+        }
         $lang = is_string($extra['lang'] ?? null) ? $extra['lang'] : null;
         $ip = ClientIp::for($request, (string) config('fitpal.audit.ip'));
         defer(function () use ($user, $email, $lang, $ip) {

@@ -260,7 +260,8 @@ export const passkeyRegister = (name, code) => registerWith('/api/register', { n
 // A coach signing themselves up (R4, Laravel only; /#/start): a coach's account, with no invite.
 // The address is kept pending and the server's first mail is the link that confirms it, in
 // `lang` — the account has no saved language yet.
-export const passkeyRegisterCoach = (name, email, lang) => registerWith('/api/register', { name, email, coach: true, lang }).then(r => r.user)
+// terms: the version of the coach terms accepted on the Start page (CHW-357), sent back as read.
+export const passkeyRegisterCoach = (name, email, lang, terms) => registerWith('/api/register', { name, email, coach: true, lang, terms }).then(r => r.user)
 // Another passkey for the signed-in account (R4, Laravel only) — offered after a sign-in by email
 // link, on a device that had none. The server wants a session that signed in just now.
 export const passkeyAdd = () => registerWith('/api/passkeys', {}).then(() => {})

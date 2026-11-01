@@ -50,6 +50,7 @@ import ProgramEditShell, { ProgramEdit, ProgramRoutineEdit } from './views/coach
 import CoachAccount from './views/coach/CoachAccount.jsx'
 import PublicPage from './views/coach/PublicPage.jsx'
 import Requests from './views/coach/Requests.jsx'
+import TermsGate, { TermsWaiting, useCoachTerms } from './views/coach/TermsGate.jsx'
 import { BusinessAccounts, BusinessActivity } from './views/coach/Business.jsx'
 
 // last known scrollY per route, so back-navigation can put the page where it was
@@ -232,6 +233,10 @@ function Shell() {
   // or not — before either shell, like /link, with no tab bar.
   const coachPage = coachHandleFromPath(loc.pathname)
   const joinPage = joinHandleFromPath(loc.pathname)
+  // The coach terms (CHW-357), asked here — App stays mounted across routes, the screens below are
+  // keyed on them — so a tab change neither asks again nor shows the roster before the answer.
+  const coachShell = !!user && shell === 'coach' && !coachPage && !joinPage && !onLink
+  const [terms, setTerms] = useCoachTerms(coachShell, user?.id)
   // Not before boot has finished: a signed-in coach is drawn from the cached user while the config
   // is on its way (the coach routes' catch-all would bounce /link to /today with the token in it),
   // and boot's own /api/me and sync must not race a redemption that switches the session cookie.
@@ -251,11 +256,11 @@ function Shell() {
           re-mounts the boundary, so the tab bar is always a way out */}
       <div id="app" className="vfade" key={loc.pathname}>
         <ErrorBoundary>
-          {coachPage ? <PublicCoach handle={coachPage} /> : joinPage ? <Join handle={joinPage} /> : onLink ? <Link /> : !authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? <CoachRoutes user={user} /> : <ClientRoutes />}
+          {coachPage ? <PublicCoach handle={coachPage} /> : joinPage ? <Join handle={joinPage} /> : onLink ? <Link /> : !authed ? signedOut : needsMobileOnboarding ? <MobileOnboarding /> : shell === 'coach' ? (!terms ? <TermsWaiting /> : terms.accepted ? <CoachRoutes user={user} /> : <TermsGate terms={terms} onChange={setTerms} />) : <ClientRoutes />}
         </ErrorBoundary>
       </div>
       {/* The chat owns the bottom of the screen: its composer sits where the tabs would be. */}
-      {!onLink && !coachPage && !joinPage && (shell === 'coach' ? <CoachTabBar /> : <TabBar onStart={startFlow} />)}
+      {!onLink && !coachPage && !joinPage && (shell === 'coach' ? (terms?.accepted || !coachShell) && <CoachTabBar /> : <TabBar onStart={startFlow} />)}
       <RestTimer />
       <Modals />
       <Toast />

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Coaching\Terms;
 use App\Domain\Plans;
 use App\Models\User;
 use App\Support\Json;
@@ -35,6 +36,8 @@ final class MetaController
             // The Free plan's cap (CHW-329), 0 when there is none: the app shows plans whenever
             // this or `billing` is set (lib/billing.js plansOn).
             'free_cap' => Plans::freeCap(),
+            // The coach terms a sign-up must accept (CHW-357): the Start page sends this back.
+            'terms_version' => Terms::VERSION,
             // A coach's sign-in by emailed link (spec §4a). The Node API has no such routes and
             // sends no such key, and the app then offers no email path at all.
             'login_email' => true,

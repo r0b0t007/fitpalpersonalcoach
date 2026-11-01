@@ -1,5 +1,7 @@
 <?php
 
+use App\Coaching\Terms;
+
 // The two routes that need no account, in both path shapes the app may arrive with.
 
 it('answers the health check with the string the deploy looks for', function () {
@@ -22,7 +24,7 @@ it('reports the sign-in flags and never offers access requests', function () {
     $this->getJson('/api/config')->assertOk()->assertExactJson([
         'invite_only' => true, 'allow_guest' => false, 'request_access' => false, 'self_serve' => true,
         'upload' => ['chunked' => true, 'chunk_mb' => 4],
-        'billing' => false, 'plans' => [], 'free_cap' => 0, 'login_email' => true,
+        'billing' => false, 'plans' => [], 'free_cap' => 0, 'login_email' => true, 'terms_version' => Terms::VERSION,
     ]);
 });
 

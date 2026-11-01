@@ -23,7 +23,7 @@ vi.mock('../../lib/api.js', async orig => ({
     throw new Error('unexpected ' + path)
   },
   webauthnOK: () => true,
-  passkeyRegisterCoach: async (name, email, lang) => { calls.push(['register', { name, email, lang }]); return { id: 'u1', name, coach: true } },
+  passkeyRegisterCoach: async (name, email, lang, terms) => { calls.push(['register', { name, email, lang, terms }]); return { id: 'u1', name, coach: true } },
   fetchExerciseMedia: async () => [],
 }))
 vi.mock('../../lib/mobile.js', () => ({
@@ -44,9 +44,9 @@ const PLANS = [
   { plan: 'studio', cap: 75, periods: ['month', 'year'] },
 ]
 const NODE_CONFIG = { invite_only: true, allow_guest: false }   // no billing at all, as the Node API sent
-const BILLED = { invite_only: true, billing: true, self_serve: true, plans: PLANS }
+const BILLED = { invite_only: true, billing: true, self_serve: true, plans: PLANS, terms_version: '2026-11-01' }
 const FREE_PLAN = { plan: 'free', cap: 3, periods: [] }
-const FREE_ONLY = { invite_only: true, billing: false, free_cap: 3, self_serve: true, plans: [FREE_PLAN] }
+const FREE_ONLY = { invite_only: true, billing: false, free_cap: 3, self_serve: true, plans: [FREE_PLAN], terms_version: '2026-11-01' }
 const FREE_AND_PAID = { ...BILLED, free_cap: 3, plans: [FREE_PLAN, ...PLANS] }
 const free = (over = {}) => ({
   entitlement: { status: 'free', plan: 'free', cap: 3, used: 1, canWrite: true, canTakeClient: true, overCap: false, trialEndsAt: null, periodEnd: null, ...over },
@@ -291,9 +291,11 @@ describe('/#/start', () => {
     await render(<Start />, '/start?plan=studio&period=month')
     await type('Your name', 'Ahmed')
     await type('Email', 'ahmed@example.com')
+    await act(async () => { container.querySelector('[role="checkbox"]').click() })
     await click('Create passkey and continue')
     await act(async () => {})
-    expect(calls.find(([p]) => p === 'register')[1]).toEqual({ name: 'Ahmed', email: 'ahmed@example.com', lang: expect.any(String) })
+    // With the version of the coach terms the page showed (CHW-357).
+    expect(calls.find(([p]) => p === 'register')[1]).toEqual({ name: 'Ahmed', email: 'ahmed@example.com', lang: expect.any(String), terms: '2026-11-01' })
     expect(useStore.getState().user).toMatchObject({ id: 'u1', coach: true })
     expect(calls.find(([p]) => p === '/api/billing/checkout')[1]).toEqual({ plan: 'studio', period: 'month' })
     expect(assign).toHaveBeenCalledWith('https://checkout.creem.test/ch_1')
@@ -305,6 +307,15 @@ describe('/#/start', () => {
     await type('Email', 'not-an-address')
     await click('Create passkey and continue')
     expect(calls.find(([p]) => p === 'register')).toBe(undefined)
+  })
+
+  it('makes no account until the coach terms are accepted', async () => {
+    await render(<Start />, '/start')
+    await type('Your name', 'Ahmed')
+    await type('Email', 'ahmed@example.com')
+    await click('Create passkey and continue')
+    expect(calls.find(([p]) => p === 'register')).toBe(undefined)
+    expect(container.querySelector('a[href^="https://fitpal.ma/"]')).toBeTruthy()
   })
 })
 
@@ -323,6 +334,7 @@ describe('the Free plan', () => {
     expect(text()).toContain('Free, no card needed.')
     await type('Your name', 'Salma')
     await type('Email', 'salma@example.com')
+    await act(async () => { container.querySelector('[role="checkbox"]').click() })
     await click('Create passkey and start')
     await act(async () => {})
     expect(calls.find(([p]) => p === 'register')).toBeTruthy()
