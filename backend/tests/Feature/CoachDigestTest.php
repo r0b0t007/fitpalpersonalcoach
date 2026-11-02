@@ -182,9 +182,33 @@ it('follows the zone the coach\'s app recorded', function () {
     $this->travelTo('2026-11-05T12:00:00Z');
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->hasTo('coach-a@example.com'));
-    expect(CoachDigest::morningOf('{"tz":"Not/AZone"}', new DateTimeImmutable(casablanca('2026-11-05 07:00'))))->toBe('2026-11-05')
-        ->and(CoachDigest::morningOf(null, new DateTimeImmutable(casablanca('2026-11-05 11:59'))))->toBe('2026-11-05')
-        ->and(CoachDigest::morningOf(null, new DateTimeImmutable(casablanca('2026-11-05 12:00'))))->toBeNull();
+    expect(CoachDigest::morningOf(null, '{"tz":"Not/AZone"}', new DateTimeImmutable(casablanca('2026-11-05 07:00'))))->toBe('2026-11-05')
+        ->and(CoachDigest::morningOf(null, null, new DateTimeImmutable(casablanca('2026-11-05 11:59'))))->toBe('2026-11-05')
+        ->and(CoachDigest::morningOf(null, null, new DateTimeImmutable(casablanca('2026-11-05 12:00'))))->toBeNull();
+});
+
+it('takes the zone the coach\'s app records over the reminder\'s', function () {
+    digestMorning($this->f);
+    // The app on a phone in Dubai (UTC+4, no daylight saving), a reminder set long ago in New York.
+    // Neither New York nor Casablanca is in its morning at 03:00 UTC, so only S.tz can send it.
+    UserState::query()->updateOrCreate(['user_id' => $this->f->a->id], ['state' => json_encode(['tz' => 'Asia/Dubai', 'reminder' => ['on' => false, 'time' => '08:00', 'tz' => 'America/New_York']])]);
+    expect(UserState::query()->find($this->f->a->id)->tz)->toBe('Asia/Dubai');
+    $this->travelTo('2026-11-05T02:59:00Z');
+    $this->artisan('fitpal:coach-digest')->assertSuccessful();
+    Mail::assertNothingSent();
+    $this->travelTo('2026-11-05T03:00:00Z');
+    $this->artisan('fitpal:coach-digest')->assertSuccessful();
+    Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->hasTo('coach-a@example.com'));
+});
+
+it('passes over a zone that names no place for the next one that does', function () {
+    $ny = '{"tz":"America/New_York"}';
+    $at = new DateTimeImmutable('2026-11-05T12:00:00Z');   // 07:00 in New York; 12:00 or 13:00 in Casablanca
+    foreach ([null, '', 'Not/AZone', 'UTC', 'Etc/UTC', 'GMT', '{"x":1}'] as $bad) {
+        expect(CoachDigest::morningOf($bad, $ny, $at))->toBe('2026-11-05', var_export($bad, true));
+    }
+    expect(CoachDigest::morningOf('Asia/Dubai', $ny, $at))->toBeNull()   // 16:00 in Dubai
+        ->and(CoachDigest::morningOf('UTC', '{"tz":"UTC"}', new DateTimeImmutable(casablanca('2026-11-05 07:00'))))->toBe('2026-11-05');
 });
 
 it('counts an overdue check-in only when that is the client\'s row on Today', function () {
@@ -199,6 +223,7 @@ it('counts an overdue check-in only when that is the client\'s row on Today', fu
 it('sends nothing to a coach who turned it off, and does no work for one it cannot reach', function () {
     digestMorning($this->f);
     UserState::query()->updateOrCreate(['user_id' => $this->f->a->id], ['state' => json_encode(['digest' => false])]);
+    expect(UserState::query()->find($this->f->a->id)->digest_off)->toBeTrue();
     $this->travelTo(casablanca('2026-11-05 07:00'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertNothingSent();
@@ -210,8 +235,7 @@ it('sends nothing to a coach who turned it off, and does no work for one it cann
     $this->f->a->forceFill(['email_verified_at' => null])->save();
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     expect(User::query()->find($this->f->a->id)->last_digest)->toBeNull()
-        ->and(CoachDigest::turnedOff(0))->toBeTrue()->and(CoachDigest::turnedOff('false'))->toBeTrue()
-        ->and(CoachDigest::turnedOff(null))->toBeFalse()->and(CoachDigest::turnedOff(1))->toBeFalse();
+        ->and(UserState::query()->find($this->f->a->id)->digest_off)->toBeFalse();
 });
 
 it('mails only an address the coach proved, and a disabled coach nothing', function () {

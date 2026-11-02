@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { setShellPref } from '../lib/role.js'
+import { isCoach, setShellPref } from '../lib/role.js'
 import { forgetCoachSecrets } from '../lib/forget-coach.js'
 import { api, setRemoteAuth, passkeyLogin, signInWithCode } from '../lib/api.js'
 import { localTZ, todayISO } from '../lib/format.js'
@@ -440,7 +440,19 @@ export const useStore = create((set, get) => {
     async signedIn(u) {
       get().setUser(u)
       await get().pullState()
+      get().stampCoachTZ()
       return u
+    },
+    // A coach's own clock, whether or not they set a reminder: the server sends their morning
+    // summary at 07:00 where they are (fitpal:coach-digest), and has no other way to know where.
+    // Stamped wherever a session starts (boot, the paired phone, a fresh sign-in), after the pull,
+    // so the server's copy is the one compared. Not 'UTC': it is also what localTZ answers when
+    // Intl fails and what privacy-hardened browsers report, which is no place, and stamped it would
+    // outrank the zone the reminder recorded.
+    stampCoachTZ() {
+      const tz = localTZ()
+      if (!isCoach(get().user) || /^(Etc\/)?(UTC|GMT)$/.test(tz) || get().S.tz === tz) return
+      get().update(s => { s.tz = tz })
     },
     async passkeySignIn() {
       return get().signedIn(await passkeyLogin())
@@ -523,6 +535,7 @@ export const useStore = create((set, get) => {
             // server has no Coach enabled" — with the admin looking at a green test.
             await get().loadConfig()
             await get().pullState()
+            get().stampCoachTZ()
           } catch (e) {
             if (e.status === 401) { await forgetRemote(); get().setGuest(true) }
             else get().setUser(remote.user)   // offline — keep going from the last-synced local copy
@@ -573,6 +586,7 @@ export const useStore = create((set, get) => {
         if (get().S.reminder?.on && get().S.reminder.tz !== tz) {
           get().update(s => { s.reminder = { ...s.reminder, tz } })
         }
+        get().stampCoachTZ()
       } catch (e) {
         if (e.status === 401) get().setUser(null)
       }
