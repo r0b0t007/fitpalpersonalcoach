@@ -65,7 +65,7 @@ final class MailCopy
             'digest.heading' => 'What needs you today',
             'digest.body' => 'Here is what is waiting for you on FitPal Coach.',
             'digest.button' => 'Open Today',
-            'digest.footer' => 'You get this at most once a morning, and only when something needs you.',
+            'digest.footer' => 'You get this at most once a morning, and only when something needs you. Turn it off in Account › Morning summary.',
             'fallback' => 'The button does not work? Copy this link into your browser:',
         ],
         'fr' => [
@@ -112,7 +112,7 @@ final class MailCopy
             'digest.heading' => 'Ce qui vous attend aujourd’hui',
             'digest.body' => 'Voici ce qui vous attend sur FitPal Coach.',
             'digest.button' => 'Ouvrir Aujourd’hui',
-            'digest.footer' => 'Vous recevez ce message au plus une fois par matin, et seulement quand quelque chose vous attend.',
+            'digest.footer' => 'Vous recevez ce message au plus une fois par matin, et seulement quand quelque chose vous attend. Désactivez-le dans Compte › Résumé du matin.',
             'fallback' => 'Le bouton ne fonctionne pas ? Copiez ce lien dans votre navigateur :',
         ],
         'es' => [
@@ -159,7 +159,7 @@ final class MailCopy
             'digest.heading' => 'Lo que te espera hoy',
             'digest.body' => 'Esto es lo que te espera en FitPal Coach.',
             'digest.button' => 'Abrir Hoy',
-            'digest.footer' => 'Recibes esto como mucho una vez cada mañana, y solo cuando algo te espera.',
+            'digest.footer' => 'Recibes esto como mucho una vez cada mañana, y solo cuando algo te espera. Desactívalo en Cuenta › Resumen de la mañana.',
             'fallback' => '¿El botón no funciona? Copia este enlace en tu navegador:',
         ],
         'de' => [
@@ -206,7 +206,7 @@ final class MailCopy
             'digest.heading' => 'Was heute auf dich wartet',
             'digest.body' => 'das wartet bei FitPal Coach auf dich.',
             'digest.button' => 'Heute öffnen',
-            'digest.footer' => 'Du bekommst das höchstens einmal pro Morgen, und nur, wenn etwas auf dich wartet.',
+            'digest.footer' => 'Du bekommst das höchstens einmal pro Morgen, und nur, wenn etwas auf dich wartet. Schalte es unter Konto › Morgenübersicht aus.',
             'fallback' => 'Der Button funktioniert nicht? Kopiere diesen Link in deinen Browser:',
         ],
     ];

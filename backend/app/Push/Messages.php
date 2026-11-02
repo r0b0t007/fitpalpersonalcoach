@@ -155,10 +155,14 @@ final class Messages
         return ['title' => $appName, 'body' => str_replace('{0}', $coachName, self::copy($lang)['coachNoteBody']), 'tag' => 'coach-note'];
     }
 
-    /** One of their clients filed a check-in (CHW-339) — in the COACH's language. */
-    public static function checkinIn(mixed $lang, string $name, string $appName): array
+    /**
+     * One of their clients filed a check-in (CHW-339) — in the COACH's language. Tagged per client:
+     * a tag replaces the notification before it with the same one, and three clients checking in on
+     * a Sunday morning are three things to read, not one.
+     */
+    public static function checkinIn(mixed $lang, string $name, string $appName, string $memberId): array
     {
-        return ['title' => $appName, 'body' => str_replace('{0}', $name, self::copy($lang)['checkinInBody']), 'tag' => 'checkin-in'];
+        return ['title' => $appName, 'body' => str_replace('{0}', $name, self::copy($lang)['checkinInBody']), 'tag' => 'checkin-in-'.$memberId];
     }
 
     /**

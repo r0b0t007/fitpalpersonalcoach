@@ -1,7 +1,8 @@
 <?php
 
-// The coach's morning digest (App\Coaching\Digest) ports two frontend rules: lib/checkins.js
-// checkinOverdue and lib/adherence.js adherenceOf's `missed`. Neither runtime can import the
+// The coach's morning digest (App\Coaching\Digest) ports three frontend rules: lib/checkins.js
+// checkinOverdue, lib/adherence.js adherenceOf's `missed`, and which of lib/roster-attention.js
+// reasonFor's rows ranks first. Neither runtime can import the
 // other's, so both run the same cases — frontend/src/lib/digest-parity.json, which
 // digest-parity.test.js runs against the originals. Add a case there, not here.
 
@@ -28,6 +29,17 @@ it('counts missed sessions as the app does', function () {
     }
 });
 
-it('scores the week before today, as the digest says', function () {
-    expect(Digest::WINDOW_DAYS)->toBe(8);
+it('counts a client as overdue only when that is their one row on Today', function () {
+    $cases = digestCases()->todayRow;
+    expect($cases)->not->toBeEmpty();
+    foreach ($cases as $c) {
+        expect(Digest::checkinRow(json_decode(json_encode($c->member), true), $c->today))->toBe($c->row, $c->name);
+    }
+});
+
+it('scores the week before today, as the digest says, and keeps a decline as long as Today does', function () {
+    $js = file_get_contents(base_path('../frontend/src/lib/roster-attention.js'));
+    expect(Digest::WINDOW_DAYS)->toBe(8)
+        ->and(preg_match('/export\s+const\s+DECLINE_DAYS\s*=\s*(\d+)/', $js, $m))->toBe(1)
+        ->and(Digest::DECLINE_DAYS)->toBe((int) $m[1]);
 });

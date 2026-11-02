@@ -1068,6 +1068,8 @@ export default {
   'Filed a check-in': 'envió un check-in',
   'Finished a workout': 'terminó un entrenamiento',
   'Invite': 'Invitar',
+  'Morning summary': 'Resumen de la mañana',
+  'An email and a notification each morning when something needs you.': 'Un correo y una notificación cada mañana cuando algo te espera.',
   'Invite a client': 'Invitar a un cliente',
   'Invite your first client': 'Invita a tu primer cliente',
   'Joined': 'se unió',

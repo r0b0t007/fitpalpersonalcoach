@@ -28,6 +28,9 @@ use Throwable;
  * users.last_digest, written under the coach's row lock before anything is sent, keeps it to one
  * a day, whatever the counts were: a request arriving at 10:00 has its own push and email.
  *
+ * A coach who turned it off (Account › Morning summary: S.digest false), or whom it could not reach
+ * (no push subscription and no proven address), is not even counted for.
+ *
  * The mail goes from here, synchronously — there is no response to send it after — so a run sends
  * at most BATCH digests and the rest wait for the next hour, still inside their morning.
  */
@@ -56,7 +59,7 @@ final class CoachDigest extends Command
                 break;
             }
             $today = self::morningOf($row->reminder, $now);
-            if ($today === null || $row->last_digest === $today) {
+            if ($today === null || $row->last_digest === $today || self::turnedOff($row->digest)) {
                 continue;
             }
             $coach = $this->claim($row->id, $today);
@@ -91,17 +94,33 @@ final class CoachDigest extends Command
         return $hour >= self::FROM_HOUR && $hour < self::UNTIL_HOUR ? $local->format('Y-m-d') : null;
     }
 
-    /** Coaches with someone to report on: a client, or a request waiting. The small columns only. */
+    /** S.digest as the database reads it out of the JSON: SQLite's json_extract says 0, MariaDB's JSON_VALUE 'false'. */
+    public static function turnedOff(mixed $digest): bool
+    {
+        return in_array($digest, [false, 0, '0', 'false'], true);
+    }
+
+    /**
+     * Coaches with someone to report on (a client, or a request waiting) and a way to be told (a
+     * push subscription, or an address they proved). The small columns, and S.digest by its path:
+     * the state itself can be 16 MB.
+     */
     private function coaches(): iterable
     {
+        $digest = DB::getDriverName() === 'sqlite' ? "json_extract(user_states.state, '$.digest')" : "JSON_VALUE(user_states.state, '$.digest')";
+
         return DB::table('users')
             ->leftJoin('user_states', 'user_states.user_id', '=', 'users.id')
             ->where('users.disabled', false)
             ->where(fn ($q) => $q
                 ->whereExists(fn ($c) => $c->selectRaw('1')->from('users as clients')->whereColumn('clients.coach_id', 'users.id')->where('clients.disabled', false))
                 ->orWhereExists(fn ($r) => $r->selectRaw('1')->from('join_requests')->whereColumn('join_requests.coach_id', 'users.id')->where('join_requests.status', 'pending')))
+            ->where(fn ($q) => $q
+                ->whereExists(fn ($p) => $p->selectRaw('1')->from('push_subscriptions')->whereColumn('push_subscriptions.user_id', 'users.id'))
+                ->orWhere(fn ($m) => $m->whereNotNull('users.email')->whereNotNull('users.email_verified_at')))
             ->orderBy('users.id')
             ->select(['users.id', 'users.last_digest', 'user_states.reminder'])
+            ->selectRaw($digest.' as digest')
             ->get();
     }
 

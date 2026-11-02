@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\UserState;
+use App\Coaching\MemberCard;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -10,10 +10,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // The newest check-in date in the state (UserState::derived): a save that raises it is a
-        // check-in just filed, which the client's coach is told about (CHW-339, CheckinAlert).
+        // The newest check-in date any sync has carried, only ever raised (DataController): a sync
+        // above it carries a check-in just filed, which the client's coach is told about (CHW-339).
         Schema::table('user_states', function (Blueprint $table) {
-            $table->string('last_checkin', 10)->nullable();
+            $table->string('checkin_seen', 10)->nullable();
         });
         // The coach's local date of their last morning digest (fitpal:coach-digest): one a day.
         Schema::table('users', function (Blueprint $table) {
@@ -23,15 +23,15 @@ return new class extends Migration
         // client's first sync after the deploy would read as a check-in just filed.
         foreach (DB::table('user_states')->orderBy('user_id')->pluck('user_id') as $id) {
             $state = DB::table('user_states')->where('user_id', $id)->value('state');
-            $derived = UserState::derived(json_decode((string) $state, false, 100_000));
-            DB::table('user_states')->where('user_id', $id)->update(['last_checkin' => $derived['last_checkin']]);
+            $decoded = json_decode((string) $state, false, 100_000);
+            DB::table('user_states')->where('user_id', $id)->update(['checkin_seen' => $decoded instanceof stdClass ? MemberCard::lastCheckin($decoded) : null]);
         }
     }
 
     public function down(): void
     {
         Schema::table('user_states', function (Blueprint $table) {
-            $table->dropColumn('last_checkin');
+            $table->dropColumn('checkin_seen');
         });
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn('last_digest');

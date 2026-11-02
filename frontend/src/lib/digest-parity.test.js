@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest'
 import cases from './digest-parity.json'
 import { checkinOverdue } from './checkins.js'
 import { adherenceOf } from './adherence.js'
+import { reasonFor } from './roster-attention.js'
 
 describe('digest parity cases', () => {
   it.each(cases.checkinOverdue)('checkinOverdue day $checkinDay, last $lastCheckin, on $today', c => {
@@ -11,5 +12,8 @@ describe('digest parity cases', () => {
   })
   it.each(cases.missed)('missed: $name', c => {
     expect(adherenceOf(c.parts, c.today, c.days).missed).toBe(c.missed)
+  })
+  it.each(cases.todayRow)('todayRow: $name', c => {
+    expect(reasonFor(c.member, c.today)?.type === 'checkin-overdue').toBe(c.row)
   })
 })

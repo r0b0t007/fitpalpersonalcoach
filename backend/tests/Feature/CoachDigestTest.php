@@ -7,6 +7,7 @@ use App\Console\Commands\CoachDigest;
 use App\Jobs\SendPush;
 use App\Mail\AccountMail;
 use App\Mail\MailCopy;
+use App\Models\Assignment;
 use App\Models\JoinRequest;
 use App\Models\PushSubscription;
 use App\Models\User;
@@ -54,13 +55,23 @@ it('tells the coach when their client files a check-in, once', function () {
     $this->travelTo('2026-11-05T10:00:00Z');
     $state = DIGEST_PLAN + ['checkins' => [['d' => '2026-11-05', 'answers' => ['energy' => 4]]]];
     $this->putJson('/api/data', ['state' => $state], bearer($this->f->a1))->assertOk();
-    expect(digestPushes())->toBe([[$this->f->a->id, 'checkin-in', ['Client A1']]])
-        ->and(UserState::query()->find($this->f->a1->id)->last_checkin)->toBe('2026-11-05');
+    expect(digestPushes())->toBe([[$this->f->a->id, 'checkin-in', ['Client A1', $this->f->a1->id]]])
+        ->and(UserState::query()->find($this->f->a1->id)->checkin_seen)->toBe('2026-11-05');
     // The same state again (another device), and an edit of the same check-in: nothing new.
     $this->putJson('/api/data', ['state' => $state], bearer($this->f->a1))->assertOk();
     $state['checkins'][0]['note'] = 'Genou mieux';
     $this->putJson('/api/data', ['state' => $state], bearer($this->f->a1))->assertOk();
+    // A tab still holding last week's state syncs, then the phone again: the date seen never went
+    // down, so the same check-in is not news a second time. Nor is one deleted and filed again.
+    $this->putJson('/api/data', ['state' => DIGEST_PLAN + ['checkins' => [['d' => '2026-10-29']]]], bearer($this->f->a1))->assertOk();
+    expect(UserState::query()->find($this->f->a1->id)->checkin_seen)->toBe('2026-11-05');
+    $this->putJson('/api/data', ['state' => $state], bearer($this->f->a1))->assertOk();
     expect(digestPushes())->toHaveCount(1);
+});
+
+it('tags each client\'s check-in push apart, so one does not replace another in the tray', function () {
+    expect(Messages::checkinIn('en', 'Ana', 'App', 'm1')['tag'])->toBe('checkin-in-m1')
+        ->and(Messages::checkinIn('en', 'Bob', 'App', 'm2')['tag'])->toBe('checkin-in-m2');
 });
 
 it('does not tell anyone of an old check-in, one withheld from the coach, or a client with none', function () {
@@ -75,11 +86,24 @@ it('does not tell anyone of an old check-in, one withheld from the coach, or a c
     Bus::assertNotDispatched(SendPush::class);
 });
 
-it('keeps the newest check-in date beside the state, whoever saves it', function () {
-    $row = UserState::query()->create(['user_id' => $this->f->a1->id, 'state' => json_encode(['checkins' => [['d' => '2026-11-01'], ['d' => '2026-11-03'], ['d' => 'nope']]])]);
-    expect($row->last_checkin)->toBe('2026-11-03');
-    $row->forceFill(['state' => json_encode(['checkins' => [['d' => 'nope']]])])->save();
-    expect($row->refresh()->last_checkin)->toBeNull();
+it('reads the newest check-in among the ones that are dates', function () {
+    $this->travelTo('2026-11-05T10:00:00Z');
+    // "nope" sorts after every date: taken as the newest, no real check-in would ever be news again.
+    $this->putJson('/api/data', ['state' => ['checkins' => [['d' => 'nope'], ['d' => '2026-11-03']]]], bearer($this->f->a1))->assertOk();
+    $this->putJson('/api/data', ['state' => ['checkins' => [['d' => 'nope'], ['d' => '2026-11-05']]]], bearer($this->f->a1))->assertOk();
+    expect(digestPushes())->toHaveCount(2)
+        ->and(UserState::query()->find($this->f->a1->id)->checkin_seen)->toBe('2026-11-05');
+});
+
+it('derives the reminder columns once per sync, from the state the route already decoded', function () {
+    $decodes = 0;
+    UserState::saving(function (UserState $row) use (&$decodes) {
+        $decodes += $row->derivedSet ? 0 : 1;
+    });
+    $this->putJson('/api/data', ['state' => ['reminder' => ['on' => true, 'time' => '08:00'], 'checkinDay' => 2]], bearer($this->f->a1))->assertOk();
+    $this->putJson('/api/data', ['state' => ['reminder' => ['on' => true, 'time' => '08:00'], 'checkinDay' => 2, 'workouts' => [['id' => 'w']]]], bearer($this->f->a1))->assertOk();
+    $row = UserState::query()->find($this->f->a1->id);
+    expect($decodes)->toBe(0)->and($row->checkin_day)->toBe(2)->and($row->reminder)->toBe('{"on":true,"time":"08:00"}');
 });
 
 // ---------------------------------------------------------------- the morning digest
@@ -99,6 +123,8 @@ function digestMorning(object $f): void
     $f->a->forceFill(['email' => 'coach-a@example.com', 'email_verified_at' => now()])->save();
     digestSubscriber($f->a);
     $f->a1->forceFill(['created_at' => '2026-10-01 09:00:00'])->save();
+    // The fixture's program to a1 was answered long ago: Today's row for them is their late check-in.
+    Assignment::acrossCoaches()->whereKey('assignA')->update(['status' => 'accepted', 'decided_at' => '2026-10-01T10:00:00.000Z']); // across coaches: the test's own row
     UserState::query()->updateOrCreate(['user_id' => $f->a1->id], ['state' => json_encode(DIGEST_PLAN + ['workouts' => [['id' => 'w1', 'd' => '2026-11-02']]])]);
     Coaching::own(new JoinRequest, $f->a, ['id' => 'jr1', 'email' => 'x@example.com', 'name' => 'Nadia', 'lang' => 'fr', 'intake' => '{}', 'status' => 'pending', 'created' => 1]);
     // B has a client with nothing to report on and an address to send it to.
@@ -114,6 +140,7 @@ it('sends the coach one digest at 07:00 on their own clock, and nothing before',
     $this->travelTo(casablanca('2026-11-05 07:00'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     // Missed: Friday and Wednesday (Monday was trained, Thursday is today). Overdue: none filed.
+    // a2 has no program: Today's row for them is "No program", so neither count.
     $counts = ['requests' => 1, 'checkins' => 1, 'missed' => 2];
     expect(digestPushes())->toBe([[$this->f->a->id, 'coach-digest', [$counts]]]);
     Mail::assertSent(AccountMail::class, 1);
@@ -160,6 +187,33 @@ it('follows the zone the coach\'s app recorded', function () {
         ->and(CoachDigest::morningOf(null, new DateTimeImmutable(casablanca('2026-11-05 12:00'))))->toBeNull();
 });
 
+it('counts an overdue check-in only when that is the client\'s row on Today', function () {
+    digestMorning($this->f);
+    // A program waiting on a1 ranks above their late check-in on Today, so the digest leaves it out.
+    Coaching::own(new Assignment, $this->f->a, ['id' => 'waiting', 'coach_name' => 'Coach A', 'member_id' => $this->f->a1->id, 'bundle' => '{}', 'status' => 'pending', 'created' => 1]);
+    $this->travelTo(casablanca('2026-11-05 07:00'));
+    $this->artisan('fitpal:coach-digest')->assertSuccessful();
+    Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->words['lines'] === ['Requests waiting: 1', 'Sessions missed in the last 7 days: 2']);
+});
+
+it('sends nothing to a coach who turned it off, and does no work for one it cannot reach', function () {
+    digestMorning($this->f);
+    UserState::query()->updateOrCreate(['user_id' => $this->f->a->id], ['state' => json_encode(['digest' => false])]);
+    $this->travelTo(casablanca('2026-11-05 07:00'));
+    $this->artisan('fitpal:coach-digest')->assertSuccessful();
+    Mail::assertNothingSent();
+    Bus::assertNotDispatched(SendPush::class);
+    expect(User::query()->find($this->f->a->id)->last_digest)->toBeNull();
+    // On again, but no push subscription and no proven address: not claimed, nothing counted.
+    UserState::query()->whereKey($this->f->a->id)->first()->forceFill(['state' => json_encode(['digest' => true])])->save();
+    PushSubscription::query()->where('user_id', $this->f->a->id)->delete();
+    $this->f->a->forceFill(['email_verified_at' => null])->save();
+    $this->artisan('fitpal:coach-digest')->assertSuccessful();
+    expect(User::query()->find($this->f->a->id)->last_digest)->toBeNull()
+        ->and(CoachDigest::turnedOff(0))->toBeTrue()->and(CoachDigest::turnedOff('false'))->toBeTrue()
+        ->and(CoachDigest::turnedOff(null))->toBeFalse()->and(CoachDigest::turnedOff(1))->toBeFalse();
+});
+
 it('mails only an address the coach proved, and a disabled coach nothing', function () {
     digestMorning($this->f);
     $this->f->a->forceFill(['email_verified_at' => null])->save();
@@ -181,7 +235,7 @@ it('runs hourly in the background', function () {
 // ---------------------------------------------------------------- the words
 
 it('words the pushes in the coach\'s language, one line per count that is not zero', function () {
-    expect(Messages::checkinIn('xx', 'Sara', 'App'))->toBe(['title' => 'App', 'body' => 'Sara filed a check-in', 'tag' => 'checkin-in'])
+    expect(Messages::checkinIn('xx', 'Sara', 'App', 'm1'))->toBe(['title' => 'App', 'body' => 'Sara filed a check-in', 'tag' => 'checkin-in-m1'])
         ->and(Messages::digest('fr', ['requests' => 2, 'checkins' => 0, 'missed' => 3]))
         ->toBe(['title' => 'Vos clients aujourd’hui', 'body' => "Demandes en attente\u{00A0}: 2 · Séances manquées ces 7 derniers jours\u{00A0}: 3", 'tag' => 'coach-digest']);
     foreach (array_keys(Messages::COPY) as $lang) {

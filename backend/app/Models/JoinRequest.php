@@ -57,12 +57,6 @@ class JoinRequest extends Model
     /** A request the coach has not answered in this many days lapses: no queue fills for good. */
     public const PENDING_DAYS = 14;
 
-    /** One coach's requests waiting, counted with no CoachContext: the morning digest (CHW-339). */
-    public static function pendingFor(User $coach): int
-    {
-        return self::acrossCoaches()->where('coach_id', $coach->id)->where('status', 'pending')->count(); // across coaches: one named coach, from the scheduler
-    }
-
     /**
      * fitpal:prune: an intake holds health data, so what is not waiting on anyone goes. Unverified
      * after a day (nobody proved the address); pending ones lapse to `expired` after PENDING_DAYS
