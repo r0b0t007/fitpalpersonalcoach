@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Coaching\HealthConsent;
 use App\Tenancy\OwnedByCoach;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -37,16 +38,31 @@ class CoachNote extends Model
         return ['created' => 'integer', 'read_at' => 'integer'];
     }
 
-    public static function newId(): string
-    {
-        return bin2hex(random_bytes(12));
-    }
-
     /** The notes $member has from the coach they have now; none once they have no coach. */
     public static function forMember(User $member): Builder
     {
         return self::acrossCoaches()->where('member_id', $member->id) // across coaches: a client reads their own coach's notes
             ->where('coach_id', $member->coach_id ?? '');
+    }
+
+    /**
+     * The notes on $member their coach's client page shows (MemberCard::detail), in that coach's
+     * context. A reply to a check-in is about health data, and goes unseen without consent.
+     */
+    public static function listedFor(User $member): array
+    {
+        $query = self::query()->where('member_id', $member->id);
+        if (HealthConsent::missing($member)) {
+            $query->where('ref_type', '!=', 'checkin');
+        }
+
+        return $query->orderByDesc('created')->limit(self::LIST_MAX)->get()->map(fn (self $n) => $n->toApi())->all();
+    }
+
+    /** Health consent withdrawn (HealthConsent::erase): the replies about their check-ins go with it. */
+    public static function forgetCheckins(User $member): int
+    {
+        return self::acrossCoaches()->where('member_id', $member->id)->where('ref_type', 'checkin')->delete(); // across coaches: withdrawal is the client's, whoever wrote the reply
     }
 
     /** The link between $coachId and $member ended (Unlink): what was said in it goes with it. */

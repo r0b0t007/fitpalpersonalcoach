@@ -8,6 +8,7 @@ use App\Jobs\SendPush;
 use App\Mail\AccountMail;
 use App\Models\CoachNote;
 use App\Models\PushSubscription;
+use App\Models\User;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
@@ -43,11 +44,16 @@ it('lets a coach reply to their own client, and the client read it, newest first
     $this->getJson('/api/coach/member?id='.$this->f->a1->id, bearer($this->f->a))->assertOk()->assertJsonCount(2, 'notes');
 });
 
-it('marks every note read for the client, and only theirs', function () {
-    writeNote($this->f->a, $this->f->a1->id);
-    writeNote($this->f->a, $this->f->a2->id);
-    $this->postJson('/api/notes/read', [], bearer($this->f->a1))->assertOk()->assertJsonPath('notes.0.readAt', fn ($v) => is_int($v));
-    expect(CoachNote::acrossCoaches()->where('member_id', $this->f->a2->id)->value('read_at'))->toBeNull(); // across coaches: the test reads the other client's note
+it('marks read the notes the client was shown, and only theirs', function () {
+    $shown = writeNote($this->f->a, $this->f->a1->id)->json('note.id');
+    $unseen = writeNote($this->f->a, $this->f->a1->id, ['refKey' => '2026-10-25'])->json('note.id');
+    $other = writeNote($this->f->a, $this->f->a2->id)->json('note.id');
+    $notes = collect($this->postJson('/api/notes/read', ['ids' => [$shown, $other]], bearer($this->f->a1))->assertOk()->json('notes'))->keyBy('id');
+    expect($notes[$shown]['readAt'])->toBeInt()
+        ->and($notes[$unseen]['readAt'])->toBeNull()
+        ->and(CoachNote::acrossCoaches()->whereKey($other)->value('read_at'))->toBeNull(); // across coaches: the test reads the other client's note
+    // No ids reads nothing.
+    $this->postJson('/api/notes/read', [], bearer($this->f->a1))->assertOk()->assertJsonPath('notes.0.readAt', null);
 });
 
 it('refuses a note on someone else\'s client, an empty or too long one, and one about nothing', function () {
@@ -55,7 +61,8 @@ it('refuses a note on someone else\'s client, an empty or too long one, and one 
     writeNote($this->f->a, $this->f->u1->id)->assertStatus(403);
     writeNote($this->f->a1, $this->f->a2->id)->assertStatus(403);   // a client is no coach
     writeNote($this->f->a, $this->f->a1->id, ['body' => '   '])->assertStatus(400)->assertExactJson(['error' => 'write a note first']);
-    writeNote($this->f->a, $this->f->a1->id, ['body' => str_repeat('a', CoachNote::BODY_MAX + 1)])->assertStatus(400)->assertExactJson(['error' => 'note too long']);
+    writeNote($this->f->a, $this->f->a1->id, ['body' => str_repeat('a', CoachNote::BODY_MAX + 1)])->assertStatus(400)
+        ->assertExactJson(['error' => 'note too long (max 1000 characters)', 'msg' => ['k' => 'note too long (max {0} characters)', 'v' => [1000]]]);
     writeNote($this->f->a, $this->f->a1->id, ['refType' => 'photo'])->assertStatus(400)->assertExactJson(['error' => 'bad note target']);
     writeNote($this->f->a, $this->f->a1->id, ['refKey' => ''])->assertStatus(400);
     expect(CoachNote::acrossCoaches()->count())->toBe(0); // across coaches: nothing stored for anyone
@@ -86,4 +93,25 @@ it('forgets what was written when the client is released, and a new coach reads 
     $this->postJson('/api/coach/member/release', ['id' => $this->f->a1->id], bearer($this->f->a))->assertOk();
     expect(CoachNote::acrossCoaches()->count())->toBe(0); // across coaches: nothing left for anyone
     $this->getJson('/api/notes', bearer($this->f->a1))->assertOk()->assertExactJson(['notes' => []]);
+});
+
+it('keeps the box as long as the server allows: NoteThread.jsx has CoachNote::BODY_MAX', function () {
+    $js = file_get_contents(base_path('../frontend/src/views/coach/NoteThread.jsx'));
+    expect(preg_match('/const BODY_MAX = (\d+)/', $js, $m))->toBe(1)->and((int) $m[1])->toBe(CoachNote::BODY_MAX);
+});
+
+it('takes no reply to a check-in the client has not agreed to share, and hides the ones before', function () {
+    writeNote($this->f->a, $this->f->a1->id)->assertOk();
+    writeNote($this->f->a, $this->f->a1->id, ['refType' => 'workout', 'refKey' => 'w1'])->assertOk();
+    User::query()->whereKey($this->f->a1->id)->update(['health_consent_at' => null]);
+    writeNote($this->f->a, $this->f->a1->id)->assertStatus(400)->assertExactJson(['error' => 'bad note target']);
+    $this->getJson('/api/coach/member?id='.$this->f->a1->id, bearer($this->f->a))->assertOk()
+        ->assertJsonCount(1, 'notes')->assertJsonPath('notes.0.refType', 'workout');
+});
+
+it('deletes the replies to their check-ins when the client withdraws consent, and keeps the rest', function () {
+    writeNote($this->f->a, $this->f->a1->id)->assertOk();
+    writeNote($this->f->a, $this->f->a1->id, ['refType' => 'workout', 'refKey' => 'w1'])->assertOk();
+    $this->postJson('/api/me/health-consent/withdraw', [], bearer($this->f->a1))->assertOk();
+    expect(CoachNote::acrossCoaches()->where('member_id', $this->f->a1->id)->pluck('ref_type')->all())->toBe(['workout']); // across coaches: what is left for this client
 });

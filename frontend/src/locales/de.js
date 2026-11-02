@@ -1568,7 +1568,7 @@ export default {
   'not read yet': 'noch nicht gelesen',
   '{0} replied': '{0} hat geantwortet',
   'bad note target': 'diese Notiz bezieht sich auf keinen Eintrag',
-  'note too long': 'Notiz zu lang — höchstens 1000 Zeichen',
+  'note too long (max {0} characters)': 'Notiz zu lang — höchstens {0} Zeichen',
   'write a note first': 'schreib zuerst eine Notiz',
   'Workout 1 · today': 'Workout 1 · heute',
   'New clients': 'Neue Kunden',

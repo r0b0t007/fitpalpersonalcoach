@@ -1550,7 +1550,7 @@ export default {
   'not read yet': 'pas encore lu',
   '{0} replied': '{0} vous a répondu',
   'bad note target': 'cette note ne porte sur rien de son journal',
-  'note too long': 'note trop longue — 1 000 caractères au plus',
+  'note too long (max {0} characters)': 'note trop longue — {0} caractères au plus',
   'write a note first': 'écrivez d’abord une note',
   'Workout 1 · today': 'Séance 1 · aujourd’hui',
   'New clients': 'Nouveaux clients',

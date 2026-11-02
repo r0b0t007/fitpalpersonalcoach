@@ -12,7 +12,7 @@ return new class extends Migration
         // not the client's state, where the last write wins and the next sync from their phone would
         // take the note away. Deleted when the link between the two ends (Unlink, Detach).
         Schema::create('coach_notes', function (Blueprint $table) {
-            $table->string('id', 24)->primary();
+            $table->string('id', 16)->primary();
             $table->string('coach_id', 16);
             $table->string('member_id', 16);
             $table->string('ref_type', 8);                // checkin | workout

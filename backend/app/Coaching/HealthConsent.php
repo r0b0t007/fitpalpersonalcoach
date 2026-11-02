@@ -3,6 +3,7 @@
 namespace App\Coaching;
 
 use App\Media\Paths;
+use App\Models\CoachNote;
 use App\Models\ProgressPhoto;
 use App\Models\User;
 use App\Models\UserState;
@@ -55,8 +56,8 @@ final class HealthConsent
     }
 
     /**
-     * Withdrawal's rows: the health data emptied in the stored state, and every progress photo's
-     * row deleted. Call it in a transaction with the client's row locked. Returns the photo files,
+     * Withdrawal's rows: the health data emptied in the stored state, their coach's replies to their
+     * check-ins and every progress photo's row deleted. Call it in a transaction with the client's row locked. Returns the photo files,
      * for the caller to delete once that transaction has committed: a rollback must not leave rows
      * pointing at files that are gone.
      *
@@ -71,6 +72,7 @@ final class HealthConsent
                 $row->forceFill(['state' => json_encode(self::emptied($state), Json::FLAGS, 100_000)])->save();
             }
         }
+        CoachNote::forgetCheckins($client);
         $dir = Paths::photoDir($client->id);
         $photos = ProgressPhoto::of($client->id)->get();
         ProgressPhoto::query()->whereKey($photos->modelKeys())->delete();

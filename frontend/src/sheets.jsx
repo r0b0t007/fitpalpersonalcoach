@@ -2008,8 +2008,8 @@ function WorkoutDetail({ w, close }) {
   })
   const grouped = groups.length > 1 || (groups[0] && groups[0].rid && (w.routineIds || []).length > 1)
   // What their coach wrote about this session (CHW-340).
-  const coachNotes = notesOn(useStore.getState().notes, 'workout', w.id)
-  const coachName = useStore.getState().user?.coachName
+  const coachNotes = notesOn(useStore(s => s.notes), 'workout', w.id)
+  const coachName = useStore(s => s.user?.coachName)
   return <>
     <h3>{w.name}</h3>
     <div className="muted small" style={{ marginBottom: 12 }}>{[fmtDate(w.d, true), ...durPart(w.end - w.start), fmtVol(w.vol, st.unit), ...(w.bw ? [fmtNum(w.bw) + ' ' + st.unit] : [])].join(' · ')}</div>
