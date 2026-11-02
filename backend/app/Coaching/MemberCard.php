@@ -3,6 +3,7 @@
 namespace App\Coaching;
 
 use App\Models\Assignment;
+use App\Models\CoachNote;
 use App\Models\ProgressPhoto;
 use App\Models\User;
 use App\Models\UserState;
@@ -204,6 +205,8 @@ final class MemberCard
             'user' => ['id' => $u->id, 'name' => $u->name, 'created' => $u->createdIso()],
         ] + self::drillDown($s) + [
             'healthShared' => HealthConsent::given($u),
+            // This coach's replies and comments (CHW-340), shown under what each is about.
+            'notes' => CoachNote::listedFor($u),
             'measurements' => Js::or($s->measurements ?? null, []),
             // Authored by the client and read-only here: the server never writes their state.
             'checkins' => Js::or($s->checkins ?? null, []),

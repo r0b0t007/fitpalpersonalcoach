@@ -86,10 +86,46 @@ export default function MyCoach() {
         deload, say — and the old Home card showed assignments[0] and silently swallowed the rest. */}
     {offers.map(o => <OfferCard key={o.id} offer={o} />)}
 
+    <CoachNotes coachName={coachName} S={S} />
     <CurrentProgram />
     <CheckIn S={S} today={today} />
     {PHOTOS_REACHABLE && <Photos userId={user.id} />}
     <Targets S={S} nav={nav} />
+  </div>
+}
+
+/* ------------------------------------------------------------------ notes -- */
+
+// What their coach wrote (CHW-340): replies to check-ins and comments on workouts, newest first,
+// each with what it is about. Opening this screen fetches them and reads the ones it shows; the
+// ones new on arrival keep their dot while it stays open, so the client can see which were new.
+const NOTES_SHOWN = 20
+
+function CoachNotes({ coachName, S }) {
+  const notes = useStore(s => s.notes)
+  const [fresh, setFresh] = useState(() => new Set())
+  useEffect(() => { useStore.getState().loadNotes() }, [])
+  useEffect(() => {
+    const unread = (notes || []).slice(0, NOTES_SHOWN).filter(n => !n.readAt).map(n => n.id)
+    if (!unread.length) return
+    setFresh(f => new Set([...f, ...unread]))
+    useStore.getState().readNotes(unread)
+  }, [notes])
+  if (!notes?.length) return null
+  const about = n => {
+    if (n.refType === 'checkin') return t('On your check-in of {0}', fmtDate(n.refKey))
+    const w = (S.workouts || []).find(x => x.id === n.refKey)
+    return w ? t('On {0}, {1}', w.name, fmtDate(w.d)) : t('On a workout')
+  }
+  return <div className="card" style={{ marginBottom: 12 }}>
+    <div className="tt" style={{ marginBottom: 6 }}>{t('From {0}', coachName)}</div>
+    {notes.slice(0, NOTES_SHOWN).map(n => <div key={n.id} style={{ padding: '8px 0', borderTop: '1px solid var(--sep)' }}>
+      <div className="row" style={{ gap: 6 }}>
+        {fresh.has(n.id) && <span role="img" aria-label={t('New')} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--acc)', flex: 'none' }} />}
+        <span className="dim small">{about(n)}</span>
+      </div>
+      <div className="small" style={{ marginTop: 3, whiteSpace: 'pre-wrap' }}>{n.body}</div>
+    </div>)}
   </div>
 }
 

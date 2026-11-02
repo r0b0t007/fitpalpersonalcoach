@@ -5,6 +5,7 @@ import { adherenceBand, adherenceOf } from '../../lib/adherence.js'
 import { QUESTIONS, scoreOf } from '../../lib/checkins.js'
 import { POSES, photoSrc, photosByPeriod, PHOTOS_REACHABLE } from '../../lib/photo.js'
 import { t, tp } from '../../lib/i18n.js'
+import NoteThread from './NoteThread.jsx'
 
 // The read-only pieces of a client's page — adherence, check-ins, photos — and the two shape
 // adapters (memberAdherence, memberState) that turn the coach payloads into what those pieces
@@ -75,7 +76,8 @@ export function RosterAdherence({ parts, todayIso = isoOf(new Date()) }) {
 //
 // Newest first and the note given room, because the note is the point. The scales are context
 // for it, not a dashboard: five numbers a week is not a dataset, it is a conversation opener.
-export function CheckinsCard({ checkins }) {
+// With `memberId`, each check-in carries the coach's replies and the box to add one (CHW-340).
+export function CheckinsCard({ checkins, notes, memberId, onNotes }) {
   const list = [...(checkins || [])].reverse().slice(0, 8)
   if (!list.length) return <div className="card" style={{ marginBottom: 12 }}>
     <div className="small" style={{ fontWeight: 600 }}>{t('Check-ins')}</div>
@@ -97,6 +99,7 @@ export function CheckinsCard({ checkins }) {
           </span>)}
         </div>
         {c.note && <div className="small" style={{ marginTop: 5, whiteSpace: 'pre-wrap' }}>{c.note}</div>}
+        {memberId && <NoteThread notes={notes} refType="checkin" refKey={c.d} memberId={memberId} onNotes={onNotes} />}
       </div>
     })}
   </div>

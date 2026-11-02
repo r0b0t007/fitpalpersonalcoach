@@ -3,6 +3,7 @@
 namespace App\Tenancy;
 
 use App\Models\Assignment;
+use App\Models\CoachNote;
 use App\Models\JoinRequest;
 use App\Models\User;
 
@@ -25,5 +26,7 @@ final class Unlink
         // Consent to share health data was given to that coach (CHW-360): the next one asks again.
         $member->forceFill(['health_consent_at' => null])->save();
         JoinRequest::forgetMember($coachId, $member);
+        // And what that coach wrote them (CHW-340): a new coach does not read the last one's notes.
+        CoachNote::forgetPair($coachId, $member);
     }
 }
