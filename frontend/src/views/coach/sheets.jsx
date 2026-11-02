@@ -7,6 +7,7 @@ import { EXIDX, allExercises, matchesExerciseSearch, mediaRowSrc } from '../../l
 import { fmtDate, fmtMB, uid, DAYN } from '../../lib/format.js'
 import { inviteLink } from '../../lib/invite.js'
 import { buildPlanBundle } from '../../lib/plan-share.js'
+import { scheduledDays } from '../../lib/program-draft.js'
 import { confirmSheet } from '../../sheets.jsx'
 import Icon from '../../components/Icon.jsx'
 import { Button } from '../../components/ui.jsx'
@@ -36,6 +37,9 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
   const toast = useUI(s => s.toast)
   const [picked, setPicked] = useState(preselect || [])
   const [note, setNote] = useState('')
+  // On by default: their clients cannot place routines on days themselves (CHW-333). Off is for
+  // an add-on, whose routines join the week the client already has rather than replace it.
+  const [schedule, setSchedule] = useState(true)
   const [busy, setBusy] = useState(false)
   // Daily nutrition targets ride on this bundle rather than getting a channel of their own. A
   // target the server wrote into a member's state file would be destroyed by their next
@@ -61,7 +65,7 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
   // very first version always sent.
   const bundle = program ? program.bundle : buildPlanBundle(S, t('{0}’s program', user?.name || t('Coach')))
   const exCount = bundle.routines.reduce((n, r) => n + r.ex.length, 0)
-  const days = Object.keys(bundle.week || {}).length
+  const days = scheduledDays(bundle)   // weekdays with a routine, as the client's side counts them
   const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : p.concat(id))
 
   const send = () => {
@@ -75,9 +79,7 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
           ...(nutrition ? { nutrition } : {}),
           ...(checkinDay === '' ? {} : { checkinDay: +checkinDay })
         },
-        // Always the week when there is one: their clients cannot place routines on days
-        // themselves (CHW-333), so a program without its week left them on rest every day.
-        note, schedule: days > 0
+        note, schedule: schedule && days > 0
       })
     })
       .then(({ sent }) => { toast(tp(sent, 'Sent to {0} client', 'Sent to {0} clients')); close(); onSent?.() })
@@ -104,15 +106,25 @@ export function SendSheet({ members, close, program, preselect, onSent }) {
     <input className="input" placeholder={t('Note (optional) — what this block is for')} maxLength={280}
       value={note} onChange={e => setNote(e.target.value)} style={{ marginBottom: 10 }} />
 
-    {/* The week goes with the program. A bundle with no scheduled days hits one of two causes:
-        the coach never put those routines on a weekday, or it was saved before
-        buildProgramBundle kept the week at all (programs live in S and outlive the fix). Only a
-        re-save can tell them apart, so that is what the note asks for. */}
-    {days ? <div className="dim small" style={{ padding: '8px 2px', marginBottom: 10, lineHeight: 1.4 }}>
-      {t('Their week follows this program: each routine on the weekday you gave it.')}
-    </div> : <div className="small" role="note" style={{ padding: '8px 2px', marginBottom: 10, lineHeight: 1.4 }}>
+    {/* No toggle for a bundle with no scheduled days: the member's side (mergePlan) ignores
+        `schedule` when the incoming week is empty, so ticking it would do nothing and look like
+        it did. A saved program hits this for one of two reasons — the coach never put those
+        routines on a weekday, or it was saved before buildProgramBundle kept the week at all
+        (programs live in S and outlive the fix) — and only a re-save can tell them apart, so
+        that is what the note asks for. A client who already has a week keeps it. */}
+    {days ? <>
+      <label className="row between" style={{ padding: '8px 2px', marginBottom: 6 }}>
+        <span className="small">{t('Also set their weekly schedule')}</span>
+        <input type="checkbox" checked={schedule} onChange={e => setSchedule(e.target.checked)} />
+      </label>
+      <div className="dim small" style={{ marginBottom: 10, lineHeight: 1.4 }}>
+        {schedule
+          ? t('Their week follows this program: each routine on the weekday you gave it.')
+          : t('Off: the routines are added and their week stays as it is.')}
+      </div>
+    </> : <div className="small" role="note" style={{ padding: '8px 2px', marginBottom: 10, lineHeight: 1.4 }}>
       <div style={{ color: 'var(--yellow)', marginBottom: 4 }}>
-        {t('With no training days, every day of their week reads as rest, and they cannot change that themselves.')}
+        {t('A client who has no training days yet will see every day as rest, and cannot change that themselves.')}
       </div>
       <div className="dim">{program
         ? t('No weekly schedule in this program. If its routines are on weekdays in your Plan, save the program again and the schedule comes with it.')

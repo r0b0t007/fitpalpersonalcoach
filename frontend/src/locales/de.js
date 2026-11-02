@@ -1218,6 +1218,9 @@ export default {
   // The coach shell, part 3: send a program, invite a client, exercise demos (CHW-207).
   'Already uploaded': 'Bereits hochgeladen',
   'Their week follows this program: each routine on the weekday you gave it.': 'Die Woche folgt diesem Programm: jede Routine an dem Wochentag, den du ihr gegeben hast.',
+  'Also set their weekly schedule': 'Auch den Wochenplan festlegen',
+  'Off: the routines are added and their week stays as it is.': 'Aus: Die Routinen werden hinzugefügt, die Woche bleibt, wie sie ist.',
+  'These are added as new routines, and your week follows them.': 'Sie werden als neue Routinen hinzugefügt, und deine Woche folgt ihnen.',
   'Build the program in your own Plan first — the routines you have there are what gets sent.': 'Baue das Programm zuerst in deinem eigenen Plan — gesendet werden die Routinen, die dort stehen.',
   'Change': 'Ändern',
   'Checking the file…': 'Datei wird geprüft…',
@@ -1265,7 +1268,7 @@ export default {
   'Share': 'Teilen',
   'The cap is per exercise and nothing can remove a video yet — the next one has to go on a different exercise.': 'Das Limit gilt pro Übung, und ein Video lässt sich noch nicht entfernen — das nächste muss zu einer anderen Übung.',
   'This exercise is full ({0} videos)': 'Diese Übung ist voll ({0} Videos)',
-  'With no training days, every day of their week reads as rest, and they cannot change that themselves.': 'Ohne Trainingstage gilt jeder Tag der Woche als Ruhetag – und selbst ändern lässt sich das nicht.',
+  'A client who has no training days yet will see every day as rest, and cannot change that themselves.': 'Wer noch keine Trainingstage hat, sieht jeden Tag als Ruhetag – und kann das nicht selbst ändern.',
   'Try again': 'Erneut versuchen',
   'Uploaded': 'Hochgeladen',
   'Uploaded — read the warning below': 'Hochgeladen — lies den Hinweis unten',
