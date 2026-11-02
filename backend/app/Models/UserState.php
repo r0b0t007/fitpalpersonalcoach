@@ -13,6 +13,10 @@ use stdClass;
  * Beside it, the two values fitpal:remind reads on every scheduler run for every member — S.reminder and
  * S.checkinDay — kept in columns of their own, derived whenever the state is saved: reading them
  * out of every member's state on each run would parse megabytes of workouts 288 times a day.
+ *
+ * And `checkin_seen` (CHW-339), which is not derived: the newest check-in date any sync has carried,
+ * only ever raised (DataController). A check-in above it is one just filed, which the client's coach
+ * is told of; a device syncing an older state cannot lower it and so cannot make one news twice.
  */
 class UserState extends Model
 {
@@ -26,11 +30,17 @@ class UserState extends Model
 
     protected $fillable = ['user_id', 'state', 'ts', 'reminder', 'checkin_day'];
 
+    /**
+     * Set by a caller that has filled the derived columns from the state it already decoded
+     * (DataController): unchanged values are not dirty, so dirtiness cannot say so, and without
+     * this every sync would decode a state of up to 16 MB a second time.
+     */
+    public bool $derivedSet = false;
+
     protected static function booted(): void
     {
         static::saving(function (self $row): void {
-            // A caller that has the state decoded already (DataController) sets them itself.
-            if ($row->isDirty('state') && ! $row->isDirty('reminder') && ! $row->isDirty('checkin_day')) {
+            if ($row->isDirty('state') && ! $row->derivedSet) {
                 $row->forceFill(self::derived(json_decode((string) $row->state, false, 100_000)));
             }
         });

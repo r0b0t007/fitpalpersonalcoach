@@ -6,7 +6,7 @@ import { t } from '../../lib/i18n.js'
 import { useUI } from '../../store/useUI.js'
 import { setShellPref } from '../../lib/role.js'
 import { ACCENTS, accentName } from '../../lib/format.js'
-import { Row, Section, Segmented } from '../../components/ui.jsx'
+import { Row, Section, Segmented, Switch } from '../../components/ui.jsx'
 import { confirmSheet } from '../../sheets.jsx'
 import { InviteSheet, MediaSheet } from './sheets.jsx'
 import { PlanBillingSection } from './billing.jsx'
@@ -125,6 +125,12 @@ export default function CoachAccount() {
       <Row icon="link" iconTint="var(--acc)" title={t('My page')}
         subtitle={t('The one link for your Instagram bio.')} accessory="chevron"
         onClick={() => nav('/account/page')} />
+      {/* The morning email and push (CHW-339). On unless turned off here: the server reads
+          S.digest out of the synced state (fitpal:coach-digest), so it needs no route of its own. */}
+      <Row icon="bell" iconTint="var(--pink)" title={t('Morning summary')}
+        subtitle={t('An email and a notification each morning when something needs you.')}>
+        <Switch checked={S.digest !== false} onChange={v => update(s => { s.digest = v })} />
+      </Row>
       <Row icon="person" iconTint="var(--acc)" title={t('Invite a client')}
         subtitle={t('Make a link that puts whoever opens it on your roster.')} accessory="chevron"
         onClick={() => openSheet(() => <InviteSheet />)} />

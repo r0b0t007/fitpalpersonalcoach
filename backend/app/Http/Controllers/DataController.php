@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Coaching\CheckinAlert;
+use App\Coaching\MemberCard;
 use App\Models\UserState;
 use App\Support\Input;
 use App\Support\Json;
@@ -9,6 +11,7 @@ use App\Support\Say;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The client's whole training state, one blob per account, replaced on every sync. The server
@@ -56,11 +59,25 @@ final class DataController
         }
         $ts = is_object($state) && isset($state->_ts) && is_numeric($state->_ts) ? (int) $state->_ts : null;
 
-        UserState::query()->updateOrCreate(
-            ['user_id' => $request->user()->id],
-            // Encoded as deep as it was parsed: json_encode's default 512 would 500 on a state Node took.
-            ['state' => json_encode($state, Json::FLAGS, 100_000), 'ts' => $ts] + UserState::derived($state),
-        );
+        $user = $request->user();
+        // Encoded as deep as it was parsed: json_encode's default 512 would 500 on a state Node took.
+        // Before the lock, which then covers only the row's read and write.
+        $columns = ['state' => json_encode($state, Json::FLAGS, 100_000), 'ts' => $ts] + UserState::derived($state);
+        $newest = is_object($state) ? MemberCard::lastCheckin($state) : null;
+        // The newest check-in already seen, read and raised under the row's lock, so two devices
+        // syncing the same new check-in cannot both read it as news (CHW-339). A first sync finds
+        // no row to lock: two at once both insert, and MariaDB ends one in a deadlock, which the
+        // retry turns into an ordinary update of the row the other wrote.
+        $seen = DB::transaction(function () use ($user, $columns, $newest): ?string {
+            $row = UserState::query()->lockForUpdate()->find($user->id) ?? (new UserState)->forceFill(['user_id' => $user->id]);
+            $seen = $row->checkin_seen;
+            $row->forceFill($columns + ['checkin_seen' => $seen !== null && ($newest === null || strcmp($seen, $newest) >= 0) ? $seen : $newest]);
+            $row->derivedSet = true;
+            $row->save();
+
+            return $seen;
+        }, 3);
+        CheckinAlert::after($user, $seen, $newest);
 
         return Json::ok(['ok' => true, 'ts' => $ts]);
     }

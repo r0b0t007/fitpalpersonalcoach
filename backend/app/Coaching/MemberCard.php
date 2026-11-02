@@ -228,19 +228,23 @@ final class MemberCard
     }
 
     /** @return list<mixed> routines with at least one exercise */
-    private static function trainable(stdClass $s): array
+    public static function trainable(stdClass $s): array
     {
         return array_values(array_filter(Js::list($s->routines ?? null),
             fn ($r) => is_object($r) && count(Js::list($r->ex ?? null)) > 0));
     }
 
-    /** The newest check-in date filed, not the last entry: order is not an invariant to lean on. */
-    private static function lastCheckin(stdClass $s): ?string
+    /**
+     * The newest check-in date filed, not the last entry: order is not an invariant to lean on. Days
+     * only: a `d` that is not one sorts after every real date ("nope" > "2026-…"), and would read
+     * as a check-in filed in the future — never overdue again, and no later one ever news (CHW-339).
+     */
+    public static function lastCheckin(stdClass $s): ?string
     {
         $max = '';
         foreach (Js::list($s->checkins ?? null) as $c) {
             $d = is_object($c) ? ($c->d ?? null) : null;
-            if (is_string($d) && strcmp($d, $max) > 0) {
+            if (is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/D', $d) && strcmp($d, $max) > 0) {
                 $max = $d;
             }
         }

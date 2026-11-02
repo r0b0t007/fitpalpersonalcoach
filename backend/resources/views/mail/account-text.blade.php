@@ -3,6 +3,9 @@
 
 {!! $w['hello'] !!}
 {!! $w['body'] !!}
+@foreach ($w['lines'] ?? [] as $line)
+- {!! $line !!}
+@endforeach
 @if ($url !== null)
 
 {!! $w['button'] !!}: {!! $url !!}
