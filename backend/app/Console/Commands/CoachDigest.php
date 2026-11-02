@@ -23,7 +23,9 @@ use Throwable;
  *
  * Hourly (routes/console.php): "07:00" is a different UTC hour in each zone, so each run sends to
  * the coaches whose own clock is in the morning window and who have not had today's. The zone is
- * the one their app recorded with their reminder setting (S.reminder.tz), else ZONE. A coach whose
+ * the one a coach's app records on every load (S.tz, store/useStore.js), else the one recorded with
+ * their reminder setting (S.reminder.tz), else ZONE: a coach who has not opened the app since that
+ * began has only the reminder's, if they ever set one. A coach whose
  * morning passes without a run (a deploy's maintenance window across it) gets none that day.
  * users.last_digest, written under the coach's row lock before anything is sent, keeps it to one
  * a day, whatever the counts were: a request arriving at 10:00 has its own push and email.
@@ -58,7 +60,7 @@ final class CoachDigest extends Command
             if ($sent >= self::BATCH) {
                 break;
             }
-            $today = self::morningOf($row->reminder, $now);
+            $today = self::morningOf($row->tz, $row->reminder, $now);
             if ($today === null || $row->last_digest === $today || self::turnedOff($row->digest)) {
                 continue;
             }
@@ -77,13 +79,17 @@ final class CoachDigest extends Command
     }
 
     /**
-     * The coach's local date when their clock is in the morning window, else null. $reminder is
-     * user_states.reminder (UserState::derived), whose `tz` the app sets from the device.
+     * The coach's local date when their clock is in the morning window, else null. $tz is S.tz;
+     * $reminder is user_states.reminder (UserState::derived), whose own `tz` comes next.
      */
-    public static function morningOf(?string $reminder, DateTimeImmutable $now): ?string
+    public static function morningOf(mixed $tz, ?string $reminder, DateTimeImmutable $now): ?string
     {
         $r = $reminder === null ? null : json_decode($reminder);
-        $tz = $r instanceof stdClass && is_string($r->tz ?? null) && $r->tz !== '' ? $r->tz : self::ZONE;
+        $tz = match (true) {
+            is_string($tz) && $tz !== '' => $tz,
+            $r instanceof stdClass && is_string($r->tz ?? null) && $r->tz !== '' => $r->tz,
+            default => self::ZONE,
+        };
         try {
             $local = $now->setTimezone(new DateTimeZone($tz));
         } catch (Throwable) {
@@ -102,12 +108,12 @@ final class CoachDigest extends Command
 
     /**
      * Coaches with someone to report on (a client, or a request waiting) and a way to be told (a
-     * push subscription, or an address they proved). The small columns, and S.digest by its path:
+     * push subscription, or an address they proved). The small columns, and S.digest and S.tz by their paths:
      * the state itself can be 16 MB.
      */
     private function coaches(): iterable
     {
-        $digest = DB::getDriverName() === 'sqlite' ? "json_extract(user_states.state, '$.digest')" : "JSON_VALUE(user_states.state, '$.digest')";
+        $path = fn (string $key) => DB::getDriverName() === 'sqlite' ? "json_extract(user_states.state, '$.{$key}')" : "JSON_VALUE(user_states.state, '$.{$key}')";
 
         return DB::table('users')
             ->leftJoin('user_states', 'user_states.user_id', '=', 'users.id')
@@ -120,7 +126,7 @@ final class CoachDigest extends Command
                 ->orWhere(fn ($m) => $m->whereNotNull('users.email')->whereNotNull('users.email_verified_at')))
             ->orderBy('users.id')
             ->select(['users.id', 'users.last_digest', 'user_states.reminder'])
-            ->selectRaw($digest.' as digest')
+            ->selectRaw($path('digest').' as digest, '.$path('tz').' as tz')
             ->get();
     }
 

@@ -182,9 +182,21 @@ it('follows the zone the coach\'s app recorded', function () {
     $this->travelTo('2026-11-05T12:00:00Z');
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->hasTo('coach-a@example.com'));
-    expect(CoachDigest::morningOf('{"tz":"Not/AZone"}', new DateTimeImmutable(casablanca('2026-11-05 07:00'))))->toBe('2026-11-05')
-        ->and(CoachDigest::morningOf(null, new DateTimeImmutable(casablanca('2026-11-05 11:59'))))->toBe('2026-11-05')
-        ->and(CoachDigest::morningOf(null, new DateTimeImmutable(casablanca('2026-11-05 12:00'))))->toBeNull();
+    expect(CoachDigest::morningOf(null, '{"tz":"Not/AZone"}', new DateTimeImmutable(casablanca('2026-11-05 07:00'))))->toBe('2026-11-05')
+        ->and(CoachDigest::morningOf(null, null, new DateTimeImmutable(casablanca('2026-11-05 11:59'))))->toBe('2026-11-05')
+        ->and(CoachDigest::morningOf(null, null, new DateTimeImmutable(casablanca('2026-11-05 12:00'))))->toBeNull();
+});
+
+it('takes the zone the coach\'s app records on every load over the reminder\'s', function () {
+    digestMorning($this->f);
+    // The app on a phone in Paris, a reminder set long ago in New York.
+    UserState::query()->updateOrCreate(['user_id' => $this->f->a->id], ['state' => json_encode(['tz' => 'Europe/Paris', 'reminder' => ['on' => false, 'time' => '08:00', 'tz' => 'America/New_York']])]);
+    // 2026-11-05 06:00 UTC is 07:00 in Paris (CET).
+    $this->travelTo('2026-11-05T06:00:00Z');
+    $this->artisan('fitpal:coach-digest')->assertSuccessful();
+    Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->hasTo('coach-a@example.com'));
+    expect(CoachDigest::morningOf('Europe/Paris', '{"tz":"America/New_York"}', new DateTimeImmutable('2026-11-05T06:00:00Z')))->toBe('2026-11-05')
+        ->and(CoachDigest::morningOf('', '{"tz":"America/New_York"}', new DateTimeImmutable('2026-11-05T06:00:00Z')))->toBeNull();
 });
 
 it('counts an overdue check-in only when that is the client\'s row on Today', function () {

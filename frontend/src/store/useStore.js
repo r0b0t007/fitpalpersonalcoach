@@ -573,6 +573,9 @@ export const useStore = create((set, get) => {
         if (get().S.reminder?.on && get().S.reminder.tz !== tz) {
           get().update(s => { s.reminder = { ...s.reminder, tz } })
         }
+        // A coach's own clock, whether or not they set a reminder: the server sends their morning
+        // summary at 07:00 where they are (fitpal:coach-digest), and has no other way to know where.
+        if (me.user?.coach && get().S.tz !== tz) get().update(s => { s.tz = tz })
       } catch (e) {
         if (e.status === 401) get().setUser(null)
       }
