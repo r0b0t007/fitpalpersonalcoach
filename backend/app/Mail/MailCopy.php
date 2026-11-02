@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Coaching\MemberCard;
 use App\Models\User;
+use App\Push\Messages;
 
 /**
  * The words of the account mails, in the languages the app has (spec §4a: fr, en, es, de, falling
@@ -60,6 +61,11 @@ final class MailCopy
             'note.body' => 'Open the app to read what :coach wrote about your training.',
             'note.button' => 'Open the app',
             'note.footer' => 'You get at most one of these emails a day. Turn on notifications in the app to hear sooner.',
+            'digest.subject' => 'Your clients this morning',
+            'digest.heading' => 'What needs you today',
+            'digest.body' => 'Here is what is waiting for you on FitPal Coach.',
+            'digest.button' => 'Open Today',
+            'digest.footer' => 'You get this at most once a morning, and only when something needs you.',
             'fallback' => 'The button does not work? Copy this link into your browser:',
         ],
         'fr' => [
@@ -102,6 +108,11 @@ final class MailCopy
             'note.body' => 'Ouvrez l’application pour lire ce que :coach a écrit sur votre entraînement.',
             'note.button' => 'Ouvrir l’application',
             'note.footer' => 'Vous recevez au plus un e-mail de ce type par jour. Activez les notifications dans l’application pour l’apprendre plus vite.',
+            'digest.subject' => 'Vos clients ce matin',
+            'digest.heading' => 'Ce qui vous attend aujourd’hui',
+            'digest.body' => 'Voici ce qui vous attend sur FitPal Coach.',
+            'digest.button' => 'Ouvrir Aujourd’hui',
+            'digest.footer' => 'Vous recevez ce message au plus une fois par matin, et seulement quand quelque chose vous attend.',
             'fallback' => 'Le bouton ne fonctionne pas ? Copiez ce lien dans votre navigateur :',
         ],
         'es' => [
@@ -144,6 +155,11 @@ final class MailCopy
             'note.body' => 'Abre la aplicación para leer lo que :coach ha escrito sobre tu entrenamiento.',
             'note.button' => 'Abrir la aplicación',
             'note.footer' => 'Recibes como mucho uno de estos correos al día. Activa las notificaciones en la aplicación para enterarte antes.',
+            'digest.subject' => 'Tus clientes esta mañana',
+            'digest.heading' => 'Lo que te espera hoy',
+            'digest.body' => 'Esto es lo que te espera en FitPal Coach.',
+            'digest.button' => 'Abrir Hoy',
+            'digest.footer' => 'Recibes esto como mucho una vez cada mañana, y solo cuando algo te espera.',
             'fallback' => '¿El botón no funciona? Copia este enlace en tu navegador:',
         ],
         'de' => [
@@ -186,6 +202,11 @@ final class MailCopy
             'note.body' => 'öffne die App, um zu lesen, was :coach zu deinem Training geschrieben hat.',
             'note.button' => 'App öffnen',
             'note.footer' => 'Du bekommst höchstens eine solche E-Mail pro Tag. Schalte in der App Benachrichtigungen ein, um es früher zu erfahren.',
+            'digest.subject' => 'Deine Klienten heute Morgen',
+            'digest.heading' => 'Was heute auf dich wartet',
+            'digest.body' => 'das wartet bei FitPal Coach auf dich.',
+            'digest.button' => 'Heute öffnen',
+            'digest.footer' => 'Du bekommst das höchstens einmal pro Morgen, und nur, wenn etwas auf dich wartet.',
             'fallback' => 'Der Button funktioniert nicht? Kopiere diesen Link in deinen Browser:',
         ],
     ];
@@ -216,6 +237,10 @@ final class MailCopy
             if (isset($copy["{$kind}.{$part}"])) {
                 $out[$part] = strtr($copy["{$kind}.{$part}"], $values);
             }
+        }
+        // The morning digest's counts (CHW-339), worded as its push words them: one source for both.
+        if ($kind === 'digest') {
+            $out['lines'] = Messages::digestLines($lang, $fill['counts'] ?? []);
         }
 
         return $out;

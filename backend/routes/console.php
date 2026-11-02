@@ -55,6 +55,13 @@ if ($connection !== 'sync') {
 // reminders must not wait behind it.
 Schedule::command('fitpal:prune')->hourly()->withoutOverlapping(10)->runInBackground();
 
+// The coach's morning digest (app/Console/Commands/CoachDigest.php, CHW-339): hourly, on the tick
+// at the top of the hour, because a coach's 07:00 is a different UTC hour in each zone. Each run
+// sends to the coaches whose own clock is between 07:00 and noon and who have not had today's. In
+// the background, because a scheduled command sends its mail itself and the reminders due that
+// minute must not wait behind it.
+Schedule::command('fitpal:coach-digest')->hourly()->withoutOverlapping(30)->runInBackground();
+
 // A database dump every night (app/Console/Commands/BackupDb.php), the only copy of what was
 // written since the last deploy: deploy-backend.yml dumps before each deploy, and nothing else
 // did. Into storage/backups/nightly, so the deploy's own dumps keep their count and are never

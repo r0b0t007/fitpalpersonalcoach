@@ -52,6 +52,9 @@
   <tr><td class="ink" style="padding:18px 24px 0 24px;font-size:17px;line-height:1.55;color:#F2EDE4;">
     <p style="margin:0 0 12px 0;">{{ $w['hello'] }}</p>
     <p style="margin:0;">{{ $w['body'] }}</p>
+@foreach ($w['lines'] ?? [] as $line)
+    <p style="margin:12px 0 0 0;font-weight:700;">{{ $line }}</p>
+@endforeach
   </td></tr>
 @if ($url !== null)
   <tr><td style="padding:26px 24px 0 24px;">

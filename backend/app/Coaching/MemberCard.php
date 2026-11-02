@@ -228,14 +228,14 @@ final class MemberCard
     }
 
     /** @return list<mixed> routines with at least one exercise */
-    private static function trainable(stdClass $s): array
+    public static function trainable(stdClass $s): array
     {
         return array_values(array_filter(Js::list($s->routines ?? null),
             fn ($r) => is_object($r) && count(Js::list($r->ex ?? null)) > 0));
     }
 
     /** The newest check-in date filed, not the last entry: order is not an invariant to lean on. */
-    private static function lastCheckin(stdClass $s): ?string
+    public static function lastCheckin(stdClass $s): ?string
     {
         $max = '';
         foreach (Js::list($s->checkins ?? null) as $c) {

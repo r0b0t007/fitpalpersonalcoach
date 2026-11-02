@@ -25,6 +25,11 @@ final class Messages
             'joinRequestBody' => '{0} asked to train with you',
             'joinAutoBody' => '{0} joined you as a client',
             'coachNoteBody' => '{0} replied to you',
+            'checkinInBody' => '{0} filed a check-in',
+            'digestTitle' => 'Your clients today',
+            'digestRequests' => 'Requests waiting: {0}',
+            'digestCheckins' => 'Check-ins overdue: {0}',
+            'digestMissed' => 'Sessions missed in the last 7 days: {0}',
         ],
         'de' => [
             'restTitle' => 'Pause vorbei 💪',
@@ -39,6 +44,11 @@ final class Messages
             'joinRequestBody' => '{0} möchte mit dir trainieren',
             'joinAutoBody' => '{0} trainiert jetzt mit dir',
             'coachNoteBody' => '{0} hat dir geantwortet',
+            'checkinInBody' => '{0} hat einen Check-in ausgefüllt',
+            'digestTitle' => 'Deine Klienten heute',
+            'digestRequests' => 'Offene Anfragen: {0}',
+            'digestCheckins' => 'Überfällige Check-ins: {0}',
+            'digestMissed' => 'Verpasste Einheiten in den letzten 7 Tagen: {0}',
         ],
         'es' => [
             'restTitle' => 'Descanso terminado 💪',
@@ -53,6 +63,11 @@ final class Messages
             'joinRequestBody' => '{0} quiere entrenar contigo',
             'joinAutoBody' => '{0} ya entrena contigo',
             'coachNoteBody' => '{0} te ha respondido',
+            'checkinInBody' => '{0} ha enviado su check-in',
+            'digestTitle' => 'Tus clientes hoy',
+            'digestRequests' => 'Solicitudes pendientes: {0}',
+            'digestCheckins' => 'Check-ins atrasados: {0}',
+            'digestMissed' => 'Sesiones perdidas en los últimos 7 días: {0}',
         ],
         'fr' => [
             'restTitle' => 'Repos terminé 💪',
@@ -67,6 +82,11 @@ final class Messages
             'joinRequestBody' => '{0} souhaite s’entraîner avec vous',
             'joinAutoBody' => '{0} s’entraîne désormais avec vous',
             'coachNoteBody' => '{0} vous a répondu',
+            'checkinInBody' => '{0} a envoyé son point hebdomadaire',
+            'digestTitle' => 'Vos clients aujourd’hui',
+            'digestRequests' => "Demandes en attente\u{00A0}: {0}",
+            'digestCheckins' => "Points en retard\u{00A0}: {0}",
+            'digestMissed' => "Séances manquées ces 7 derniers jours\u{00A0}: {0}",
         ],
     ];
 
@@ -133,6 +153,38 @@ final class Messages
     public static function coachNote(mixed $lang, string $coachName, string $appName): array
     {
         return ['title' => $appName, 'body' => str_replace('{0}', $coachName, self::copy($lang)['coachNoteBody']), 'tag' => 'coach-note'];
+    }
+
+    /** One of their clients filed a check-in (CHW-339) — in the COACH's language. */
+    public static function checkinIn(mixed $lang, string $name, string $appName): array
+    {
+        return ['title' => $appName, 'body' => str_replace('{0}', $name, self::copy($lang)['checkinInBody']), 'tag' => 'checkin-in'];
+    }
+
+    /**
+     * The coach's morning digest (CHW-339, fitpal:coach-digest): one line per count that is not
+     * zero, in this order. The digest email lists the same lines (MailCopy).
+     *
+     * @param  array{requests: int, checkins: int, missed: int}  $counts
+     * @return list<string>
+     */
+    public static function digestLines(mixed $lang, array $counts): array
+    {
+        $c = self::copy($lang);
+        $lines = [];
+        foreach (['requests' => 'digestRequests', 'checkins' => 'digestCheckins', 'missed' => 'digestMissed'] as $count => $key) {
+            if (($counts[$count] ?? 0) > 0) {
+                $lines[] = str_replace('{0}', (string) $counts[$count], $c[$key]);
+            }
+        }
+
+        return $lines;
+    }
+
+    /** @param  array{requests: int, checkins: int, missed: int}  $counts */
+    public static function digest(mixed $lang, array $counts): array
+    {
+        return ['title' => self::copy($lang)['digestTitle'], 'body' => implode(' · ', self::digestLines($lang, $counts)), 'tag' => 'coach-digest'];
     }
 
     /** A coach sent this member a program — in the MEMBER's language. */

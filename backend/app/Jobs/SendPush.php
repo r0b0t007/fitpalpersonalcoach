@@ -24,7 +24,7 @@ final class SendPush implements ShouldQueue
     public int $tries = 1;
 
     /**
-     * @param  'assignment'|'day-reminder'|'checkin-reminder'  $kind  (the rest timer is RestTimerPush)
+     * @param  'assignment'|'day-reminder'|'checkin-reminder'|'join-request'|'join-auto'|'coach-note'|'checkin-in'|'coach-digest'  $kind  (the rest timer is RestTimerPush)
      * @param  list<mixed>  $args  what the message needs besides the language (a coach's name…)
      */
     public function __construct(public readonly string $userId, public readonly string $kind, public readonly array $args = []) {}
@@ -43,6 +43,8 @@ final class SendPush implements ShouldQueue
             'join-request' => Messages::joinRequest($lang, (string) $this->args[0], (string) config('fitpal.rp_name')),
             'join-auto' => Messages::joinAuto($lang, (string) $this->args[0], (string) config('fitpal.rp_name')),
             'coach-note' => Messages::coachNote($lang, (string) $this->args[0], (string) config('fitpal.rp_name')),
+            'checkin-in' => Messages::checkinIn($lang, (string) $this->args[0], (string) config('fitpal.rp_name')),
+            'coach-digest' => Messages::digest($lang, (array) $this->args[0]),
         });
     }
 }

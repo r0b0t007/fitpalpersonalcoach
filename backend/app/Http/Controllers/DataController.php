@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Coaching\CheckinAlert;
 use App\Models\UserState;
 use App\Support\Input;
 use App\Support\Json;
@@ -9,6 +10,7 @@ use App\Support\Say;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The client's whole training state, one blob per account, replaced on every sync. The server
@@ -56,11 +58,21 @@ final class DataController
         }
         $ts = is_object($state) && isset($state->_ts) && is_numeric($state->_ts) ? (int) $state->_ts : null;
 
-        UserState::query()->updateOrCreate(
-            ['user_id' => $request->user()->id],
-            // Encoded as deep as it was parsed: json_encode's default 512 would 500 on a state Node took.
-            ['state' => json_encode($state, Json::FLAGS, 100_000), 'ts' => $ts] + UserState::derived($state),
-        );
+        $user = $request->user();
+        $derived = UserState::derived($state);
+        // The newest check-in before and after, under the row's lock: two devices syncing the same
+        // new check-in at once must not both read it as news.
+        $before = DB::transaction(function () use ($user, $state, $ts, $derived): ?string {
+            $before = UserState::query()->whereKey($user->id)->lockForUpdate()->value('last_checkin');
+            UserState::query()->updateOrCreate(
+                ['user_id' => $user->id],
+                // Encoded as deep as it was parsed: json_encode's default 512 would 500 on a state Node took.
+                ['state' => json_encode($state, Json::FLAGS, 100_000), 'ts' => $ts] + $derived,
+            );
+
+            return $before;
+        });
+        CheckinAlert::after($user, $before, $derived['last_checkin']);
 
         return Json::ok(['ok' => true, 'ts' => $ts]);
     }
