@@ -3,6 +3,7 @@ import { api } from '../lib/api.js'
 import { t, getLang } from '../lib/i18n.js'
 import { EQUIPMENT, GOALS, INJURIES_MAX, LEVELS, MIN_FILL_MS, equipmentLabel, forgetRequest, goalLabel, intakeError, levelLabel, privacyUrl, saveRequest, savedRequest } from '../lib/join.js'
 import { useCoachTheme } from './PublicCoach.jsx'
+import { waInput } from '../lib/whatsapp.js'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import Logo from '../components/Logo.jsx'
@@ -103,7 +104,7 @@ export default function Join({ handle }) {
       const early = MIN_FILL_MS - (Date.now() - opened.current)
       if (early > 0) await new Promise(r => setTimeout(r, early + 25))
       const r = await api('/api/join/start', { method: 'POST', body: JSON.stringify({
-        handle, name: who.name.trim(), email: who.email.trim(), lang: getLang(), intake: { ...intake, injuries: intake.injuries.trim() },
+        handle, name: who.name.trim(), email: who.email.trim(), lang: getLang(), intake: { ...intake, injuries: intake.injuries.trim(), phone: waInput(intake.phone) },
         hp: who.hp, elapsed: Date.now() - opened.current,
       }) })
       // Sending again keeps the request's id: the server reuses the same request, and a throttled
@@ -175,7 +176,8 @@ export default function Join({ handle }) {
       <div className="chips">{EQUIPMENT.map(q => chip(intake.equipment.includes(q), equipmentLabel(q),
         () => set('equipment', intake.equipment.includes(q) ? intake.equipment.filter(x => x !== q) : [...intake.equipment, q]), q))}</div>
       <h4 className="sec">{t('WhatsApp (optional)')}</h4>
-      <TextField name="phone" type="tel" placeholder="+212 6 12 34 56 78" value={intake.phone} onChange={e => set('phone', e.target.value)} />
+      <TextField name="phone" type="tel" placeholder="+212 6 12 34 56 78" value={intake.phone}
+        onChange={e => set('phone', e.target.value)} onBlur={e => set('phone', waInput(e.target.value))} />
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 18 }}>
         <Check checked={intake.over16} onChange={v => set('over16', v)} labelledBy="join-age" />
         <div id="join-age" className="small" onClick={() => set('over16', !intake.over16)}>{t('I am 16 or older')}</div>

@@ -6,6 +6,7 @@ import Logo from '../components/Logo.jsx'
 import { Notice } from '../components/ui.jsx'
 import OpenInBrowser from '../components/OpenInBrowser.jsx'
 import { savedRequest } from '../lib/join.js'
+import { waLink } from '../lib/whatsapp.js'
 
 /**
  * Wears a coach's chosen theme (CHW-323) while the screen is open, handed to App through useUI,
@@ -55,7 +56,7 @@ export default function PublicCoach({ handle }) {
     <h1 style={{ marginBottom: 6 }}>{coach.name}</h1>
     {coach.bio && <p className="muted" style={{ fontSize: 17, lineHeight: 1.4, marginTop: 0 }}>{coach.bio}</p>}
     {coach.whatsapp && <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
-      <a className="btn primary" href={'https://wa.me/' + coach.whatsapp} target="_blank" rel="noopener noreferrer">
+      <a className="btn primary" href={waLink(coach.whatsapp, t('Hello {0}, I found your page on FitPal', coach.name))} target="_blank" rel="noopener noreferrer">
         <span>{t('Message on WhatsApp')}</span></a>
     </div>}
     <div className="dim small" style={{ marginTop: 28, textAlign: 'center' }}>{t('Coached with FitPal')}</div>

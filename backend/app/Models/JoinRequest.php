@@ -93,6 +93,19 @@ class JoinRequest extends Model
             ->delete();
     }
 
+    /**
+     * The WhatsApp number a client gave this coach when they asked (CHW-341), for the client's
+     * page: '' when they gave none, or joined by an invite and never asked. Scoped, so the coach
+     * acting; the newest accepted request, as one follower can have asked twice.
+     */
+    public static function phoneOf(User $member): string
+    {
+        $intake = self::query()->where('member_id', $member->id)->where('status', 'accepted')->orderByDesc('decided')->value('intake');
+        $phone = is_string($intake) ? (json_decode($intake, false)->phone ?? '') : '';
+
+        return is_string($phone) ? $phone : '';
+    }
+
     /** Someone can no longer coach (Detach): every request they hold, waiting or answered, goes. */
     public static function forgetCoach(string $coachId): int
     {

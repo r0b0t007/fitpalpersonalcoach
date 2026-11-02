@@ -148,6 +148,8 @@ class User extends Authenticatable implements FilamentUser, WebAuthnAuthenticata
         return [
             'id' => $this->id, 'name' => $this->name, 'admin' => $this->isAdmin(), 'coach' => $this->isCoach(),
             'coachName' => $coach?->name,
+            // Their coach's page number, for the client's WhatsApp button (CHW-341); '' for none.
+            'coachWhatsapp' => $coach ? CoachPage::whatsappOf($coach->id) : '',
             // Kept on the device with the rest of this, so the app knows offline that they agreed (CHW-360).
             'healthConsentAt' => $this->health_consent_at,
         ];

@@ -38,7 +38,9 @@ describe("a coach's public page", () => {
     await render(<PublicCoach handle="yasmine.fit" />)
     expect(text()).toContain('Yasmine')
     expect(text()).toContain('Force pour femmes.')
-    expect(container.querySelector('a[href="https://wa.me/212612345678"]')).toBeTruthy()
+    // A chat with the coach's number, the first line already typed (CHW-341).
+    const wa = container.querySelector('a[href^="https://wa.me/212612345678?text="]')
+    expect(decodeURIComponent(wa.href.split('text=')[1])).toBe('Hello Yasmine, I found your page on FitPal')
     expect(text()).toContain('Coached with FitPal')
     // No way to ask that leads nowhere: asking to join arrives with the join flow (CHW-336).
     expect(text()).not.toContain('Ask to join')

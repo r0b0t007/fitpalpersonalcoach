@@ -53,6 +53,15 @@ class CoachPage extends Model
         return rtrim((string) config('fitpal.origin'), '/').'/c/'.$handle;
     }
 
+    /**
+     * The number a coach put on their page, for their clients' WhatsApp button (CHW-341): '' for a
+     * coach with no page or no number. Read for the client, who acts for no coach of their own.
+     */
+    public static function whatsappOf(?string $coachId): string
+    {
+        return $coachId === null ? '' : (string) self::acrossCoaches()->whereKey($coachId)->value('whatsapp'); // across coaches: a client reads their own coach's page, from no coach context
+    }
+
     /** As the editor reads it. */
     public function toCoach(): array
     {
