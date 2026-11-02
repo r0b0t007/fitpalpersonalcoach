@@ -24,7 +24,8 @@ const { default: Settings } = await import('./Settings.jsx')
 const { default: TabBar } = await import('../components/TabBar.jsx')
 const { useStore, DEF } = await import('../store/useStore.js')
 const { useUI } = await import('../store/useUI.js')
-const { addToRoutineSheet, dayAssignSheet, dayOverrideSheet, starterPlanSheet, planToolsSheet } = await import('../sheets.jsx')
+const { addToRoutineSheet, dayAssignSheet, dayOverrideSheet, starterPlanSheet, planToolsSheet, coachPlanSheet } = await import('../sheets.jsx')
+const { buildPlanBundle, parsePlan } = await import('../lib/plan-share.js')
 
 const routine = { id: 'r1', name: 'Haut du corps', emoji: 'barbell', ex: [{ id: '0025', sets: 3, reps: 8 }] }
 const COACHED = { id: 'c1', name: 'Salma', coachName: 'Yasmine' }
@@ -71,6 +72,23 @@ describe('a coached client', () => {
     expect(useUI.getState().sheets).toEqual([])
   })
 
+  it('takes the coach’s week with a program, even from an offer that left it off', async () => {
+    // Wednesday and Friday in the coach's program; the client's own week has Monday.
+    const coachS = { ...structuredClone(DEF), routines: [{ ...routine, id: 'k1', name: 'Bas du corps' }], week: { 3: ['k1'], 5: ['k1'] } }
+    const bundle = parsePlan(buildPlanBundle(coachS, 'Bloc 1'))
+    await render(<div />, COACHED)
+    useUI.setState({ sheets: [] })
+    act(() => { coachPlanSheet({ bundle, from: 'Yasmine', schedule: false, onAccept: () => {}, onDecline: () => {} }) })
+    const sheet = useUI.getState().sheets[0]
+    await act(async () => { root.render(<MemoryRouter>{sheet.render(() => useUI.getState().closeSheet(sheet.id))}</MemoryRouter>) })
+    expect(container.querySelector('[role="switch"]')).toBe(null)
+    expect(text()).toContain('Week schedule')
+    act(() => { [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Add to my plan').click() })
+    const { week, routines } = useStore.getState().S
+    const added = routines.find(r => r.name === 'Bas du corps').id
+    expect(week).toEqual({ 3: [added], 5: [added] })
+  })
+
   it('moves no day on Home', async () => {
     await render(<Home />, COACHED)
     expect(container.querySelectorAll('.wday').length).toBe(7)
@@ -97,6 +115,16 @@ describe('a coached client', () => {
 })
 
 describe('a client their coach released', () => {
+  it('chooses whether a plan file sets their week', async () => {
+    const bundle = parsePlan(buildPlanBundle({ ...structuredClone(DEF), routines: [routine], week: { 3: ['r1'] } }, 'Fichier'))
+    await render(<div />, RELEASED)
+    useUI.setState({ sheets: [] })
+    act(() => { coachPlanSheet({ bundle, from: 'Yasmine', schedule: false }) })
+    const sheet = useUI.getState().sheets[0]
+    await act(async () => { root.render(<MemoryRouter>{sheet.render(() => {})}</MemoryRouter>) })
+    expect(container.querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('false')
+  })
+
   it('gets every feature back', async () => {
     await render(<Plan />, RELEASED)
     expect(buttons()).toContain('New')

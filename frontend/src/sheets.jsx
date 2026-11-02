@@ -36,7 +36,7 @@ import { BRAND, FILE_PREFIX } from './lib/brand.js'
 import { buildCompletedWorkout } from './lib/finish-workout.js'
 import { api, fetchMyPhotos, uploadProgressPhoto } from './lib/api.js'
 import { mustAsk } from './lib/health-consent.js'
-import { can } from './lib/features.js'
+import { can, isCoached } from './lib/features.js'
 
 // Every sheet that changes the plan asks this itself (CHW-333), so a button anywhere that opens
 // one cannot hand a coached client an edit of their coach's program.
@@ -1818,10 +1818,14 @@ export function openCoachOffer(offer) {
 }
 
 function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAccept, onDecline }) {
+  // A coached client takes their coach's week with the program, whatever the offer says: they
+  // cannot put routines on days themselves (CHW-333), so leaving it off left every day a rest day
+  // and the coach reading each one as missed. An offer sent before that rule may still say off.
+  const takesWeek = !!from && isCoached(useStore(s => s.user))
   // Clamped to what the bundle can actually deliver: the toggle below only renders when there
   // are scheduled days, so a coach's `schedule: true` on a bundle with none would otherwise sit
   // on with no way for the member to see it, let alone turn it off.
-  const [schedule, setSchedule] = useState(!!defaultSchedule && bundle.scheduledDays > 0)
+  const [schedule, setSchedule] = useState((takesWeek || !!defaultSchedule) && bundle.scheduledDays > 0)
   const apply = () => {
     // Merge first, then tell the server. The member's own data is the source of truth: if the
     // decide call fails afterwards the offer simply stands again, and because mergePlan adds
@@ -1870,8 +1874,8 @@ function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAcce
         '{0} exercises in the file aren’t in your library and were left out.')}
     </div>}
     {bundle.scheduledDays > 0 && <div className="row between" style={{ padding: '10px 2px', borderTop: '1px solid var(--sep)', borderBottom: '1px solid var(--sep)', marginBottom: 16, gap: 12 }}>
-      <div><div className="tt" style={{ fontSize: 15 }}>{t('Use this weekly schedule')}</div><div className="small dim">{t('Replaces your current Mon–Sun assignments.')}</div></div>
-      <Switch checked={schedule} onChange={setSchedule} />
+      <div><div className="tt" style={{ fontSize: 15 }}>{takesWeek ? t('Week schedule') : t('Use this weekly schedule')}</div><div className="small dim">{t('Replaces your current Mon–Sun assignments.')}</div></div>
+      {!takesWeek && <Switch checked={schedule} onChange={setSchedule} />}
     </div>}
     <Button variant="primary" onClick={apply}>{t('Add to my plan')}</Button>
     <div style={{ height: 8 }} />

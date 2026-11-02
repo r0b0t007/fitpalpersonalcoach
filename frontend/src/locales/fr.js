@@ -1199,7 +1199,7 @@ export default {
   '“{0}” leaves this program and any day it was scheduled on. Your own plan is not touched.': '« {0} » quitte ce programme et tous les jours où elle était prévue. Votre propre plan n’est pas modifié.',
   // The coach shell, part 3: send a program, invite a client, exercise demos (CHW-207).
   'Already uploaded': 'Déjà envoyées',
-  'Also set their weekly schedule': 'Définir aussi son planning hebdomadaire',
+  'Their week follows this program: each routine on the weekday you gave it.': 'Sa semaine suit ce programme : chaque routine tombe le jour que vous avez choisi.',
   'Build the program in your own Plan first — the routines you have there are what gets sent.': 'Construisez d’abord le programme dans votre propre plan — ce sont ses routines qui sont envoyées.',
   'Change': 'Changer',
   'Checking the file…': 'Vérification du fichier…',
@@ -1247,7 +1247,7 @@ export default {
   'Share': 'Partager',
   'The cap is per exercise and nothing can remove a video yet — the next one has to go on a different exercise.': 'La limite est par exercice et rien ne permet encore de supprimer une vidéo — la suivante doit aller sur un autre exercice.',
   'This exercise is full ({0} videos)': 'Cet exercice est complet ({0} vidéos)',
-  'This replaces which routine sits on each weekday for them. Leave it off to add the routines and let them slot them in.': 'Cela remplace la routine prévue chaque jour de sa semaine. Laissez désactivé pour ajouter les routines et le laisser les placer lui-même.',
+  'With no training days, every day of their week reads as rest, and they cannot change that themselves.': 'Sans jours d’entraînement, chaque jour de sa semaine compte comme repos, et ce n’est pas modifiable de son côté.',
   'Try again': 'Réessayer',
   'Uploaded': 'Envoyé',
   'Uploaded — read the warning below': 'Envoyé — lisez l’avertissement ci-dessous',
