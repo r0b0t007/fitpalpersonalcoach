@@ -54,7 +54,7 @@ function savePage(object $as, array $body)
 it('has no page until the coach saves one, then answers it with its link', function () {
     $this->getJson('/api/coach/page', bearer($this->f->a))->assertOk()->assertExactJson(['page' => null, 'url' => null]);
     savePage($this->f->a, ['handle' => '@Sara.Fit', 'bio' => '  Force pour femmes.  ', 'whatsapp' => '+212 612 345 678', 'theme' => 'light'])->assertOk()
-        ->assertExactJson(['page' => ['handle' => 'sara.fit', 'bio' => 'Force pour femmes.', 'whatsapp' => '212612345678', 'open' => true, 'theme' => 'light', 'starterProgramId' => null, 'autoAccept' => false], 'url' => 'https://coach.example/c/sara.fit']);
+        ->assertExactJson(['page' => ['handle' => 'sara.fit', 'bio' => 'Force pour femmes.', 'whatsapp' => '212612345678', 'open' => true, 'theme' => 'light', 'photo' => null, 'starterProgramId' => null, 'autoAccept' => false], 'url' => 'https://coach.example/c/sara.fit']);
     $this->getJson('/api/coach/page', bearer($this->f->a))->assertJsonPath('page.handle', 'sara.fit');
     expect(CoachPage::acrossCoaches()->count())->toBe(1); // across coaches: test counts every row
     $this->assertDatabaseHas('audit_events', ['ev' => 'coach.page.save', 'uid' => $this->f->a->id, 'msg' => 'sara.fit']);
@@ -100,7 +100,7 @@ function openPage(object $coach, array $fields = []): CoachPage
 it('answers the public card for an open page, by any spelling of its handle', function () {
     openPage($this->f->a);
     $this->getJson('/api/public/coach?h=@Sara.FIT')->assertOk()->assertExactJson(['coach' => [
-        'name' => 'Coach A', 'handle' => 'sara.fit', 'bio' => 'Force <b>& co</b>', 'whatsapp' => '212612345678', 'theme' => 'light',
+        'name' => 'Coach A', 'handle' => 'sara.fit', 'bio' => 'Force <b>& co</b>', 'whatsapp' => '212612345678', 'theme' => 'light', 'photo' => null,
     ]]);
 });
 

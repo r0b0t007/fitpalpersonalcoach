@@ -259,6 +259,13 @@ h4.sec{
 /* The centred screen a signed-out visitor lands on: sign-in, self-serve sign-up and the mobile
    app's first run. Three views wrote the same inline object (CHW-319). */
 .gate{display:flex;flex-direction:column;justify-content:center;min-height:78vh;text-align:center}
+/* A coach's public page with their photo (CHW-356). Sombre: full-bleed across the top, pulled up
+   over #app's padding as .whdr.stick is, fading into the page under the name. Clair: a portrait. */
+.coach-hero{position:relative;margin:calc(-1 * (var(--sat) + 8px)) calc(-1 * var(--pad)) 16px;aspect-ratio:1 / 1.05;max-height:480px;overflow:hidden}
+.coach-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.coach-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,var(--bg) 100%)}
+.coach-hero h1{position:absolute;left:var(--pad);right:var(--pad);bottom:14px;margin:0;z-index:1;color:#fff;font-size:2.4rem;line-height:1;text-wrap:balance}
+.coach-portrait{width:76px;height:76px;border-radius:50%;object-fit:cover;flex:none;display:block}
 
 /* ------------------------------------------------------ inset group list -- */
 .sect{margin-bottom:22px}

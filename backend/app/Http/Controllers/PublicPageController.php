@@ -18,7 +18,8 @@ use Illuminate\Http\Response;
  *    language. With ?join=1, into the join form instead (#/join/<handle>): the way the app sends
  *    someone on from Instagram's browser to Safari or Chrome mid-form (CHW-332), as the link that
  *    leaves it (an Android intent) cannot carry a #/ route.
- *  - /public/coach is what that screen reads.
+ *  - /public/coach is what that screen reads, and /public/coach/photo the coach's photo on it
+ *    (CoachPhotoController, CHW-356).
  *
  * A page shows while it is open and its coach is still an enabled coach.
  */
@@ -47,7 +48,8 @@ final class PublicPageController
             'page' => $shown ? $page : null,
             'name' => $coach?->name,
             'url' => CoachPage::url($handle),
-            'image' => rtrim((string) config('fitpal.origin'), '/').'/icon-512.png',
+            // The coach's photo when the page has one (CHW-356), else the app's icon.
+            'image' => rtrim((string) config('fitpal.origin'), '/').($shown && $page->photo ? $page->photoUrl() : '/icon-512.png'),
             'app' => ($request->query('join') === '1' ? '/#/join/' : '/#/c/').$handle,
         ], $shown ? 200 : 404)->header('Content-Type', 'text/html; charset=UTF-8');
     }

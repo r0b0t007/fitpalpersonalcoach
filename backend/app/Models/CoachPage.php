@@ -62,10 +62,21 @@ class CoachPage extends Model
         return $coachId === null ? '' : (string) self::acrossCoaches()->whereKey($coachId)->value('whatsapp'); // across coaches: a client reads their own coach's page, from no coach context
     }
 
+    /**
+     * Where anyone fetches the page photo (CHW-356), or null for none. The file's random name
+     * rides along, so a new photo is a new address and no cache keeps the old one past it.
+     */
+    public function photoUrl(): ?string
+    {
+        return $this->photo ? '/api/public/coach/photo?h='.$this->handle.'&v='.pathinfo($this->photo, PATHINFO_FILENAME) : null;
+    }
+
     /** As the editor reads it. */
     public function toCoach(): array
     {
         return ['handle' => $this->handle, 'bio' => $this->bio, 'whatsapp' => $this->whatsapp, 'open' => $this->open, 'theme' => $this->theme,
+            // Their own copy, which shows while the page is closed too (CHW-356).
+            'photo' => $this->photo ? '/api/coach/page/photo?v='.pathinfo($this->photo, PATHINFO_FILENAME) : null,
             // CHW-338: what a new client is given, and whether requests wait for the coach at all.
             'starterProgramId' => $this->starter_program_id, 'autoAccept' => (bool) $this->auto_accept];
     }
@@ -73,6 +84,6 @@ class CoachPage extends Model
     /** As anyone with the link reads it: nothing the coach did not write for the public. */
     public function toPublic(User $coach): array
     {
-        return ['name' => $coach->name, 'handle' => $this->handle, 'bio' => $this->bio, 'whatsapp' => $this->whatsapp, 'theme' => $this->theme];
+        return ['name' => $coach->name, 'handle' => $this->handle, 'bio' => $this->bio, 'whatsapp' => $this->whatsapp, 'theme' => $this->theme, 'photo' => $this->photoUrl()];
     }
 }

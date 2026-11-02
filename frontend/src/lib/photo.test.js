@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PHOTO_MAX_EDGE, POSES, fitWithin, photoSrc, photosByPeriod, posesFor } from './photo.js'
+import { PAGE_PHOTO_EDGE, PHOTO_MAX_EDGE, POSES, fitWithin, photoSrc, photosByPeriod, posesFor, squareCrop } from './photo.js'
 
 // preparePhoto/decode are deliberately absent from this file. There is no canvas in this repo's
 // test environment — no jsdom toBlob, no 2d context — so a test of them would be a test of a
@@ -121,5 +121,26 @@ describe('posesFor', () => {
 
   it('is empty for a period with nothing filed', () => {
     expect(posesFor([row('a', '2026-09-06', 'front')], '2026-09-13')).toEqual({})
+  })
+})
+
+describe('squareCrop — a coach page photo (CHW-356)', () => {
+  it('cuts the centred square of a landscape photo, drawn at the page edge', () => {
+    expect(squareCrop(4000, 3000)).toEqual({ sx: 500, sy: 0, side: 3000, out: PAGE_PHOTO_EDGE })
+  })
+
+  it('cuts a portrait photo a quarter of the way down, where a face usually is', () => {
+    expect(squareCrop(3000, 4000)).toEqual({ sx: 0, sy: 250, side: 3000, out: PAGE_PHOTO_EDGE })
+  })
+
+  it('never draws a small photo larger than it is', () => {
+    expect(squareCrop(600, 800)).toEqual({ sx: 0, sy: 50, side: 600, out: 600 })
+    expect(squareCrop(500, 500)).toEqual({ sx: 0, sy: 0, side: 500, out: 500 })
+  })
+
+  it('is nothing for dimensions that are not real', () => {
+    expect(squareCrop(0, 100)).toBe(null)
+    expect(squareCrop(100, NaN)).toBe(null)
+    expect(squareCrop(100, 100, 0)).toBe(null)
   })
 })

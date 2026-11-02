@@ -9,6 +9,7 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ChunkUploadController;
 use App\Http\Controllers\CoachNoteController;
 use App\Http\Controllers\CoachPageController;
+use App\Http\Controllers\CoachPhotoController;
 use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRequestController;
 use App\Http\Controllers\CoachRosterController;
@@ -67,6 +68,7 @@ $routes = static function (): void {
     // card the app draws from it. Anyone with the link.
     Route::get('/c/{handle}', [PublicPageController::class, 'html']);
     Route::get('/public/coach', [PublicPageController::class, 'json']);
+    Route::get('/public/coach/photo', [CoachPhotoController::class, 'public']);
     // Asking to join a coach from that page (CHW-336): no session, no account until accepted.
     Route::post('/join/start', [JoinController::class, 'start']);
     Route::post('/join/verify', [JoinController::class, 'verify']);
@@ -86,6 +88,9 @@ $routes = static function (): void {
         Route::post('/media/exercise/upload/finish', [ChunkUploadController::class, 'finish'])->middleware(RequireWriter::class);
         Route::delete('/media/exercise/upload', [ChunkUploadController::class, 'cancel']);
     });
+    // A coach's page photo (CHW-356): the raw-body upload again, for a coach on a plan that writes.
+    Route::post('/coach/page/photo', [CoachPhotoController::class, 'upload'])
+        ->middleware([CloseOnRefusal::class, 'auth:api', RequireCoach::class, RequireWriter::class]);
     // A client's progress photo, for themselves: the same raw-body upload, any signed-in account.
     Route::post('/media/photo', [PhotoController::class, 'upload'])
         ->middleware([CloseOnRefusal::class, 'auth:api']);
@@ -159,6 +164,9 @@ $routes = static function (): void {
             // The coach's public page (CHW-330): the link in their Instagram bio.
             Route::get('/coach/page', [CoachPageController::class, 'show']);
             Route::post('/coach/page/save', [CoachPageController::class, 'save'])->middleware(RequireWriter::class);
+            Route::get('/coach/page/photo', [CoachPhotoController::class, 'own']);
+            // Not behind RequireWriter: a lapsed plan must not keep a coach's face up.
+            Route::post('/coach/page/photo/remove', [CoachPhotoController::class, 'remove']);
             Route::post('/coach/notes', [CoachNoteController::class, 'create'])->middleware(RequireWriter::class);
             // The followers who asked to join from that page (CHW-337).
             Route::get('/coach/requests', [CoachRequestController::class, 'index']);

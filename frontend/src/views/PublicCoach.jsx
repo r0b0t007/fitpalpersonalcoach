@@ -49,11 +49,24 @@ export default function PublicCoach({ handle }) {
   </div>
   if (!coach) return <div style={{ paddingTop: '42vh', display: 'flex', justifyContent: 'center' }}><Logo size={30} /></div>
 
-  return <div className="narrow gate" style={{ textAlign: 'left' }}>
+  // The coach's face first (CHW-356), as the theme they picked draws it (designs 01.2, 01.3):
+  // Sombre, the photo full-bleed across the top and the name over its fade; Clair, a round
+  // portrait beside the name. No photo, the name alone, centred as before.
+  const hero = coach.photo && coach.theme !== 'light'
+  const inBrowser = !savedRequest(handle) && <OpenInBrowser path={'/c/' + encodeURIComponent(handle)} style={{ marginBottom: 18 }} />
+  return <div className={'narrow' + (coach.photo ? '' : ' gate')} style={{ textAlign: 'left' }}>
+    {hero && <div className="coach-hero">
+      <img src={coach.photo} alt={coach.name} />
+      <h1>{coach.name}</h1>
+    </div>}
     {/* Not once this browser has sent this coach a request: it is followed from this browser's
         storage, which Safari or Chrome would not have (as on the join form). */}
-    {!savedRequest(handle) && <OpenInBrowser path={'/c/' + encodeURIComponent(handle)} style={{ marginBottom: 18 }} />}
-    <h1 style={{ marginBottom: 6 }}>{coach.name}</h1>
+    {inBrowser}
+    {!hero && coach.photo && <div style={{ display: 'flex', gap: 14, alignItems: 'center', margin: '24px 0 10px' }}>
+      <img className="coach-portrait" src={coach.photo} alt={coach.name} />
+      <h1 style={{ margin: 0, minWidth: 0 }}>{coach.name}</h1>
+    </div>}
+    {!coach.photo && <h1 style={{ marginBottom: 6 }}>{coach.name}</h1>}
     {coach.bio && <p className="muted" style={{ fontSize: 17, lineHeight: 1.4, marginTop: 0 }}>{coach.bio}</p>}
     {coach.whatsapp && <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
       <a className="btn primary" href={waLink(coach.whatsapp, t('Hello {0}, I found your page on FitPal', coach.name))} target="_blank" rel="noopener noreferrer">
