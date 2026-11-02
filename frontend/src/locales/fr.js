@@ -1674,7 +1674,7 @@ export default {
   '{0} cannot take you on right now.': '{0} ne peut pas vous prendre pour le moment.',
   'Message on WhatsApp': 'Écrire sur WhatsApp',
   'Message {0} on WhatsApp': 'Écrire à {0} sur WhatsApp',
-  'Hello {0}, it’s {1} from FitPal': 'Bonjour {0}, c’est {1} de FitPal',
+  'Hello {0}, it’s {1} (via FitPal)': 'Bonjour {0}, c’est {1} (via FitPal)',
   'Hello {0}, it’s {1}, your coach': 'Bonjour {0}, c’est {1}, votre coach',
   'Hello {0}, it’s {1}, about your request on FitPal': 'Bonjour {0}, c’est {1}, à propos de votre demande sur FitPal',
   'Hello {0}, I found your page on FitPal': 'Bonjour {0}, j’ai vu votre page sur FitPal',

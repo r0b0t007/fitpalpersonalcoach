@@ -140,7 +140,7 @@ export default function ClientDetail() {
       {/* The number they gave when they asked to join (CHW-341); none for a client who came by
           invite, or gave none. */}
       {d.phone && <a className="btn plain" style={{ marginBottom: 12 }} target="_blank" rel="noopener noreferrer"
-        href={waLink(d.phone, t('Hello {0}, it’s {1}, your coach', d.user.name, me?.name || ''))}>
+        href={waLink(d.phone, me?.name ? t('Hello {0}, it’s {1}, your coach', d.user.name, me.name) : '')}>
         <span>{t('Message {0} on WhatsApp', d.user.name)}</span></a>}
       {/* Withheld, not missing (CHW-360): `false` only, as an API from before the field sends nothing. */}
       {d.healthShared === false && <div style={{ marginBottom: 12 }}>

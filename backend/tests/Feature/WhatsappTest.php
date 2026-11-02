@@ -45,6 +45,24 @@ it('gives the coach the number a client asked with: the newest accepted request,
     $this->getJson('/api/coach/member?id='.$this->f->a1->id, bearer($this->f->a))->assertOk()->assertJsonPath('phone', '212600000002');
 });
 
+it('gives an admin the number a client gave their own coach, who is not the admin', function () {
+    waRequest($this->f->a, $this->f->a1, 'accepted', '212600000001', 10);
+    $this->getJson('/api/coach/member?id='.$this->f->a1->id, bearer($this->f->admin))->assertOk()->assertJsonPath('phone', '212600000001');
+});
+
+it('reads it the same with no coach acting: never a request to another coach', function () {
+    waRequest($this->f->b, $this->f->a1, 'accepted', '34600000004', 10);
+    expect(JoinRequest::phoneOf($this->f->a1))->toBe('');
+    waRequest($this->f->a, $this->f->a1, 'accepted', '212600000001', 20);
+    expect(JoinRequest::phoneOf($this->f->a1))->toBe('212600000001')
+        ->and(JoinRequest::phoneOf($this->f->u1))->toBe('');
+});
+
+it('refuses a number without its country code that would dial another country', function () {
+    $this->postJson('/api/coach/page/save', ['handle' => 'sara.fit', 'bio' => '', 'whatsapp' => '612345678', 'open' => true, 'theme' => 'dark'], bearer($this->f->a))
+        ->assertStatus(400)->assertExactJson(['error' => 'that is not a phone number — include the country code']);
+});
+
 it('says nothing for a request that gave no number', function () {
     waRequest($this->f->a, $this->f->a1, 'accepted', '', 10);
     $this->getJson('/api/coach/member?id='.$this->f->a1->id, bearer($this->f->a))->assertOk()->assertJsonPath('phone', '');

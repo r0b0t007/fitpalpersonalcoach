@@ -30,7 +30,7 @@ function Answers({ r, children }) {
       <div>{i.equipment.map(equipmentLabel).join(', ')}</div></div>}
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
       {children}
-      {i.phone && <a className="btn plain" href={waLink(i.phone, t('Hello {0}, it’s {1}, about your request on FitPal', r.name, me?.name || ''))} target="_blank" rel="noopener noreferrer"><span>WhatsApp</span></a>}
+      {i.phone && <a className="btn plain" href={waLink(i.phone, me?.name ? t('Hello {0}, it’s {1}, about your request on FitPal', r.name, me.name) : '')} target="_blank" rel="noopener noreferrer"><span>WhatsApp</span></a>}
     </div>
   </div>
 }

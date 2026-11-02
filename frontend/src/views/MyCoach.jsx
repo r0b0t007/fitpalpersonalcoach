@@ -84,7 +84,7 @@ export default function MyCoach() {
       {/* Everything that is not about a check-in or a workout (CHW-341): WhatsApp, where they
           already talk. The number is the one on the coach's page; none there, no button. */}
       {user.coachWhatsapp && <a className="btn plain" style={{ marginTop: 12 }} target="_blank" rel="noopener noreferrer"
-        href={waLink(user.coachWhatsapp, t('Hello {0}, it’s {1} from FitPal', coachName, user.name))}>
+        href={waLink(user.coachWhatsapp, user.name ? t('Hello {0}, it’s {1} (via FitPal)', coachName, user.name) : '')}>
         <span>{t('Message {0} on WhatsApp', coachName)}</span></a>}
     </div>
 

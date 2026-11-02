@@ -55,7 +55,7 @@ describe('the client’s WhatsApp button', () => {
     await mount('/coach', '/coach', <MyCoach />)
     expect(wa().textContent).toBe('Message Yasmine on WhatsApp')
     expect(wa().href.startsWith('https://wa.me/212612345678?text=')).toBe(true)
-    expect(typed(wa())).toBe('Hello Yasmine, it’s Salma from FitPal')
+    expect(typed(wa())).toBe('Hello Yasmine, it’s Salma (via FitPal)')
   })
 
   it('is not there when the coach gave no number', async () => {

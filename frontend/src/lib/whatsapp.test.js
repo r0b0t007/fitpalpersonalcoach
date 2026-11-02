@@ -1,7 +1,21 @@
 import { describe, it, expect } from 'vitest'
 import { waDigits, waInput, waLink } from './whatsapp.js'
+import parity from './phone-parity.json'
 
 describe('waDigits', () => {
+  // The server's reading (backend Phone::digits runs the same cases, tests/Unit/PhoneParityTest.php):
+  // with no country to assume, the app reads every number as the server will store it.
+  it('reads a number with no country to assume as the server does', () => {
+    expect(parity.cases.length).toBeGreaterThan(0)
+    for (const c of parity.cases) expect(waDigits(c.raw, 'UTC'), JSON.stringify(c)).toBe(c.want)
+  })
+
+  it('never sends a Spanish number it cannot place for the server to keep as +61', () => {
+    expect(waDigits('612 34 56 78', 'UTC')).toBe(null)
+    expect(waInput('612 34 56 78', 'UTC')).toBe('612 34 56 78')   // left as typed: the server refuses it
+    expect(waDigits('612 34 56 78', 'Europe/Madrid')).toBe('34612345678')
+  })
+
   it('takes an international number however it is typed', () => {
     for (const raw of ['+212 6 12 34 56 78', '00212612345678', '+212-612-345-678', '+212 (6) 12.34.56.78'])
       expect(waDigits(raw, 'UTC')).toBe('212612345678')

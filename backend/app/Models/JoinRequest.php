@@ -94,13 +94,18 @@ class JoinRequest extends Model
     }
 
     /**
-     * The WhatsApp number a client gave this coach when they asked (CHW-341), for the client's
-     * page: '' when they gave none, or joined by an invite and never asked. Scoped, so the coach
-     * acting; the newest accepted request, as one follower can have asked twice.
+     * The WhatsApp number a client gave their coach when they asked (CHW-341), for the client's
+     * page: '' when they gave none, joined by an invite and never asked, or have no coach. Their
+     * own coach's request, named rather than left to the scope: that holds with no coach context
+     * too, and for an admin, who coaches everyone but holds none of these requests. The newest
+     * accepted one, as a follower can have asked twice.
      */
     public static function phoneOf(User $member): string
     {
-        $intake = self::query()->where('member_id', $member->id)->where('status', 'accepted')->orderByDesc('decided')->value('intake');
+        if ($member->coach_id === null) {
+            return '';
+        }
+        $intake = self::acrossCoaches()->where('coach_id', $member->coach_id)->where('member_id', $member->id)->where('status', 'accepted')->orderByDesc('decided')->value('intake'); // across coaches: the member's own coach, named, so no context (or an admin's) can widen or empty it
         $phone = is_string($intake) ? (json_decode($intake, false)->phone ?? '') : '';
 
         return is_string($phone) ? $phone : '';

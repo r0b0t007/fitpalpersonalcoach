@@ -12,25 +12,28 @@ import { localTZ } from './format.js'
 // The markets served (spec: Francophone + Spain): the code, and the national form a mobile or
 // landline takes there. Morocco, France and Belgium dial a leading 0 at home that the
 // international form drops; Spain has none, its nine digits start 6–9.
+const MA = { cc: '212', national: /^0([5-8]\d{8})$/ }
+const FR = { cc: '33', national: /^0([1-9]\d{8})$/ }
+const BE = { cc: '32', national: /^0([1-9]\d{7,8})$/ }
+const ES = { cc: '34', national: /^([6-9]\d{8})$/ }
 const COUNTRY = {
-  'Africa/Casablanca': { cc: '212', national: /^0([5-8]\d{8})$/ },
-  'Africa/El_Aaiun': { cc: '212', national: /^0([5-8]\d{8})$/ },
-  'Europe/Paris': { cc: '33', national: /^0([1-9]\d{8})$/ },
-  'Europe/Brussels': { cc: '32', national: /^0([1-9]\d{7,8})$/ },
-  'Europe/Madrid': { cc: '34', national: /^([6-9]\d{8})$/ },
-  'Africa/Ceuta': { cc: '34', national: /^([6-9]\d{8})$/ },
-  'Atlantic/Canary': { cc: '34', national: /^([6-9]\d{8})$/ },
+  'Africa/Casablanca': MA, 'Africa/El_Aaiun': MA, 'Europe/Paris': FR, 'Europe/Brussels': BE,
+  'Europe/Madrid': ES, 'Africa/Ceuta': ES, 'Atlantic/Canary': ES,
 }
 
 /**
  * The digits wa.me dials, from what someone typed: '' for blank, null for what is not a number
- * (or a national one from a place this cannot tell). Spaces, dashes, dots and brackets are
- * dropped, and a leading + or 00 — as the server does.
+ * (or a national one from a place this cannot tell). Read first as the server reads it
+ * (Phone::digits; phone-parity.json holds the cases both run): spaces, dashes, dots and brackets
+ * dropped, a leading + or 00 dropped, and without one only eleven digits or more, too long to be
+ * a national number. Then, where the server refuses, a national number of the device's country.
  */
 export function waDigits(raw, tz = localTZ()) {
   if (raw == null || String(raw).trim() === '') return ''
   const s = String(raw).replace(/[\s\-.()]/g, '')
-  if (/^(\+|00)[1-9]\d{7,14}$/.test(s)) return s.replace(/^(\+|00)/, '')
+  const intl = /^(?:\+|00)([1-9]\d{7,14})$/.exec(s)
+  if (intl) return intl[1]
+  if (/^[1-9]\d{10,14}$/.test(s)) return s
   const m = COUNTRY[tz]?.national.exec(s)
   return m ? COUNTRY[tz].cc + m[1] : null
 }
