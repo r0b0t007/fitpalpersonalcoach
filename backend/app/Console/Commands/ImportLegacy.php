@@ -322,6 +322,8 @@ final class ImportLegacy extends Command
                 'id' => $id, 'name' => $u['name'] ?? null, 'admin' => $isAdmin,
                 'coach' => ($u['coach'] ?? null) === true || $isAdmin,
                 'coachName' => $coach['name'] ?? null,
+                // Node had no coach pages (CHW-330), so no number for the WhatsApp button (CHW-341).
+                'coachWhatsapp' => '',
                 // Node asked no consent to share health data (CHW-360): an imported account has given none.
                 'healthConsentAt' => null,
             ];

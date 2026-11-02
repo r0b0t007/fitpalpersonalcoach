@@ -24,6 +24,7 @@ vi.mock('../../lib/api.js', async orig => ({
   },
 }))
 const { default: Requests, usePendingRequests } = await import('./Requests.jsx')
+const { useStore } = await import('../../store/useStore.js')
 
 let container, root
 const text = () => container.textContent
@@ -40,6 +41,7 @@ const click = async label => {
 beforeEach(() => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true
   calls.length = 0; LIST = [salma]; DECIDE = null
+  useStore.setState({ user: { id: 'c1', name: 'Yasmine', coach: true } })
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container)
 })
 afterEach(() => { act(() => root.unmount()); container.remove() })
@@ -53,7 +55,8 @@ describe('the requests inbox', () => {
     expect(text()).toContain('Genou droit')
     expect(text()).toContain('Beginner')
     expect(text()).toContain('At home')
-    expect(container.querySelector('a[href="https://wa.me/212612345678"]')).toBeTruthy()
+    const wa = container.querySelector('a[href^="https://wa.me/212612345678?text="]')
+    expect(decodeURIComponent(wa.href.split('text=')[1])).toBe('Hello Salma, it’s Yasmine, about your request on FitPal')
   })
 
   it('accepts, and shows the inbox the server sends back', async () => {

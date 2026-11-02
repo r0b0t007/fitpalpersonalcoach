@@ -1,0 +1,22 @@
+{
+  "_": "How a typed number is read with no country to assume (CHW-341): run by lib/whatsapp.test.js against waDigits(raw, 'UTC') and by backend tests/Unit/PhoneParityTest.php against Phone::digits, so the app never sends what the server would read another way. null: not a number.",
+  "cases": [
+    { "raw": "", "want": "" },
+    { "raw": "   ", "want": "" },
+    { "raw": "+212 6 12 34 56 78", "want": "212612345678" },
+    { "raw": "+212-612-345-678", "want": "212612345678" },
+    { "raw": "00212612345678", "want": "212612345678" },
+    { "raw": "00 34 612 345 678", "want": "34612345678" },
+    { "raw": "(+33) 6 12 34 56 78", "want": "33612345678" },
+    { "raw": "212612345678", "want": "212612345678" },
+    { "raw": "33612345678", "want": "33612345678" },
+    { "raw": "+3541234567", "want": "3541234567" },
+    { "raw": "612345678", "want": null },
+    { "raw": "3541234567", "want": null },
+    { "raw": "0612345678", "want": null },
+    { "raw": "+0612345678", "want": null },
+    { "raw": "12345", "want": null },
+    { "raw": "+212 6 12 34 abc", "want": null },
+    { "raw": "+212 6 12 34 56 78 90 12 34", "want": null }
+  ]
+}

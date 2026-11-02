@@ -4,6 +4,7 @@ namespace App\Coaching;
 
 use App\Models\Assignment;
 use App\Models\CoachNote;
+use App\Models\JoinRequest;
 use App\Models\ProgressPhoto;
 use App\Models\User;
 use App\Models\UserState;
@@ -207,6 +208,8 @@ final class MemberCard
             'healthShared' => HealthConsent::given($u),
             // This coach's replies and comments (CHW-340), shown under what each is about.
             'notes' => CoachNote::listedFor($u),
+            // What they gave with their request, for the coach's WhatsApp button (CHW-341).
+            'phone' => JoinRequest::phoneOf($u),
             'measurements' => Js::or($s->measurements ?? null, []),
             // Authored by the client and read-only here: the server never writes their state.
             'checkins' => Js::or($s->checkins ?? null, []),

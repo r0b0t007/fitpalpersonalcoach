@@ -13,6 +13,8 @@ import { AdherenceCard, CheckinsCard, PhotosCard, memberAdherence, memberState }
 import { SendSheet } from './sheets.jsx'
 import NoteThread from './NoteThread.jsx'
 import { confirmSheet } from '../../sheets.jsx'
+import { useStore } from '../../store/useStore.js'
+import { waLink } from '../../lib/whatsapp.js'
 
 // One client, as a page rather than the sheet it used to be: Today's attention rows deep-link
 // here, the browser's back button has to mean something, and a coach reads this screen for
@@ -56,6 +58,7 @@ export default function ClientDetail() {
   const nav = useNavigate()
   const toast = useUI(s => s.toast)
   const openSheet = useUI(s => s.openSheet)
+  const me = useStore(s => s.user)
   // The library lives on the server now (lib/programs.js). Reading S.programs here is what made
   // "Send a program" fall through to the coach's current plan without ever offering the picker.
   const [programs, setPrograms] = useState([])
@@ -134,6 +137,11 @@ export default function ClientDetail() {
           <button className="btn" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => withdraw(a)}>{t('Withdraw')}</button>
         </div>)}
       </div>}
+      {/* The number they gave when they asked to join (CHW-341); none for a client who came by
+          invite, or gave none. */}
+      {d.phone && <a className="btn plain" style={{ marginBottom: 12 }} target="_blank" rel="noopener noreferrer"
+        href={waLink(d.phone, me?.name ? t('Hello {0}, it’s {1}, your coach', d.user.name, me.name) : '')}>
+        <span>{t('Message {0} on WhatsApp', d.user.name)}</span></a>}
       {/* Withheld, not missing (CHW-360): `false` only, as an API from before the field sends nothing. */}
       {d.healthShared === false && <div style={{ marginBottom: 12 }}>
         <Notice icon="lock" title={t('Health data not shared yet')} body={t('Check-ins, weight and photos show once they agree in the app')} />

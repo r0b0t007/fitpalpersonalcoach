@@ -4,6 +4,7 @@ import { api } from '../../lib/api.js'
 import { fetchPrograms } from '../../lib/programs.js'
 import { BIO_MAX, normaliseHandle, validHandle } from '../../lib/coach-page.js'
 import { t } from '../../lib/i18n.js'
+import { waInput } from '../../lib/whatsapp.js'
 import { Button, Notice, Row, Section, Segmented, SelectRow, Switch, TextArea, TextField } from '../../components/ui.jsx'
 
 /**
@@ -40,7 +41,7 @@ export default function PublicPage() {
     if (!validHandle(handle)) { setError(t('Handles are 3–30 letters, numbers, dots or underscores')); return }
     setBusy(true)
     try {
-      took(await api('/api/coach/page/save', { method: 'POST', body: JSON.stringify({ ...form, handle }) }))
+      took(await api('/api/coach/page/save', { method: 'POST', body: JSON.stringify({ ...form, handle, whatsapp: waInput(form.whatsapp) }) }))
       setError(null)
     } catch (e) { setError(e.message) }
     setBusy(false)
@@ -79,7 +80,7 @@ export default function PublicPage() {
     <Section title="WhatsApp" footer={t('With the country code, e.g. +212 6… Leave empty to hide the button.')}>
       <div style={{ padding: '10px 16px' }}>
         <TextField name="whatsapp" type="tel" placeholder="+212 6 12 34 56 78" value={form.whatsapp}
-          onChange={e => set('whatsapp', e.target.value)} />
+          onChange={e => set('whatsapp', e.target.value)} onBlur={e => set('whatsapp', waInput(e.target.value))} />
       </div>
     </Section>
 

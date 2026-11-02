@@ -77,7 +77,7 @@ describe('Account › My page', () => {
     await type('input[name="whatsapp"]', '+212 612 345 678')
     await click('Light')
     await click('Save')
-    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toEqual({ handle: 'sara.fit', bio: 'Force.', whatsapp: '+212 612 345 678', open: true, theme: 'light', starterProgramId: null, autoAccept: false })
+    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toEqual({ handle: 'sara.fit', bio: 'Force.', whatsapp: '+212612345678', open: true, theme: 'light', starterProgramId: null, autoAccept: false })
     expect(text()).toContain('https://coach.example/c/sara.fit')
   })
 

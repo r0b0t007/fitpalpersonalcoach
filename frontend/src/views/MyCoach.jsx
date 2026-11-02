@@ -9,6 +9,7 @@ import { isCheckinDue, checkinDayOf, scoreOf, QUESTIONS } from '../lib/checkins.
 import { targetOf } from '../lib/nutrition.js'
 import { photosByPeriod, photoSrc, PHOTOS_REACHABLE } from '../lib/photo.js'
 import { pendingInvite, clearInvite } from '../lib/invite.js'
+import { waLink } from '../lib/whatsapp.js'
 import Icon from '../components/Icon.jsx'
 import { Button, Section, Row } from '../components/ui.jsx'
 import { TargetRows } from '../components/MacroRows.jsx'
@@ -80,6 +81,11 @@ export default function MyCoach() {
           <div className="ss">{t('Can see your training and send you programs.')}</div>
         </div>
       </div>
+      {/* Everything that is not about a check-in or a workout (CHW-341): WhatsApp, where they
+          already talk. The number is the one on the coach's page; none there, no button. */}
+      {user.coachWhatsapp && <a className="btn plain" style={{ marginTop: 12 }} target="_blank" rel="noopener noreferrer"
+        href={waLink(user.coachWhatsapp, user.name ? t('Hello {0}, it’s {1} (via FitPal)', coachName, user.name) : '')}>
+        <span>{t('Message {0} on WhatsApp', coachName)}</span></a>}
     </div>
 
     {/* Every pending offer, not just the first. A coach can send two — a training block and a

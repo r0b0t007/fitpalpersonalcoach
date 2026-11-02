@@ -3,6 +3,8 @@ import { api } from '../../lib/api.js'
 import { t, tp } from '../../lib/i18n.js'
 import { equipmentLabel, goalLabel, levelLabel } from '../../lib/join.js'
 import { useUI } from '../../store/useUI.js'
+import { useStore } from '../../store/useStore.js'
+import { waLink } from '../../lib/whatsapp.js'
 import { Button, Notice } from '../../components/ui.jsx'
 import { rel } from './parts.jsx'
 
@@ -20,6 +22,7 @@ export function usePendingRequests() {
 /** What the follower answered when they asked, and a WhatsApp link when they gave a number. */
 function Answers({ r, children }) {
   const i = r.intake || {}
+  const me = useStore(s => s.user)
   return <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
     <div className="small muted">{r.email}</div>
     {i.injuries && <div><div className="dim small">{t('Injuries or pain to know about')}</div><div>{i.injuries}</div></div>}
@@ -27,7 +30,7 @@ function Answers({ r, children }) {
       <div>{i.equipment.map(equipmentLabel).join(', ')}</div></div>}
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
       {children}
-      {i.phone && <a className="btn plain" href={'https://wa.me/' + i.phone} target="_blank" rel="noopener noreferrer"><span>WhatsApp</span></a>}
+      {i.phone && <a className="btn plain" href={waLink(i.phone, me?.name ? t('Hello {0}, it’s {1}, about your request on FitPal', r.name, me.name) : '')} target="_blank" rel="noopener noreferrer"><span>WhatsApp</span></a>}
     </div>
   </div>
 }
