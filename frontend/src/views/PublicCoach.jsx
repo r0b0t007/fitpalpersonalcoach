@@ -7,6 +7,7 @@ import { Notice } from '../components/ui.jsx'
 import OpenInBrowser from '../components/OpenInBrowser.jsx'
 import { savedRequest } from '../lib/join.js'
 import { waLink } from '../lib/whatsapp.js'
+import { PHOTOS_REACHABLE } from '../lib/photo.js'
 
 /**
  * Wears a coach's chosen theme (CHW-323) while the screen is open, handed to App through useUI,
@@ -51,22 +52,25 @@ export default function PublicCoach({ handle }) {
 
   // The coach's face first (CHW-356), as the theme they picked draws it (designs 01.2, 01.3):
   // Sombre, the photo full-bleed across the top and the name over its fade; Clair, a round
-  // portrait beside the name. No photo, the name alone, centred as before.
-  const hero = coach.photo && coach.theme !== 'light'
+  // portrait beside the name. No photo, the name alone, centred as before — as on the paired phone
+  // app, whose <img> cannot reach the server (lib/photo.js PHOTOS_REACHABLE). Decorative beside the
+  // name, so alt="": a screen reader says the name once.
+  const photo = PHOTOS_REACHABLE ? coach.photo : null
+  const hero = photo && coach.theme !== 'light'
   const inBrowser = !savedRequest(handle) && <OpenInBrowser path={'/c/' + encodeURIComponent(handle)} style={{ marginBottom: 18 }} />
-  return <div className={'narrow' + (coach.photo ? '' : ' gate')} style={{ textAlign: 'left' }}>
+  return <div className={'narrow' + (photo ? '' : ' gate')} style={{ textAlign: 'left' }}>
     {hero && <div className="coach-hero">
-      <img src={coach.photo} alt={coach.name} />
+      <img src={photo} alt="" />
       <h1>{coach.name}</h1>
     </div>}
     {/* Not once this browser has sent this coach a request: it is followed from this browser's
         storage, which Safari or Chrome would not have (as on the join form). */}
     {inBrowser}
-    {!hero && coach.photo && <div style={{ display: 'flex', gap: 14, alignItems: 'center', margin: '24px 0 10px' }}>
-      <img className="coach-portrait" src={coach.photo} alt={coach.name} />
+    {!hero && photo && <div style={{ display: 'flex', gap: 14, alignItems: 'center', margin: '24px 0 10px' }}>
+      <img className="coach-portrait" src={photo} alt="" />
       <h1 style={{ margin: 0, minWidth: 0 }}>{coach.name}</h1>
     </div>}
-    {!coach.photo && <h1 style={{ marginBottom: 6 }}>{coach.name}</h1>}
+    {!photo && <h1 style={{ marginBottom: 6 }}>{coach.name}</h1>}
     {coach.bio && <p className="muted" style={{ fontSize: 17, lineHeight: 1.4, marginTop: 0 }}>{coach.bio}</p>}
     {coach.whatsapp && <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
       <a className="btn primary" href={waLink(coach.whatsapp, t('Hello {0}, I found your page on FitPal', coach.name))} target="_blank" rel="noopener noreferrer">

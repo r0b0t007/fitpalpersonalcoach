@@ -32,9 +32,6 @@ use Throwable;
  */
 final class CoachPhotoController
 {
-    /** A face for a page: the app sends about 200 KB. */
-    private const MAX_BYTES = 4 * 1048576;
-
     /** On each side, in pixels: under it, a portrait blurs; over it, it is not a photo from the app. */
     private const MIN_EDGE = 200;
 
@@ -51,7 +48,9 @@ final class CoachPhotoController
             return Json::error(409, 'save your page first', [], Json::CLOSE);
         }
         $dir = Paths::coachDir($coach->id, create: true);
-        $up = Upload::stream($request, $dir, min(self::MAX_BYTES, Upload::maxPhoto()), 'photo');
+        // Streamed as every upload is, for its refusals (the cap, the sniff, a body cut off), then
+        // read whole: a page photo is at most Upload::maxPagePhoto(), and is rewritten in memory.
+        $up = Upload::stream($request, $dir, Upload::maxPagePhoto(), 'photo');
         $raw = @file_get_contents($up['tmp']);
         @unlink($up['tmp']);
         $clean = $up['meta']['ext'] === 'jpg' && is_string($raw) ? Jpeg::clean($raw) : null;
@@ -105,7 +104,8 @@ final class CoachPhotoController
     {
         $coach = $request->user('api');
         $old = null;
-        $page = DB::transaction(function () use (&$old): ?CoachPage {
+        $page = DB::transaction(function () use ($coach, &$old): ?CoachPage {
+            CoachLock::take($coach->id);   // the coach's row first, as every page write takes them
             $page = CoachPage::query()->lockForUpdate()->first();
             if ($page === null || $page->photo === null) {
                 return $page;

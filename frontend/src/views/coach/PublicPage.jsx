@@ -47,11 +47,16 @@ export default function PublicPage() {
     if (!file) return
     setPhotoBusy(true); setError(null)
     try {
-      const r = await uploadCoachPhoto(await prepareSquarePhoto(file))
+      let square
+      try { square = await prepareSquarePhoto(file) } catch (e2) {
+        // The phone's own refusals, in English in lib/photo.js: said here in the coach's language.
+        setError(e2.code === 'small' ? t('Pick a larger photo — at least 200 pixels on each side.') : t('That image could not be read — try another photo.'))
+        return
+      }
+      const r = await uploadCoachPhoto(square)
       setPhoto(r.page?.photo || null)
       toast(t('Photo added'))
-    } catch (e2) { setError(e2.message) }
-    setPhotoBusy(false)
+    } catch (e2) { setError(e2.message) } finally { setPhotoBusy(false) }
   }
   const removePhoto = async () => {
     setPhotoBusy(true); setError(null)

@@ -9,15 +9,22 @@ namespace App\Media;
  * whatever posted it, without an image library: the file is walked segment by segment, and kept
  * are only those a decoder needs.
  *
- * Dropped: APP1–APP15 (EXIF with its GPS, XMP, ICC, maker notes, Photoshop's IPTC) and comments,
- * and everything after the end-of-image marker — where phones append a motion photo's video.
- * Kept: APP0 (JFIF), the tables, the frame and every scan, byte for byte, so the picture decodes
- * as it did. Its size comes from the frame header.
+ * Kept, by a list of what a decoder needs rather than of what to drop: the frame, the tables
+ * (quantisation, Huffman, arithmetic, restart interval) and every scan, byte for byte; JFIF's
+ * header without its thumbnail (a small copy of the uncropped photo); and Adobe's 12 bytes, whose
+ * colour-transform flag an RGB or CMYK file decodes by. Everything else goes: EXIF with its GPS,
+ * XMP, maker notes, IPTC, comments, a JFXX thumbnail, any segment a decoder skips — and whatever
+ * follows the end-of-image marker, where phones append a motion photo's video. The ICC profile
+ * goes too: a Display P3 photo comes out a little flatter, as one drawn on the app's canvas does.
+ * Its size comes from the frame header.
  */
 final class Jpeg
 {
     /** Start-of-frame markers, the ones that carry the size: not DHT (C4), JPG (C8) or DAC (CC). */
     private const SOF = [0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF];
+
+    /** The tables and the scan header, kept as they are: DHT, DAC, DQT, DRI, SOS. */
+    private const TABLES = [0xC4, 0xCC, 0xDB, 0xDD, 0xDA];
 
     /**
      * The picture without the rest, and its size; null for what is not a whole JPEG.
@@ -67,9 +74,9 @@ final class Jpeg
                 $h = unpack('n', substr($in, $i + 5, 2))[1];
                 $w = unpack('n', substr($in, $i + 7, 2))[1];
             }
-            $drop = ($m >= 0xE1 && $m <= 0xEF) || $m === 0xFE;
-            if (! $drop) {
-                $out .= substr($in, $i, 2 + $len);
+            $kept = self::kept($m, substr($in, $i + 4, $len - 2));
+            if ($kept !== null) {
+                $out .= "\xFF".chr($m).pack('n', strlen($kept) + 2).$kept;
             }
             $i += 2 + $len;
             if ($m !== 0xDA) {
@@ -94,6 +101,24 @@ final class Jpeg
             }
             $out .= substr($in, $i, $p - $i);
             $i = $p;
+        }
+
+        return null;
+    }
+
+    /** What of one segment stays: its data, as much of it as a decoder needs, or null for none. */
+    private static function kept(int $marker, string $data): ?string
+    {
+        if (in_array($marker, self::SOF, true) || in_array($marker, self::TABLES, true)) {
+            return $data;
+        }
+        // JFIF: identifier, version, units, two densities — and a thumbnail of size 0 by 0.
+        if ($marker === 0xE0 && strlen($data) >= 14 && str_starts_with($data, "JFIF\0")) {
+            return substr($data, 0, 12)."\0\0";
+        }
+        // Adobe: identifier, version, two flag words, the colour transform. Nothing more.
+        if ($marker === 0xEE && strlen($data) >= 12 && str_starts_with($data, 'Adobe')) {
+            return substr($data, 0, 12);
         }
 
         return null;

@@ -96,7 +96,8 @@ describe('a coach’s public page with their photo (CHW-356)', () => {
     ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'light', photo: '/api/public/coach/photo?h=yasmine.fit&v=abc' } }
     await render(<PublicCoach handle="yasmine.fit" />)
     expect(container.querySelector('.coach-hero')).toBe(null)
-    expect(container.querySelector('img.coach-portrait').getAttribute('alt')).toBe('Yasmine')
+    expect(container.querySelector('img.coach-portrait').getAttribute('alt')).toBe('')   // the name is the heading beside it
+    expect(container.querySelector('h1').textContent).toBe('Yasmine')
   })
 
   it('shows the name alone without one', async () => {

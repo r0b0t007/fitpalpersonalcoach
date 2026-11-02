@@ -1691,6 +1691,8 @@ export default {
   'Not this time': 'Diesmal nicht',
   '{0} cannot take you on right now.': '{0} kann dich gerade nicht aufnehmen.',
   'Message on WhatsApp': 'Auf WhatsApp schreiben',
+  'Pick a larger photo — at least 200 pixels on each side.': 'Wähl ein größeres Foto — mindestens 200 Pixel pro Seite.',
+  'That image could not be read — try another photo.': 'Dieses Bild ließ sich nicht lesen — versuch ein anderes Foto.',
   'save your page first': 'speichere zuerst deine Seite',
   'that photo could not be used — try another': 'dieses Foto lässt sich nicht verwenden — versuch ein anderes',
   'Added a photo to their public page': 'Hat ein Foto zur öffentlichen Seite hinzugefügt',

@@ -5,8 +5,10 @@
 
 use App\Media\Jpeg;
 use App\Media\Paths;
+use App\Media\Upload;
 use App\Models\CoachPage;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Http\Request;
 use Tests\Support\Billing;
 use Tests\Support\Coaching;
 use Tests\Support\MediaFixtures;
@@ -132,4 +134,28 @@ it("never shows one coach another's photo", function () {
     $this->get('/api/coach/page/photo', bearer($this->f->b))->assertNotFound();
     $this->postJson('/api/coach/page/photo/remove', [], bearer($this->f->b))->assertNotFound();
     expect(photoFiles($this->f->a))->toHaveCount(1);
+});
+
+it('keeps of the other segments only what a decoder needs: no thumbnail, no extension, no stranger', function () {
+    $seg = fn (int $m, string $d) => MediaFixtures::seg($m, $d);
+    $frame = $seg(0xC0, "\x08".pack('n', 300).pack('n', 400)."\x01\x01\x11\x00").$seg(0xDA, "\x01\x01\x00\x00\x3F\x00")."\x12\xFF\xD9";
+    $thumb = str_repeat("\xAB", 2 * 2 * 3);   // a 2×2 RGB thumbnail of the uncropped photo
+    $in = "\xFF\xD8"
+        .$seg(0xE0, "JFIF\0\x01\x02\x01\x00\x48\x00\x48\x02\x02".$thumb)
+        .$seg(0xE0, "JFXX\0\x13".str_repeat("\xCD", 32))
+        .$seg(0xEE, "Adobe\x00\x64\x00\x00\x00\x00\x01".'hidden after the flags')
+        .$seg(0xF0, 'an extension a decoder skips')
+        .$frame;
+    $out = Jpeg::clean($in)['bytes'];
+    expect($out)->toBe("\xFF\xD8"
+        .$seg(0xE0, "JFIF\0\x01\x02\x01\x00\x48\x00\x48\x00\x00")
+        .$seg(0xEE, "Adobe\x00\x64\x00\x00\x00\x00\x01")
+        .$frame);
+});
+
+it('tells a body over post_max_size the page photo cap, in its words', function () {
+    config(['fitpal.media_max_photo_mb' => 12]);
+    $res = Upload::tooLargeFor(Request::create('/api/coach/page/photo', 'POST'));
+    expect($res->getStatusCode())->toBe(413)
+        ->and($res->getData(true))->toBe(['error' => 'file is larger than the 4 MB limit', 'msg' => ['k' => 'file is larger than the {0} MB limit', 'v' => [4]]]);
 });

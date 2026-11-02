@@ -23,7 +23,11 @@ vi.mock('../../lib/api.js', async orig => ({
 }))
 let UPLOAD = null
 // No canvas here: the square is lib/photo.js's, tested there; this is what the editor does with it.
-vi.mock('../../lib/photo.js', async orig => ({ ...(await orig()), prepareSquarePhoto: async file => 'square:' + file.name }))
+vi.mock('../../lib/photo.js', async orig => ({ ...(await orig()), prepareSquarePhoto: async file => {
+  if (file.name === 'small.jpg') throw Object.assign(new Error('That photo is too small.'), { code: 'small' })
+  if (file.name === 'broken.heic') throw new Error('That image could not be read.')
+  return 'square:' + file.name
+} }))
 const { default: PublicPage } = await import('./PublicPage.jsx')
 
 // Where 'See my page' went.
@@ -155,6 +159,16 @@ describe('Account › My page › Photo (CHW-356)', () => {
     await click('Remove photo')
     expect(container.querySelector('img')).toBe(null)
     expect(text()).toContain('Add a photo')
+  })
+
+  it('says in the coach’s words what the phone could not use, and sends nothing', async () => {
+    PAGE = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', photo: null }, url: 'https://coach.example/c/sara.fit' }
+    await render()
+    await pick('small.jpg')
+    expect(text()).toContain('Pick a larger photo — at least 200 pixels on each side.')
+    await pick('broken.heic')
+    expect(text()).toContain('That image could not be read — try another photo.')
+    expect(calls.some(([p]) => p === 'upload')).toBe(false)
   })
 
   it('says what the server refused', async () => {

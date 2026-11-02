@@ -150,6 +150,8 @@ export async function preparePhoto(file, max = PHOTO_MAX_EDGE) {
 /** The edge a coach's page photo is drawn at (CHW-356): sharp on a phone's full width, and the
  *  size a link preview asks for. */
 export const PAGE_PHOTO_EDGE = 1080
+/** The smallest square the server keeps (CoachPhotoController::MIN_EDGE): under it, a face blurs. */
+export const PAGE_PHOTO_MIN = 200
 
 /**
  * The square cut from a w×h photo for a coach's page (CHW-356), and the edge it is drawn at —
@@ -174,6 +176,8 @@ export async function prepareSquarePhoto(file, edge = PAGE_PHOTO_EDGE) {
   const img = await decode(file)
   const c = squareCrop(img.naturalWidth || img.width, img.naturalHeight || img.height, edge)
   if (!c) throw new Error('That image could not be read.')
+  // Said here, before the upload, rather than by the server's catch-all refusal.
+  if (c.side < PAGE_PHOTO_MIN) throw Object.assign(new Error('That photo is too small.'), { code: 'small' })
   const canvas = document.createElement('canvas')
   canvas.width = c.out
   canvas.height = c.out
