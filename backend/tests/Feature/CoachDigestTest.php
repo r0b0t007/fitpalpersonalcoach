@@ -84,6 +84,15 @@ it('keeps the newest check-in date beside the state, whoever saves it', function
 
 // ---------------------------------------------------------------- the morning digest
 
+/**
+ * The UTC instant of a wall-clock time in the default zone, from PHP's own zone data: Morocco's
+ * offset is a decree, not a rule, and the zone files on different machines have disagreed on it.
+ */
+function casablanca(string $local): string
+{
+    return (new DateTimeImmutable($local, new DateTimeZone(CoachDigest::ZONE)))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+}
+
 /** Coach A's morning: one request waiting, a1 on a Mon/Wed/Fri plan who trained Monday only and never checked in. */
 function digestMorning(object $f): void
 {
@@ -98,11 +107,11 @@ function digestMorning(object $f): void
 
 it('sends the coach one digest at 07:00 on their own clock, and nothing before', function () {
     digestMorning($this->f);
-    // 2026-11-05 is a Thursday; Casablanca is UTC+1 in November, so 06:00 UTC is 07:00 there.
-    $this->travelTo('2026-11-05T05:00:00Z');
+    // 2026-11-05 is a Thursday.
+    $this->travelTo(casablanca('2026-11-05 06:59'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertNothingSent();
-    $this->travelTo('2026-11-05T06:00:00Z');
+    $this->travelTo(casablanca('2026-11-05 07:00'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     // Missed: Friday and Wednesday (Monday was trained, Thursday is today). Overdue: none filed.
     $counts = ['requests' => 1, 'checkins' => 1, 'missed' => 2];
@@ -113,17 +122,17 @@ it('sends the coach one digest at 07:00 on their own clock, and nothing before',
         && str_contains($m->render(), 'https://coach.example/#/today'));
     expect(User::query()->find($this->f->a->id)->last_digest)->toBe('2026-11-05');
     // The rest of the morning sends nothing more; the next morning sends again.
-    $this->travelTo('2026-11-05T09:00:00Z');
+    $this->travelTo(casablanca('2026-11-05 10:00'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertSent(AccountMail::class, 1);
-    $this->travelTo('2026-11-06T06:00:00Z');
+    $this->travelTo(casablanca('2026-11-06 07:00'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertSent(AccountMail::class, 2);
 });
 
 it('sends nothing on a quiet morning, and leaves out what is not the coach\'s to see', function () {
     digestMorning($this->f);
-    $this->travelTo('2026-11-05T06:00:00Z');
+    $this->travelTo(casablanca('2026-11-05 07:00'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     // Coach B's only client has no program: nothing to report, nothing sent, the day still handled.
     Mail::assertNotSent(AccountMail::class, fn (AccountMail $m) => $m->hasTo('coach-b@example.com'));
@@ -131,7 +140,7 @@ it('sends nothing on a quiet morning, and leaves out what is not the coach\'s to
     // A client who withdrew consent: their check-in is not counted, their missed sessions still are.
     User::query()->whereKey($this->f->a1->id)->update(['health_consent_at' => null]);
     JoinRequest::acrossCoaches()->whereKey('jr1')->delete(); // across coaches: the test's own row
-    $this->travelTo('2026-11-06T06:00:00Z');
+    $this->travelTo(casablanca('2026-11-06 07:00'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->hasTo('coach-a@example.com') && $m->words['lines'] === ['Sessions missed in the last 7 days: 2']);
 });
@@ -139,26 +148,27 @@ it('sends nothing on a quiet morning, and leaves out what is not the coach\'s to
 it('follows the zone the coach\'s app recorded', function () {
     digestMorning($this->f);
     UserState::query()->updateOrCreate(['user_id' => $this->f->a->id], ['state' => json_encode(['reminder' => ['on' => false, 'time' => '08:00', 'tz' => 'America/New_York']])]);
-    // 06:00 UTC is 01:00 in New York (EST from 1 November).
+    // 06:00 UTC is 01:00 in New York (EST from 1 November); 12:00 UTC is 07:00 there.
     $this->travelTo('2026-11-05T06:00:00Z');
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertNotSent(AccountMail::class, fn (AccountMail $m) => $m->hasTo('coach-a@example.com'));
     $this->travelTo('2026-11-05T12:00:00Z');
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertSent(AccountMail::class, fn (AccountMail $m) => $m->hasTo('coach-a@example.com'));
-    expect(CoachDigest::morningOf('{"tz":"Not/AZone"}', new DateTimeImmutable('2026-11-05T06:00:00Z')))->toBe('2026-11-05')
-        ->and(CoachDigest::morningOf(null, new DateTimeImmutable('2026-11-05T11:00:00Z')))->toBeNull();   // noon in Casablanca
+    expect(CoachDigest::morningOf('{"tz":"Not/AZone"}', new DateTimeImmutable(casablanca('2026-11-05 07:00'))))->toBe('2026-11-05')
+        ->and(CoachDigest::morningOf(null, new DateTimeImmutable(casablanca('2026-11-05 11:59'))))->toBe('2026-11-05')
+        ->and(CoachDigest::morningOf(null, new DateTimeImmutable(casablanca('2026-11-05 12:00'))))->toBeNull();
 });
 
 it('mails only an address the coach proved, and a disabled coach nothing', function () {
     digestMorning($this->f);
     $this->f->a->forceFill(['email_verified_at' => null])->save();
-    $this->travelTo('2026-11-05T06:00:00Z');
+    $this->travelTo(casablanca('2026-11-05 07:00'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertNothingSent();
     expect(digestPushes())->toHaveCount(1);   // the push still goes
     $this->f->a->forceFill(['disabled' => true, 'email_verified_at' => now()])->save();
-    $this->travelTo('2026-11-06T06:00:00Z');
+    $this->travelTo(casablanca('2026-11-06 07:00'));
     $this->artisan('fitpal:coach-digest')->assertSuccessful();
     Mail::assertNothingSent();
 });
