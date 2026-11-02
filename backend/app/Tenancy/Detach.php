@@ -3,6 +3,7 @@
 namespace App\Tenancy;
 
 use App\Models\Assignment;
+use App\Models\CoachNote;
 use App\Models\CoachPage;
 use App\Models\Invite;
 use App\Models\JoinRequest;
@@ -43,5 +44,7 @@ final class Detach
         // And what followers told them when they asked to join, injuries included (CHW-334): health
         // data kept for a coach who no longer coaches here is kept for nobody.
         JoinRequest::forgetCoach($coach->id);
+        // Their notes to clients (CHW-340), whose link to them has just ended.
+        CoachNote::forgetCoach($coach->id);
     }
 }

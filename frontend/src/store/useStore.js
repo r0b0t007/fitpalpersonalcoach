@@ -191,6 +191,15 @@ export const useStore = create((set, get) => {
   // (e.g. setting the reminder time then immediately backgrounding to test it). On mobile the
   // same applies to the file mirror — backgrounding is often the last thing before the OS
   // kills the app.
+  // Back to the app (a tapped push only focuses the window it finds, sw.js): their coach's notes
+  // are fetched again, at most once a minute. The mobile build's resync already pulls them.
+  let notesAt = 0
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || MOBILE || !get().user?.coachName || Date.now() - notesAt < 60_000) return
+    notesAt = Date.now()
+    get().loadNotes()
+  })
+
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'hidden') return
     if (MOBILE && saveTm) {
@@ -258,6 +267,20 @@ export const useStore = create((set, get) => {
       get().update(emptyHealth)
       await get().pushState()
       return c
+    },
+
+    // A coach's replies and comments (CHW-340): server-owned, read here, never written into S.
+    notes: [],
+    async loadNotes() {
+      if (!get().user?.coachName) return set({ notes: [] })
+      try { set({ notes: (await api('/api/notes')).notes || [] }) }
+      catch { /* offline, or an older server: no notes is the safe answer */ }
+    },
+    // The ones their coach's screen showed them, read; one it did not show stays unread.
+    async readNotes(ids) {
+      if (!ids?.length) return
+      try { set({ notes: (await api('/api/notes/read', { method: 'POST', body: JSON.stringify({ ids }) })).notes || [] }) }
+      catch { /* they stay unread, and are marked the next time */ }
     },
 
     async loadAssignments() {
@@ -364,7 +387,7 @@ export const useStore = create((set, get) => {
       else localStorage.removeItem('gym_user')
       // Offers belong to whoever is signed in; leaving them behind would show one profile's
       // pending program to the next person on a shared device. The plan likewise.
-      set({ user: u, healthConsent: null, ...(u ? null : { assignments: [], billing: null }) })
+      set({ user: u, healthConsent: null, ...(u ? null : { assignments: [], billing: null, notes: [] }) })
     },
 
     async pushState() {
@@ -399,8 +422,9 @@ export const useStore = create((set, get) => {
           persist(restored, false)
         } else if (hasData(S)) { await get().pushState() }
         // Offers refresh on every sync, not just at boot — otherwise a member sitting in the app
-        // wouldn't see a program arrive until they reloaded.
+        // wouldn't see a program arrive until they reloaded. Their coach's notes likewise.
         get().loadAssignments()
+        get().loadNotes()
       } catch (e) { /* offline — keep local */ }
     },
 

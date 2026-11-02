@@ -7,6 +7,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ChunkUploadController;
+use App\Http\Controllers\CoachNoteController;
 use App\Http\Controllers\CoachPageController;
 use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRequestController;
@@ -136,6 +137,9 @@ $routes = static function (): void {
         Route::get('/assignments', [AssignmentController::class, 'inbox']);
         Route::get('/assignments/history', [AssignmentController::class, 'history']);
         Route::post('/assignments/decide', [AssignmentController::class, 'decide']);
+        // A coach's replies and comments, as the client reads them (CHW-340).
+        Route::get('/notes', [CoachNoteController::class, 'index']);
+        Route::post('/notes/read', [CoachNoteController::class, 'read']);
 
         // Coach routes act as the coach (CoachContext): every tenant-owned model is scoped to them.
         // RequireWriter marks the writes a lapsed licence stops (spec §6); the rest stay open.
@@ -155,6 +159,7 @@ $routes = static function (): void {
             // The coach's public page (CHW-330): the link in their Instagram bio.
             Route::get('/coach/page', [CoachPageController::class, 'show']);
             Route::post('/coach/page/save', [CoachPageController::class, 'save'])->middleware(RequireWriter::class);
+            Route::post('/coach/notes', [CoachNoteController::class, 'create'])->middleware(RequireWriter::class);
             // The followers who asked to join from that page (CHW-337).
             Route::get('/coach/requests', [CoachRequestController::class, 'index']);
             Route::get('/coach/requests/count', [CoachRequestController::class, 'count']);
