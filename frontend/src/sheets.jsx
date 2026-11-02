@@ -26,7 +26,7 @@ import MuscleExplorer from './components/MuscleExplorer.jsx'
 import { exerciseMuscleSnapshot, loadOfWorkouts, MUSCLES, MUSCLE_NAME, normalizeMuscleGroups, hasExplicitMuscleMetadata } from './lib/muscles.js'
 import { parseImport, mergeImport } from './lib/import-csv.js'
 import { importHevyData, HevyApiError, HEVY_DEV_SETTINGS, mergeHevyRoutines } from './lib/import-hevy.js'
-import { buildPlanBundle, parsePlan, mergePlan, printPlan, schemeOf } from './lib/plan-share.js'
+import { buildPlanBundle, parsePlan, mergePlan, printPlan, schemeOf, WEEK_DAYS } from './lib/plan-share.js'
 import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { exerciseHistory } from './lib/exercise-history.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC, MAX_BW_SETS, weightIncrement } from './lib/progression.js'
@@ -36,7 +36,7 @@ import { BRAND, FILE_PREFIX } from './lib/brand.js'
 import { buildCompletedWorkout } from './lib/finish-workout.js'
 import { api, fetchMyPhotos, uploadProgressPhoto } from './lib/api.js'
 import { mustAsk } from './lib/health-consent.js'
-import { can } from './lib/features.js'
+import { can, isCoached } from './lib/features.js'
 import { notesOn } from './lib/notes.js'
 
 // Every sheet that changes the plan asks this itself (CHW-333), so a button anywhere that opens
@@ -1789,9 +1789,9 @@ export const planImportSheet = bundle => ui().openSheet(close => <PlanImport bun
 // Same sheet serves a plan file from a friend and a program pushed by a coach — the decision is
 // identical ("do you want these routines?"), so the only difference is who it came from and that
 // a coach's offer can be declined rather than merely cancelled.
-export const coachPlanSheet = ({ bundle, from, note, schedule, onAccept, onDecline }) =>
+export const coachPlanSheet = ({ bundle, from, note, schedule, scheduleLocked, onAccept, onDecline }) =>
   ui().openSheet(close => <PlanImport bundle={bundle} from={from} note={note}
-    defaultSchedule={schedule} onAccept={onAccept} onDecline={onDecline} close={close} />)
+    defaultSchedule={schedule} scheduleLocked={scheduleLocked} onAccept={onAccept} onDecline={onDecline} close={close} />)
 
 // Opening a coach's offer, from wherever the member happens to meet it - the Home card or the
 // You hub. Shared rather than copied because of the catch below: the server validates a bundle's
@@ -1812,17 +1812,26 @@ export function openCoachOffer(offer) {
       confirmText: t('Decline'), danger: true, onConfirm: () => decide(false)
     })
   }
+  // A coached client cannot set their week themselves (CHW-333), so whether a program sets it is
+  // their coach's choice (the send sheet), and the sheet offers no switch. One whose week is still
+  // empty takes the program's days whatever the offer says: there is nothing of theirs to replace,
+  // and without them every day would read as rest, to them and to the coach's adherence.
+  const { user, S } = useStore.getState()
+  const coached = isCoached(user)
+  const schedule = coached ? !!offer.schedule || !WEEK_DAYS.some(d => S.week?.[d]?.length) : offer.schedule
   coachPlanSheet({
-    bundle: parsed, from: offer.coachName, note: offer.note, schedule: offer.schedule,
+    bundle: parsed, from: offer.coachName, note: offer.note, schedule, scheduleLocked: coached,
     onAccept: () => decide(true), onDecline: () => decide(false)
   })
 }
 
-function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAccept, onDecline }) {
+function PlanImport({ bundle, close, from, note, defaultSchedule = false, scheduleLocked = false, onAccept, onDecline }) {
   // Clamped to what the bundle can actually deliver: the toggle below only renders when there
   // are scheduled days, so a coach's `schedule: true` on a bundle with none would otherwise sit
-  // on with no way for the member to see it, let alone turn it off.
-  const [schedule, setSchedule] = useState(!!defaultSchedule && bundle.scheduledDays > 0)
+  // on with no way for the member to see it, let alone turn it off. Locked (a coached client,
+  // openCoachOffer), it is the offer's and nothing on screen changes it.
+  const [chosen, setSchedule] = useState(!!defaultSchedule && bundle.scheduledDays > 0)
+  const schedule = scheduleLocked ? !!defaultSchedule && bundle.scheduledDays > 0 : chosen
   const apply = () => {
     // Merge first, then tell the server. The member's own data is the source of truth: if the
     // decide call fails afterwards the offer simply stands again, and because mergePlan adds
@@ -1847,7 +1856,9 @@ function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAcce
         ? ' · ' + tp(bundle.scheduledDays, 'scheduled on {0} day', 'scheduled on {0} days')
         : ''}
     </div>
-    <div className="dim small" style={{ marginBottom: 14, lineHeight: 1.4 }}>{t('These are added as new routines — nothing you already have is changed.')}</div>
+    <div className="dim small" style={{ marginBottom: 14, lineHeight: 1.4 }}>{schedule
+      ? t('These are added as new routines, and your week follows them.')
+      : t('These are added as new routines — nothing you already have is changed.')}</div>
     {/* A coach can attach daily nutrition targets to a program. Shown before the accept, not
         after it: this is the one thing in the bundle that REPLACES something the member already
         has, so agreeing to it has to be a decision rather than a surprise. */}
@@ -1870,9 +1881,9 @@ function PlanImport({ bundle, close, from, note, defaultSchedule = false, onAcce
         '{0} exercise in the file isn’t in your library and was left out.',
         '{0} exercises in the file aren’t in your library and were left out.')}
     </div>}
-    {bundle.scheduledDays > 0 && <div className="row between" style={{ padding: '10px 2px', borderTop: '1px solid var(--sep)', borderBottom: '1px solid var(--sep)', marginBottom: 16, gap: 12 }}>
-      <div><div className="tt" style={{ fontSize: 15 }}>{t('Use this weekly schedule')}</div><div className="small dim">{t('Replaces your current Mon–Sun assignments.')}</div></div>
-      <Switch checked={schedule} onChange={setSchedule} />
+    {bundle.scheduledDays > 0 && (!scheduleLocked || schedule) && <div className="row between" style={{ padding: '10px 2px', borderTop: '1px solid var(--sep)', borderBottom: '1px solid var(--sep)', marginBottom: 16, gap: 12 }}>
+      <div><div className="tt" style={{ fontSize: 15 }}>{scheduleLocked ? t('Week schedule') : t('Use this weekly schedule')}</div><div className="small dim">{t('Replaces your current Mon–Sun assignments.')}</div></div>
+      {!scheduleLocked && <Switch checked={schedule} onChange={setSchedule} />}
     </div>}
     <Button variant="primary" onClick={apply}>{t('Add to my plan')}</Button>
     <div style={{ height: 8 }} />

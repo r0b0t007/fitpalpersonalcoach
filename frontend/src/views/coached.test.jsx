@@ -24,7 +24,8 @@ const { default: Settings } = await import('./Settings.jsx')
 const { default: TabBar } = await import('../components/TabBar.jsx')
 const { useStore, DEF } = await import('../store/useStore.js')
 const { useUI } = await import('../store/useUI.js')
-const { addToRoutineSheet, dayAssignSheet, dayOverrideSheet, starterPlanSheet, planToolsSheet } = await import('../sheets.jsx')
+const { addToRoutineSheet, dayAssignSheet, dayOverrideSheet, starterPlanSheet, planToolsSheet, openCoachOffer } = await import('../sheets.jsx')
+const { buildPlanBundle } = await import('../lib/plan-share.js')
 
 const routine = { id: 'r1', name: 'Haut du corps', emoji: 'barbell', ex: [{ id: '0025', sets: 3, reps: 8 }] }
 const COACHED = { id: 'c1', name: 'Salma', coachName: 'Yasmine' }
@@ -33,9 +34,22 @@ const RELEASED = { id: 'c1', name: 'Salma', coachName: null }
 let container, root
 const text = () => container.textContent
 const buttons = () => [...container.querySelectorAll('button')].map(b => b.textContent.trim())
-const render = async (el, user) => {
+// A coach's offer of a one-routine program on Wednesday and Friday, opened as the Coach tab opens it.
+const offerOf = schedule => ({ id: 'o1', coachName: 'Yasmine', schedule,
+  bundle: buildPlanBundle({ ...structuredClone(DEF), routines: [{ ...routine, id: 'k1', name: 'Bas du corps' }], week: { 3: ['k1'], 5: ['k1'] } }, 'Bloc 1') })
+const openOffer = async (offer, user, week) => {
+  await render(<div />, user, week)
+  useUI.setState({ sheets: [] })
+  act(() => { openCoachOffer(offer) })
+  const sheet = useUI.getState().sheets[0]
+  await act(async () => { root.render(<MemoryRouter>{sheet.render(() => useUI.getState().closeSheet(sheet.id))}</MemoryRouter>) })
+}
+const accept = () => act(() => { [...container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Add to my plan').click() })
+const added = () => useStore.getState().S.routines.find(r => r.name === 'Bas du corps').id
+
+const render = async (el, user, week = { 1: ['r1'] }) => {
   useStore.setState({ user, assignments: [], healthConsent: { required: !!user?.coachName, consentAt: 1 },
-    S: { ...structuredClone(DEF), routines: [routine], week: { 1: ['r1'] } } })
+    S: { ...structuredClone(DEF), routines: [routine], week } })
   await act(async () => { root.render(<MemoryRouter>{el}</MemoryRouter>) })
 }
 
@@ -71,6 +85,31 @@ describe('a coached client', () => {
     expect(useUI.getState().sheets).toEqual([])
   })
 
+  it('takes the week when their coach sends it, with no switch to refuse it', async () => {
+    await openOffer(offerOf(true), COACHED)
+    expect(container.querySelector('[role="switch"]')).toBe(null)
+    expect(text()).toContain('Week schedule')
+    expect(text()).toContain('your week follows them')
+    accept()
+    expect(useStore.getState().S.week).toEqual({ 3: [added()], 5: [added()] })
+  })
+
+  it('keeps their week for an add-on their coach sent without it', async () => {
+    await openOffer(offerOf(false), COACHED)
+    expect(container.querySelector('[role="switch"]')).toBe(null)
+    expect(text()).not.toContain('Week schedule')
+    expect(text()).toContain('nothing you already have is changed')
+    accept()
+    expect(useStore.getState().S.week).toEqual({ 1: ['r1'] })
+    expect(added()).toBeTruthy()
+  })
+
+  it('takes the program’s days when their week is empty, whatever the offer says', async () => {
+    await openOffer(offerOf(false), COACHED, {})
+    accept()
+    expect(useStore.getState().S.week).toEqual({ 3: [added()], 5: [added()] })
+  })
+
   it('moves no day on Home', async () => {
     await render(<Home />, COACHED)
     expect(container.querySelectorAll('.wday').length).toBe(7)
@@ -97,6 +136,11 @@ describe('a coached client', () => {
 })
 
 describe('a client their coach released', () => {
+  it('chooses whether a program sets their week', async () => {
+    await openOffer(offerOf(false), RELEASED)
+    expect(container.querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('false')
+  })
+
   it('gets every feature back', async () => {
     await render(<Plan />, RELEASED)
     expect(buttons()).toContain('New')
