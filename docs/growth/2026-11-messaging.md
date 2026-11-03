@@ -5,9 +5,9 @@ DM scripts (CHW-347), the Reels (CHW-351), the demo video (CHW-346), the SEO pag
 app's empty states. The market figures behind it are in `2026-11-funnel-and-promotion.md` §1 and
 the spec's appendices (`docs/superpowers/specs/2026-11-01-creator-coach-design.md`).
 
-**Darija is a first draft.** It is written in Latin script, mixed with French the way Moroccan
-creators write captions and DMs. A native speaker checks every Darija line before it is posted
-or sent.
+**Three languages: French, Spanish and English.** French leads (Morocco, France, Belgium), Spanish
+is for Spain, and English is for coaches who post in English and for fitpal.ma's `/en/` pages.
+There is no Darija copy (owner, 2026-11-03): a Moroccan coach is written to in French.
 
 ## 1. The core line
 
@@ -15,13 +15,11 @@ or sent.
 |---|---|
 | **FR** | Un lien dans ta bio. Tes abonnés demandent à s'entraîner avec toi, tu acceptes, leur première séance est prête le jour même. Gratuit jusqu'à 3 clients. |
 | **ES** | Un enlace en tu bio. Tus seguidores piden entrenar contigo, aceptas, y su primer entreno está listo ese mismo día. Gratis hasta 3 clientes. |
-| **Darija** | Lien wa7ed f la bio dyalek. Les abonnés dyalek kaytlbo ytrainiw m3ak, nta katqbel, w l'séance lowla dyalhom katkoun wajda f nefs nhar. Fabor 7tal 3 clients. |
-| EN (reference only) | One link in your bio. Followers ask to train with you, you accept, and their first workout is ready that day. Free up to 3 clients. |
+| **EN** | One link in your bio. Followers ask to train with you, you accept, and their first workout is ready that day. Free up to 3 clients. |
 
 **Short form** (a Reel caption, a site hero, the opening line of a DM):
 FR "Un lien dans ta bio, tes clients s'entraînent le jour même." · ES "Un enlace en tu bio, tus
-clientes entrenan ese mismo día." · Darija "Lien wa7ed f la bio, w les clients dyalek kaytrainiw
-nefs nhar."
+clientes entrenan ese mismo día." · EN "One link in your bio, and your clients train that day."
 
 ## 2. Who it is for, and who it is not for
 
@@ -37,7 +35,7 @@ Linktree. Their limit is admin time, not demand.
 
 ## 3. Four proof points
 
-Each one is a fact about the product today. The line under it is what to say. Don't stretch it.
+Each one is a fact about the product today. The lines under it are what to say. Don't stretch it.
 
 1. **It works inside Instagram.** The follower taps the link in the bio, asks to train with you
    and signs in with a 6-digit code sent by email. There is no store app to download and no
@@ -45,11 +43,11 @@ Each one is a fact about the product today. The line under it is what to say. Do
    it can be added to the home screen (CHW-332).
    - FR: « Ton abonné demande depuis Instagram. Un code par e-mail, et il est dedans. Pas d'app à télécharger. »
    - ES: «Tu seguidor lo pide desde Instagram. Un código por email y ya está dentro. Sin descargar ninguna app.»
-   - Darija: « L'abonné kaytlb men Instagram. Code f l'email w safi, dkhel. Bla ma ytélécharger chi app. »
+   - EN: "Your follower asks from Instagram. One code by email and they're in. No app to download."
 2. **One price, no add-ons.**
    - **Free:** up to 3 active clients at a time, no card, for as long as you like. Release a
-     client who stopped training and the place is free again. Say "jusqu'à 3", never "tes 3
-     premiers": Free is not a one-off allowance.
+     client who stopped training and the place is free again. Say "jusqu'à 3" / "hasta 3" /
+     "up to 3", never "tes 3 premiers" / "your first 3": Free is not a one-off allowance.
    - **Paid plans:** Solo (10 clients) €19, Pro (30) €39, Studio (75) €79 a month, VAT included.
    - **Every plan has everything:** the public page, auto-accept, check-ins, replies, photos,
      macros, the client's charts and WhatsApp buttons. Plans differ only by how many clients
@@ -63,19 +61,19 @@ Each one is a fact about the product today. The line under it is what to say. Do
      before a number goes into a post.
    - FR: « Un seul prix. Tout est dedans. Pas d'options payantes en plus. »
    - ES: «Un solo precio. Todo incluido. Sin extras de pago.»
-   - Darija: « Prix wa7ed, kolchi dakhel. Ma kayn ta option b flous zayda. »
+   - EN: "One price. Everything's in it. No paid extras."
 3. **You get paid your own way.** FitPal never handles the client's money and takes no cut.
    Transfer, cash, CashPlus or your own Stripe: it's between you and your client. In Morocco this
    matters most: Stripe reportedly doesn't onboard companies registered there.
    - FR: « Tes clients te paient comme d'habitude. FitPal ne touche pas à ton argent. »
    - ES: «Tus clientes te pagan como siempre. FitPal no toca tu dinero.»
-   - Darija: « Les clients kaykhlsok kima dima, virement, cash, CashPlus. FitPal ma kaydkhol f flousek. »
+   - EN: "Your clients pay you the way they always have. FitPal never touches your money."
 4. **Done for you within 24 hours.** Send your PDF, Sheet or photos of your program on WhatsApp,
    plus a photo, a bio and your handle. We enter your programs and set up your page. This is a
    promise made by people, not a feature (see §7).
    - FR: « Envoie-moi ton PDF ou ton Sheet sur WhatsApp, je te mets tout sur l'app en 24 h. Gratuit. »
    - ES: «Mándame tu PDF o tu Sheet por WhatsApp y te lo paso todo a la app en 24 h. Gratis.»
-   - Darija: « Sifet liya l'PDF wla l'Sheet dyalek f WhatsApp, w ndir lik kolchi f l'app f 24 sa3a. Fabor. »
+   - EN: "Send me your PDF or your Sheet on WhatsApp and I'll put it all in the app within 24 hours. Free."
 
 Behind these four sit the details, for when the coach asks "and then what?":
 - **Starter program:** with a starter program set on the page, workout 1 is on the client's
@@ -94,9 +92,10 @@ Behind these four sit the details, for when the coach asks "and then what?":
 
 | Market | Lead with | Then | Don't |
 |---|---|---|---|
-| **Morocco** | Paid your own way: no Stripe, cash and CashPlus are fine (proof 3) | Darija in DMs and captions, the WhatsApp button, the Ramadan template | Quote a price in MAD before the price test (growth plan §5) |
-| **France, Belgium** | Against the PDF and the Sheet: "tes clients ne perdent plus leurs séances" | A client app that shows the client their program and nothing to configure (the coached app hides the tracker's settings), one price with no add-ons (proof 2) | Name a competitor in an ad, a Reel or a DM opener |
-| **Spain** | Free up to 3 clients, with no card | Set up in a day (proof 4) | Name a competitor in an ad, a Reel or a DM opener |
+| **Morocco** (FR) | Paid your own way: no Stripe, cash and CashPlus are fine (proof 3) | The WhatsApp button, the Ramadan template | Quote a price in MAD before the price test (growth plan §5) |
+| **France, Belgium** (FR) | Against the PDF and the Sheet: "tes clients ne perdent plus leurs séances" | A client app that shows the client their program and nothing to configure (the coached app hides the tracker's settings), one price with no add-ons (proof 2) | Name a competitor in an ad, a Reel or a DM opener |
+| **Spain** (ES) | Free up to 3 clients, with no card | Set up in a day (proof 4) | Name a competitor in an ad, a Reel or a DM opener |
+| **English-speaking coaches** (EN) | One link in the bio, and the first workout that day (the core line) | One price with no add-ons (proof 2), paid your own way (proof 3) | Name a competitor in an ad, a Reel or a DM opener |
 
 **Competitors by name** go in two places only: the comparison pages (CHW-352: Trainerize,
 Everfit, Harbiz), and an answer when the coach names one first (§5). Every price quoted there is
@@ -105,21 +104,30 @@ check it on harbiz.io first.
 
 ## 5. Objections and answers
 
-Answer in one or two sentences, then go back to the offer. FR first; ES follows the same lines.
+Answer in one or two sentences, then go back to the offer. The three languages say the same thing.
 
-| Objection | Answer (FR) | Answer (ES) |
-|---|---|---|
-| "Mes clients n'installeront pas d'app." | Ils n'installent rien : ils tapent sur ton lien, reçoivent un code par e-mail, et leur séance est là. S'ils veulent l'avoir comme une app, ils l'ouvrent dans Safari ou Chrome et l'ajoutent à l'écran d'accueil ; l'app leur montre comment. | No instalan nada: tocan tu enlace, reciben un código por email y su entreno ya está ahí. Si lo quieren como una app, lo abren en Safari o Chrome y lo añaden a la pantalla de inicio; la app les enseña cómo. |
-| "J'utilise déjà Trainerize." | Garde-le pour tes clients actuels et essaie FitPal avec les 3 prochains, c'est gratuit. On compare au bout d'un mois. | Quédatelo para tus clientes actuales y prueba FitPal con los 3 próximos, es gratis. Comparamos en un mes. |
-| "Mes clients me paient en cash." | Parfait, FitPal ne touche pas aux paiements. Ils te paient comme avant ; toi, tu acceptes ou tu libères la place. | Perfecto, FitPal no toca los pagos. Te pagan como siempre; tú aceptas o liberas la plaza. |
-| "Et mes données ?" | On ne vend rien à personne et il n'y a pas de pub. Chaque client peut exporter ses séances et supprimer son compte lui-même. Les données sont hébergées chez Namecheap, aux États-Unis : c'est écrit dans les conditions. | No vendemos nada a nadie y no hay anuncios. Cada cliente puede exportar sus entrenos y borrar su cuenta él mismo. Los datos están alojados en Namecheap, en Estados Unidos: está en las condiciones. |
+**"My clients won't install an app."**
+- FR: Ils n'installent rien : ils tapent sur ton lien, reçoivent un code par e-mail, et leur séance est là. S'ils veulent l'avoir comme une app, ils l'ouvrent dans Safari ou Chrome et l'ajoutent à l'écran d'accueil ; l'app leur montre comment.
+- ES: No instalan nada: tocan tu enlace, reciben un código por email y su entreno ya está ahí. Si lo quieren como una app, lo abren en Safari o Chrome y lo añaden a la pantalla de inicio; la app les enseña cómo.
+- EN: They don't install anything: they tap your link, get a code by email, and their workout is there. If they want it like an app, they open it in Safari or Chrome and add it to the home screen; the app shows them how.
 
-**Darija**, for the two objections heard most in Morocco:
-- *Ma ghadi ytélécharger walo:* « Ma kaytélécharger walo. Kaycliqué 3la lien dyalek, kayji lih code f l'email, w la séance dyalo kayna. »
-- *Kaykhlsouni cash:* « Mzyan, FitPal ma kaydkhol f lflous. Kaykhlsok kima dima, w nta li katqbel. »
+**"I already use Trainerize."**
+- FR: Garde-le pour tes clients actuels et essaie FitPal avec les 3 prochains, c'est gratuit. On compare au bout d'un mois.
+- ES: Quédatelo para tus clientes actuales y prueba FitPal con los 3 próximos, es gratis. Comparamos en un mes.
+- EN: Keep it for your current clients and try FitPal with your next 3. It's free. Compare them after a month.
+
+**"My clients pay me in cash."**
+- FR: Parfait, FitPal ne touche pas aux paiements. Ils te paient comme avant ; toi, tu acceptes ou tu libères la place.
+- ES: Perfecto, FitPal no toca los pagos. Te pagan como siempre; tú aceptas o liberas la plaza.
+- EN: Good, FitPal stays out of payments. They pay you as before; you accept them, or free up the place.
+
+**"What about my data?"**
+- FR: On ne vend rien à personne et il n'y a pas de pub. Chaque client peut exporter ses séances et supprimer son compte lui-même. Les données sont hébergées chez Namecheap, aux États-Unis : c'est écrit dans les conditions.
+- ES: No vendemos nada a nadie y no hay anuncios. Cada cliente puede exportar sus entrenos y borrar su cuenta él mismo. Los datos están alojados en Namecheap, en Estados Unidos: está en las condiciones.
+- EN: We sell nothing to anyone and there are no ads. Each client can export their workouts and delete their own account. The data is hosted with Namecheap in the United States; the terms say so.
 
 The data answer must stay true. If the hosting moves (CHW-362) or the transfer terms change
-(CHW-359), update this row the same day.
+(CHW-359), update it the same day in all three languages.
 
 ## 6. Voice
 
@@ -129,28 +137,31 @@ section predates Free and still describes the booked call. CHW-342 rewrites it w
 
 **Words and forms:**
 - **Tu / tú in marketing:** the copy speaks to the coach as "tu" (FR) and "tú" (ES), the register
-  of a creator's DMs.
-- **Vous in the app:** the app UI keeps "vous" in French (`scripts/french-vous.mjs`). Don't carry
-  marketing "tu" into `frontend/src/locales/fr.js`.
+  of a creator's DMs. English is "you", in the same plain register.
+- **The app's own voice:** the app UI keeps "vous" in French (`scripts/french-vous.mjs`). Don't
+  carry marketing "tu" into `frontend/src/locales/fr.js`.
 - **Use:** lien, bio, demande, accepter, séance, programme, client, abonné. ES: enlace, bio,
-  solicitud, aceptar, entreno, programa, cliente, seguidor.
-- **Avoid:** "révolutionner", "booster", "transformation", "solution", "plateforme tout-en-un",
-  exclamation marks, emoji strings, before/after bodies, and fake scarcity ("plus que 3 places").
-- **Claims:** no claim without the product fact behind it in §3. "Le jour même" means the day
-  the coach accepts, and holds because of the starter program (§3, the details). Don't promise
-  "en 5 minutes" for the client: the follower's speed depends on when they open the email. Don't
-  count taps ("en deux gestes"): from Instagram it takes a browser switch first.
+  solicitud, aceptar, entreno, programa, cliente, seguidor. EN: link, bio, request, accept,
+  workout, program, client, follower.
+- **Avoid:** "révolutionner", "booster", "transformation", "solution", "plateforme tout-en-un"
+  and their equivalents ("revolutionize", "game-changer", "all-in-one platform"), exclamation
+  marks, emoji strings, before/after bodies, and fake scarcity ("plus que 3 places").
+- **Claims:** no claim without the product fact behind it in §3. "Le jour même" / "ese mismo
+  día" / "that day" means the day the coach accepts, and holds because of the starter program
+  (§3, the details). Don't promise "en 5 minutes" for the client: the follower's speed depends on
+  when they open the email. Don't count taps ("en deux gestes"): from Instagram it takes a
+  browser switch first.
 
 **Glossary** (one word per thing, everywhere):
 
-| Thing | FR | ES |
-|---|---|---|
-| The coach's public page | ta page | tu página |
-| The follower's ask | la demande | la solicitud |
-| Taking them on | accepter | aceptar |
-| The 3, 10, 30 or 75 | places (clients) | plazas (clientes) |
-| One logged workout | une séance | un entreno |
-| What the coach sends | un programme | un programa |
+| Thing | FR | ES | EN |
+|---|---|---|---|
+| The coach's public page | ta page | tu página | your page |
+| The follower's ask | la demande | la solicitud | the request |
+| Taking them on | accepter | aceptar | accept |
+| The 3, 10, 30 or 75 | places (clients) | plazas (clientes) | places (clients) |
+| One logged workout | une séance | un entreno | a workout |
+| What the coach sends | un programme | un programa | a program |
 
 ## 7. What we can't claim yet
 
@@ -173,7 +184,7 @@ section predates Free and still describes the booked call. CHW-342 rewrites it w
 
 | Asset | Uses |
 |---|---|
-| fitpal.ma hero (CHW-342) | the short form, then the core line, then the four proofs as the page's sections |
+| fitpal.ma hero (CHW-342) | the short form, then the core line, then the four proofs as the page's sections, in FR, ES and EN |
 | DM opener and offer (CHW-347) | a personal line about one of their posts, then proof 4, then the core line's last sentence |
 | DM follow-ups, day 3 and day 7 | proof 1 (day 3), proof 3 in Morocco or proof 2 elsewhere (day 7) |
 | Reels (CHW-351) | one proof per Reel, shown on a real phone, never described |

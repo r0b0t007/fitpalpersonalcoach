@@ -12,14 +12,14 @@ online, one to one. Today they deliver PDFs or Google Sheets over WhatsApp and s
 
 | Market | What a client pays the coach | Competitors already there | Our angle |
 |---|---|---|---|
-| Morocco | 300–800 MAD/month *(est.: no published data, to be checked by mystery-shopping)* | No local B2B tool. Global ones need Stripe, which reportedly doesn't onboard companies registered in Morocco ([Kolonell](https://kolonell.com/fr/blog/paiement-en-ligne-pme-maroc-cmi-ou-stripe-2026)). | French and Darija, no Stripe needed, the coach is paid however they like, free for 3 clients |
+| Morocco | 300–800 MAD/month *(est.: no published data, to be checked by mystery-shopping)* | No local B2B tool. Global ones need Stripe, which reportedly doesn't onboard companies registered in Morocco ([Kolonell](https://kolonell.com/fr/blog/paiement-en-ligne-pme-maroc-cmi-ou-stripe-2026)). | French, no Stripe needed, the coach is paid however they like, free for 3 clients |
 | France, Belgium | €30–150/month ([coachway FR](https://coachway.io/fr/combien-coute-un-coach-sportif-en-ligne/)) | Hexfit €19–29, AZEOO €9, Fit'Distance €13 ([coachway FR](https://coachway.io/fr/logiciel-coach-sportif/)) | One link in the bio, one price with no add-ons, a client app that works inside Instagram |
 | Spain | €50–150/month ([FitGeneration](https://fitgeneration.es/cuanto-vale-un-entrenador-personal-al-mes/)) | Harbiz €14–19 for 5 clients, third-party figure ([coachway ES](https://coachway.io/es/alternativas-a-harbiz/)); check on harbiz.io before quoting it | Free for 3 clients, set up in a day, a simpler client app |
 
 **Positioning:** "Un lien dans ta bio. Tes abonnés demandent à s'entraîner avec toi, tu acceptes,
 leur première séance est prête le jour même. Gratuit jusqu'à 3 clients."
 In Spanish: "Un enlace en tu bio. Tus seguidores piden entrenar contigo, aceptas, y su primer
-entreno está listo ese mismo día." The full messaging (proof points, per-market angles, objections, Darija) is in
+entreno está listo ese mismo día." The full messaging (proof points, per-market angles, objections, in French, Spanish and English) is in
 `2026-11-messaging.md`.
 
 ## 2. The funnel
@@ -73,7 +73,7 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 - Mystery-shop 20 coaches' prices by DM, posing as a prospective client.
 - Build the five template programs and shoot a 60-second demo video of the link, the request,
   the accept and workout 1.
-- Write the DM scripts in French, Darija and Spanish. Build a tracker sheet of 300 coaches
+- Write the DM scripts in French, Spanish and English. Build a tracker sheet of 300 coaches
   (country, followers, niche, tool used today).
 
 **Weeks 3–6: founder-led sales**
