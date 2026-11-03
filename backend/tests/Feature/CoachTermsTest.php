@@ -65,6 +65,15 @@ it('keeps a version the database can hold, taking effect no earlier than it is p
         ->and(Terms::EFFECTIVE >= Terms::VERSION)->toBeTrue();
 });
 
+it('publishes the version a coach accepts on each of the three terms pages', function () {
+    // A coach accepts Terms::VERSION in the app and reads the text on fitpal.ma: a new version
+    // bumped on one side only would have them accept a text they cannot read.
+    $v = Terms::VERSION;
+    foreach (['conditions.html' => "($v)", 'en/terms.html' => "Version $v.", 'es/terms.html' => "Versión $v."] as $page => $says) {
+        expect(file_get_contents(base_path('../site-coach/'.$page)))->toContain($says);
+    }
+});
+
 it('records the version and the time a coach accepted at sign-up', function () {
     $id = termsSignup(['name' => 'Nadia', 'email' => 'nadia@example.com'])->assertOk()->json('user.id');
     $user = User::query()->find($id);
