@@ -63,19 +63,19 @@ with their passkey, and the admin panel can't make one for them.
   Then, whichever you prefer. I do the rest: send me on WhatsApp ([WhatsApp]) your program (PDF, Sheet or photos), a photo of you and two lines on what you do, and I'll send your link back within 24 hours. Or you do it yourself: on your page, pick a starter program, that's what is ready the day you accept. Either way, tell me when your account is made.
 
 Then send the full notice (§4) as a second message. When they say the account is made, ask
-which e-mail they signed up with, search the admin panel's users list by it (the e-mail column
-is searchable; a name isn't unique) and fill `signed_up`. The e-mail itself never goes in the
-sheet.
+which e-mail they signed up with, search the admin panel's users list by it (a name isn't
+unique; an address they haven't confirmed yet shows as "(unconfirmed)" and is found all the same)
+and fill `signed_up`. The e-mail itself never goes in the sheet.
 
 Why the browser line: coach sign-up (`Start.jsx`) makes the account with a passkey, which fails in
 Instagram's in-app browser (`lib/inapp.js`). Unlike Join and Home it shows no "open in your
 browser" prompt, and when the passkey is refused it shows nothing at all, so the coach just sees
 the button do nothing. Drop the line once Start shows the prompt.
 
-The setup itself (what we enter, what the coach checks) is CHW-348's, and so is how the founder
-gets programs into an account they can't sign in to. Until it is written down, the founder does
-it by hand with the coach, starter program included; stop offering the 24 hours if the queue
-goes past a day.
+The setup itself is `done-for-you.md` (CHW-348): what the coach sends, how the founder builds the
+program in their own account and copies it into the coach's from the admin panel, the message
+that sends the coach their part, and when their files are deleted. Stop offering the 24 hours if
+the queue goes past a day.
 
 ### Follow-up 1, day 3: proof 1 (it works inside Instagram)
 

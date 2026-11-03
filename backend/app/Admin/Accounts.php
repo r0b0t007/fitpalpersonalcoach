@@ -3,20 +3,26 @@
 namespace App\Admin;
 
 use App\Audit\Audit;
+use App\Coaching\PlanBundle;
 use App\Domain\Entitlement;
 use App\Domain\Plans;
+use App\Http\Controllers\CoachProgramController;
 use App\Media\Paths;
+use App\Models\CoachProgram;
 use App\Models\ExerciseMedia;
 use App\Models\Invite;
 use App\Models\Licence;
 use App\Models\Presence;
 use App\Models\User;
 use App\Support\ClientSafe;
+use App\Support\Js;
+use App\Support\Say;
 use App\Tenancy\CoachLock;
 use App\Tenancy\Detach;
 use App\Tenancy\Unlink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * The owner's writes on accounts, licences and general invite codes — one implementation for the
@@ -239,6 +245,46 @@ final class Accounts
         Audit::record($request, 'admin.invite.revoke', ['user' => $admin, 'msg' => $invite->code]);
 
         return $invite;
+    }
+
+    /**
+     * The done-for-you setup (CHW-348): one program from the admin's own library, copied into a
+     * coach's under a new id, because the owner cannot sign in as the coach to build it there.
+     * Checked as the coach's own save checks it — the bundle validated again (a row from before a
+     * rule would be a program they cannot send) and their cap counted under their row's lock — and
+     * nothing links the copy back: from the moment it lands it is theirs to edit or delete. The
+     * admin's exercise demos stay the admin's (ExerciseMedia is per coach).
+     */
+    public static function copyProgram(Request $request, User $admin, mixed $id, mixed $programId): CoachProgram
+    {
+        [$u, $copy] = DB::transaction(function () use ($admin, $id, $programId): array {
+            $u = self::locked($id);
+            if (! $u->isCoach()) {
+                throw new ClientSafe(400, 'that user is not a coach');
+            }
+            if ($u->disabled) {
+                throw new ClientSafe(400, 'that coach is disabled');
+            }
+            $from = is_string($programId) ? CoachProgram::inLibraryOf($admin->id, $programId) : null;
+            if ($from === null) {
+                throw new ClientSafe(404, 'no such program');
+            }
+            [$name, $bundle] = PlanBundle::program($from->name, json_decode($from->bundle));
+            if (CoachProgram::countOf($u->id) >= CoachProgramController::MAX) {
+                throw new ClientSafe(429, Say::f('that coach has {0} programs — they must delete one first', CoachProgramController::MAX));
+            }
+            $now = Js::nowMs();
+            $copy = (new CoachProgram)->forceFill([
+                'coach_id' => $u->id, 'program_id' => (string) Str::uuid(), 'name' => $name,
+                'bundle' => Js::stringify($bundle), 'created' => $now, 'updated' => $now,
+            ]);
+            $copy->save();
+
+            return [$u, $copy];
+        }, self::ATTEMPTS);
+        Audit::record($request, 'admin.program.copy', ['user' => $admin, 'target' => $u, 'msg' => $copy->name]);
+
+        return $copy;
     }
 
     /**

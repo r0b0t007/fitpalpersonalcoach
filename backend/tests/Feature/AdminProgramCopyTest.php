@@ -1,0 +1,90 @@
+<?php
+
+// The done-for-you setup (CHW-348): the owner builds a coach's program in their own library and
+// copies it into the coach's from the panel, because they cannot sign in as the coach.
+
+use App\Admin\Accounts;
+use App\Filament\Resources\Users\Pages\ListUsers;
+use App\Http\Controllers\CoachProgramController;
+use App\Models\CoachProgram;
+use App\Support\ClientSafe;
+use Filament\Actions\Testing\TestAction;
+use Illuminate\Http\Request;
+use Livewire\Livewire;
+use Tests\Support\Coaching;
+
+const COPY_BUNDLE = '{"opengym_plan":1,"name":"old","week":{"1":["r1"]},"routines":[{"id":"r1","name":"Push","ex":[{"id":"0025","sets":3}]}],"customEx":[]}';
+
+beforeEach(function () {
+    $this->f = Coaching::twoCoaches();
+    $this->made = Coaching::own(new CoachProgram, $this->f->admin, [
+        'program_id' => 'prog-made', 'name' => 'Sara · Prise de masse', 'bundle' => COPY_BUNDLE, 'created' => 1, 'updated' => 1,
+    ]);
+});
+
+/** @return list<CoachProgram> $coach's library, read with no coach context as the panel reads it */
+function programsOf(string $coachId): array
+{
+    return CoachProgram::query()->get()->filter(fn (CoachProgram $p) => $p->coach_id === $coachId)->values()->all();
+}
+
+it('copies one of the owner\'s programs into a coach\'s library under a new id, audited', function () {
+    $f = $this->f;
+    $this->actingAs($f->admin, 'web');
+    Livewire::test(ListUsers::class)->callAction(TestAction::make('copyProgram')->table($f->a), ['programId' => 'prog-made'])
+        ->assertNotified('Program copied');
+
+    $copy = collect(programsOf($f->a->id))->firstWhere('name', 'Sara · Prise de masse');
+    expect($copy)->not->toBeNull()
+        ->and($copy->program_id)->not->toBe('prog-made')
+        ->and(json_decode($copy->bundle)->name)->toBe('Sara · Prise de masse')   // the row's name wins, as a save's does
+        ->and(json_decode($copy->bundle)->week)->toEqual((object) ['1' => ['r1']]);
+    // The owner's own row is untouched, and nothing links the two: the copy is the coach's.
+    expect($this->made->fresh()->only(['coach_id', 'program_id']))->toBe(['coach_id' => $f->admin->id, 'program_id' => 'prog-made']);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.program.copy', 'uid' => $f->admin->id, 'tgt' => $f->a->id, 'msg' => 'Sara · Prise de masse']);
+    // And the coach sees it in their own library, through their own route.
+    expect(collect($this->getJson('/api/coach/programs', bearer($f->a))->assertOk()->json('programs'))->pluck('name'))->toContain('Sara · Prise de masse');
+});
+
+it('offers only the owner\'s own programs, and only on coaches other than the owner', function () {
+    $f = $this->f;
+    $this->actingAs($f->admin, 'web');
+    Livewire::test(ListUsers::class)
+        ->assertActionVisible(TestAction::make('copyProgram')->table($f->a))
+        ->assertActionHidden(TestAction::make('copyProgram')->table($f->u1))
+        ->assertActionHidden(TestAction::make('copyProgram')->table($f->admin));
+    // Another coach's program is "no such program", not a way to move it between coaches.
+    $req = Request::create('/');
+    expect(fn () => Accounts::copyProgram($req, $f->admin, $f->a->id, 'prog-b'))
+        ->toThrow(ClientSafe::class, 'no such program');
+    expect(collect(programsOf($f->a->id))->pluck('program_id')->all())->toBe(['prog-a']);
+});
+
+it('refuses a client, a disabled coach, a full library and a bundle a save would refuse', function () {
+    $f = $this->f;
+    $req = Request::create('/');
+    expect(fn () => Accounts::copyProgram($req, $f->admin, $f->u1->id, 'prog-made'))->toThrow(ClientSafe::class, 'that user is not a coach');
+    $f->b->forceFill(['disabled' => true])->save();
+    expect(fn () => Accounts::copyProgram($req, $f->admin, $f->b->id, 'prog-made'))->toThrow(ClientSafe::class, 'that coach is disabled');
+    // A row from before a validation rule: copied, it would be a program the coach cannot send.
+    expect(fn () => Accounts::copyProgram($req, $f->admin, $f->a->id, 'prog-admin'))->toThrow(ClientSafe::class, 'not a plan bundle');
+    // The coach's cap holds, worded for the owner.
+    for ($i = 1; $i < CoachProgramController::MAX; $i++) {
+        Coaching::own(new CoachProgram, $f->a, ['program_id' => "fill-$i", 'name' => "Fill $i", 'bundle' => '{}', 'created' => 1, 'updated' => 1]);
+    }
+    expect(fn () => Accounts::copyProgram($req, $f->admin, $f->a->id, 'prog-made'))
+        ->toThrow(ClientSafe::class, 'that coach has 50 programs — they must delete one first');
+    expect(count(programsOf($f->a->id)))->toBe(CoachProgramController::MAX);
+    $this->assertDatabaseMissing('audit_events', ['ev' => 'admin.program.copy']);
+});
+
+it('finds a new coach by the address they signed up with, confirmed or not', function () {
+    $f = $this->f;
+    $f->a->forceFill(['email' => null, 'pending_email' => 'sara@example.com'])->save();
+    $f->b->forceFill(['email' => 'coachb@example.com'])->save();
+    $this->actingAs($f->admin, 'web');
+    Livewire::test(ListUsers::class)->searchTable('sara@example.com')
+        ->assertCanSeeTableRecords([$f->a])->assertCanNotSeeTableRecords([$f->b])
+        ->assertTableColumnStateSet('email', 'sara@example.com (unconfirmed)', $f->a);
+    Livewire::test(ListUsers::class)->searchTable('coachb@')->assertCanSeeTableRecords([$f->b])->assertCanNotSeeTableRecords([$f->a]);
+});
