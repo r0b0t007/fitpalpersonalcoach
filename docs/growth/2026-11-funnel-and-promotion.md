@@ -25,21 +25,25 @@ entreno está listo ese mismo día."
 
 ### Coach side (our revenue)
 
-| Stage | Where it is counted (spec §7) | Target |
+| Stage | Where it is counted (the admin panel's funnel, CHW-335) | Target |
 |---|---|---|
 | Visit | fitpal.ma page view (site analytics) | — |
-| Sign-up | `auth.register.ok`, msg `self-serve` | 8% of visits *(est.)* |
-| Page published | `coach.page.save` with `open` on | 70% of sign-ups |
-| First request | first `join.request` | 65% of sign-ups within 7 days |
+| Sign-up | a self-serve coach account (`users.self_serve`), by sign-up week | 8% of visits *(est.)* |
+| Page published | the coach's page is open | 70% of sign-ups |
+| First request | a join request still kept, or a `join.request` in the audit log | 65% of sign-ups within 7 days |
 | **Activated** | an accepted client whose `user_states.first_workout_at` is set | 50% of sign-ups within 7 days (about 3 in 4 of the coaches who got a request) |
-| Habit | 3 or more clients training every week at day 30 | 60% of activated coaches |
-| Paid | upgrade when the coach hits the 3-client cap | 30% of activated coaches (25–35% is the acceptable range) |
+| Habit | 3 or more clients with a workout in the last 7 days (`user_states.last_workout`), for coaches 30+ days in | 60% of activated coaches |
+| Paid | a Creem licence that has started a paid period (upgrades at the 3-client cap) | 30% of activated coaches (25–35% is the acceptable range) |
 | Referral | a referred coach activates | 0.3 per paying coach |
 
 ### Follower side (the coach's funnel, which we make easy)
 
-The stages are page view → request → code verified → accepted → first set logged. The number we
-optimise is the **time from the first tap to the first logged set**. Target: under 24 hours when
+The stages are page view → request → code verified → accepted → first set logged. Page views are
+a daily count per coach (`coach_page_views`), never in the audit log; requests, codes and accepts
+are audit events naming the coach; the first set is the accepted follower's
+`user_states.first_workout_at`. The panel shows the last 30 days. The number we
+optimise is the **time from the first tap to the first logged set**, measured from the join
+request to the first workout the server saw. Target: under 24 hours when
 the coach accepts by hand, under 10 minutes with auto-accept.
 
 ### Loops

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Coaching\MemberCard;
+use App\Support\Js;
 use App\Support\Json;
 use Illuminate\Database\Eloquent\Model;
 use stdClass;
@@ -19,6 +20,11 @@ use stdClass;
  * And `checkin_seen` (CHW-339), which is not derived: the newest check-in date any sync has carried,
  * only ever raised (DataController). A check-in above it is one just filed, which the client's coach
  * is told of; a device syncing an older state cannot lower it and so cannot make one news twice.
+ *
+ * For the operator's funnel (CHW-335, App\Filament\Funnel): `last_workout`, the date of the last
+ * workout, derived as the rest; and `first_workout_at`, the server's clock at the first save whose
+ * state held one — set once and kept, so a client who deletes their history stays activated, and
+ * read off the server's clock, not the phone's, against the join request's own.
  */
 class UserState extends Model
 {
@@ -30,7 +36,7 @@ class UserState extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['user_id', 'state', 'ts', 'reminder', 'checkin_day', 'tz', 'digest_off'];
+    protected $fillable = ['user_id', 'state', 'ts', 'reminder', 'checkin_day', 'tz', 'digest_off', 'last_workout'];
 
     /**
      * Set by a caller that has filled the derived columns from the state it already decoded
@@ -41,7 +47,7 @@ class UserState extends Model
 
     protected function casts(): array
     {
-        return ['digest_off' => 'boolean'];
+        return ['digest_off' => 'boolean', 'first_workout_at' => 'integer'];
     }
 
     protected static function booted(): void
@@ -50,6 +56,10 @@ class UserState extends Model
             if ($row->isDirty('state') && ! $row->derivedSet) {
                 $row->forceFill(self::derived(json_decode((string) $row->state, false, 100_000)));
             }
+            // Set once, by whichever save first carries a workout: never moved or cleared after.
+            if ($row->first_workout_at === null && $row->last_workout !== null) {
+                $row->first_workout_at = Js::nowMs();
+            }
         });
     }
 
@@ -57,20 +67,23 @@ class UserState extends Model
      * The derived columns of a decoded state: `reminder` as its JSON when it is an object,
      * `checkin_day` when it is a day (MemberCard::checkinDay), `tz` when it is text that fits the
      * column (whether it names a zone is the digest's to judge), each null otherwise; and
-     * `digest_off`, true only for an explicit `digest: false`.
+     * `digest_off`, true only for an explicit `digest: false`; and `last_workout`, the last
+     * workout's date when it is one (every workout the app logs has its `d`), else null.
      *
-     * @return array{reminder: ?string, checkin_day: ?int, tz: ?string, digest_off: bool}
+     * @return array{reminder: ?string, checkin_day: ?int, tz: ?string, digest_off: bool, last_workout: ?string}
      */
     public static function derived(mixed $state): array
     {
         $reminder = $state instanceof stdClass ? ($state->reminder ?? null) : null;
         $tz = $state instanceof stdClass ? ($state->tz ?? null) : null;
+        $last = MemberCard::lastWorkout(Js::list($state instanceof stdClass ? ($state->workouts ?? null) : null))['lastWorkout'] ?? null;
 
         return [
             'reminder' => $reminder instanceof stdClass ? json_encode($reminder, Json::FLAGS) : null,
             'checkin_day' => MemberCard::checkinDay($state instanceof stdClass ? ($state->checkinDay ?? null) : null),
             'tz' => is_string($tz) && $tz !== '' && strlen($tz) <= 64 ? $tz : null,
             'digest_off' => $state instanceof stdClass && ($state->digest ?? null) === false,
+            'last_workout' => Js::isRealDate($last) ? $last : null,
         ];
     }
 }

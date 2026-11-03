@@ -8,9 +8,11 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 let ANSWER = null
+let ASKED = []
 vi.mock('../lib/api.js', async orig => ({
   ...(await orig()),
   api: async path => {
+    ASKED.push(path)
     if (path.startsWith('/api/public/coach?h=')) { if (ANSWER instanceof Error) throw ANSWER; return ANSWER }
     throw new Error('unexpected ' + path)
   },
@@ -35,9 +37,12 @@ afterEach(() => { act(() => root.unmount()); container.remove() })
 describe("a coach's public page", () => {
   it('shows the coach, their bio, and WhatsApp when they gave a number', async () => {
     ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: 'Force pour femmes.', whatsapp: '212612345678', theme: 'dark' } }
+    ASKED = []
     await render(<PublicCoach handle="yasmine.fit" />)
     expect(text()).toContain('Yasmine')
     expect(text()).toContain('Force pour femmes.')
+    // Counted as a view of the page, for the coach funnel (CHW-335).
+    expect(ASKED).toEqual(['/api/public/coach?h=yasmine.fit&view=1'])
     // A chat with the coach's number, the first line already typed (CHW-341).
     const wa = container.querySelector('a[href^="https://wa.me/212612345678?text="]')
     expect(decodeURIComponent(wa.href.split('text=')[1])).toBe('Hello Yasmine, I found your page on FitPal')

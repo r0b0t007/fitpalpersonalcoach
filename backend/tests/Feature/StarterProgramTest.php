@@ -90,7 +90,7 @@ it('accepts by itself the moment the code is checked, when the page says so', fu
     expect($member->coach_id)->toBe($this->f->a->id)
         ->and(starterInbox($member)[0]['auto'])->toBeTrue()
         ->and(Assignment::forMember($member->id)->sole()->coach_id)->toBe($this->f->a->id);
-    $this->assertDatabaseHas('audit_events', ['ev' => 'coach.request.auto', 'uid' => $member->id, 'msg' => 'sara.fit']);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'coach.request.auto', 'uid' => $member->id, 'tgt' => $this->f->a->id, 'msg' => 'sara.fit']);
     Mail::assertSent(JoinAnswerMail::class, fn (JoinAnswerMail $m) => $m->hasTo('salma@example.com'));
 });
 

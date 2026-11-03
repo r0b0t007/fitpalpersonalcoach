@@ -104,14 +104,19 @@ final class JoinController
         $now = Js::nowMs();
         $join = JoinRequest::queueOf($coach)->where('email', $email)->where('status', 'unverified')->first()
             ?? (new JoinRequest)->forceFill(['id' => JoinRequest::newId(), 'coach_id' => $coach->id, 'email' => $email, 'status' => 'unverified']);
+        $asked = ! $join->exists;
         $lang = Input::jsString($request, 'lang');
         $join->forceFill([
             'name' => $name, 'lang' => in_array($lang, MailCopy::LANGS, true) ? $lang : null, 'intake' => Js::stringify($intake),
             'code_hash' => JoinRequest::hash($code), 'attempts' => 0, 'code_expires' => $now + JoinRequest::CODE_MINUTES * 60_000,
             'created' => $now,
         ])->save();
-        // The page, not the address: a log of what strangers typed is a liability.
-        Audit::record($request, 'join.request', ['ok' => true, 'msg' => $page->handle]);
+        // The page, not the address: a log of what strangers typed is a liability. The coach as
+        // its target, which the funnel counts by (CHW-335): a handle can change, an id cannot. A
+        // request asked, once: "send the code again" is the same request, not another one.
+        if ($asked) {
+            Audit::record($request, 'join.request', ['ok' => true, 'target' => $coach, 'msg' => $page->handle]);
+        }
         defer(fn () => SendAfterResponse::send($email, new JoinCodeMail($code, (string) $coach->name, $lang)));
 
         return Json::ok(['ok' => true, 'id' => $join->id]);
@@ -177,7 +182,7 @@ final class JoinController
             throw $refusal;
         }
         $page = CoachPage::acrossCoaches()->find($join->coach_id); // across coaches: the page of the request's coach
-        Audit::record($request, 'join.verify', ['ok' => true, 'msg' => $page?->handle]);
+        Audit::record($request, 'join.verify', ['ok' => true, 'target' => $coach, 'msg' => $page?->handle]);
 
         return Json::ok(['ok' => true, 'token' => $token, 'status' => self::autoAccept($request, $join, $coach, $page)]);
     }
@@ -212,7 +217,7 @@ final class JoinController
 
             return $status;
         }
-        Audit::record($request, 'coach.request.auto', ['user' => $member, 'msg' => $page->handle]);
+        Audit::record($request, 'coach.request.auto', ['user' => $member, 'target' => $coach, 'msg' => $page->handle]);
         JoinAccept::tellFollower($join, $coach, true);
         // Nothing waits on the coach, but a new client took a seat: they hear who.
         SendPush::dispatch($coach->id, 'join-auto', [$member->name]);

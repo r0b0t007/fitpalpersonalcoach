@@ -10,6 +10,7 @@ use App\Models\JoinRequest;
 use App\Models\LoginLink;
 use App\Models\User;
 use App\Support\ClientSafe;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Tests\Support\Coaching;
@@ -94,7 +95,7 @@ it('stores an unverified request and mails a code, with no account made', functi
     expect($code)->toMatch('/^\d{6}$/')->and($req->code_hash)->toBe(JoinRequest::hash($code));
     $mail = Mail::sent(JoinCodeMail::class)->last();
     expect($mail->lang)->toBe('fr')->and($mail->words['heading'])->toContain($code);
-    $this->assertDatabaseHas('audit_events', ['ev' => 'join.request', 'msg' => 'sara.fit']);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'join.request', 'tgt' => $this->f->a->id, 'msg' => 'sara.fit']);
     $this->assertDatabaseMissing('audit_events', ['ev' => 'join.request', 'name' => 'salma@example.com']);
 });
 
@@ -130,6 +131,8 @@ it('starts a request again in the same row, so its id holds and only the newest 
     [$again, $second] = startedJoin();
     expect($again)->toBe($id)
         ->and(JoinRequest::acrossCoaches()->pluck('id')->all())->toBe([$id]); // across coaches: test reads every row
+    // One request asked, as the funnel counts it (CHW-335), however many codes were sent.
+    expect(DB::table('audit_events')->where('ev', 'join.request')->count())->toBe(1);
     if ($first !== $second) {
         verifyJoin($id, $first)->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
     }
@@ -177,7 +180,7 @@ it('makes the request pending on the right code, and gives the browser a token �
     $req = JoinRequest::acrossCoaches()->find($id); // across coaches: the test reads the row the public route wrote
     expect($req->only(['status', 'code_hash', 'token_hash']))->toBe(['status' => 'pending', 'code_hash' => null, 'token_hash' => JoinRequest::hash($token)])
         ->and(User::query()->count())->toBe($users);
-    $this->assertDatabaseHas('audit_events', ['ev' => 'join.verify', 'msg' => 'sara.fit']);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'join.verify', 'tgt' => $this->f->a->id, 'msg' => 'sara.fit']);
     // The code is spent: a second go finds nothing to prove.
     verifyJoin($id, $code)->assertStatus(400)->assertExactJson(['error' => 'that code has expired — ask for a new one']);
 });
