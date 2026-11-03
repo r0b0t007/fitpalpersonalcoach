@@ -9,7 +9,7 @@ in the "FitPal Coach" project: C1 (redesign, in Claude Design: CHW-323 to CHW-32
 FitPal Coach was built for one solo trainer at a time, each onboarded by a WhatsApp call. The
 buyer is now the **independent Instagram coach** in the francophone countries (Morocco, France,
 Belgium) and Spain. That coach puts **one link in their bio**. A follower taps it, asks to train
-with them, and is training in the app the same day. The coach collects money their own way.
+with them, and has their first workout in the app the same day. The coach collects money their own way.
 
 The product can't do that today. A code check on 2026-11-01 found:
 
@@ -41,7 +41,7 @@ The product can't do that today. A code check on 2026-11-01 found:
 | Client sign-in | **A 6-digit code by email** is the main path, with a link in the same mail as a backup. A passkey is offered afterwards as a faster sign-in. Inside Instagram, a prompt says to open the page in the browser. |
 | Messaging | The coach **replies to a check-in** and **comments on a logged workout**, and the client is told by push, or by email if they have no push. A one-tap **WhatsApp** button covers everything else. No full chat. |
 | Pricing | **Free for up to 3 clients**, no card. Above that, the existing tiers: Solo 10, Pro 30, Studio 75 clients at €19, €39 and €79 a month. The 14-day trial is dropped, because Free replaces it. |
-| Market | Francophone countries (Morocco, France, Belgium) and Spain from the start. French is the lead language, with Spanish alongside; Darija only in marketing copy. |
+| Market | Francophone countries (Morocco, France, Belgium) and Spain from the start. French is the lead language, with Spanish alongside. Marketing copy is in French, Spanish and English, with no Darija (owner, 2026-11-03). |
 | Redesign | All four surfaces: the coach's link page and join flow, the client app, the coach app, and fitpal.ma. Done in Claude Design with **Unsplash** photos. The coach picks a dark (default) or light theme for their own page; the join flow follows it until acceptance, and the app stays dark by default. |
 | Features cut for clients | **Hidden behind a `coached` flag, not deleted.** "Train myself", users without a coach, and the coach's own program editing all keep them. |
 
