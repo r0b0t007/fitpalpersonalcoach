@@ -18,8 +18,10 @@ There is no Darija copy (owner, 2026-11-03): a Moroccan coach is written to in F
 | **EN** | One link in your bio. Followers ask to train with you, you accept, and their first workout is ready that day. Free up to 3 clients. |
 
 **Short form** (a Reel caption, a site hero, the opening line of a DM):
-FR "Un lien dans ta bio, tes clients s'entraînent le jour même." · ES "Un enlace en tu bio, tus
-clientes entrenan ese mismo día." · EN "One link in your bio, and your clients train that day."
+FR "Un lien dans ta bio, et leur première séance est prête le jour même." · ES "Un enlace en tu
+bio, y su primer entreno está listo ese mismo día." · EN "One link in your bio, and their first
+workout is ready that day." The workout is ready that day; whether the client trains that day is
+theirs (§6).
 
 ## 2. Who it is for, and who it is not for
 
@@ -45,10 +47,12 @@ Each one is a fact about the product today. The lines under it are what to say. 
    - ES: «Tu seguidor lo pide desde Instagram. Un código por email y ya está dentro. Sin descargar ninguna app.»
    - EN: "Your follower asks from Instagram. One code by email and they're in. No app to download."
 2. **One price, no add-ons.**
-   - **Free:** up to 3 active clients at a time, no card, for as long as you like. Release a
+   - **Free:** up to 3 active clients at a time, no card, for as long as you like (production
+     sets `FREE_CAP=3`: coach.fitpal.ma's `/api/config` answered `free_cap: 3` on 2026-11-03). Release a
      client who stopped training and the place is free again. Say "jusqu'à 3" / "hasta 3" /
      "up to 3", never "tes 3 premiers" / "your first 3": Free is not a one-off allowance.
-   - **Paid plans:** Solo (10 clients) €19, Pro (30) €39, Studio (75) €79 a month, VAT included.
+   - **Paid plans:** Solo (10 clients) €19, Pro (30) €39, Studio (75) €79 a month, VAT included,
+     or €190, €390 and €790 a year (a year costs ten months).
    - **Every plan has everything:** the public page, auto-accept, check-ins, replies, photos,
      macros, the client's charts and WhatsApp buttons. Plans differ only by how many clients
      they hold.
@@ -80,8 +84,9 @@ Behind these four sit the details, for when the coach asks "and then what?":
   phone the day the coach accepts them. With auto-accept on too, that is the day they ask.
   This is what "le jour même" in the core line stands on, which is why the setup (proof 4, or a
   template) always includes a starter program.
-- **The coach is told:** the coach gets a push for each new request and each check-in a client
-  files. A morning digest counts the requests waiting, the check-ins overdue and the sessions
+- **The coach is told:** the coach gets a push for each new request, and for a fresh check-in
+  from a client who has agreed to share their health data (CHW-360). Without that consent the
+  coach sees none of that client's check-ins and gets no push for them. A morning digest counts the requests waiting, the check-ins overdue and the sessions
   missed over the last week.
 - **Replies:** a check-in or a logged workout gets a reply in the app, and a WhatsApp button
   covers everything else.
@@ -93,7 +98,7 @@ Behind these four sit the details, for when the coach asks "and then what?":
 | Market | Lead with | Then | Don't |
 |---|---|---|---|
 | **Morocco** (FR) | Paid your own way: no Stripe, cash and CashPlus are fine (proof 3) | The WhatsApp button, the Ramadan template | Quote a price in MAD before the price test (growth plan §5) |
-| **France, Belgium** (FR) | Against the PDF and the Sheet: "tes clients ne perdent plus leurs séances" | A client app that shows the client their program and nothing to configure (the coached app hides the tracker's settings), one price with no add-ons (proof 2) | Name a competitor in an ad, a Reel or a DM opener |
+| **France, Belgium** (FR) | Against the PDF and the Sheet: "tes clients ne perdent plus leurs séances" | A client app that shows the client their program: the coached app hides the planning tools (the exercise library, plan editing, imports, the recovery and effort panels), so a client follows the coach's program instead of rewriting it. One price with no add-ons (proof 2) | Name a competitor in an ad, a Reel or a DM opener |
 | **Spain** (ES) | Free up to 3 clients, with no card | Set up in a day (proof 4) | Name a competitor in an ad, a Reel or a DM opener |
 | **English-speaking coaches** (EN) | One link in the bio, and the first workout that day (the core line) | One price with no add-ons (proof 2), paid your own way (proof 3) | Name a competitor in an ad, a Reel or a DM opener |
 
@@ -168,8 +173,14 @@ section predates Free and still describes the booked call. CHW-342 rewrites it w
 - **Paid plans can't be bought online yet.** Checkout opens with CHW-302. Until then, a coach past
   3 clients asks us and we grant the plan from the admin panel. Don't say "upgrade in one tap".
 - **A coach can't export their roster.** A client exports their own data (Settings, JSON), but
-  there is no export of all your clients from the coach app. Today's fitpal.ma says "les données
-  client sont exportables à tout moment"; CHW-342 corrects it, or a coach export is built first.
+  there is no export of all your clients from the coach app. Today's fitpal.ma claims one in five
+  places, which CHW-342 corrects (or a coach export is built first):
+  - `site-coach/index.html`: the Export spec row and "Exportables en JSON à tout moment";
+  - `site-coach/en/index.html`: "Exportable as JSON at any time";
+  - `site-coach/es/index.html`: "Exportables en JSON en cualquier momento";
+  - `site-coach/mentions-legales.html`: "exportables en JSON à tout moment sur simple demande".
+    That one says "on request": it stays only if we can actually send a coach their data when
+    asked, which CHW-342 checks first.
 - **"Within 24 hours" is a founder's promise.** It holds only while one person can keep it. The
   how-to is CHW-348, and the DMs stop offering it if the queue goes past a day.
 - **No testimonials, no client counts, no "X coaches already".** There are no real coaches yet.

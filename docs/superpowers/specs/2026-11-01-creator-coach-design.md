@@ -9,7 +9,7 @@ in the "FitPal Coach" project: C1 (redesign, in Claude Design: CHW-323 to CHW-32
 FitPal Coach was built for one solo trainer at a time, each onboarded by a WhatsApp call. The
 buyer is now the **independent Instagram coach** in the francophone countries (Morocco, France,
 Belgium) and Spain. That coach puts **one link in their bio**. A follower taps it, asks to train
-with them, and is training in the app the same day. The coach collects money their own way.
+with them, and has their first workout in the app the same day. The coach collects money their own way.
 
 The product can't do that today. A code check on 2026-11-01 found:
 

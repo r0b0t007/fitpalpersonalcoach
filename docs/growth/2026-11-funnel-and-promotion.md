@@ -12,9 +12,9 @@ online, one to one. Today they deliver PDFs or Google Sheets over WhatsApp and s
 
 | Market | What a client pays the coach | Competitors already there | Our angle |
 |---|---|---|---|
-| Morocco | 300–800 MAD/month *(est.: no published data, to be checked by mystery-shopping)* | No local B2B tool. Global ones need Stripe, which reportedly doesn't onboard companies registered in Morocco ([Kolonell](https://kolonell.com/fr/blog/paiement-en-ligne-pme-maroc-cmi-ou-stripe-2026)). | French, no Stripe needed, the coach is paid however they like, free for 3 clients |
+| Morocco | 300–800 MAD/month *(est.: no published data, to be checked by mystery-shopping)* | No local B2B tool. Global ones need Stripe, which reportedly doesn't onboard companies registered in Morocco ([Kolonell](https://kolonell.com/fr/blog/paiement-en-ligne-pme-maroc-cmi-ou-stripe-2026)). | French, no Stripe needed, the coach is paid however they like, free up to 3 clients |
 | France, Belgium | €30–150/month ([coachway FR](https://coachway.io/fr/combien-coute-un-coach-sportif-en-ligne/)) | Hexfit €19–29, AZEOO €9, Fit'Distance €13 ([coachway FR](https://coachway.io/fr/logiciel-coach-sportif/)) | One link in the bio, one price with no add-ons, a client app that works inside Instagram |
-| Spain | €50–150/month ([FitGeneration](https://fitgeneration.es/cuanto-vale-un-entrenador-personal-al-mes/)) | Harbiz €14–19 for 5 clients, third-party figure ([coachway ES](https://coachway.io/es/alternativas-a-harbiz/)); check on harbiz.io before quoting it | Free for 3 clients, set up in a day, a simpler client app |
+| Spain | €50–150/month ([FitGeneration](https://fitgeneration.es/cuanto-vale-un-entrenador-personal-al-mes/)) | Harbiz €14–19 for 5 clients, third-party figure ([coachway ES](https://coachway.io/es/alternativas-a-harbiz/)); check on harbiz.io before quoting it | Free up to 3 clients, set up in a day, a simpler client app |
 
 **Positioning:** "Un lien dans ta bio. Tes abonnés demandent à s'entraîner avec toi, tu acceptes,
 leur première séance est prête le jour même. Gratuit jusqu'à 3 clients."
@@ -79,8 +79,9 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 **Weeks 3–6: founder-led sales**
 - Send 30 personal DMs a day, rotating countries, offering the free setup.
 - Hold 10 onboarding calls a week.
-- Post 3 Reels a week on @fitpal. Ideas: "du PDF à l'app en 5 minutes", "un lien dans ta bio",
-  "comment X gère 30 clients", "tes clients ne perdent plus leurs séances".
+- Post 3 Reels a week on @fitpal. Ideas: "du PDF à l'app en 24 h", "un lien dans ta bio",
+  "tes clients ne perdent plus leurs séances", and, once a Founding Coach agrees to be shown,
+  "comment X gère ses clients" (no client counts before then: messaging §7).
 - Goal: 30 activated coaches.
 
 **Weeks 5–8: social proof**
