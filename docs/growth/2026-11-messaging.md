@@ -196,7 +196,7 @@ section predates Free and still describes the booked call. CHW-342 rewrites it w
 | Asset | Uses |
 |---|---|
 | fitpal.ma hero (CHW-342) | the short form, then the core line, then the four proofs as the page's sections, in FR, ES and EN |
-| DM opener and offer (CHW-347) | a personal line about one of their posts, then proof 4, then the core line's last sentence |
+| DM opener and offer (CHW-347) | a personal line about one of their posts, then the core line, then proof 4 and the Free plan |
 | DM follow-ups, day 3 and day 7 | proof 1 (day 3), proof 3 in Morocco or proof 2 elsewhere (day 7) |
 | Reels (CHW-351) | one proof per Reel, shown on a real phone, never described |
 | Demo video (CHW-346) | the core line, acted out: link, request, accept, workout 1 |
