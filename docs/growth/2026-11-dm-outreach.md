@@ -1,0 +1,175 @@
+# DM outreach: scripts, list and tracker
+
+Written 2026-11-03 for CHW-347, from `2026-11-messaging.md`. That page decides what may be
+claimed; this one decides how it is said in a DM. The founder sends every message by hand, from
+their own account, in the language the coach posts in: French, Spanish or English.
+
+Fill the brackets before sending: `[prénom]`, `[sujet]`, `[ce que tu en as retenu]`,
+`[WhatsApp]` (the founder's number, with the country code).
+
+## 1. The rules
+
+1. **One true, specific line about one of their posts, or no message.** If you can't write it in
+   a minute, skip the coach. A line that would fit any coach reads as a bot.
+2. **No link in the first message.** A first DM from a stranger lands in the message requests,
+   and a link makes it look like spam. The link comes once they answer.
+3. **At most two follow-ups,** on day 3 and day 7, and none once they have answered anything,
+   "no" included. Then the row is closed.
+4. **"No", "stop" or no interest: answer once, politely, and never write again.** Mark the row
+   `stop` and clear everything in it but `handle`, `country` and `outcome`: what is left is
+   only there so they are never written to again.
+5. **By hand, never automated.** No tool sends, schedules or copies DMs in bulk: the account
+   would be flagged, and it would stop being founder-led.
+6. **30 new coaches a day,** rotating countries in the list's proportions: about 15 in Morocco,
+   8 in France or Belgium and 7 in Spain. Follow-ups come on top. If Instagram shows a warning
+   or blocks sending, stop for 48 hours, then halve the pace for a week.
+7. **Only what the messaging doc allows.** No "en 5 minutes", no client counts, no competitor
+   named first, no price in MAD (messaging §7).
+
+## 2. The scripts
+
+### Message 1: the opener and the offer
+
+The personal line, then proof 4 (done for you), then the core line's last sentence. It ends with
+a question, so there is something to answer, and then one line on their details (§4): it says
+what is kept and how to say no, which the law asks for at first contact.
+
+- **FR:** Salut [prénom]. Ton post sur [sujet] m'a parlé : [ce que tu en as retenu]. Je fais FitPal Coach, une app où tes abonnés demandent à s'entraîner avec toi depuis le lien de ta bio, et leur programme est prêt le jour où tu acceptes. Si tu m'envoies ton programme, en PDF ou en Sheet, je te mets tout sur l'app en 24 h, gratuitement. C'est gratuit jusqu'à 3 clients. Ça t'intéresse ? (J'ai noté ton @ pour te relancer deux fois au plus. Réponds « stop » et je ne t'écris plus.)
+- **ES:** Hola [prénom]. Tu post sobre [sujet] me llegó: [ce que tu en as retenu]. Hago FitPal Coach, una app donde tus seguidores piden entrenar contigo desde el enlace de tu bio, y su programa está listo el día que aceptas. Si me mandas tu programa, en PDF o en Sheet, te lo paso todo a la app en 24 h, gratis. Es gratis hasta 3 clientes. ¿Te interesa? (He apuntado tu @ para escribirte como mucho dos veces más. Responde «stop» y no te escribo más.)
+- **EN:** Hi [prénom]. Your post about [sujet] stuck with me: [ce que tu en as retenu]. I make FitPal Coach, an app where your followers ask to train with you from the link in your bio, and their program is ready the day you accept. If you send me your program, as a PDF or a Sheet, I'll put it all in the app within 24 hours, free. It's free up to 3 clients. Interested? (I've noted your handle to follow up twice at most. Reply "stop" and I won't write again.)
+
+### When they say yes
+
+- **FR:** Parfait. Envoie-moi sur WhatsApp ([WhatsApp]) ton programme (PDF, Sheet ou photos), une photo de toi, deux lignes sur ce que tu fais et ton @. Je te renvoie ton lien dans les 24 h. Si tu préfères le faire toi-même, c'est ici : coach.fitpal.ma/#/start?plan=free
+- **ES:** Perfecto. Mándame por WhatsApp ([WhatsApp]) tu programa (PDF, Sheet o fotos), una foto tuya, dos líneas sobre lo que haces y tu @. Te devuelvo tu enlace en 24 h. Si prefieres hacerlo tú, es aquí: coach.fitpal.ma/#/start?plan=free
+- **EN:** Great. Send me on WhatsApp ([WhatsApp]) your program (PDF, Sheet or photos), a photo of you, two lines on what you do and your handle. I'll send your link back within 24 hours. If you'd rather do it yourself, it's here: coach.fitpal.ma/#/start?plan=free
+
+The setup itself (what we enter, what the coach checks) is CHW-348's. Until it is written down,
+the founder does it by hand; stop offering the 24 hours if the queue goes past a day.
+
+### Follow-up 1, day 3: proof 1 (it works inside Instagram)
+
+- **FR:** [prénom], je reviens vers toi une seule fois. Ce qui change pour tes abonnés : ils demandent depuis Instagram, reçoivent un code par e-mail, et ils sont dedans. Pas d'app à télécharger. L'offre tient toujours : ton programme sur l'app en 24 h, gratuit.
+- **ES:** [prénom], te escribo solo una vez más. Lo que cambia para tus seguidores: lo piden desde Instagram, reciben un código por email y ya están dentro. Sin descargar ninguna app. La oferta sigue en pie: tu programa en la app en 24 h, gratis.
+- **EN:** [prénom], one more message from me. What changes for your followers: they ask from Instagram, get a code by email, and they're in. No app to download. The offer still stands: your program in the app within 24 hours, free.
+
+### Follow-up 2, day 7: proof 3 in Morocco, proof 2 elsewhere
+
+Morocco (FR):
+- Dernier message de ma part. Tes clients continuent de te payer comme d'habitude, virement, cash ou CashPlus : FitPal ne touche pas à ton argent. Si un jour ça t'intéresse, réponds juste « oui ».
+
+France, Belgium, Spain and English-speaking coaches:
+- **FR:** Dernier message de ma part. Un seul prix, tout est dedans, sans options payantes, et c'est gratuit jusqu'à 3 clients. Si un jour ça t'intéresse, réponds juste « oui ».
+- **ES:** Último mensaje por mi parte. Un solo precio, todo incluido, sin extras de pago, y es gratis hasta 3 clientes. Si algún día te interesa, responde solo «sí».
+- **EN:** Last message from me. One price, everything included, no paid extras, and it's free up to 3 clients. If it's ever of interest, just reply "yes".
+
+### When they say no
+
+- **FR:** Pas de souci, merci d'avoir répondu. Bonne continuation.
+- **ES:** Sin problema, gracias por responder. Mucho ánimo.
+- **EN:** No problem, thanks for replying. All the best.
+
+Then mark the row `stop` (rule 4). Nothing more is sent.
+
+### Objections
+
+Answer with the lines in `2026-11-messaging.md` §5, in the coach's language, then go back to the
+offer in one sentence: "L'offre tient : ton programme sur l'app en 24 h, gratuit." /
+"La oferta sigue: tu programa en la app en 24 h, gratis." / "The offer stands: your program in the
+app within 24 hours, free." Anything not answered there (a question about a feature, a price, a
+competitor): say you'll check, and check before answering. Never guess.
+
+## 3. Building the list
+
+**Who goes on it:**
+- an independent coach (not a gym, a brand or a supplement shop) with 5k–100k followers;
+- coaching online or one to one;
+- posting in French, Spanish or English;
+- based in Morocco, France, Belgium or Spain.
+
+**Where to look:**
+- **Searches and hashtags:** coach sportif, coaching en ligne, entrenador personal, online coach,
+  with a city (Casablanca, Rabat, Marrakech, Paris, Lyon, Bruxelles, Madrid, Barcelona, Valencia).
+- **Coaches' links:** the accounts a coach's bio link or "comment KEYWORD" post leads to.
+- **Instagram's suggestions:** the "suggested for you" row on a coach who fits.
+
+Search by hand and copy what the profile shows. No scraping tool.
+
+**Leave off:**
+- accounts that mostly sell products;
+- coaches above 100k (they're for the affiliate offer, CHW-350);
+- accounts with no post in the last month.
+
+A coach already using an app goes on the list: note which app, and expect the Trainerize objection.
+
+## 4. The tracker
+
+`dm-outreach-tracker.csv` is the header row to import into a Google Sheet (File › Import). The
+filled sheet lives in that Sheet, **never in this repo**: it holds people's details, and the repo
+is not the place for them.
+
+| Column | What goes in it |
+|---|---|
+| `handle` | their @, without the @ |
+| `country` | MA, FR, BE or ES |
+| `language` | fr, es or en: the language they post in, which is the one you write in |
+| `followers` | the number on the profile the day you add them |
+| `niche` | women, bodybuilding, home, running, other |
+| `link_tool` | what their bio link is today: Linktree, Stan, WhatsApp, an app, none |
+| `app_used` | the coaching app they mention, if any |
+| `post` | the post the opener names, as a link |
+| `sent` | date of message 1 (YYYY-MM-DD) |
+| `followup_1`, `followup_2` | dates sent, left empty once they reply |
+| `replied` | date of their first answer |
+| `outcome` | yes, no, stop, objection, or empty |
+| `call` | date of a call, if there is one |
+| `signed_up` | date their coach account exists (admin panel) |
+| `activated` | date an accepted client logged workout 1 (admin panel funnel, CHW-335) |
+| `paid` | date a paid period started |
+| `notes` | anything worth remembering, in a few words |
+
+**The data in it:**
+- **What goes in:** only what the coach shows publicly for their business. Nothing personal from
+  outside their profile.
+- **Deleting a row:** a coach who asks to be erased has their row deleted the same day; tell them
+  that without it we can't make sure they are never written to again. A row closed for 6 months
+  is cut down to the handle and `stop` the same way.
+- **Other uses:** the list is for these DMs only. It is never added to a newsletter or shared.
+
+**The legal basis.** This is professional prospecting under legitimate interest: a message about
+the coach's own work, sent to their business account, with a way to say no in the first message
+and nothing after a no. Under GDPR Art. 14 a person whose details we collect without asking them
+is told, at first contact, what is kept and how to object; that is the bracketed line in message
+1. A coach who asks what we hold gets their row, and the row is deleted on request.
+
+**To verify before the first send** (checked against the GDPR and Morocco 09-08 checklists in
+lawve-ai/awesome-legal-skills; not legal advice):
+- **Morocco:** whether this prospect list needs a CNDP declaration under law 09-08. It goes with
+  the CNDP work in CHW-359.
+- **Records of processing:** whether FitPal keeps an Art. 30 record of processing. If it does,
+  add "coach prospecting" to it: purpose, the columns above, 6 months, the founder only.
+- **Instagram's own rules:** they apply on top of the law. The pace in §1 is there for them, too.
+
+## 5. Monday review
+
+Count from the tracker, per language and per country:
+
+| Number | From |
+|---|---|
+| Reply rate | `replied` ÷ `sent` |
+| Yes rate | `outcome = yes` ÷ `replied` |
+| Sign-up rate | `signed_up` ÷ `sent` |
+| Activation | `activated` ÷ `signed_up` (target: half within 7 days, growth plan §2) |
+| Paid | `paid` ÷ `activated` |
+
+**Revising the scripts:**
+- **Change one thing at a time:** the personal line's style, the offer's wording, or the
+  follow-up's proof.
+- **Judge it on the next 100 sends** in that language, against the 100 before. That is the
+  "scripts revised from what the replies show" half of CHW-347's done-when.
+- **Write down each change and its result** under a dated heading at the end of this file, so the
+  next revision starts from what was tried.
+
+## Changes
+
+*(none yet)*
