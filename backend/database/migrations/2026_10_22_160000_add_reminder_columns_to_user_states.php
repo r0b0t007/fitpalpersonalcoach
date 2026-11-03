@@ -19,7 +19,9 @@ return new class extends Migration
         // The states already stored, one at a time: a state can be 16 MB.
         foreach (DB::table('user_states')->orderBy('user_id')->pluck('user_id') as $id) {
             $state = DB::table('user_states')->where('user_id', $id)->value('state');
-            DB::table('user_states')->where('user_id', $id)->update(UserState::derived(json_decode((string) $state, false, 100_000)));
+            // Its own two columns only: derived() has grown columns that later migrations add.
+            $derived = UserState::derived(json_decode((string) $state, false, 100_000));
+            DB::table('user_states')->where('user_id', $id)->update(['reminder' => $derived['reminder'], 'checkin_day' => $derived['checkin_day']]);
         }
     }
 

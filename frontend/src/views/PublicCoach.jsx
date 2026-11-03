@@ -36,7 +36,9 @@ export default function PublicCoach({ handle }) {
   useEffect(() => {
     let live = true
     setCoach(null); setError(null)
-    api('/api/public/coach?h=' + encodeURIComponent(handle))
+    // view=1: this screen is a view of the page, for the coach funnel's count (CHW-335); the join
+    // form reads the same card without it.
+    api('/api/public/coach?h=' + encodeURIComponent(handle) + '&view=1')
       .then(r => { if (live) setCoach(r.coach) })
       .catch(e => { if (live) setError(e.message || t('Could not load this page')) })
     return () => { live = false }

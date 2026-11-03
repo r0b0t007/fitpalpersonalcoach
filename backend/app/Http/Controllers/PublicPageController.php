@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Coaching\Handle;
 use App\Models\CoachPage;
+use App\Models\CoachPageView;
 use App\Support\Json;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,12 @@ final class PublicPageController
         }
         if (! $page->open) {
             return Json::error(404, 'this coach is not taking requests right now');
+        }
+        // A view, for the funnel (CHW-335), when the page screen asks (?view=1): the join form
+        // reads this card too, and the preview crawlers read only /c/, so a view is a person. The
+        // coach looking at their own page is not one.
+        if ($request->query('view') === '1' && $request->user('api')?->id !== $coach->id) {
+            CoachPageView::hit($coach->id, now('UTC')->format('Y-m-d'));
         }
 
         return Json::ok(['coach' => $page->toPublic($coach)]);

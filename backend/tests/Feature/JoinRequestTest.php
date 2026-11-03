@@ -94,7 +94,7 @@ it('stores an unverified request and mails a code, with no account made', functi
     expect($code)->toMatch('/^\d{6}$/')->and($req->code_hash)->toBe(JoinRequest::hash($code));
     $mail = Mail::sent(JoinCodeMail::class)->last();
     expect($mail->lang)->toBe('fr')->and($mail->words['heading'])->toContain($code);
-    $this->assertDatabaseHas('audit_events', ['ev' => 'join.request', 'msg' => 'sara.fit']);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'join.request', 'tgt' => $this->f->a->id, 'msg' => 'sara.fit']);
     $this->assertDatabaseMissing('audit_events', ['ev' => 'join.request', 'name' => 'salma@example.com']);
 });
 
@@ -177,7 +177,7 @@ it('makes the request pending on the right code, and gives the browser a token â
     $req = JoinRequest::acrossCoaches()->find($id); // across coaches: the test reads the row the public route wrote
     expect($req->only(['status', 'code_hash', 'token_hash']))->toBe(['status' => 'pending', 'code_hash' => null, 'token_hash' => JoinRequest::hash($token)])
         ->and(User::query()->count())->toBe($users);
-    $this->assertDatabaseHas('audit_events', ['ev' => 'join.verify', 'msg' => 'sara.fit']);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'join.verify', 'tgt' => $this->f->a->id, 'msg' => 'sara.fit']);
     // The code is spent: a second go finds nothing to prove.
     verifyJoin($id, $code)->assertStatus(400)->assertExactJson(['error' => 'that code has expired â€” ask for a new one']);
 });
