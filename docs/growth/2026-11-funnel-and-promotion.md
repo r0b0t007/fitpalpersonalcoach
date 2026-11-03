@@ -19,7 +19,8 @@ online, one to one. Today they deliver PDFs or Google Sheets over WhatsApp and s
 **Positioning:** "Un lien dans ta bio. Tes abonnés demandent à s'entraîner avec toi, tu acceptes,
 leur première séance est prête le jour même. Gratuit pour tes 3 premiers clients."
 In Spanish: "Un enlace en tu bio. Tus seguidores piden entrenar contigo, aceptas, y su primer
-entreno está listo ese mismo día."
+entreno está listo ese mismo día." The full messaging (proof points, per-market angles, objections, Darija) is in
+`2026-11-messaging.md`.
 
 ## 2. The funnel
 
