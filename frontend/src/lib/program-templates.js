@@ -11,27 +11,30 @@
 // A routine is [key, name, emoji, [[exerciseId, sets, reps, extra?], …]]. `extra` carries a note
 // or `side` (reps are then the total over both sides, as history.js counts them). The schedule is
 // [weekday, routineKey], weekday a getDay() index, so 1 is Monday. It is the same every week —
-// the app has no rotation — so an A/B program on three days does A twice and says so. No
-// cardio-tagged exercise: the app would log a burpee as minutes and speed.
+// the app has no rotation — so a three-day program has three sessions, each once a week: two
+// sessions on three days would do one of them twice every week. No cardio-tagged exercise: the
+// app would log a burpee as minutes and speed.
 import { t } from './i18n-core.js'
 import { uid } from './format.js'
 import { bundleOf } from './program-draft.js'
 
 const SIDE = { side: true }
-const ABA = [[1, 'a'], [3, 'b'], [5, 'a']]
+const ABC = [[1, 'a'], [3, 'b'], [5, 'c']]
 
 const TEMPLATES = {
   'full-body': {
     name: () => t('Full body for beginners'),
-    about: () => t('Three days a week: session A on Monday and Friday, B on Wednesday. Machines and dumbbells.'),
+    about: () => t('Three days a week, a different session each day. Machines and dumbbells.'),
     routines: () => [
       ['a', t('Full body A'), 'figureStrength', [
         ['1760', 3, 10, { note: t('Hold the dumbbell against your chest; sit between your heels.') }],
         ['0289', 3, 10], ['2330', 3, 10], ['1459', 3, 10], ['0334', 2, 12], ['0276', 2, 20, SIDE]]],
       ['b', t('Full body B'), 'figureStrength', [
         ['0739', 3, 12], ['0405', 3, 10], ['1323', 3, 10], ['0336', 2, 20, SIDE], ['0586', 2, 12], ['0274', 2, 15]]],
+      ['c', t('Full body C'), 'figureStrength', [
+        ['0381', 3, 20, SIDE], ['0576', 3, 10], ['0293', 3, 10], ['0489', 3, 12], ['0294', 2, 12], ['0872', 2, 12]]],
     ],
-    schedule: ABA,
+    schedule: ABC,
   },
   ppl: {
     name: () => t('Push / pull / legs'),
@@ -56,20 +59,26 @@ const TEMPLATES = {
         ['1460', 3, 24, SIDE], ['0493', 3, 12],
         ['0499', 3, 8, { note: t('Under a sturdy table, holding its edge.') }],
         ['3769', 3, 20, SIDE], ['0710', 3, 30, SIDE], ['1373', 3, 20], ['0274', 3, 15]]],
+      ['c', t('Home C'), 'figureStrength', [
+        ['1686', 3, 15], ['1311', 3, 10, { note: t('On your knees if ten is too many.') }],
+        ['0499', 3, 8, { note: t('Under a sturdy table, holding its edge.') }],
+        ['3645', 3, 20, SIDE], ['0815', 3, 10], ['0872', 3, 12]]],
     ],
-    schedule: ABA,
+    schedule: ABC,
   },
   glutes: {
     name: () => t('Glutes and legs'),
-    about: () => t('Three days a week in the gym: session A on Monday and Friday, B on Wednesday.'),
+    about: () => t('Three days a week in the gym, a different session each day.'),
     routines: () => [
       ['a', t('Glutes A'), 'legs', [
         ['1409', 4, 10, { note: t('Pause one second at the top, squeezing your glutes.') }],
         ['0085', 3, 10], ['0431', 3, 20, SIDE], ['0597', 3, 15], ['0196', 3, 12]]],
       ['b', t('Glutes B'), 'legs', [
         ['0043', 4, 8], ['1459', 3, 12], ['2368', 3, 20, SIDE], ['0586', 3, 12], ['3561', 3, 20, SIDE]]],
+      ['c', t('Glutes C'), 'legs', [
+        ['0739', 4, 10], ['0381', 3, 20, SIDE], ['0489', 3, 15], ['0228', 3, 24, SIDE], ['0585', 3, 12]]],
     ],
-    schedule: ABA,
+    schedule: ABC,
   },
   ramadan: {
     name: () => t('Ramadan, after iftar'),
@@ -81,8 +90,11 @@ const TEMPLATES = {
       ['b', t('After iftar B'), 'figureStrength', [
         ['0739', 2, 12, { note: t('Start 1½ to 2 hours after iftar, drink water, and stop two or three reps before failure.') }],
         ['2330', 2, 12], ['0405', 2, 12], ['3013', 2, 15], ['0274', 2, 15]]],
+      ['c', t('After iftar C'), 'figureStrength', [
+        ['0381', 2, 20, { side: true, note: t('Start 1½ to 2 hours after iftar, drink water, and stop two or three reps before failure.') }],
+        ['0576', 2, 12], ['0293', 2, 12], ['0489', 2, 12], ['0872', 2, 12]]],
     ],
-    schedule: ABA,
+    schedule: ABC,
   },
 }
 

@@ -66,7 +66,7 @@ describe('Programs › templates', () => {
     const [, saved] = calls.find(([p]) => p === '/api/coach/programs/save')
     expect(saved.name).toBe('Home, no equipment')
     expect(saved.bundle.opengym_plan).toBeTruthy()
-    expect(saved.bundle.routines.map(r => r.name)).toEqual(['Home A', 'Home B'])
+    expect(saved.bundle.routines.map(r => r.name)).toEqual(['Home A', 'Home B', 'Home C'])
     expect(text()).toBe('editing ' + saved.id)
     expect(toasts).toEqual(['Copied to your library'])
   })

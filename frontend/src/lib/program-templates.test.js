@@ -67,19 +67,27 @@ describe('program templates', () => {
     }
   })
 
-  it('says in the chooser what the fixed week does: an A/B program on three days does A twice', () => {
-    const fb = programTemplates().find(p => p.key === 'full-body')
-    expect(fb.about).toContain('session A on Monday and Friday, B on Wednesday')
-    const { bundle } = templateProgram('full-body')
-    const [a, b] = bundle.routines.map(r => r.id)
-    expect(bundle.week).toEqual({ 1: [a], 3: [b], 5: [a] })
+  // The week repeats as it is (the app has no rotation): two sessions on three days would do one
+  // of them twice every week and the other once.
+  it.each(KEYS)('%s trains each session as often as the others', key => {
+    const { bundle } = templateProgram(key)
+    const times = Object.values(bundle.week).flat().reduce((n, id) => ({ ...n, [id]: (n[id] || 0) + 1 }), {})
+    expect(new Set(Object.values(times)).size).toBe(1)
+  })
+
+  it('gives each three-day program three sessions, Monday, Wednesday and Friday', () => {
+    for (const key of ['full-body', 'home', 'glutes', 'ramadan']) {
+      const { bundle } = templateProgram(key)
+      const [a, b, c] = bundle.routines.map(r => r.id)
+      expect(bundle.week, key).toEqual({ 1: [a], 3: [b], 5: [c] })
+    }
   })
 
   it("writes the copy in the coach's language: it is stored data the client reads", () => {
     _setLangState('fr', fr)
     const { name, bundle } = templateProgram('ramadan')
     expect(name).toBe('Ramadan, après l’iftar')
-    expect(bundle.routines.map(r => r.name)).toEqual(['Après l’iftar A', 'Après l’iftar B'])
+    expect(bundle.routines.map(r => r.name)).toEqual(['Après l’iftar A', 'Après l’iftar B', 'Après l’iftar C'])
     expect(bundle.routines[0].ex[0].note).toMatch(/^Commencez 1 h 30/)
   })
 })
