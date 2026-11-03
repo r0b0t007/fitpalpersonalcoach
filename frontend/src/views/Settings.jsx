@@ -19,6 +19,8 @@ import { pendingInvite, clearInvite } from '../lib/invite.js'
 import { MOBILE, isAndroid, shareExport, syncReminder } from '../lib/mobile.js'
 import { checkForUpdate, downloadAndInstall, updatesEnabled, androidDownloadUrl, releasesPage } from '../lib/update.js'
 import { ConnectSheet } from './MobileOnboarding.jsx'
+import { DeleteAccountSheet } from './DeleteAccountSheet.jsx'
+import { isCoach } from '../lib/role.js'
 import { starterPlanSheet, confirmSheet, importFromApp, importFromHevy, equipmentProfileSheet, menuSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Section, Row, SelectRow, Switch, Segmented, Button, TextField } from '../components/ui.jsx'
@@ -385,6 +387,12 @@ export default function Settings() {
         <Switch checked={!!S.autoBackup} onChange={v => update(s => { s.autoBackup = v })} />
       </Row>}
       {may('reset') && <Row icon="trash" iconTint="var(--red)" title={t('Reset everything')} danger onClick={() => confirmSheet({ title: t('Reset everything?'), message: t('Deletes your plan, workouts and body weight on this device. This cannot be undone.'), confirmText: t('Delete everything'), danger: true, onConfirm: () => { replaceState({ ...JSON.parse(JSON.stringify(DEF)), lang: S.lang }, true); nav('/home'); toast(t('All data reset')) } })} />}
+      {/* The account itself, and every record of it on the server (CHW-363): a client's to delete.
+          A coach's holds other people's coaching, and the paired phone's session cannot prove the
+          account afresh, so neither sees it. */}
+      {user && !MOBILE && !DEMO && !isCoach(user) && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} danger
+        subtitle={t('Your account and everything in it, on every device.')}
+        onClick={() => useUI.getState().openSheet(close => <DeleteAccountSheet close={close} onDeleted={() => nav('/home')} />)} />}
     </Section>
     <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={doImport} />
     {/* Reset after reading so picking the same file twice still fires onChange. */}

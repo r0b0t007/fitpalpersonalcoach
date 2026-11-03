@@ -25,7 +25,10 @@ function Answers({ r, children }) {
   const me = useStore(s => s.user)
   return <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
     <div className="small muted">{r.email}</div>
-    {i.injuries && <div><div className="dim small">{t('Injuries or pain to know about')}</div><div>{i.injuries}</div></div>}
+    {i.injuries && <div><div className="dim small">{t('Injuries or pain to know about')}</div><div>{i.injuries}</div>
+      {/* Coaches run their business on WhatsApp; a health answer pasted there leaves the app's
+          protection (CHW-363, DPIA measure M5). Where the coach reads one. */}
+      <div className="dim small" style={{ marginTop: 4 }}>{t('Keep your clients’ health answers in the app; avoid copying them into chats or screenshots.')}</div></div>}
     {i.equipment?.length > 0 && <div><div className="dim small">{t('What you can train with')}</div>
       <div>{i.equipment.map(equipmentLabel).join(', ')}</div></div>}
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

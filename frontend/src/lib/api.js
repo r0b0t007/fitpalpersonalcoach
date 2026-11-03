@@ -37,7 +37,8 @@ export async function api(path, opts) {
   if (remoteToken) headers.Authorization = 'Bearer ' + remoteToken
   const r = await fetch(remoteBase + path, Object.assign({}, opts, { headers }))
   const data = await r.json().catch(() => ({}))
-  if (!r.ok) { const e = new Error(data.error ? serverText(data) : 'HTTP ' + r.status); e.status = r.status; throw e }
+  // e.error: the server's own sentence, untranslated, for a caller that acts on which refusal it was.
+  if (!r.ok) { const e = new Error(data.error ? serverText(data) : 'HTTP ' + r.status); e.status = r.status; e.error = data.error; throw e }
   return data
 }
 
@@ -281,6 +282,8 @@ export const signInWithCode = (email, code) => api('/api/login/code', { method: 
 // The caller's own address: {email, pendingEmail, verified}. A change is confirmed by a link to the new one.
 export const fetchAccount = () => api('/api/account')
 export const changeEmail = email => api('/api/account/email', { method: 'POST', body: JSON.stringify({ email }) })
+// A client deleting their own account and every record of it (CHW-363); wants a recent sign-in.
+export const deleteAccount = () => api('/api/account/delete', { method: 'POST', body: '{}' })
 
 export async function passkeyLogin() {
   const { cid, options } = await api('/api/login/options', { method: 'POST', body: '{}' })

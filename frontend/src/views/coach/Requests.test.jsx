@@ -53,6 +53,8 @@ describe('the requests inbox', () => {
     expect(text()).toContain('Get stronger')
     await click('Salma')
     expect(text()).toContain('Genou droit')
+    // Where the coach reads a health answer, the one habit that keeps it protected (CHW-363).
+    expect(text()).toContain('Keep your clients’ health answers in the app')
     expect(text()).toContain('Beginner')
     expect(text()).toContain('At home')
     const wa = container.querySelector('a[href^="https://wa.me/212612345678?text="]')

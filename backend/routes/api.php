@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountDeleteController;
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AssignmentController;
@@ -128,6 +129,8 @@ $routes = static function (): void {
         Route::middleware(RequireFreshAuth::class)->group(function (): void {
             Route::post('/passkeys/options', [AuthController::class, 'passkeyOptions']);
             Route::post('/passkeys/verify', [AuthController::class, 'passkeyVerify']);
+            // A client deleting their own account and every record of it (CHW-363).
+            Route::post('/account/delete', [AccountDeleteController::class, 'destroy']);
         });
         Route::get('/data', [DataController::class, 'show']);
         Route::put('/data', [DataController::class, 'store']);
