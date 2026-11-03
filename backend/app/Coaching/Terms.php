@@ -15,13 +15,14 @@ use App\Support\Js;
  * notice, Part A §9); coaches are told by email. Until EFFECTIVE, a coach who accepted an earlier
  * version is still bound by it and keeps using the app; from then, they are asked again, and one
  * who does not accept leaves with their clients' data. The very first version had nothing before
- * it, so it binds from the day it was published.
+ * it, so it bound from the day it was published. So did 2026-11-03 (clause B6: a client's own
+ * deletion, CHW-363): no real coach had accepted 2026-11-01, so none was owed the notice.
  */
 final class Terms
 {
-    public const VERSION = '2026-11-01';
+    public const VERSION = '2026-11-03';
 
-    public const EFFECTIVE = '2026-11-01';
+    public const EFFECTIVE = '2026-11-03';
 
     public static function accepted(User $coach, ?int $nowMs = null): bool
     {
