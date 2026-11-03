@@ -109,21 +109,52 @@ describe('Account › My page', () => {
     expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: 'p1', autoAccept: true })
   })
 
-  it('copies a template picked as the starter program into the library, and points the page at the copy (CHW-345)', async () => {
-    PAGE = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', starterProgramId: null, autoAccept: false }, url: 'https://coach.example/c/sara.fit' }
-    SAVE = PAGE
+  // The starter picker, opened, picking the option with this label (CHW-345).
+  const pickStarter = async label => {
     let sheet = null
     vi.spyOn(useUI.getState(), 'openSheet').mockImplementation(render => { sheet = render(() => {}) })
-    await render()
     await act(async () => { [...container.querySelectorAll('.lrow, [role="button"], button')].find(x => x.textContent.includes('Starter program')).click() })
-    const option = sheet.props.options.find(o => o.label === 'Glutes and legs (template)')
-    expect(option).toBeTruthy()
-    await act(async () => { await sheet.props.onChange(option.value) })
-    const [, copied] = calls.find(([p]) => p === '/api/coach/programs/save')
-    expect(copied.name).toBe('Glutes and legs')
-    await click('Save')
-    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: copied.id })
+    const option = sheet.props.options.find(o => o.label === label)
+    expect(option, label).toBeTruthy()
+    await act(async () => { sheet.props.onChange(option.value) })
     vi.restoreAllMocks()
+  }
+  const STARTERLESS = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', starterProgramId: null, autoAccept: false }, url: 'https://coach.example/c/sara.fit' }
+  const copies = () => calls.filter(([p]) => p === '/api/coach/programs/save')
+
+  it('copies a template picked as the starter program on Save, and points the page at the copy (CHW-345)', async () => {
+    PAGE = STARTERLESS; SAVE = PAGE
+    await render()
+    await pickStarter('Glutes and legs (template)')
+    expect(copies()).toEqual([])   // picking writes nothing
+    await click('Save')
+    const [[, copied]] = copies()
+    expect(copied.name).toBe('Glutes and legs')
+    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: copied.id })
+  })
+
+  it('writes nothing to the library for a template browsed past and not saved', async () => {
+    PAGE = STARTERLESS; SAVE = PAGE
+    await render()
+    await pickStarter('Push / pull / legs (template)')
+    await pickStarter('None')
+    await click('Save')
+    expect(copies()).toEqual([])
+    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: null })
+  })
+
+  it('makes one copy when the page save is refused and tried again', async () => {
+    PAGE = STARTERLESS; SAVE = new Error('that handle is taken')
+    await render()
+    await pickStarter('Home, no equipment (template)')
+    await click('Save')
+    expect(text()).toContain('that handle is taken')
+    SAVE = PAGE
+    await click('Save')
+    const all = copies()
+    expect(all).toHaveLength(1)
+    const pages = calls.filter(([p]) => p === '/api/coach/page/save')
+    expect(pages.map(([, b]) => b.starterProgramId)).toEqual([all[0][1].id, all[0][1].id])
   })
 
   it('loads the page the coach has, and counts the bio', async () => {

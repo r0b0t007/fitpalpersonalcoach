@@ -65,25 +65,24 @@ export default function Programs() {
   // Created on the server before the editor opens, rather than kept in memory until it looks
   // finished: the editor autosaves against a real id, and a program the coach abandons is one row
   // they can delete — not work that quietly evaporated when they backed out.
-  const create = () => {
+  // `saving` resolves to the new program's id; a refusal leaves the list usable.
+  const saveAndOpen = saving => {
     if (busy) return
     setBusy(true)
-    const id = uid()
-    const draft = newProgramDraft()
-    savePrograms({ id, name: draft.name, bundle: bundleOf(draft, useStore.getState().S.customEx) })
-      .then(() => nav('/programs/' + id))
+    saving()
+      .then(id => nav('/programs/' + id))
       .catch(e => { toast(e.message); setBusy(false) })
   }
+  const create = () => saveAndOpen(() => {
+    const id = uid()
+    const draft = newProgramDraft()
+    return savePrograms({ id, name: draft.name, bundle: bundleOf(draft, useStore.getState().S.customEx) }).then(() => id)
+  })
 
   // A ready-made program (CHW-345), copied in under a new id and opened: from here it is the
   // coach's own, and nothing they change reaches the template or anyone else's copy.
-  const copy = key => {
-    if (busy) return
-    setBusy(true)
-    copyTemplate(key)
-      .then(({ program }) => { toast(t('Copied to your library')); nav('/programs/' + program.id) })
-      .catch(e => { toast(e.message); setBusy(false) })
-  }
+  const copy = key => saveAndOpen(() => copyTemplate(key)
+    .then(({ program }) => { toast(t('Copied to your library')); return program.id }))
   const templates = () => useUI.getState().openSheet(close => <>
     <h3>{t('Templates')}</h3>
     <div className="dim small" style={{ margin: '0 4px 12px', lineHeight: 1.4 }}>{t('Copy one into your library, then change anything you like.')}</div>

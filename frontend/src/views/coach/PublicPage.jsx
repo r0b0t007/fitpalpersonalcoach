@@ -11,6 +11,9 @@ import { useUI } from '../../store/useUI.js'
 import Icon from '../../components/Icon.jsx'
 import { Button, Notice, Row, Section, Segmented, SelectRow, Switch, TextArea, TextField } from '../../components/ui.jsx'
 
+// The starter picker's value for a template not yet copied (CHW-345).
+const TEMPLATE = 'template:'
+
 /**
  * Account › My page (CHW-330): the coach's public page — the one link in their Instagram bio. The
  * handle is checked here as the server checks it (lib/coach-page.js), so most slips never leave
@@ -72,18 +75,6 @@ export default function PublicPage() {
   // The library, for the starter program; without it the picker offers "None" only.
   useEffect(() => { fetchPrograms().then(r => setPrograms(r.programs)).catch(() => {}) }, [])
 
-  // A template picked as the starter (CHW-345) is copied into the library first, and the copy is
-  // what the page points at: the page can only name a program the coach owns.
-  const TEMPLATE = 'template:'
-  const pickStarter = async v => {
-    if (!v.startsWith(TEMPLATE)) return set('starterProgramId', v || null)
-    try {
-      const { program, programs: after } = await copyTemplate(v.slice(TEMPLATE.length))
-      setPrograms(after)
-      set('starterProgramId', program.id)
-      toast(t('Copied to your library'))
-    } catch (e) { toast(e.message) }
-  }
   useEffect(() => {
     api('/api/coach/page').then(r => { took(r); setLoaded(true) })
       // No form on a failed load: saved, its blanks would overwrite the page the coach has.
@@ -95,7 +86,19 @@ export default function PublicPage() {
     if (!validHandle(handle)) { setError(t('Handles are 3–30 letters, numbers, dots or underscores')); return }
     setBusy(true)
     try {
-      took(await api('/api/coach/page/save', { method: 'POST', body: JSON.stringify({ ...form, handle, whatsapp: waInput(form.whatsapp) }) }))
+      let page = form
+      // A template picked as the starter (CHW-345) is copied into the library here, on Save, not
+      // when it is picked: browsing the picker writes nothing, and the page can only name a
+      // program the coach owns. The form then names the copy, so a page save refused next and
+      // tried again does not make a second one.
+      if (String(form.starterProgramId || '').startsWith(TEMPLATE)) {
+        const { program, programs: after } = await copyTemplate(form.starterProgramId.slice(TEMPLATE.length))
+        setPrograms(after)
+        set('starterProgramId', program.id)
+        page = { ...form, starterProgramId: program.id }
+        toast(t('Copied to your library'))
+      }
+      took(await api('/api/coach/page/save', { method: 'POST', body: JSON.stringify({ ...page, handle, whatsapp: waInput(page.whatsapp) }) }))
       setError(null)
     } catch (e) { setError(e.message) }
     setBusy(false)
@@ -159,7 +162,7 @@ export default function PublicPage() {
     {/* CHW-338: what a new client finds on day one, and whether they wait for the coach at all. */}
     <Section title={t('New clients')} footer={t('The starter program is added to their plan, and their first workout is put on the day they join.')}>
       <SelectRow icon="clipboard" iconTint="var(--acc)" title={t('Starter program')} sheetTitle={t('Starter program')}
-        value={form.starterProgramId || ''} onChange={pickStarter}
+        value={form.starterProgramId || ''} onChange={v => set('starterProgramId', v || null)}
         options={[{ value: '', label: t('None') }, ...programs.map(p => ({ value: p.id, label: p.name || t('Untitled program') })),
           ...programTemplates().map(tpl => ({ value: TEMPLATE + tpl.key, label: t('{0} (template)', tpl.name) }))]} />
       <Row icon="checkCircle" iconTint="var(--green)" title={t('Accept requests automatically')}

@@ -60,6 +60,19 @@ describe('program templates', () => {
     const [a] = templateProgram('home').bundle.routines
     const split = a.ex.find(e => e.id === '2368')
     expect(split).toMatchObject({ side: true, reps: 20, note: 'Back foot on a chair or the sofa.' })
+    // Moves that alternate legs count both sides too: 20 is ten a side, as for the lunges.
+    for (const [key, id] of [['full-body', '0276'], ['home', '0276'], ['ramadan', '0276'], ['glutes', '3561']]) {
+      const ex = templateProgram(key).bundle.routines.flatMap(r => r.ex).find(e => e.id === id)
+      expect(ex, `${key}: ${id}`).toMatchObject({ side: true, reps: 20 })
+    }
+  })
+
+  it('says in the chooser what the fixed week does: an A/B program on three days does A twice', () => {
+    const fb = programTemplates().find(p => p.key === 'full-body')
+    expect(fb.about).toContain('session A on Monday and Friday, B on Wednesday')
+    const { bundle } = templateProgram('full-body')
+    const [a, b] = bundle.routines.map(r => r.id)
+    expect(bundle.week).toEqual({ 1: [a], 3: [b], 5: [a] })
   })
 
   it("writes the copy in the coach's language: it is stored data the client reads", () => {
