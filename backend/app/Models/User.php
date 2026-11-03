@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laragear\WebAuthn\Contracts\WebAuthnAuthenticatable;
 use Laragear\WebAuthn\WebAuthnAuthentication;
 use Laragear\WebAuthn\WebAuthnData;
@@ -132,6 +133,23 @@ class User extends Authenticatable implements FilamentUser, WebAuthnAuthenticata
     public function isCoach(): bool
     {
         return $this->coach || $this->isAdmin();
+    }
+
+    /**
+     * Whether anything of a coach's is still theirs: a page, programs, demos, invites, offers sent,
+     * requests received, notes written, uploads, a licence. A coach an admin demoted keeps these
+     * (Detach closes, it does not delete), so their account is not a client's to delete
+     * (DeleteAccount): those rows hold other people's coaching, and a licence may still bill.
+     */
+    public function holdsCoaching(): bool
+    {
+        foreach (['coach_pages', 'coach_programs', 'exercise_media', 'invites', 'assignments', 'join_requests', 'coach_notes', 'media_uploads'] as $table) {
+            if (DB::table($table)->where('coach_id', $this->id)->exists()) {
+                return true;
+            }
+        }
+
+        return DB::table('licences')->where('user_id', $this->id)->exists();
     }
 
     /** `created` as Node wrote it ("2026-05-01T10:20:30.123Z"), or null for the oldest accounts. */

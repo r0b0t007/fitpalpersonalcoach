@@ -86,11 +86,23 @@ class JoinRequest extends Model
      */
     public static function forgetMember(string $coachId, User $member): int
     {
-        return self::acrossCoaches()->where('coach_id', $coachId) // across coaches: the caller names the coach whose link ended, from outside their context
-            // The address only for a request no account was recorded on: one that has changed hands
-            // since must not take another member's request with it.
-            ->where(fn ($q) => $q->where('member_id', $member->id)->orWhere(fn ($q) => $q->whereNull('member_id')->where('email', $member->email ?? '')))
-            ->delete();
+        return self::ofMember(self::acrossCoaches()->where('coach_id', $coachId), $member)->delete(); // across coaches: the caller names the coach whose link ended, from outside their context
+    }
+
+    /** A client deleting their account (CHW-363, App\Auth\DeleteAccount): their requests to every coach. */
+    public static function forgetEverywhere(User $member): int
+    {
+        return self::ofMember(self::acrossCoaches(), $member)->delete(); // across coaches: every request they made, to anyone
+    }
+
+    /**
+     * A member's requests: by the account accept recorded, and by the address only for a request no
+     * account was recorded on — one that has changed hands since must not take another member's
+     * request with it.
+     */
+    private static function ofMember(Builder $query, User $member): Builder
+    {
+        return $query->where(fn ($q) => $q->where('member_id', $member->id)->orWhere(fn ($q) => $q->whereNull('member_id')->where('email', $member->email ?? '')));
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Coaching\CheckinAlert;
 use App\Coaching\MemberCard;
+use App\Models\User;
 use App\Models\UserState;
 use App\Support\Input;
 use App\Support\Json;
@@ -68,7 +69,15 @@ final class DataController
         // syncing the same new check-in cannot both read it as news (CHW-339). A first sync finds
         // no row to lock: two at once both insert, and MariaDB ends one in a deadlock, which the
         // retry turns into an ordinary update of the row the other wrote.
-        $seen = DB::transaction(function () use ($user, $columns, $newest): ?string {
+        $gone = false;
+        $seen = DB::transaction(function () use ($user, $columns, $newest, &$gone): ?string {
+            // The account's row first, as its deletion takes it (DeleteAccount): a sync that
+            // authenticated just before the account was deleted writes nothing back (CHW-363).
+            if (! User::query()->whereKey($user->id)->lockForUpdate()->exists()) {
+                $gone = true;
+
+                return null;
+            }
             $row = UserState::query()->lockForUpdate()->find($user->id) ?? (new UserState)->forceFill(['user_id' => $user->id]);
             $seen = $row->checkin_seen;
             $row->forceFill($columns + ['checkin_seen' => $seen !== null && ($newest === null || strcmp($seen, $newest) >= 0) ? $seen : $newest]);
@@ -77,6 +86,9 @@ final class DataController
 
             return $seen;
         }, 3);
+        if ($gone) {
+            return Json::error(401, 'not signed in');
+        }
         CheckinAlert::after($user, $seen, $newest);
 
         return Json::ok(['ok' => true, 'ts' => $ts]);

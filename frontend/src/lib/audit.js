@@ -73,6 +73,7 @@ const LABELS = {
   'coach.terms.accept': () => t('Accepted the coach terms'),
   'me.health.consent': () => t('Agreed to share health data with their coach'),
   'me.health.withdraw': () => t('Withdrew consent and deleted their health data'),
+  'account.delete': () => t('Deleted their account'),
   'coach.program.delete': () => t('Deleted a program'),
   'coach.invite.create': () => t('Created a client code'),
   'coach.invite.revoke': () => t('Revoked a client code'),

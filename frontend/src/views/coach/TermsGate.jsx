@@ -49,6 +49,8 @@ export default function TermsGate({ terms, onChange }) {
     <Logo size={30} heading />
     <h2 style={{ margin: '18px 0 8px' }}>{t('Our terms, and your clients’ data')}</h2>
     <p className="muted">{t('You decide what happens to your clients’ data; FitPal keeps it for you and does nothing else with it. The coach terms set this out, with the data processing agreement the law requires between us.')}</p>
+    {/* DPIA measure M5 (CHW-363): the one habit that keeps the intake's health answers protected. */}
+    <p className="muted">{t('Keep your clients’ health answers in the app; avoid copying them into chats or screenshots.')}</p>
     <div style={{ marginTop: 18 }}>
       <TermsConsent checked={agreed} onChange={v => { setAgreed(v); setError(null) }} id="terms-agree" />
     </div>

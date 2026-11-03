@@ -62,6 +62,7 @@ describe('the coach terms', () => {
     expect(text()).not.toContain('the coach app')
     expect(container.querySelector('a[href="https://fitpal.ma/en/terms"]')).toBeTruthy()
     expect(text()).toContain('contact@fitpal.ma')   // the way out, as the terms promise
+    expect(text()).toContain('Keep your clients’ health answers in the app')   // DPIA measure M5 (CHW-363)
     await click(button('Accept and continue'))
     expect(text()).toContain('Please accept the coach terms')
     expect(posts()).toEqual([])

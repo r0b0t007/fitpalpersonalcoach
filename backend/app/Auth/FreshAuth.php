@@ -6,10 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * "Signed in just now", for the two writes that would outlive a stolen session: changing the
- * sign-in address and adding a passkey (spec §4a). A session alone — a shared laptop left signed
- * in, a paired phone — must not be enough to point the account's recovery at another inbox or
- * plant a passkey that survives `logout/all`.
+ * "Signed in just now", for the writes that would outlive a stolen session: changing the sign-in
+ * address and adding a passkey (spec §4a), and deleting the account (CHW-363). A session alone — a
+ * shared laptop left signed in, a paired phone — must not be enough to point the account's
+ * recovery at another inbox, plant a passkey that survives `logout/all`, or erase someone.
  *
  * A session counts as fresh for MINUTES after a real proof of the account: a passkey sign-in, an
  * email-link sign-in (whoever opened it holds the inbox), or the sign-up itself. Pairing a phone
