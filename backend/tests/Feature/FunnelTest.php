@@ -50,17 +50,21 @@ function funnelAccepted(User $coach, User $member, int $created): void
 
 it("counts a person's view of an open page, by the day, and nothing about them", function () {
     funnelPage($this->f->a, 'sara.fit');
-    $this->getJson('/api/public/coach?h=sara.fit&view=1')->assertOk();
-    $this->getJson('/api/public/coach?h=sara.fit&view=1')->assertOk();
-    // The join form reads the card without counting it; the coach looking at their own page is
-    // no view; a closed page shows nothing to count.
-    $this->getJson('/api/public/coach?h=sara.fit')->assertOk();
+    // The coach looking at their own page is no view; the join form reads the card without
+    // counting it; a closed page shows nothing to count.
     $this->getJson('/api/public/coach?h=sara.fit&view=1', bearer($this->f->a))->assertOk();
+    $this->getJson('/api/public/coach?h=sara.fit')->assertOk();
     funnelPage($this->f->b, 'closed.fit', false);
     $this->getJson('/api/public/coach?h=closed.fit&view=1')->assertNotFound();
+    // A person is one view a half hour, however often they reload; another person is another.
+    $this->getJson('/api/public/coach?h=sara.fit&view=1')->assertOk();
+    $this->getJson('/api/public/coach?h=sara.fit&view=1')->assertOk();
+    $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])->getJson('/api/public/coach?h=sara.fit&view=1')->assertOk();
+    $this->travel(31)->minutes();
+    $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])->getJson('/api/public/coach?h=sara.fit&view=1')->assertOk();
 
     expect(DB::table('coach_page_views')->get()->map(fn ($r) => (array) $r)->all())
-        ->toBe([['coach_id' => $this->f->a->id, 'day' => '2026-11-04', 'n' => 2]]);
+        ->toBe([['coach_id' => $this->f->a->id, 'day' => '2026-11-04', 'n' => 3]]);
     $this->assertDatabaseCount('audit_events', 0);
 });
 
@@ -105,9 +109,19 @@ it('reads each sign-up week of self-serve coaches through to paid', function () 
         ->and($rows['2026-09-21'])->toMatchArray(['signups' => 1, 'page' => 1, 'requested' => 1, 'client' => 1, 'activated' => 1, 'habitDue' => 1, 'habit' => 1, 'paid' => 1]);
     expect(array_sum(array_column($rows, 'signups')))->toBe(2);
 
-    // A week on with no workouts, A's habit is gone; it was read today, not on day 30.
-    $this->travel(8)->days();
+    // Trialing is not paying, though a trial carries a period; nor is a coach paying who has not
+    // activated (B, this week), as paid is a step after activation.
+    Licence::query()->whereKey('licA')->update(['status' => 'trialing', 'trial_ends_at' => now()->addDays(5)]);
+    (new Licence)->forceFill(['id' => 'licB', 'user_id' => $this->f->b->id, 'status' => 'active', 'source' => 'creem', 'period_start' => now()->subDay()])->save();
+    $rows = Funnel::coaches(8);
+    expect($rows['2026-09-21']['paid'])->toBe(0)->and($rows['2026-11-02']['paid'])->toBe(0);
+
+    // The last 7 days are today and the 6 before: a workout 7 days back is not in them, and A's
+    // habit is gone — read today, not on day 30.
+    $this->travelTo(CarbonImmutable::parse('2026-11-09 12:00:00', 'UTC'));
     expect(Funnel::coaches(8)['2026-09-21'])->toMatchArray(['habitDue' => 1, 'habit' => 0]);
+    $this->travelTo(CarbonImmutable::parse('2026-11-08 12:00:00', 'UTC'));
+    expect(Funnel::coaches(8)['2026-09-21'])->toMatchArray(['habitDue' => 1, 'habit' => 1]);
 });
 
 it("follows each coach's followers over the window, to the median wait for a first workout", function () {
@@ -145,9 +159,26 @@ it("follows each coach's followers over the window, to the median wait for a fir
         ->and($funnel['auditSince'])->toBeNull();
 });
 
-it('says when the audit log does not reach back across the window', function () {
+it('says when the audit log does not reach back across the window, and when it is off', function () {
     funnelEvent('join.request', null, $this->f->a->id, now()->subDays(3)->getTimestampMs());
-    expect(Funnel::followers(30)['auditSince'])->toBe(now()->subDays(3)->getTimestampMs());
+    $funnel = Funnel::followers(30);
+    expect($funnel['auditSince'])->toBe(now()->subDays(3)->getTimestampMs())->and($funnel['auditOff'])->toBeFalse()
+        ->and(FollowerFunnel::note($funnel))->toContain('since 2026-11-01 only');
+    // Past retention, an event the prune has yet to reach is not counted (Audit::kept).
+    config(['fitpal.audit.days' => 2]);
+    expect(Funnel::followers(30)['rows']['all']['requests'])->toBe(0);
+    config(['fitpal.audit.enabled' => false]);
+    expect(FollowerFunnel::note(Funnel::followers(30)))->toContain('The audit log is off');
+});
+
+it('counts the window by calendar day, today one of the 30', function () {
+    DB::table('coach_page_views')->insert([
+        ['coach_id' => $this->f->a->id, 'day' => '2026-10-06', 'n' => 1],   // the 30th day back
+        ['coach_id' => $this->f->a->id, 'day' => '2026-10-05', 'n' => 50],  // the 31st
+    ]);
+    funnelEvent('join.request', null, $this->f->a->id, CarbonImmutable::parse('2026-10-06 00:00:01', 'UTC')->getTimestampMs());
+    funnelEvent('join.request', null, $this->f->a->id, CarbonImmutable::parse('2026-10-05 23:59:59', 'UTC')->getTimestampMs());
+    expect(Funnel::followers(30)['rows']['all'])->toMatchArray(['views' => 1, 'requests' => 1]);
 });
 
 it('draws both tables on the panel', function () {

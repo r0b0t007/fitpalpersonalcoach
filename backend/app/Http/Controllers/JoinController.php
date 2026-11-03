@@ -104,6 +104,7 @@ final class JoinController
         $now = Js::nowMs();
         $join = JoinRequest::queueOf($coach)->where('email', $email)->where('status', 'unverified')->first()
             ?? (new JoinRequest)->forceFill(['id' => JoinRequest::newId(), 'coach_id' => $coach->id, 'email' => $email, 'status' => 'unverified']);
+        $asked = ! $join->exists;
         $lang = Input::jsString($request, 'lang');
         $join->forceFill([
             'name' => $name, 'lang' => in_array($lang, MailCopy::LANGS, true) ? $lang : null, 'intake' => Js::stringify($intake),
@@ -111,8 +112,11 @@ final class JoinController
             'created' => $now,
         ])->save();
         // The page, not the address: a log of what strangers typed is a liability. The coach as
-        // its target, which the funnel counts by (CHW-335): a handle can change, an id cannot.
-        Audit::record($request, 'join.request', ['ok' => true, 'target' => $coach, 'msg' => $page->handle]);
+        // its target, which the funnel counts by (CHW-335): a handle can change, an id cannot. A
+        // request asked, once: "send the code again" is the same request, not another one.
+        if ($asked) {
+            Audit::record($request, 'join.request', ['ok' => true, 'target' => $coach, 'msg' => $page->handle]);
+        }
         defer(fn () => SendAfterResponse::send($email, new JoinCodeMail($code, (string) $coach->name, $lang)));
 
         return Json::ok(['ok' => true, 'id' => $join->id]);

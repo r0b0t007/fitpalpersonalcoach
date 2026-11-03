@@ -26,13 +26,22 @@ return new class extends Migration
             $table->string('last_workout', 10)->nullable();
         });
         // The states already stored, one at a time (a state can be 16 MB). There is no saying when
-        // their first workout reached the server: its sync time stands in for it.
+        // their first workout reached the server: the earliest workout's own start stands in for it
+        // (the phone's clock, but the workout's time), else the state's last sync.
         foreach (DB::table('user_states')->orderBy('user_id')->pluck('user_id') as $id) {
             $row = DB::table('user_states')->where('user_id', $id)->first(['state', 'ts']);
-            $last = UserState::derived(json_decode((string) $row->state, false, 100_000))['last_workout'];
+            $state = json_decode((string) $row->state, false, 100_000);
+            $last = UserState::derived($state)['last_workout'];
+            $starts = [];
+            foreach ($state instanceof stdClass && is_array($state->workouts ?? null) ? $state->workouts : [] as $w) {
+                $at = $w instanceof stdClass ? ($w->start ?? $w->end ?? null) : null;
+                if (is_int($at) || is_float($at)) {
+                    $starts[] = (int) $at;
+                }
+            }
             DB::table('user_states')->where('user_id', $id)->update([
                 'last_workout' => $last,
-                'first_workout_at' => $last === null ? null : ($row->ts ?? (int) floor(microtime(true) * 1000)),
+                'first_workout_at' => $last === null ? null : ($starts !== [] ? min($starts) : ($row->ts ?? (int) floor(microtime(true) * 1000))),
             ]);
         }
     }

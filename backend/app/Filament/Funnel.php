@@ -2,6 +2,7 @@
 
 namespace App\Filament;
 
+use App\Audit\Audit;
 use App\Models\AuditEvent;
 use App\Models\CoachPage;
 use App\Models\CoachPageView;
@@ -10,6 +11,7 @@ use App\Models\Licence;
 use App\Models\User;
 use App\Support\Js;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -58,9 +60,14 @@ final class Funnel
         }
         $ids = $coaches->pluck('id')->all();
         $open = CoachPage::acrossCoaches()->whereKey($ids)->where('open', true)->pluck('coach_id')->flip(); // across coaches: the operator counts every coach
-        $requested = self::requestedCoaches()->flip();
-        $roster = self::rosters($now - 7 * self::DAY);
-        $paid = Licence::query()->where('source', 'creem')->whereNotNull('period_start')->whereIn('user_id', $ids)->distinct()->pluck('user_id')->flip();
+        $requested = self::requestedCoaches($ids)->flip();
+        // The last 7 days, today one of them.
+        $roster = self::rosters(self::dayOf($now - 6 * self::DAY));
+        // Paying now: a Creem subscription past any trial (a trial carries a period too), not one
+        // that paid once and was cancelled.
+        $paid = Licence::query()->where('source', 'creem')->whereIn('status', ['active', 'past_due'])
+            ->where(fn ($q) => $q->whereNull('trial_ends_at')->orWhere('trial_ends_at', '<=', CarbonImmutable::createFromTimestampMs($now)))
+            ->whereIn('user_id', $ids)->distinct()->pluck('user_id')->flip();
         $due = $now - self::HABIT_DAYS * self::DAY;
 
         foreach ($coaches as $coach) {
@@ -80,7 +87,8 @@ final class Funnel
                 $r['habitDue']++;
                 $r['habit'] += (int) ($mine->weekly >= self::HABIT_CLIENTS);
             }
-            $r['paid'] += (int) $paid->has($coach->id);
+            // A step of the funnel, so of the activated: the doc's target is a share of them.
+            $r['paid'] += (int) ($activated && $paid->has($coach->id));
             unset($r);
         }
 
@@ -91,15 +99,17 @@ final class Funnel
      * The followers' funnel over the last $days, per coach and for all of them (key `all`, first):
      * page views, requests asked, codes proved, requests accepted (by hand or by the page), and
      * accepted followers who logged a workout — with the median time from asking to that workout,
-     * in ms. `auditSince` is the oldest event the log still holds, when it is inside the window:
-     * the three middle steps count from there only.
+     * in ms. The window is $days calendar days (UTC), today one of them. `auditSince` is the oldest
+     * event the log keeps, when it is inside the window: the three middle steps count from there
+     * only; `auditOff`, that the log is off (AUDIT_LOG) and those steps cannot be counted at all.
      *
-     * @return array{rows: array<string, array{coach: string, views: int, requests: int, verified: int, accepted: int, trained: int, median: ?int}>, auditSince: ?int}
+     * @return array{rows: array<string, array{coach: string, views: int, requests: int, verified: int, accepted: int, trained: int, median: ?int}>, auditSince: ?int, auditOff: bool}
      */
     public static function followers(int $days = 30, ?int $nowMs = null): array
     {
         $now = $nowMs ?? Js::nowMs();
-        $since = $now - $days * self::DAY;
+        $from = self::dayOf($now - ($days - 1) * self::DAY);
+        $since = CarbonImmutable::parse($from, 'UTC')->getTimestampMs();
         $count = [];
         $add = function (?string $coach, string $step, int $n) use (&$count): void {
             if ($coach !== null) {
@@ -107,13 +117,13 @@ final class Funnel
             }
         };
 
-        $views = CoachPageView::acrossCoaches()->where('day', '>=', gmdate('Y-m-d', intdiv($since, 1000))) // across coaches: the operator counts every coach
+        $views = CoachPageView::acrossCoaches()->where('day', '>=', $from) // across coaches: the operator counts every coach
             ->groupBy('coach_id')->selectRaw('coach_id, SUM(n) AS n')->pluck('n', 'coach_id');
         foreach ($views as $coach => $n) {
             $add($coach, 'views', (int) $n);
         }
         $steps = ['join.request' => 'requests', 'join.verify' => 'verified', 'coach.request.auto' => 'accepted', 'coach.request.accept' => 'accepted'];
-        $events = AuditEvent::query()->whereIn('ev', array_keys($steps))->where('ok', true)->where('ts', '>=', $since)
+        $events = self::log()->whereIn('ev', array_keys($steps))->where('ok', true)->where('ts', '>=', $since)
             ->groupBy('ev', 'uid', 'tgt')->selectRaw('ev, uid, tgt, COUNT(*) AS n')->get();
         foreach ($events as $e) {
             // The coach's own accept is theirs (uid); the rest name the coach as the target.
@@ -143,12 +153,28 @@ final class Funnel
                 $all[$step] = ($all[$step] ?? 0) + $n;
             }
         }
-        $oldest = AuditEvent::query()->min('ts');
+        $oldest = self::log()->min('ts');
 
         return [
             'rows' => ['all' => $row('All coaches', $all, array_merge([], ...array_values($waits)))] + $rows,
             'auditSince' => $oldest !== null && (int) $oldest > $since ? (int) $oldest : null,
+            'auditOff' => ! config('fitpal.audit.enabled'),
         ];
+    }
+
+    /** The audit log as retention keeps it (Audit::kept): no row the prune has yet to reach. */
+    private static function log(): Builder
+    {
+        $query = AuditEvent::query();
+        Audit::kept($query->getQuery());
+
+        return $query;
+    }
+
+    /** A moment's UTC date. */
+    private static function dayOf(int $ms): string
+    {
+        return CarbonImmutable::createFromTimestampMs($ms, 'UTC')->format('Y-m-d');
     }
 
     /**
@@ -174,24 +200,28 @@ final class Funnel
     }
 
     /**
-     * The coaches any follower asked to join: a request still kept, or one the log remembers.
+     * Which of these coaches any follower asked to join: a request still kept, or one the log
+     * remembers.
      *
+     * @param  list<string>  $ids
      * @return Collection<int, string>
      */
-    private static function requestedCoaches(): Collection
+    private static function requestedCoaches(array $ids): Collection
     {
         return JoinRequest::acrossCoaches()->select('coach_id')->distinct()->pluck('coach_id') // across coaches: the operator counts every coach
-            ->merge(AuditEvent::query()->where('ev', 'join.request')->whereNotNull('tgt')->distinct()->pluck('tgt'))
+            ->merge(self::log()->where('ev', 'join.request')->whereIn('tgt', $ids)->distinct()->pluck('tgt'))
             ->unique()->values();
     }
 
     /**
      * Every coach's clients (enabled, not admins): how many, how many have logged a workout, and
-     * how many logged one on or after $weekAgo — grouped in SQL, as a coach's states can be large.
+     * how many logged one on or after the day $from — grouped in SQL, as a coach's states can be
+     * large. Every coach's, not only the cohort's: a filter on coach_id belongs to the models
+     * (TenantModelsTest), and this is one aggregate the owner runs by opening the dashboard.
      *
      * @return Collection<string, object{clients: int, active: int, weekly: int}>
      */
-    private static function rosters(int $weekAgo): Collection
+    private static function rosters(string $from): Collection
     {
         return DB::table('users')
             ->leftJoin('user_states', 'user_states.user_id', '=', 'users.id')
@@ -199,7 +229,7 @@ final class Funnel
             ->groupBy('users.coach_id')
             ->selectRaw('users.coach_id AS coach, COUNT(*) AS clients,'
                 .' SUM(CASE WHEN user_states.first_workout_at IS NOT NULL THEN 1 ELSE 0 END) AS active,'
-                .' SUM(CASE WHEN user_states.last_workout >= ? THEN 1 ELSE 0 END) AS weekly', [gmdate('Y-m-d', intdiv($weekAgo, 1000))])
+                .' SUM(CASE WHEN user_states.last_workout >= ? THEN 1 ELSE 0 END) AS weekly', [$from])
             ->get()
             ->filter(fn ($r) => $r->coach !== null)
             ->mapWithKeys(fn ($r) => [$r->coach => (object) ['clients' => (int) $r->clients, 'active' => (int) $r->active, 'weekly' => (int) $r->weekly]]);

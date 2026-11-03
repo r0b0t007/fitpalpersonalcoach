@@ -26,7 +26,7 @@ class CoachFunnel extends TableWidget
 
         return $table
             ->heading('Coach funnel, by sign-up week')
-            ->description('Coaches who signed themselves up. Habit: '.Funnel::HABIT_CLIENTS.'+ clients trained in the last 7 days, for activated coaches '.Funnel::HABIT_DAYS.'+ days in. Paid: a Creem licence that started a period.')
+            ->description('Coaches who signed themselves up. Habit: '.Funnel::HABIT_CLIENTS.'+ clients trained in the last 7 days, for activated coaches '.Funnel::HABIT_DAYS.'+ days in. Paid: activated coaches on a Creem subscription paying now, past any trial.')
             ->records(fn (): array => Funnel::coaches())
             ->columns([
                 TextColumn::make('week')->label('Week of'),

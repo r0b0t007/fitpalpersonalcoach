@@ -23,16 +23,15 @@ class FollowerFunnel extends TableWidget
 
     private const DAYS = 30;
 
+    /** The funnel, read once per request however often the table asks: not a Livewire property. */
+    private ?array $funnel = null;
+
     public function table(Table $table): Table
     {
-        $funnel = Funnel::followers(self::DAYS);
-        $since = $funnel['auditSince'];
-
         return $table
             ->heading('Follower funnel, last '.self::DAYS.' days')
-            ->description('Time to first workout: from asking to join to the first workout the server saw.'
-                .($since !== null ? ' The audit log holds events since '.gmdate('Y-m-d', intdiv($since, 1000)).' only: requests, codes and accepts count from then.' : ''))
-            ->records(fn (): array => $funnel['rows'])
+            ->description(fn (): string => self::note($this->funnel()))
+            ->records(fn (): array => $this->funnel()['rows'])
             ->columns([
                 TextColumn::make('coach')->label('Coach')->weight(fn (array $record): ?FontWeight => $record['coach'] === 'All coaches' ? FontWeight::Bold : null),
                 TextColumn::make('views')->label('Page views'),
@@ -43,6 +42,24 @@ class FollowerFunnel extends TableWidget
                 TextColumn::make('median')->label('Time to first workout')->state(fn (array $record): string => self::duration($record['median'])),
             ])
             ->paginated([10, 25]);
+    }
+
+    private function funnel(): array
+    {
+        return $this->funnel ??= Funnel::followers(self::DAYS);
+    }
+
+    /** What the table is counted from, and what it cannot count. */
+    public static function note(array $funnel): string
+    {
+        $note = 'Time to first workout: from asking to join to the first workout the server saw.';
+        if ($funnel['auditOff']) {
+            return $note.' The audit log is off (AUDIT_LOG): requests, codes and accepts are not counted.';
+        }
+
+        return $note.($funnel['auditSince'] !== null
+            ? ' The audit log holds events since '.gmdate('Y-m-d', intdiv($funnel['auditSince'], 1000)).' only: requests, codes and accepts count from then.'
+            : '');
     }
 
     /** A wait as the review reads it: minutes under an hour, hours under two days, then days. */

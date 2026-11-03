@@ -10,6 +10,7 @@ use App\Models\JoinRequest;
 use App\Models\LoginLink;
 use App\Models\User;
 use App\Support\ClientSafe;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Tests\Support\Coaching;
@@ -130,6 +131,8 @@ it('starts a request again in the same row, so its id holds and only the newest 
     [$again, $second] = startedJoin();
     expect($again)->toBe($id)
         ->and(JoinRequest::acrossCoaches()->pluck('id')->all())->toBe([$id]); // across coaches: test reads every row
+    // One request asked, as the funnel counts it (CHW-335), however many codes were sent.
+    expect(DB::table('audit_events')->where('ev', 'join.request')->count())->toBe(1);
     if ($first !== $second) {
         verifyJoin($id, $first)->assertStatus(400)->assertExactJson(['error' => 'that code is wrong — check the email and try again']);
     }
