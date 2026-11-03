@@ -19,13 +19,15 @@ posts in English counts in their country's share of the 30.
    and a link makes it look like spam. The link comes once they answer.
 3. **At most two follow-ups,** on day 3 and day 7, and none once they have answered anything,
    "no" included. Then the row is closed.
-4. **"No", "stop" or no interest: answer once, politely, and never write again.** Set `outcome`
-   to `no` (they said no) or `stop` (they asked us to stop), and cut the row down (§4): what is
-   left is only there so they are never written to again and the Monday counts stay true.
+4. **"No" or no interest: answer once, politely, and never write again. "Stop": answer nothing**
+   (message 1 promised no more messages). Set `outcome` to `no` or `stop` and cut the row down
+   (§4): what is left is only there so they are never written to again and the Monday counts
+   stay true.
 5. **By hand, never automated.** No tool sends, schedules or copies DMs in bulk: the account
    would be flagged, and it would stop being founder-led.
 6. **30 new coaches a day,** rotating countries in the list's proportions: about 15 in Morocco,
-   8 in France or Belgium and 7 in Spain, whatever language they post in. Follow-ups come on
+   8 in France or Belgium and 7 in Spain, whatever language they post in (all 30 in France
+   until the consent question in §4 is answered). Follow-ups come on
    top. If Instagram shows a warning or blocks sending, stop for 48 hours, then halve the pace
    for a week.
 7. **Only what the messaging doc allows.** No competitor named in an opener (messaging §4), no
@@ -41,9 +43,9 @@ answer, and then one line on their details: the short notice (§4), which says w
 and how to say no. "Le jour même" holds because the setup always includes a starter program
 (messaging §3); a coach who sets up alone is told to pick one (the reply to a yes).
 
-- **FR:** Salut [prénom]. Ton post sur [sujet] m'a parlé : [ce que tu en as retenu]. Je fais FitPal Coach, une app où tes abonnés demandent à s'entraîner avec toi depuis le lien de ta bio, et leur première séance est prête le jour où tu acceptes. Si tu m'envoies ton programme, en PDF ou en Sheet, je te le mets sur l'app en 24 h, sans rien payer : c'est gratuit jusqu'à 3 clients. Ça t'intéresse ? (J'ai noté ton @ et ce que montre ton profil public, seulement pour te relancer deux fois au plus. Réponds « stop » et je ne t'écris plus.)
-- **ES:** Hola [prénom]. Tu post sobre [sujet] me llegó: [ce que tu en as retenu]. Hago FitPal Coach, una app donde tus seguidores piden entrenar contigo desde el enlace de tu bio, y su primer entreno está listo el día que aceptas. Si me mandas tu programa, en PDF o en Sheet, te lo paso a la app en 24 h, sin pagar nada: es gratis hasta 3 clientes. ¿Te interesa? (He apuntado tu @ y lo que muestra tu perfil público, solo para escribirte como mucho dos veces más. Responde «stop» y no te escribo más.)
-- **EN:** Hi [prénom]. Your post about [sujet] stuck with me: [ce que tu en as retenu]. I make FitPal Coach, an app where your followers ask to train with you from the link in your bio, and their first workout is ready the day you accept. If you send me your program, as a PDF or a Sheet, I'll put it in the app within 24 hours, at no cost: it's free up to 3 clients. Interested? (I've noted your handle and what your public profile shows, only to follow up twice at most. Reply "stop" and I won't write again.)
+- **FR:** Salut [prénom]. Ton post sur [sujet] m'a parlé : [ce que tu en as retenu]. Je fais FitPal Coach, une app où tes abonnés demandent à s'entraîner avec toi depuis le lien de ta bio, et leur première séance est prête le jour où tu acceptes. Si tu m'envoies ton programme, en PDF ou en Sheet, je te le mets sur l'app en 24 h, sans rien payer : c'est gratuit jusqu'à 3 clients. Ça t'intéresse ? (J'ai noté ton @ et ce que montre ton profil public, pour te présenter FitPal Coach, avec deux relances au plus. Réponds « stop » et je ne t'écris plus.)
+- **ES:** Hola [prénom]. Tu post sobre [sujet] me llegó: [ce que tu en as retenu]. Hago FitPal Coach, una app donde tus seguidores piden entrenar contigo desde el enlace de tu bio, y su primer entreno está listo el día que aceptas. Si me mandas tu programa, en PDF o en Sheet, te lo paso a la app en 24 h, sin pagar nada: es gratis hasta 3 clientes. ¿Te interesa? (He apuntado tu @ y lo que muestra tu perfil público, para presentarte FitPal Coach, con dos mensajes más como mucho. Responde «stop» y no te escribo más.)
+- **EN:** Hi [prénom]. Your post about [sujet] stuck with me: [ce que tu en as retenu]. I make FitPal Coach, an app where your followers ask to train with you from the link in your bio, and their first workout is ready the day you accept. If you send me your program, as a PDF or a Sheet, I'll put it in the app within 24 hours, at no cost: it's free up to 3 clients. Interested? (I've noted your handle and what your public profile shows, to tell you about FitPal Coach, with two follow-ups at most. Reply "stop" and I won't write again.)
 
 ### When they say yes
 
@@ -69,6 +71,7 @@ goes past a day.
 
 Morocco:
 - **FR:** Dernier message de ma part. Tes clients continuent de te payer comme d'habitude, virement, cash ou CashPlus : FitPal ne touche pas à ton argent. Si un jour ça t'intéresse, réponds juste « oui ».
+- **ES:** Último mensaje por mi parte. Tus clientes te siguen pagando como ahora, transferencia, efectivo o CashPlus: FitPal no toca tu dinero. Si algún día te interesa, responde solo «sí».
 - **EN:** Last message from me. Your clients keep paying you the way they do now, bank transfer, cash or CashPlus: FitPal never touches your money. If it's ever of interest, just reply "yes".
 
 France, Belgium and Spain:
@@ -82,7 +85,8 @@ France, Belgium and Spain:
 - **ES:** Sin problema, gracias por responder. Mucho ánimo.
 - **EN:** No problem, thanks for replying. All the best.
 
-Then set `outcome` to `no` and cut the row down (rule 4). Nothing more is sent.
+Then set `outcome` to `no` and cut the row down (rule 4). Nothing more is sent. A coach who
+answers "stop" gets no reply at all: set `outcome` to `stop`.
 
 ### Objections
 
@@ -96,6 +100,8 @@ competitor): say you'll check, and check before answering. Never guess.
 
 **Who goes on it:**
 - an independent coach (not a gym, a brand or a supplement shop) with 5k–100k followers;
+- on a professional Instagram account (business or creator: the profile shows a category such
+  as "Personal trainer" or "Coach"), so the message goes to their business, not their private life;
 - coaching online or one to one;
 - posting in French, Spanish or English;
 - based in Morocco, France, Belgium or Spain.
@@ -138,19 +144,22 @@ is not the place for them.
 | `replied` | date of their first answer |
 | `outcome` | `yes`, `no` (they said no), `stop` (they asked us to stop), `objection` (still talking), or empty (no answer yet, or none after follow-up 2) |
 | `call` | date of a call, if there is one |
-| `signed_up` | date their coach account exists (admin panel) |
-| `activated` | date an accepted client logged workout 1 (admin panel funnel, CHW-335) |
-| `habit` | date, 30+ days after `signed_up`, they first had 3 or more clients with a workout in the last 7 days (the funnel plan's habit stage) |
-| `paid` | date a paid period started |
+| `signed_up` | date their coach account exists (the admin panel's users list) |
+
+Activation, habit and paid are not tracked per coach here: the admin panel's coach funnel
+(CHW-335) counts them by sign-up week, not per coach, and the sheet needs no data from inside
+the coach's account (§5).
 | `notes` | anything worth remembering, in a few words |
 
 **The data in it:**
 - **What goes in:** only what the coach shows publicly for their business. Nothing personal from
   outside their profile.
 - **Cutting a row down:** a row closed with `no` or `stop`, and any row with nothing sent or
-  received for 6 months, keeps only `handle`, `country`, `language`, `sent`, `replied` and
-  `outcome`; everything else is cleared. That is enough never to write to them again and to keep
-  the Monday counts true, and nothing more.
+  received for 6 months, keeps only `handle`, `country`, `language`, `sent`, `replied`,
+  `outcome` and `signed_up`; everything else is cleared. That is enough never to write to them
+  again and to keep the Monday counts true, and nothing more.
+- **Deleting old rows:** a cut-down row is deleted 3 years after the last message either way
+  (the CNIL's guideline for prospect data and objection lists; to verify, below).
 - **Deleting a row:** a coach who asks to be erased has their row deleted the same day; tell them
   that without it we can't make sure they are never written to again.
 - **Other uses:** the list is for these DMs only. It is never added to a newsletter or shared.
@@ -165,9 +174,9 @@ links out of message 1, so it comes in two layers:
   asks what we hold, or asks for their row; and sent with the reply to a yes.
 
 The full notice:
-- **FR:** C'est moi, [nom], fondateur de FitPal Coach ([e-mail]), qui tiens cette liste, dans un Google Sheet. J'y ai noté ce que ton profil Instagram public montre (ton @, ton pays, ta langue, tes abonnés, le lien de ta bio, le post que je cite) et les dates de nos messages, seulement pour te présenter FitPal Coach : c'est mon intérêt légitime à faire connaître mon outil aux coachs. Je ne la partage avec personne. Au bout de 6 mois sans échange, ou dès que tu dis non, je ne garde que ton @, ton pays, ta langue, les dates et ta réponse, pour ne plus t'écrire. Tu peux voir ta ligne ou la faire effacer en me le demandant ici, et te plaindre auprès de la CNIL (France), de l'APD (Belgique), de l'AEPD (Espagne) ou de la CNDP (Maroc).
-- **ES:** Soy yo, [nom], fundador de FitPal Coach ([e-mail]), quien lleva esta lista, en un Google Sheet. He apuntado lo que muestra tu perfil público de Instagram (tu @, tu país, tu idioma, tus seguidores, el enlace de tu bio, el post que cito) y las fechas de nuestros mensajes, solo para presentarte FitPal Coach: es mi interés legítimo en dar a conocer mi herramienta a los entrenadores. No la comparto con nadie. Tras 6 meses sin contacto, o en cuanto dices que no, solo guardo tu @, tu país, tu idioma, las fechas y tu respuesta, para no volver a escribirte. Puedes ver tu fila o pedir que la borre aquí mismo, y reclamar ante la AEPD (España), la CNIL (Francia), la APD (Bélgica) o la CNDP (Marruecos).
-- **EN:** I'm [nom], founder of FitPal Coach ([e-mail]), and I keep this list, in a Google Sheet. I've noted what your public Instagram profile shows (your handle, country, language, followers, bio link, the post I mentioned) and the dates of our messages, only to tell you about FitPal Coach: my legitimate interest in showing my tool to coaches. I share it with no one. After 6 months without contact, or as soon as you say no, I keep only your handle, country, language, the dates and your answer, so I never write again. You can see your row or have it erased by asking here, and complain to the CNIL (France), the APD (Belgium), the AEPD (Spain) or the CNDP (Morocco).
+- **FR:** C'est moi, [nom], fondateur de FitPal Coach ([e-mail]), qui tiens cette liste, dans un Google Sheet. J'y ai noté ce que ton profil Instagram public montre (ton @, ton pays, ta langue, tes abonnés, ton domaine, le lien de ta bio, l'app de coaching que tu cites, le post que je cite), les dates de nos messages et d'un appel, ta réponse, quelques mots de notes, et la date où tu crées un compte FitPal Coach si tu le fais. C'est pour te présenter FitPal Coach et compter ce que mes messages donnent : c'est mon intérêt légitime à faire connaître mon outil aux coachs. Je ne la partage avec personne. Au bout de 6 mois sans échange, ou dès que tu dis non, je ne garde que ton @, ton pays, ta langue, les dates, ta réponse et la date de ton compte, pour ne plus t'écrire et pour mes statistiques ; je l'efface 3 ans après notre dernier message. Tu peux voir ta ligne ou la faire effacer en me le demandant ici, et te plaindre auprès de la CNIL (France), de l'APD (Belgique), de l'AEPD (Espagne) ou de la CNDP (Maroc).
+- **ES:** Soy yo, [nom], fundador de FitPal Coach ([e-mail]), quien lleva esta lista, en un Google Sheet. He apuntado lo que muestra tu perfil público de Instagram (tu @, tu país, tu idioma, tus seguidores, tu especialidad, el enlace de tu bio, la app de coaching que mencionas, el post que cito), las fechas de nuestros mensajes y de una llamada, tu respuesta, unas notas breves, y la fecha en que creas una cuenta de FitPal Coach si lo haces. Es para presentarte FitPal Coach y contar lo que dan mis mensajes: es mi interés legítimo en dar a conocer mi herramienta a los entrenadores. No la comparto con nadie. Tras 6 meses sin contacto, o en cuanto dices que no, solo guardo tu @, tu país, tu idioma, las fechas, tu respuesta y la fecha de tu cuenta, para no volver a escribirte y para mis estadísticas; lo borro 3 años después de nuestro último mensaje. Puedes ver tu fila o pedir que la borre aquí mismo, y reclamar ante la AEPD (España), la CNIL (Francia), la APD (Bélgica) o la CNDP (Marruecos).
+- **EN:** I'm [nom], founder of FitPal Coach ([e-mail]), and I keep this list, in a Google Sheet. I've noted what your public Instagram profile shows (your handle, country, language, followers, niche, bio link, the coaching app you mention, the post I mentioned), the dates of our messages and of a call, your answer, a few words of notes, and the date you make a FitPal Coach account if you do. It's to tell you about FitPal Coach and to count what my messages lead to: my legitimate interest in showing my tool to coaches. I share it with no one. After 6 months without contact, or as soon as you say no, I keep only your handle, country, language, the dates, your answer and your account date, so I never write again and for my statistics; I delete it 3 years after our last message. You can see your row or have it erased by asking here, and complain to the CNIL (France), the APD (Belgium), the AEPD (Spain) or the CNDP (Morocco).
 
 **The legal basis.** This is professional prospecting under legitimate interest: a message about
 the coach's own work, sent to their business account, with a way to say no in the first message
@@ -175,6 +184,24 @@ and nothing after a no.
 
 **To verify before the first send** (checked against the GDPR and Morocco 09-08 checklists in
 lawve-ai/awesome-legal-skills; not legal advice):
+- **Blocking for Spain, Belgium and Morocco: does a DM need prior consent?** Legitimate interest
+  covers the GDPR side only. The electronic-marketing rules sit on top of it, and they treat an
+  unsolicited commercial message to a person differently by country:
+  - **Spain:** LSSI art. 21 bans commercial messages by e-mail "u otro medio de comunicación
+    electrónica equivalente" without prior request or consent, with no exception for
+    professionals.
+  - **Morocco:** law 09-08 art. 10 bans direct prospecting by e-mail or a similar technology
+    using a natural person's details without their prior consent.
+  - **Belgium:** the Code de droit économique (art. XII.13) asks for consent for electronic
+    advertising; its business exception covers impersonal company addresses, not an
+    individual coach's own account.
+  - **France:** a professional may be prospected without consent about their own profession,
+    with a way to object in every message (CPCE art. L34-5, CNIL guidance). That is what this
+    doc is built on.
+
+  Whether an Instagram DM counts as an electronic message under each of these is the question
+  to answer first. Until it is, send in France only; the 30 a day and the follow-ups stay as
+  written.
 - **The notice:** that the two layers above are enough without a page to link to. A
   "prospecting" section on the privacy page would make the full notice a link instead of a
   pasted text (CHW-359).
@@ -186,6 +213,8 @@ lawve-ai/awesome-legal-skills; not legal advice):
 - **Records of processing:** whether FitPal keeps an Art. 30 record of processing. If it does,
   add "coach prospecting" to it: purpose, the columns above, 6 months, the founder only, Google
   as the Sheet's host.
+- **Retention:** 6 months for the full row and 3 years for the cut-down one follow the CNIL's
+  guideline for prospects; check they fit Spain and Morocco too.
 - **Instagram's own rules:** they apply on top of the law. The pace in §1 is there for them, too.
 
 ## 5. Monday review
@@ -197,11 +226,16 @@ Count from the tracker, per language and per country:
 | Reply rate | `replied` ÷ `sent` |
 | Yes rate | `outcome = yes` ÷ `replied` |
 | Sign-up rate | `signed_up` ÷ `sent` |
-| Activation | `activated` ÷ `signed_up` (target: half within 7 days, growth plan §2) |
-| Habit | `habit` ÷ `activated`, for coaches 30+ days in (target: 60%, growth plan §2) |
-| Paid | `paid` ÷ `activated` |
 
-Rows cut down after a `no` or `stop` still count: they keep `sent`, `replied` and `outcome`.
+Rows cut down still count: they keep `sent`, `replied`, `outcome` and `signed_up`.
+
+Activation, habit and paid come from the admin panel's coach funnel (CHW-335), by sign-up week,
+not from the tracker. Two things to know when reading it:
+- **It counts every self-serve coach,** not only the ones these DMs brought.
+- **It reads each week as it is today.** A week's activated count keeps growing as late coaches
+  activate, so it is not the growth plan's "half within 7 days": read that target off the
+  newest week that is at least 7 days old, at the review just after it closes. Habit is read
+  only for coaches 30+ days in (`habitDue`); its target is 60%.
 
 **Revising the scripts:**
 - **Change one thing at a time:** the personal line's style, the offer's wording, or the
