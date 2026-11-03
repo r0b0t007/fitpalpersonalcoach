@@ -18,7 +18,10 @@ posts in English counts in their country's share of the 30.
 2. **No link in the first message.** A first DM from a stranger lands in the message requests,
    and a link makes it look like spam. The link comes once they answer.
 3. **At most two follow-ups,** on day 3 and day 7, and none once they have answered anything,
-   "no" included. Then the row is closed.
+   "no" included. Then the row is closed. Instagram lets someone who doesn't follow you send one
+   text message request until it is accepted, so a follow-up is only possible once they have
+   accepted the request (or follow you back). If Instagram won't let you send it, don't look for
+   a way round: leave `followup_1` and `followup_2` empty and the row closes on day 7.
 4. **"No" or no interest: answer once, politely, and never write again. "Stop": answer nothing**
    (message 1 promised no more messages). Set `outcome` to `no` or `stop` and cut the row down
    (§4): what is left is only there so they are never written to again and the Monday counts
@@ -26,9 +29,9 @@ posts in English counts in their country's share of the 30.
 5. **By hand, never automated.** No tool sends, schedules or copies DMs in bulk: the account
    would be flagged, and it would stop being founder-led.
 6. **30 new coaches a day,** rotating countries in the list's proportions: about 15 in Morocco,
-   8 in France or Belgium and 7 in Spain, whatever language they post in (all 30 in France
-   until the consent question in §4 is answered). Follow-ups come on
-   top. If Instagram shows a warning or blocks sending, stop for 48 hours, then halve the pace
+   8 in France or Belgium and 7 in Spain, whatever language they post in. Until the consent
+   question in §4 is answered, all 30 go to France, and only French coaches go on the list.
+   Follow-ups come on top. If Instagram shows a warning or blocks sending, stop for 48 hours, then halve the pace
    for a week.
 7. **Only what the messaging doc allows.** No competitor named in an opener (messaging §4), no
    "en 5 minutes" (§6), no client counts and no price in MAD (§7).
@@ -40,25 +43,34 @@ posts in English counts in their country's share of the 30.
 The personal line, then the core line (their first workout is ready the day they accept), then
 proof 4 (done for you) and the Free plan. It ends with a question, so there is something to
 answer, and then one line on their details: the short notice (§4), which says what is kept, why,
-and how to say no. "Le jour même" holds because the setup always includes a starter program
+where the rest is said, and how to say no. (This order puts the core line before proof 4, and
+messaging §8 says the same.) "Le jour même" holds because the setup always includes a starter program
 (messaging §3); a coach who sets up alone is told to pick one (the reply to a yes).
 
-- **FR:** Salut [prénom]. Ton post sur [sujet] m'a parlé : [ce que tu en as retenu]. Je fais FitPal Coach, une app où tes abonnés demandent à s'entraîner avec toi depuis le lien de ta bio, et leur première séance est prête le jour où tu acceptes. Si tu m'envoies ton programme, en PDF ou en Sheet, je te le mets sur l'app en 24 h, sans rien payer : c'est gratuit jusqu'à 3 clients. Ça t'intéresse ? (J'ai noté ton @ et ce que montre ton profil public, pour te présenter FitPal Coach, avec deux relances au plus. Réponds « stop » et je ne t'écris plus.)
-- **ES:** Hola [prénom]. Tu post sobre [sujet] me llegó: [ce que tu en as retenu]. Hago FitPal Coach, una app donde tus seguidores piden entrenar contigo desde el enlace de tu bio, y su primer entreno está listo el día que aceptas. Si me mandas tu programa, en PDF o en Sheet, te lo paso a la app en 24 h, sin pagar nada: es gratis hasta 3 clientes. ¿Te interesa? (He apuntado tu @ y lo que muestra tu perfil público, para presentarte FitPal Coach, con dos mensajes más como mucho. Responde «stop» y no te escribo más.)
-- **EN:** Hi [prénom]. Your post about [sujet] stuck with me: [ce que tu en as retenu]. I make FitPal Coach, an app where your followers ask to train with you from the link in your bio, and their first workout is ready the day you accept. If you send me your program, as a PDF or a Sheet, I'll put it in the app within 24 hours, at no cost: it's free up to 3 clients. Interested? (I've noted your handle and what your public profile shows, to tell you about FitPal Coach, with two follow-ups at most. Reply "stop" and I won't write again.)
+- **FR:** Salut [prénom]. Ton post sur [sujet] m'a parlé : [ce que tu en as retenu]. Je fais FitPal Coach, une app où tes abonnés demandent à s'entraîner avec toi depuis le lien de ta bio, et leur première séance est prête le jour où tu acceptes. Si tu m'envoies ton programme, en PDF ou en Sheet, je te le mets sur l'app en 24 h, sans rien payer : c'est gratuit jusqu'à 3 clients. Ça t'intéresse ? (J'ai noté ton @ et ce que montre ton profil public, pour te présenter FitPal Coach, avec deux relances au plus ; le détail est sur le lien de ma bio. Réponds « stop » et je ne t'écris plus.)
+- **ES:** Hola [prénom]. Tu post sobre [sujet] me llegó: [ce que tu en as retenu]. Hago FitPal Coach, una app donde tus seguidores piden entrenar contigo desde el enlace de tu bio, y su primer entreno está listo el día que aceptas. Si me mandas tu programa, en PDF o en Sheet, te lo paso a la app en 24 h, sin pagar nada: es gratis hasta 3 clientes. ¿Te interesa? (He apuntado tu @ y lo que muestra tu perfil público, para presentarte FitPal Coach, con dos mensajes más como mucho; los detalles, en el enlace de mi bio. Responde «stop» y no te escribo más.)
+- **EN:** Hi [prénom]. Your post about [sujet] stuck with me: [ce que tu en as retenu]. I make FitPal Coach, an app where your followers ask to train with you from the link in your bio, and their first workout is ready the day you accept. If you send me your program, as a PDF or a Sheet, I'll put it in the app within 24 hours, at no cost: it's free up to 3 clients. Interested? (I've noted your handle and what your public profile shows, to tell you about FitPal Coach, with two follow-ups at most; the details are at the link in my bio. Reply "stop" and I won't write again.)
 
 ### When they say yes
 
-- **FR:** Parfait. Envoie-moi sur WhatsApp ([WhatsApp]) ton programme (PDF, Sheet ou photos), une photo de toi, deux lignes sur ce que tu fais et ton @. Je te renvoie ton lien dans les 24 h. Si tu préfères le faire toi-même, ouvre ce lien dans Safari ou Chrome (pas dans Instagram, le compte ne s'y crée pas) : coach.fitpal.ma/#/start?plan=free. Sur ta page, choisis un programme de départ : c'est lui qui est prêt le jour où tu acceptes.
-- **ES:** Perfecto. Mándame por WhatsApp ([WhatsApp]) tu programa (PDF, Sheet o fotos), una foto tuya, dos líneas sobre lo que haces y tu @. Te devuelvo tu enlace en 24 h. Si prefieres hacerlo tú, abre este enlace en Safari o Chrome (no dentro de Instagram, ahí no se crea la cuenta): coach.fitpal.ma/#/start?plan=free. En tu página, elige un programa de inicio: es el que está listo el día que aceptas.
-- **EN:** Great. Send me on WhatsApp ([WhatsApp]) your program (PDF, Sheet or photos), a photo of you, two lines on what you do and your handle. I'll send your link back within 24 hours. If you'd rather do it yourself, open this link in Safari or Chrome (not inside Instagram, the account can't be made there): coach.fitpal.ma/#/start?plan=free. On your page, pick a starter program: that's what is ready the day you accept.
+Both ways start with the coach making their own account: only the coach can, because it is made
+with their passkey, and the admin panel can't make one for them.
+
+- **FR:** Parfait. D'abord, crée ton compte, ça prend une minute : ouvre ce lien dans Safari ou Chrome (pas dans Instagram, le compte ne s'y crée pas) : coach.fitpal.ma/#/start?plan=free. Ensuite, au choix. Je m'occupe du reste : envoie-moi sur WhatsApp ([WhatsApp]) ton programme (PDF, Sheet ou photos), une photo de toi et deux lignes sur ce que tu fais, et je te renvoie ton lien dans les 24 h. Ou tu le fais toi-même : sur ta page, choisis un programme de départ, c'est lui qui est prêt le jour où tu acceptes. Dans les deux cas, dis-moi quand ton compte est créé.
+- **ES:** Perfecto. Primero, crea tu cuenta, es un minuto: abre este enlace en Safari o Chrome (no dentro de Instagram, ahí no se crea la cuenta): coach.fitpal.ma/#/start?plan=free. Después, como prefieras. Yo me encargo del resto: mándame por WhatsApp ([WhatsApp]) tu programa (PDF, Sheet o fotos), una foto tuya y dos líneas sobre lo que haces, y te devuelvo tu enlace en 24 h. O lo haces tú: en tu página, elige un programa de inicio, es el que está listo el día que aceptas. En los dos casos, avísame cuando tengas la cuenta.
+- **EN:** Great. First, make your account, it takes a minute: open this link in Safari or Chrome (not inside Instagram, the account can't be made there): coach.fitpal.ma/#/start?plan=free. Then, whichever you prefer. I do the rest: send me on WhatsApp ([WhatsApp]) your program (PDF, Sheet or photos), a photo of you and two lines on what you do, and I'll send your link back within 24 hours. Or you do it yourself: on your page, pick a starter program, that's what is ready the day you accept. Either way, tell me when your account is made.
+
+Then send the full notice (§4) as a second message. When they say the account is made, find it
+in the admin panel's users list by the name they gave and fill `signed_up`; if you can't tell
+which account is theirs, ask them which name they used.
 
 Why the browser line: coach sign-up (`Start.jsx`) makes the account with a passkey, which fails in
 Instagram's in-app browser (`lib/inapp.js`), and unlike Join and Home it shows no "open in your
 browser" prompt. Drop the line once it does.
 
-The setup itself (what we enter, what the coach checks) is CHW-348's. Until it is written down,
-the founder does it by hand, starter program included; stop offering the 24 hours if the queue
+The setup itself (what we enter, what the coach checks) is CHW-348's, and so is how the founder
+gets programs into an account they can't sign in to. Until it is written down, the founder does
+it by hand with the coach, starter program included; stop offering the 24 hours if the queue
 goes past a day.
 
 ### Follow-up 1, day 3: proof 1 (it works inside Instagram)
@@ -104,7 +116,8 @@ competitor): say you'll check, and check before answering. Never guess.
   as "Personal trainer" or "Coach"), so the message goes to their business, not their private life;
 - coaching online or one to one;
 - posting in French, Spanish or English;
-- based in Morocco, France, Belgium or Spain.
+- based in Morocco, France, Belgium or Spain (France only until the consent question in §4 is
+  answered: no rows for the others before then).
 
 **Where to look:**
 - **Searches and hashtags:** coach sportif, coaching en ligne, entrenador personal, online coach,
@@ -144,21 +157,22 @@ is not the place for them.
 | `replied` | date of their first answer |
 | `outcome` | `yes`, `no` (they said no), `stop` (they asked us to stop), `objection` (still talking), or empty (no answer yet, or none after follow-up 2) |
 | `call` | date of a call, if there is one |
-| `signed_up` | date their coach account exists (the admin panel's users list) |
+| `signed_up` | date their coach account exists (the admin panel's users list, matched as in the reply to a yes) |
+| `last_contact` | date of the last message either way, theirs or ours, updated each time |
+| `notes` | anything worth remembering, in a few words |
 
 Activation, habit and paid are not tracked per coach here: the admin panel's coach funnel
 (CHW-335) counts them by sign-up week, not per coach, and the sheet needs no data from inside
 the coach's account (§5).
-| `notes` | anything worth remembering, in a few words |
 
 **The data in it:**
 - **What goes in:** only what the coach shows publicly for their business. Nothing personal from
   outside their profile.
-- **Cutting a row down:** a row closed with `no` or `stop`, and any row with nothing sent or
-  received for 6 months, keeps only `handle`, `country`, `language`, `sent`, `replied`,
-  `outcome` and `signed_up`; everything else is cleared. That is enough never to write to them
+- **Cutting a row down:** a row closed with `no` or `stop`, and any row whose `last_contact` is
+  6 months old, keeps only `handle`, `country`, `language`, `sent`, `replied`, `outcome`,
+  `signed_up` and `last_contact`; everything else is cleared. That is enough never to write to them
   again and to keep the Monday counts true, and nothing more.
-- **Deleting old rows:** a cut-down row is deleted 3 years after the last message either way
+- **Deleting old rows:** a cut-down row is deleted 3 years after its `last_contact`
   (the CNIL's guideline for prospect data and objection lists; to verify, below).
 - **Deleting a row:** a coach who asks to be erased has their row deleted the same day; tell them
   that without it we can't make sure they are never written to again.
@@ -167,11 +181,14 @@ the coach's account (§5).
 **The notice.** Under GDPR Art. 14, someone whose details we collect without asking them gets,
 at first contact, who we are, why we hold their details and on what basis, where they came
 from, how long we keep them, and their rights. A DM can't carry all of that, and rule 2 keeps
-links out of message 1, so it comes in two layers:
-- **Short notice:** the bracketed line at the end of message 1 (what is kept, what for, how to
-  say no).
-- **Full notice:** sent as is to any coach who replies with a question about their details,
-  asks what we hold, or asks for their row; and sent with the reply to a yes.
+links out of message 1, so it comes in two layers, and both must reach every coach written to,
+including the many who never answer:
+- **Short notice:** the bracketed line at the end of message 1 (what is kept, what for, where
+  the details are, how to say no).
+- **Full notice:** the text below, published where message 1 points: the link in the sending
+  account's Instagram bio leads to it. **Nothing is sent before it is up** (to do, below). It is
+  also sent as is to any coach who asks what we hold or for their row, and after the reply to a
+  yes.
 
 The full notice:
 - **FR:** C'est moi, [nom], fondateur de FitPal Coach ([e-mail]), qui tiens cette liste, dans un Google Sheet. J'y ai noté ce que ton profil Instagram public montre (ton @, ton pays, ta langue, tes abonnés, ton domaine, le lien de ta bio, l'app de coaching que tu cites, le post que je cite), les dates de nos messages et d'un appel, ta réponse, quelques mots de notes, et la date où tu crées un compte FitPal Coach si tu le fais. C'est pour te présenter FitPal Coach et compter ce que mes messages donnent : c'est mon intérêt légitime à faire connaître mon outil aux coachs. Je ne la partage avec personne. Au bout de 6 mois sans échange, ou dès que tu dis non, je ne garde que ton @, ton pays, ta langue, les dates, ta réponse et la date de ton compte, pour ne plus t'écrire et pour mes statistiques ; je l'efface 3 ans après notre dernier message. Tu peux voir ta ligne ou la faire effacer en me le demandant ici, et te plaindre auprès de la CNIL (France), de l'APD (Belgique), de l'AEPD (Espagne) ou de la CNDP (Maroc).
@@ -202,9 +219,9 @@ lawve-ai/awesome-legal-skills; not legal advice):
   Whether an Instagram DM counts as an electronic message under each of these is the question
   to answer first. Until it is, send in France only; the 30 a day and the follow-ups stay as
   written.
-- **The notice:** that the two layers above are enough without a page to link to. A
-  "prospecting" section on the privacy page would make the full notice a link instead of a
-  pasted text (CHW-359).
+- **To do, blocking: publish the full notice.** A "prospecting" section on the privacy page
+  (CHW-359), with the sending account's bio link pointing to it. Then check the two layers are
+  enough for Art. 14.
 - **The balancing test:** legitimate interest needs one written down (the interest, why a DM is
   necessary for it, why it doesn't override the coach's interests). Not written yet; it goes with
   the CHW-359 work.
@@ -232,10 +249,12 @@ Rows cut down still count: they keep `sent`, `replied`, `outcome` and `signed_up
 Activation, habit and paid come from the admin panel's coach funnel (CHW-335), by sign-up week,
 not from the tracker. Two things to know when reading it:
 - **It counts every self-serve coach,** not only the ones these DMs brought.
-- **It reads each week as it is today.** A week's activated count keeps growing as late coaches
-  activate, so it is not the growth plan's "half within 7 days": read that target off the
-  newest week that is at least 7 days old, at the review just after it closes. Habit is read
-  only for coaches 30+ days in (`habitDue`); its target is 60%.
+- **It reads each week as it is today, not within 7 days.** `activated` counts the week's
+  coaches who have an accepted client with a logged workout now, however long it took, and it
+  can drop if a coach releases that client. It can't give the growth plan's "half within 7
+  days" exactly. The closest reading: a week's count at the second Monday after it ends, when
+  each of its coaches has had 8 to 14 days, which overstates the 7-day rate. Say so when you
+  report it. Habit is read only for coaches 30+ days in (`habitDue`); its target is 60%.
 
 **Revising the scripts:**
 - **Change one thing at a time:** the personal line's style, the offer's wording, or the
