@@ -391,7 +391,7 @@ export default function Settings() {
           A coach's holds other people's coaching, and the paired phone's session cannot prove the
           account afresh, so neither sees it. */}
       {user && !MOBILE && !DEMO && !isCoach(user) && <Row icon="trash" iconTint="var(--red)" title={t('Delete my account')} danger
-        subtitle={t('Your account and everything in it, on every device.')}
+        subtitle={t('Your account and everything the server keeps of it.')}
         onClick={() => useUI.getState().openSheet(close => <DeleteAccountSheet close={close} onDeleted={() => nav('/home')} />)} />}
     </Section>
     <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={doImport} />

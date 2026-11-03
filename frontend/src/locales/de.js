@@ -1703,7 +1703,7 @@ export default {
   'Remove photo': 'Foto entfernen',
   'Photo removed': 'Foto entfernt',
   'Delete my account': 'Mein Konto löschen',
-  'Your account and everything in it, on every device.': 'Dein Konto und alles darin, auf allen Geräten.',
+  'Your account and everything the server keeps of it.': 'Dein Konto und alles, was der Server davon speichert.',
   'Delete your account?': 'Dein Konto löschen?',
   'Everything goes: your workouts, check-ins, weight, measurements, meals and photos, and what you told your coach when you asked to join. Your coach stops seeing you. This cannot be undone — export a backup first if you want a copy.': 'Alles wird gelöscht: deine Trainings, Check-ins, Gewicht, Maße, Mahlzeiten und Fotos, und was du deinem Coach bei deiner Anfrage erzählt hast. Dein Coach sieht dich nicht mehr. Das lässt sich nicht rückgängig machen — exportiere vorher ein Backup, wenn du eine Kopie willst.',
   'Deleting…': 'Wird gelöscht…',

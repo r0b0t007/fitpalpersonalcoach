@@ -1685,7 +1685,7 @@ export default {
   'Remove photo': 'Quitar la foto',
   'Photo removed': 'Foto quitada',
   'Delete my account': 'Eliminar mi cuenta',
-  'Your account and everything in it, on every device.': 'Tu cuenta y todo lo que contiene, en todos tus dispositivos.',
+  'Your account and everything the server keeps of it.': 'Tu cuenta y todo lo que el servidor guarda de ella.',
   'Delete your account?': '¿Eliminar tu cuenta?',
   'Everything goes: your workouts, check-ins, weight, measurements, meals and photos, and what you told your coach when you asked to join. Your coach stops seeing you. This cannot be undone — export a backup first if you want a copy.': 'Se borra todo: tus entrenamientos, revisiones, peso, medidas, comidas y fotos, y lo que le contaste a tu coach al pedir unirte. Tu coach deja de verte. No se puede deshacer — exporta una copia de seguridad antes si quieres conservarla.',
   'Deleting…': 'Eliminando…',

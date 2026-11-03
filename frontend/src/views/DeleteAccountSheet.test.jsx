@@ -8,10 +8,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 const calls = []
 let DELETE = []   // what each deleteAccount() call does, in turn
+let ACCOUNT = null
 vi.mock('../lib/api.js', async orig => ({
   ...(await orig()),
   deleteAccount: async () => { calls.push('delete'); const next = DELETE.shift(); if (next) throw next; return { ok: true } },
-  fetchAccount: async () => { calls.push('account'); return { email: 'salma@example.com' } },
+  fetchAccount: async () => { calls.push('account'); return ACCOUNT },
   requestLoginLink: async email => { calls.push('mail ' + email); return { ok: true } },
   signInWithCode: async (email, code) => { calls.push(`code ${email} ${code}`); return { user: { id: 'u1' } } },
 }))
@@ -33,7 +34,7 @@ const type = async (el, value) => {
 
 beforeEach(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true
-  calls.length = 0; DELETE = []; closed = 0; deleted = 0; toasts = []; forgot = 0
+  calls.length = 0; DELETE = []; ACCOUNT = { email: 'salma@example.com', verified: true }; closed = 0; deleted = 0; toasts = []; forgot = 0
   vi.spyOn(useUI.getState(), 'toast').mockImplementation(m => { toasts.push(m) })
   useStore.setState({ forgetLocalSession: () => { forgot++ } })
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container)
@@ -66,6 +67,36 @@ describe('deleting your account', () => {
     await click(button('Delete my account'))
     expect(calls.slice(3)).toEqual(['code salma@example.com 482913', 'delete'])
     expect([closed, forgot, deleted]).toEqual([1, 1, 1])
+  })
+
+  it('spends the code once, however fast Enter is pressed twice', async () => {
+    DELETE = [refusal('sign in again to do this — it needs a recent sign-in')]
+    await click(button('Delete my account'))
+    const field = container.querySelector('input[name="code"]')
+    await type(field, '482913')
+    await act(async () => {
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    })
+    expect(calls.filter(c => c.startsWith('code '))).toEqual(['code salma@example.com 482913'])
+  })
+
+  it('can send the code again, or be left, from the code step', async () => {
+    DELETE = [refusal('sign in again to do this — it needs a recent sign-in')]
+    await click(button('Delete my account'))
+    await click(button('Send the code again'))
+    expect(calls).toEqual(['delete', 'account', 'mail salma@example.com', 'mail salma@example.com'])
+    await click(button('Cancel'))
+    expect([closed, forgot, deleted]).toEqual([1, 0, 0])
+  })
+
+  it('mails no code to an address the account has not confirmed: it says to sign in again', async () => {
+    ACCOUNT = { email: 'salma@example.com', verified: false }
+    DELETE = [refusal('sign in again to do this — it needs a recent sign-in')]
+    await click(button('Delete my account'))
+    expect(calls).toEqual(['delete', 'account'])
+    expect(toasts).toEqual(['sign in again to do this — it needs a recent sign-in'])
+    expect(text()).toContain('Delete your account?')
   })
 
   it('shows any other refusal and deletes nothing', async () => {

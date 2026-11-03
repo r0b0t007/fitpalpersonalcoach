@@ -5,13 +5,16 @@
 
 use App\Auth\FreshAuth;
 use App\Auth\SessionToken;
+use App\Http\Controllers\DataController;
 use App\Media\Paths;
 use App\Models\Assignment;
 use App\Models\CoachNote;
 use App\Models\Invite;
 use App\Models\JoinRequest;
 use App\Models\User;
+use App\Models\UserState;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
@@ -141,4 +144,31 @@ it("does not delete a coach's or an admin's account: it holds other people's coa
 it('deletes a client with no coach and nothing else to their name', function () {
     $this->postJson('/api/account/delete', [], deleteFresh($this->f->u1))->assertOk();
     expect(deleteLeftovers($this->f->u1->id))->toBe([]);
+});
+
+it('writes nothing back from a sync that signed in just before the account was deleted', function () {
+    $me = $this->f->a1;
+    $this->postJson('/api/account/delete', [], deleteFresh($me))->assertOk();
+    // The request as it stood once its session had been read: the account still in hand.
+    $request = Request::create('/api/data', 'PUT', server: ['CONTENT_TYPE' => 'application/json'], content: json_encode(['state' => ['checkins' => [['d' => '2026-11-01', 'weight' => 70]]]]));
+    $request->setUserResolver(fn () => $me);
+    $res = (new DataController)->store($request);
+    expect($res->getStatusCode())->toBe(401)
+        ->and(UserState::query()->whereKey($me->id)->exists())->toBeFalse();
+});
+
+it("refuses a demoted coach's account while it still holds their coaching", function () {
+    $f = $this->f;
+    $f->a->forceFill(['coach' => false])->save();   // an admin took the role; Detach leaves the rows
+    $this->postJson('/api/account/delete', [], deleteFresh($f->a))
+        ->assertForbidden()->assertExactJson(['error' => 'a coach account is closed on request — write to us']);
+    expect(User::query()->whereKey($f->a->id)->exists())->toBeTrue();
+});
+
+it("holds the app's copy of the fresh-sign-in refusal to the middleware's own sentence", function () {
+    // The sheet chooses the code step by this sentence (DeleteAccountSheet NOT_FRESH): reworded on
+    // one side only, every stale session would get a toast and never the code.
+    $said = $this->postJson('/api/account/delete', [], bearer($this->f->a1))->assertForbidden()->json('error');
+    expect(file_get_contents(base_path('../frontend/src/views/DeleteAccountSheet.jsx')))
+        ->toContain("export const NOT_FRESH = '".$said."'");
 });

@@ -19,8 +19,9 @@ final class AccountDeleteController
     public function destroy(Request $request): JsonResponse
     {
         $user = $request->user('api');
-        // A coach's account holds other people's coaching: theirs is closed by the owner, on request.
-        if ($user->isCoach()) {
+        // A coach's account holds other people's coaching — a demoted coach's too, until it is
+        // cleared: theirs is closed by the owner, on request.
+        if ($user->isCoach() || $user->holdsCoaching()) {
             return Json::error(403, 'a coach account is closed on request — write to us');
         }
         DeleteAccount::run($user);
