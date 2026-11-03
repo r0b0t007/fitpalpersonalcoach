@@ -6,11 +6,21 @@
 // This module is the client half — plain fetches through api(), plus the one-time migration that
 // lifts an old local library up to the server.
 import { api } from './api.js'
+import { t } from './i18n-core.js'
+import { uid } from './format.js'
+import { templateProgram } from './program-templates.js'
 
 export const fetchPrograms = () => api('/api/coach/programs').then(d => ({ programs: d.programs || [], max: d.max }))
 
 export const savePrograms = ({ id, name, bundle }) =>
   api('/api/coach/programs/save', { method: 'POST', body: JSON.stringify({ id, name, bundle }) })
+
+/** Copy a ready-made program into the library (CHW-345), under a new id: `{ program, programs }`. */
+export function copyTemplate(key) {
+  const made = templateProgram(key)
+  if (!made) return Promise.reject(new Error(t('That template no longer exists')))
+  return savePrograms({ id: uid(), ...made })
+}
 
 export const deleteProgram = id =>
   api('/api/coach/programs/delete', { method: 'POST', body: JSON.stringify({ id }) })

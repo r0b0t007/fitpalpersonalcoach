@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../../store/useStore.js'
 import { useUI } from '../../store/useUI.js'
-import { fetchPrograms, savePrograms, migrateLocalPrograms } from '../../lib/programs.js'
+import { fetchPrograms, savePrograms, migrateLocalPrograms, copyTemplate } from '../../lib/programs.js'
+import { programTemplates } from '../../lib/program-templates.js'
 import { newProgramDraft, bundleOf } from '../../lib/program-draft.js'
 import { uid } from '../../lib/format.js'
 import { t, tp } from '../../lib/i18n.js'
@@ -74,6 +75,21 @@ export default function Programs() {
       .catch(e => { toast(e.message); setBusy(false) })
   }
 
+  // A ready-made program (CHW-345), copied in under a new id and opened: from here it is the
+  // coach's own, and nothing they change reaches the template or anyone else's copy.
+  const copy = key => {
+    if (busy) return
+    setBusy(true)
+    copyTemplate(key)
+      .then(({ program }) => { toast(t('Copied to your library')); nav('/programs/' + program.id) })
+      .catch(e => { toast(e.message); setBusy(false) })
+  }
+  const templates = () => useUI.getState().openSheet(close => <>
+    <h3>{t('Templates')}</h3>
+    <div className="dim small" style={{ margin: '0 4px 12px', lineHeight: 1.4 }}>{t('Copy one into your library, then change anything you like.')}</div>
+    <TemplateList onPick={key => { close(); copy(key) }} />
+  </>)
+
   return <div className="narrow">
     <div className="hdr">
       <div style={{ flex: 1 }}><h1 style={{ margin: 0 }}>{t('Programs')}</h1>
@@ -102,12 +118,35 @@ export default function Programs() {
         {t('Could not reach the server, so your library is not shown. Nothing has been lost — try again in a moment.')}
       </div>}
       {Array.isArray(programs) && !programs.length && <div className="empty">
-        {t('No programs yet. Start one here, or copy the routines out of your own Plan, then send it to as many clients as you like.')}
+        {t('No programs yet. Start from a template below, or from scratch, then send it to as many clients as you like.')}
       </div>}
     </div>
+
+    {/* An empty library is a new coach on day one: the templates are the fastest way to a program,
+        so they are on the screen. Past that, they are one button under the library. */}
+    {Array.isArray(programs) && (programs.length
+      ? <Button variant="ghost" icon="clipboard" disabled={busy} onClick={templates} style={{ marginTop: 12 }}>{t('Start from a template')}</Button>
+      : <>
+        <h2 className="sect-t" style={{ marginTop: 22 }}>{t('Templates')}</h2>
+        <TemplateList onPick={copy} disabled={busy} />
+      </>)}
 
     <p className="sect-f">
       {t('Programs live in your library, not in your own plan. Editing one later never changes what a client has already accepted.')}
     </p>
+  </div>
+}
+
+/** The ready-made programs, each a tap away from being a copy in the coach's library. */
+export function TemplateList({ onPick, disabled }) {
+  return <div className="list">
+    {programTemplates().map(tpl => <button key={tpl.key} className="item" disabled={disabled} onClick={() => onPick(tpl.key)}>
+      <div className="grow">
+        <div className="tt">{tpl.name}</div>
+        <div className="ss">{tpl.about}</div>
+      </div>
+      <span className="tag acc">{tp(tpl.days, '{0} day/wk', '{0} days/wk')}</span>
+      <Icon name="plus" className="chev" />
+    </button>)}
   </div>
 }

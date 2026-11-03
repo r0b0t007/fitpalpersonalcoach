@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, uploadCoachPhoto } from '../../lib/api.js'
-import { fetchPrograms } from '../../lib/programs.js'
+import { copyTemplate, fetchPrograms } from '../../lib/programs.js'
+import { programTemplates } from '../../lib/program-templates.js'
 import { BIO_MAX, normaliseHandle, validHandle } from '../../lib/coach-page.js'
 import { t } from '../../lib/i18n.js'
 import { waInput } from '../../lib/whatsapp.js'
@@ -70,6 +71,19 @@ export default function PublicPage() {
 
   // The library, for the starter program; without it the picker offers "None" only.
   useEffect(() => { fetchPrograms().then(r => setPrograms(r.programs)).catch(() => {}) }, [])
+
+  // A template picked as the starter (CHW-345) is copied into the library first, and the copy is
+  // what the page points at: the page can only name a program the coach owns.
+  const TEMPLATE = 'template:'
+  const pickStarter = async v => {
+    if (!v.startsWith(TEMPLATE)) return set('starterProgramId', v || null)
+    try {
+      const { program, programs: after } = await copyTemplate(v.slice(TEMPLATE.length))
+      setPrograms(after)
+      set('starterProgramId', program.id)
+      toast(t('Copied to your library'))
+    } catch (e) { toast(e.message) }
+  }
   useEffect(() => {
     api('/api/coach/page').then(r => { took(r); setLoaded(true) })
       // No form on a failed load: saved, its blanks would overwrite the page the coach has.
@@ -145,8 +159,9 @@ export default function PublicPage() {
     {/* CHW-338: what a new client finds on day one, and whether they wait for the coach at all. */}
     <Section title={t('New clients')} footer={t('The starter program is added to their plan, and their first workout is put on the day they join.')}>
       <SelectRow icon="clipboard" iconTint="var(--acc)" title={t('Starter program')} sheetTitle={t('Starter program')}
-        value={form.starterProgramId || ''} onChange={v => set('starterProgramId', v || null)}
-        options={[{ value: '', label: t('None') }, ...programs.map(p => ({ value: p.id, label: p.name || t('Untitled program') }))]} />
+        value={form.starterProgramId || ''} onChange={pickStarter}
+        options={[{ value: '', label: t('None') }, ...programs.map(p => ({ value: p.id, label: p.name || t('Untitled program') })),
+          ...programTemplates().map(tpl => ({ value: TEMPLATE + tpl.key, label: t('{0} (template)', tpl.name) }))]} />
       <Row icon="checkCircle" iconTint="var(--green)" title={t('Accept requests automatically')}
         subtitle={t('Each request is accepted as soon as the email is confirmed, while you have places on your plan.')}>
         <Switch checked={!!form.autoAccept} onChange={v => set('autoAccept', v)} />

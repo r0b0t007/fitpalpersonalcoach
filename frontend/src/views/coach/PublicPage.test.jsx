@@ -17,6 +17,11 @@ vi.mock('../../lib/api.js', async orig => ({
     if (path === '/api/coach/page') { if (PAGE instanceof Error) throw PAGE; return PAGE }
     if (path === '/api/coach/page/save') { if (SAVE instanceof Error) throw SAVE; return SAVE }
     if (path === '/api/coach/page/photo/remove') return { page: { ...PAGE.page, photo: null }, url: PAGE.url }
+    if (path === '/api/coach/programs') return { programs: [], max: 50 }
+    if (path === '/api/coach/programs/save') {
+      const b = JSON.parse(opts.body)
+      return { program: { id: b.id, name: b.name, bundle: b.bundle }, programs: [{ id: b.id, name: b.name, bundle: b.bundle }] }
+    }
     throw new Error('unexpected ' + path)
   },
   uploadCoachPhoto: async blob => { calls.push(['upload', blob]); if (UPLOAD instanceof Error) throw UPLOAD; return UPLOAD },
@@ -29,6 +34,9 @@ vi.mock('../../lib/photo.js', async orig => ({ ...(await orig()), prepareSquareP
   return 'square:' + file.name
 } }))
 const { default: PublicPage } = await import('./PublicPage.jsx')
+const { useUI } = await import('../../store/useUI.js')
+const { bindUI } = await import('../../components/ui.jsx')
+bindUI(useUI)
 
 // Where 'See my page' went.
 function Where() { return <div>at {useLocation().pathname}</div> }
@@ -99,6 +107,23 @@ describe('Account › My page', () => {
     await act(async () => { sw[sw.length - 1].click() })   // the last switch: Accept requests automatically
     await click('Save')
     expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: 'p1', autoAccept: true })
+  })
+
+  it('copies a template picked as the starter program into the library, and points the page at the copy (CHW-345)', async () => {
+    PAGE = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', starterProgramId: null, autoAccept: false }, url: 'https://coach.example/c/sara.fit' }
+    SAVE = PAGE
+    let sheet = null
+    vi.spyOn(useUI.getState(), 'openSheet').mockImplementation(render => { sheet = render(() => {}) })
+    await render()
+    await act(async () => { [...container.querySelectorAll('.lrow, [role="button"], button')].find(x => x.textContent.includes('Starter program')).click() })
+    const option = sheet.props.options.find(o => o.label === 'Glutes and legs (template)')
+    expect(option).toBeTruthy()
+    await act(async () => { await sheet.props.onChange(option.value) })
+    const [, copied] = calls.find(([p]) => p === '/api/coach/programs/save')
+    expect(copied.name).toBe('Glutes and legs')
+    await click('Save')
+    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: copied.id })
+    vi.restoreAllMocks()
   })
 
   it('loads the page the coach has, and counts the bio', async () => {
