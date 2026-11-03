@@ -11,8 +11,9 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Where media lives: `DATA_DIR/media` (Node's MEDIA_DIR), with `ex/` for coach demos and
  * `photo/<Uid::safe>/` for each client's progress photos — where the Node API keeps them, so a
- * cutover moves no files. Outside the document root; the bytes only ever leave through Serve,
- * behind a session.
+ * cutover moves no files — and `coach/<Uid::safe>/` for a coach's page photo (CHW-356). Outside
+ * the document root; the bytes only ever leave through Serve: behind a session, but for the page
+ * photo of an open page, which its coach published.
  */
 final class Paths
 {
@@ -40,6 +41,12 @@ final class Paths
     public static function photoDir(string $userId, bool $create = false): string
     {
         return $create ? self::dir('photo/'.Uid::safe($userId)) : self::root().DIRECTORY_SEPARATOR.'photo'.DIRECTORY_SEPARATOR.Uid::safe($userId);
+    }
+
+    /** A coach's page photo directory (CHW-356), named as photoDir is. @throws ClientSafe */
+    public static function coachDir(string $coachId, bool $create = false): string
+    {
+        return $create ? self::dir('coach/'.Uid::safe($coachId)) : self::root().DIRECTORY_SEPARATOR.'coach'.DIRECTORY_SEPARATOR.Uid::safe($coachId);
     }
 
     /**

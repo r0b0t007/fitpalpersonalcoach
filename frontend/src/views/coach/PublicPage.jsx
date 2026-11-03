@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../../lib/api.js'
+import { api, uploadCoachPhoto } from '../../lib/api.js'
 import { fetchPrograms } from '../../lib/programs.js'
 import { BIO_MAX, normaliseHandle, validHandle } from '../../lib/coach-page.js'
 import { t } from '../../lib/i18n.js'
 import { waInput } from '../../lib/whatsapp.js'
+import { PHOTOS_REACHABLE, prepareSquarePhoto } from '../../lib/photo.js'
+import { useUI } from '../../store/useUI.js'
+import Icon from '../../components/Icon.jsx'
 import { Button, Notice, Row, Section, Segmented, SelectRow, Switch, TextArea, TextField } from '../../components/ui.jsx'
 
 /**
@@ -25,8 +28,45 @@ export default function PublicPage() {
   const [error, setError] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const [busy, setBusy] = useState(false)
+  // The photo is the server's, apart from the form (CHW-356): adding one never sends half-typed
+  // fields, and saving the form never sends it.
+  const [photo, setPhoto] = useState(null)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const fileRef = useRef(null)
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError(null) }
-  const took = r => { if (r.page) { setForm(r.page); setSaved({ handle: r.page.handle, url: r.url }) } }
+  const took = r => {
+    if (!r.page) return
+    const { photo: p, ...page } = r.page
+    setForm(page); setPhoto(p || null); setSaved({ handle: page.handle, url: r.url })
+  }
+  const toast = msg => useUI.getState().toast(msg)
+
+  const onPhoto = async e => {
+    const file = e.target.files && e.target.files[0]
+    e.target.value = ''   // so picking the same file again still fires
+    if (!file) return
+    setPhotoBusy(true); setError(null)
+    try {
+      let square
+      try { square = await prepareSquarePhoto(file) } catch (e2) {
+        // The phone's own refusals, in English in lib/photo.js: said here in the coach's language.
+        setError(e2.code === 'small' ? t('Pick a larger photo — at least 200 pixels on each side.') : t('That image could not be read — try another photo.'))
+        return
+      }
+      const r = await uploadCoachPhoto(square)
+      setPhoto(r.page?.photo || null)
+      toast(t('Photo added'))
+    } catch (e2) { setError(e2.message) } finally { setPhotoBusy(false) }
+  }
+  const removePhoto = async () => {
+    setPhotoBusy(true); setError(null)
+    try {
+      await api('/api/coach/page/photo/remove', { method: 'POST', body: '{}' })
+      setPhoto(null)
+      toast(t('Photo removed'))
+    } catch (e) { setError(e.message) }
+    setPhotoBusy(false)
+  }
 
   // The library, for the starter program; without it the picker offers "None" only.
   useEffect(() => { fetchPrograms().then(r => setPrograms(r.programs)).catch(() => {}) }, [])
@@ -67,6 +107,24 @@ export default function PublicPage() {
         <Switch checked={form.open} onChange={v => set('open', v)} />
       </Row>
     </Section>
+
+    {/* On the saved page's row, so once there is one. Not shown on the paired phone app, which
+        cannot load it (lib/photo.js PHOTOS_REACHABLE): the camera says it is there to change. */}
+    {saved && <Section title={t('Photo')} footer={t('Your face, square, first thing on your page and in the link preview. Anyone with your link sees it.')}>
+      <div style={{ padding: '12px 16px', display: 'flex', gap: 14, alignItems: 'center' }}>
+        <span style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', flex: 'none', background: 'var(--surface-2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--label-2)' }}>
+          {photo && PHOTOS_REACHABLE
+            ? <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <Icon name="camera" />}
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
+          <Button size="sm" onClick={() => fileRef.current?.click()} disabled={photoBusy}>{photo ? t('Change photo') : t('Add a photo')}</Button>
+          {photo && <Button size="sm" onClick={removePhoto} disabled={photoBusy}>{t('Remove photo')}</Button>}
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPhoto} data-testid="page-photo" />
+      </div>
+    </Section>}
 
     {/* The count is digits and a slash in every language: nothing to translate. */}
     <Section title={t('About you')} footer={`${form.bio.length} / ${BIO_MAX}`}>

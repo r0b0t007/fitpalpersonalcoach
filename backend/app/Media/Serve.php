@@ -23,7 +23,11 @@ final class Serve
 {
     private const CHUNK = 262144;
 
-    public static function file(Request $request, string $path, ?string $mime): Response
+    /**
+     * `$cache` for a file anyone may read (a coach's page photo, CHW-356): the default is for the
+     * session-bound routes, private and for good.
+     */
+    public static function file(Request $request, string $path, ?string $mime, string $cache = 'private, max-age=31536000, immutable'): Response
     {
         clearstatcache(true, $path);
         if (! is_file($path)) {
@@ -37,7 +41,7 @@ final class Serve
         $base = [
             'Content-Type' => $mime ?: 'application/octet-stream',
             'Accept-Ranges' => 'bytes',
-            'Cache-Control' => 'private, max-age=31536000, immutable',
+            'Cache-Control' => $cache,
         ];
 
         $range = $request->headers->get('Range');

@@ -81,3 +81,29 @@ describe("a coach's public page", () => {
     expect(text()).toContain('This coach is not taking requests right now')
   })
 })
+
+describe('a coach’s public page with their photo (CHW-356)', () => {
+  it('lays it full-bleed under the name on Sombre', async () => {
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark', photo: '/api/public/coach/photo?h=yasmine.fit&v=abc' } }
+    await render(<PublicCoach handle="yasmine.fit" />)
+    const hero = container.querySelector('.coach-hero')
+    expect(hero.querySelector('img').getAttribute('src')).toBe('/api/public/coach/photo?h=yasmine.fit&v=abc')
+    expect(hero.querySelector('h1').textContent).toBe('Yasmine')
+    expect(container.querySelectorAll('h1')).toHaveLength(1)
+  })
+
+  it('frames it as a portrait beside the name on Clair', async () => {
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'light', photo: '/api/public/coach/photo?h=yasmine.fit&v=abc' } }
+    await render(<PublicCoach handle="yasmine.fit" />)
+    expect(container.querySelector('.coach-hero')).toBe(null)
+    expect(container.querySelector('img.coach-portrait').getAttribute('alt')).toBe('')   // the name is the heading beside it
+    expect(container.querySelector('h1').textContent).toBe('Yasmine')
+  })
+
+  it('shows the name alone without one', async () => {
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark', photo: null } }
+    await render(<PublicCoach handle="yasmine.fit" />)
+    expect(container.querySelector('img')).toBe(null)
+    expect(container.querySelector('h1').textContent).toBe('Yasmine')
+  })
+})

@@ -16,9 +16,18 @@ vi.mock('../../lib/api.js', async orig => ({
     calls.push([path, opts?.body ? JSON.parse(opts.body) : undefined])
     if (path === '/api/coach/page') { if (PAGE instanceof Error) throw PAGE; return PAGE }
     if (path === '/api/coach/page/save') { if (SAVE instanceof Error) throw SAVE; return SAVE }
+    if (path === '/api/coach/page/photo/remove') return { page: { ...PAGE.page, photo: null }, url: PAGE.url }
     throw new Error('unexpected ' + path)
   },
+  uploadCoachPhoto: async blob => { calls.push(['upload', blob]); if (UPLOAD instanceof Error) throw UPLOAD; return UPLOAD },
 }))
+let UPLOAD = null
+// No canvas here: the square is lib/photo.js's, tested there; this is what the editor does with it.
+vi.mock('../../lib/photo.js', async orig => ({ ...(await orig()), prepareSquarePhoto: async file => {
+  if (file.name === 'small.jpg') throw Object.assign(new Error('That photo is too small.'), { code: 'small' })
+  if (file.name === 'broken.heic') throw new Error('That image could not be read.')
+  return 'square:' + file.name
+} }))
 const { default: PublicPage } = await import('./PublicPage.jsx')
 
 // Where 'See my page' went.
@@ -114,5 +123,59 @@ describe('Account › My page', () => {
     await type('input[name="handle"]', 'sara.fit')
     await click('Save')
     expect(text()).toContain('That handle is taken')
+  })
+})
+
+describe('Account › My page › Photo (CHW-356)', () => {
+  const pick = async name => {
+    const input = container.querySelector('input[data-testid="page-photo"]')
+    Object.defineProperty(input, 'files', { configurable: true, value: [new File(['x'], name, { type: 'image/jpeg' })] })
+    await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })) })
+    await act(async () => {})
+  }
+
+  it('waits for a saved page', async () => {
+    await render()
+    expect(text()).not.toContain('Add a photo')
+  })
+
+  it('sends the square the phone drew, and shows the one the server kept', async () => {
+    PAGE = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', photo: null }, url: 'https://coach.example/c/sara.fit' }
+    UPLOAD = { page: { ...PAGE.page, photo: '/api/coach/page/photo?v=abc' }, url: PAGE.url }
+    await render()
+    expect(container.querySelector('img')).toBe(null)
+    await pick('me.heic')
+    expect(calls.find(([p]) => p === 'upload')[1]).toBe('square:me.heic')
+    expect(container.querySelector('img').getAttribute('src')).toBe('/api/coach/page/photo?v=abc')
+    expect(text()).toContain('Change photo')
+  })
+
+  it('never sends the photo with the form, and removes it', async () => {
+    PAGE = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', photo: '/api/coach/page/photo?v=abc', starterProgramId: null, autoAccept: false }, url: 'https://coach.example/c/sara.fit' }
+    SAVE = PAGE
+    await render()
+    await click('Save')
+    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).not.toHaveProperty('photo')
+    await click('Remove photo')
+    expect(container.querySelector('img')).toBe(null)
+    expect(text()).toContain('Add a photo')
+  })
+
+  it('says in the coach’s words what the phone could not use, and sends nothing', async () => {
+    PAGE = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', photo: null }, url: 'https://coach.example/c/sara.fit' }
+    await render()
+    await pick('small.jpg')
+    expect(text()).toContain('Pick a larger photo — at least 200 pixels on each side.')
+    await pick('broken.heic')
+    expect(text()).toContain('That image could not be read — try another photo.')
+    expect(calls.some(([p]) => p === 'upload')).toBe(false)
+  })
+
+  it('says what the server refused', async () => {
+    PAGE = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', photo: null }, url: 'https://coach.example/c/sara.fit' }
+    UPLOAD = new Error('that photo could not be used — try another')
+    await render()
+    await pick('tiny.jpg')
+    expect(text()).toContain('that photo could not be used — try another')
   })
 })

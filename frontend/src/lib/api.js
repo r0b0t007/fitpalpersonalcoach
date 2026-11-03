@@ -216,6 +216,10 @@ export const uploadProgressPhoto = (d, pose, blob, onProgress) => rawUpload(
   '/api/media/photo?d=' + encodeURIComponent(d) + '&pose=' + encodeURIComponent(pose),
   blob, onProgress, t('The upload was cut off before the server answered — it may have refused the file for being too large or not a photo.'))
 
+/* A coach's page photo (CHW-356): what prepareSquarePhoto() returned, for the same reason as above. */
+export const uploadCoachPhoto = (blob, onProgress) => rawUpload('/api/coach/page/photo', blob, onProgress,
+  t('The upload was cut off before the server answered — it may have refused the file for being too large or not a photo.'))
+
 const bufToB64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const b64uToBuf = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)).buffer
 

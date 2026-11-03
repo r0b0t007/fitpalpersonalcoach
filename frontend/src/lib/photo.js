@@ -147,6 +147,49 @@ export async function preparePhoto(file, max = PHOTO_MAX_EDGE) {
   }
 }
 
+/** The edge a coach's page photo is drawn at (CHW-356): sharp on a phone's full width, and the
+ *  size a link preview asks for. */
+export const PAGE_PHOTO_EDGE = 1080
+/** The smallest square the server keeps (CoachPhotoController::MIN_EDGE): under it, a face blurs. */
+export const PAGE_PHOTO_MIN = 200
+
+/**
+ * The square cut from a w×h photo for a coach's page (CHW-356), and the edge it is drawn at —
+ * never scaled up, as fitWithin. Centred across; down a portrait photo, a quarter of the way from
+ * the top rather than half, where a face in one usually is. Pure, as fitWithin, for the same
+ * reason. null for dimensions that are not real.
+ *
+ * @returns {{sx:number,sy:number,side:number,out:number}|null}
+ */
+export function squareCrop(w, h, edge = PAGE_PHOTO_EDGE) {
+  if (!(w > 0) || !(h > 0) || !(edge > 0)) return null
+  const side = Math.min(w, h)
+  return {
+    sx: Math.round((w - side) / 2), sy: Math.round((h - side) * (h > w ? 0.25 : 0.5)),
+    side, out: Math.max(1, Math.min(Math.round(edge), side)),
+  }
+}
+
+/** A picked File → the square JPEG a coach's page shows, drawn on a canvas as preparePhoto draws
+ *  progress photos, and so with no EXIF: this one is public. (The server strips it too.) */
+export async function prepareSquarePhoto(file, edge = PAGE_PHOTO_EDGE) {
+  const img = await decode(file)
+  const c = squareCrop(img.naturalWidth || img.width, img.naturalHeight || img.height, edge)
+  if (!c) throw new Error('That image could not be read.')
+  // Said here, before the upload, rather than by the server's catch-all refusal.
+  if (c.side < PAGE_PHOTO_MIN) throw Object.assign(new Error('That photo is too small.'), { code: 'small' })
+  const canvas = document.createElement('canvas')
+  canvas.width = c.out
+  canvas.height = c.out
+  canvas.getContext('2d').drawImage(img, c.sx, c.sy, c.side, c.side, 0, 0, c.out, c.out)
+  try {
+    return await encode(canvas, PHOTO_QUALITY)
+  } finally {
+    canvas.width = 0
+    canvas.height = 0
+  }
+}
+
 /** The bytes URL for one row. Shaped like mediaRowSrc in lib/exercises.js and a separate route
  *  on purpose: that one is readable by every signed-in member, this one is checked per member on
  *  every request. `userId` is the owner — omitted, the server reads it as the caller's own. */

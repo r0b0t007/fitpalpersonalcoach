@@ -26,7 +26,10 @@ final class Upload
     private const CHUNK = 65536;
 
     /** The upload routes, and the cap each one has: what a body over post_max_size is told. */
-    private const ROUTES = ['media/exercise' => 'video', 'media/photo' => 'photo'];
+    private const ROUTES = ['media/exercise' => 'video', 'media/photo' => 'photo', 'coach/page/photo' => 'page'];
+
+    /** A coach's page photo (CHW-356): a face for a page, which the app sends at about 200 KB. */
+    private const PAGE_PHOTO_BYTES = 4 * 1048576;
 
     /** `mb(n)`: bytes as the whole megabytes the refusal names. */
     public static function mb(int $bytes): int
@@ -47,6 +50,12 @@ final class Upload
     public static function maxPhoto(): int
     {
         return self::clamp((int) config('fitpal.media_max_photo_mb') * 1048576);
+    }
+
+    /** The page photo cap: the photo cap, but never over PAGE_PHOTO_BYTES. */
+    public static function maxPagePhoto(): int
+    {
+        return min(self::PAGE_PHOTO_BYTES, self::maxPhoto());
     }
 
     /** PHP's post_max_size in bytes, or null when it sets no limit. */
@@ -71,7 +80,9 @@ final class Upload
     {
         foreach (self::ROUTES as $path => $want) {
             if ($request->is($path, 'api/'.$path)) {
-                $cap = $want === 'video' ? self::maxVideo() : self::maxPhoto();
+                $cap = match ($want) {
+                    'video' => self::maxVideo(), 'page' => self::maxPagePhoto(), default => self::maxPhoto()
+                };
 
                 return Json::error(413, Say::f('file is larger than the {0} MB limit', self::mb($cap)), [], Json::CLOSE);
             }
