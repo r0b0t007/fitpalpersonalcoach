@@ -17,6 +17,11 @@ vi.mock('../../lib/api.js', async orig => ({
     if (path === '/api/coach/page') { if (PAGE instanceof Error) throw PAGE; return PAGE }
     if (path === '/api/coach/page/save') { if (SAVE instanceof Error) throw SAVE; return SAVE }
     if (path === '/api/coach/page/photo/remove') return { page: { ...PAGE.page, photo: null }, url: PAGE.url }
+    if (path === '/api/coach/programs') return { programs: [], max: 50 }
+    if (path === '/api/coach/programs/save') {
+      const b = JSON.parse(opts.body)
+      return { program: { id: b.id, name: b.name, bundle: b.bundle }, programs: [{ id: b.id, name: b.name, bundle: b.bundle }] }
+    }
     throw new Error('unexpected ' + path)
   },
   uploadCoachPhoto: async blob => { calls.push(['upload', blob]); if (UPLOAD instanceof Error) throw UPLOAD; return UPLOAD },
@@ -29,6 +34,9 @@ vi.mock('../../lib/photo.js', async orig => ({ ...(await orig()), prepareSquareP
   return 'square:' + file.name
 } }))
 const { default: PublicPage } = await import('./PublicPage.jsx')
+const { useUI } = await import('../../store/useUI.js')
+const { bindUI } = await import('../../components/ui.jsx')
+bindUI(useUI)
 
 // Where 'See my page' went.
 function Where() { return <div>at {useLocation().pathname}</div> }
@@ -99,6 +107,54 @@ describe('Account › My page', () => {
     await act(async () => { sw[sw.length - 1].click() })   // the last switch: Accept requests automatically
     await click('Save')
     expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: 'p1', autoAccept: true })
+  })
+
+  // The starter picker, opened, picking the option with this label (CHW-345).
+  const pickStarter = async label => {
+    let sheet = null
+    vi.spyOn(useUI.getState(), 'openSheet').mockImplementation(render => { sheet = render(() => {}) })
+    await act(async () => { [...container.querySelectorAll('.lrow, [role="button"], button')].find(x => x.textContent.includes('Starter program')).click() })
+    const option = sheet.props.options.find(o => o.label === label)
+    expect(option, label).toBeTruthy()
+    await act(async () => { sheet.props.onChange(option.value) })
+    vi.restoreAllMocks()
+  }
+  const STARTERLESS = { page: { handle: 'sara.fit', bio: '', whatsapp: '', open: true, theme: 'dark', starterProgramId: null, autoAccept: false }, url: 'https://coach.example/c/sara.fit' }
+  const copies = () => calls.filter(([p]) => p === '/api/coach/programs/save')
+
+  it('copies a template picked as the starter program on Save, and points the page at the copy (CHW-345)', async () => {
+    PAGE = STARTERLESS; SAVE = PAGE
+    await render()
+    await pickStarter('Glutes and legs (template)')
+    expect(copies()).toEqual([])   // picking writes nothing
+    await click('Save')
+    const [[, copied]] = copies()
+    expect(copied.name).toBe('Glutes and legs')
+    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: copied.id })
+  })
+
+  it('writes nothing to the library for a template browsed past and not saved', async () => {
+    PAGE = STARTERLESS; SAVE = PAGE
+    await render()
+    await pickStarter('Push / pull / legs (template)')
+    await pickStarter('None')
+    await click('Save')
+    expect(copies()).toEqual([])
+    expect(calls.find(([p]) => p === '/api/coach/page/save')[1]).toMatchObject({ starterProgramId: null })
+  })
+
+  it('makes one copy when the page save is refused and tried again', async () => {
+    PAGE = STARTERLESS; SAVE = new Error('that handle is taken')
+    await render()
+    await pickStarter('Home, no equipment (template)')
+    await click('Save')
+    expect(text()).toContain('that handle is taken')
+    SAVE = PAGE
+    await click('Save')
+    const all = copies()
+    expect(all).toHaveLength(1)
+    const pages = calls.filter(([p]) => p === '/api/coach/page/save')
+    expect(pages.map(([, b]) => b.starterProgramId)).toEqual([all[0][1].id, all[0][1].id])
   })
 
   it('loads the page the coach has, and counts the bio', async () => {
