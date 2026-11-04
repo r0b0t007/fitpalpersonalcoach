@@ -11,6 +11,7 @@ use App\Support\ClientSafe;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Http\Request;
 use Livewire\Livewire;
+use Tests\Support\Billing;
 use Tests\Support\Coaching;
 
 const COPY_BUNDLE = '{"opengym_plan":1,"name":"old","week":{"1":["r1"]},"routines":[{"id":"r1","name":"Push","ex":[{"id":"0025","sets":3}]}],"customEx":[]}';
@@ -22,10 +23,10 @@ beforeEach(function () {
     ]);
 });
 
-/** @return list<CoachProgram> $coach's library, read with no coach context as the panel reads it */
+/** @return list<CoachProgram> $coach's library in order, read straight from the table */
 function programsOf(string $coachId): array
 {
-    return CoachProgram::query()->get()->filter(fn (CoachProgram $p) => $p->coach_id === $coachId)->values()->all();
+    return CoachProgram::query()->where('coach_id', $coachId)->orderBy('id')->get()->all();
 }
 
 it('copies one of the owner\'s programs into a coach\'s library under a new id, audited', function () {
@@ -58,6 +59,11 @@ it('offers only the owner\'s own programs, and only on coaches other than the ow
     expect(fn () => Accounts::copyProgram($req, $f->admin, $f->a->id, 'prog-b'))
         ->toThrow(ClientSafe::class, 'no such program');
     expect(collect(programsOf($f->a->id))->pluck('program_id')->all())->toBe(['prog-a']);
+    // Not into the owner's own library either, whoever calls it.
+    expect(fn () => Accounts::copyProgram($req, $f->admin, $f->admin->id, 'prog-made'))->toThrow(ClientSafe::class, 'that is your own library');
+    expect(count(programsOf($f->admin->id)))->toBe(2);
+    // The list holds what the copy would take: prog-admin, from before the bundle rules, is left out.
+    expect(Accounts::copyablePrograms($f->admin))->toBe(['prog-made' => 'Sara · Prise de masse']);
 });
 
 it('refuses a client, a disabled coach, a full library and a bundle a save would refuse', function () {
@@ -66,6 +72,10 @@ it('refuses a client, a disabled coach, a full library and a bundle a save would
     expect(fn () => Accounts::copyProgram($req, $f->admin, $f->u1->id, 'prog-made'))->toThrow(ClientSafe::class, 'that user is not a coach');
     $f->b->forceFill(['disabled' => true])->save();
     expect(fn () => Accounts::copyProgram($req, $f->admin, $f->b->id, 'prog-made'))->toThrow(ClientSafe::class, 'that coach is disabled');
+    // A coach whose plan does not write: their own save would be refused (RequireWriter).
+    Billing::on();
+    expect(fn () => Accounts::copyProgram($req, $f->admin, $f->a->id, 'prog-made'))->toThrow(ClientSafe::class, 'that coach’s plan is read-only — grant them a plan first');
+    Billing::licence($f->a, ['status' => 'active', 'plan' => 'solo']);
     // A row from before a validation rule: copied, it would be a program the coach cannot send.
     expect(fn () => Accounts::copyProgram($req, $f->admin, $f->a->id, 'prog-admin'))->toThrow(ClientSafe::class, 'not a plan bundle');
     // The coach's cap holds, worded for the owner.
@@ -87,4 +97,8 @@ it('finds a new coach by the address they signed up with, confirmed or not', fun
         ->assertCanSeeTableRecords([$f->a])->assertCanNotSeeTableRecords([$f->b])
         ->assertTableColumnStateSet('email', 'sara@example.com (unconfirmed)', $f->a);
     Livewire::test(ListUsers::class)->searchTable('coachb@')->assertCanSeeTableRecords([$f->b])->assertCanNotSeeTableRecords([$f->a]);
+    // A change of address under way: found by the new one, and shown with both.
+    $f->b->forceFill(['pending_email' => 'new-b@example.com'])->save();
+    Livewire::test(ListUsers::class)->searchTable('new-b@')->assertCanSeeTableRecords([$f->b])
+        ->assertTableColumnStateSet('email', 'coachb@example.com → new-b@example.com (unconfirmed)', $f->b);
 });

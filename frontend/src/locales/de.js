@@ -1549,6 +1549,8 @@ export default {
   'a routine has more than {0} exercises': 'eine Einheit hat mehr als {0} Übungen',
   'you have {0} programs — delete one before saving another': 'du hast {0} Programme — lösch eins, bevor du ein weiteres speicherst',
   'that coach has {0} programs — they must delete one first': 'dieser Coach hat {0} Programme — zuerst muss eins gelöscht werden',
+  'that is your own library': 'das ist deine eigene Bibliothek',
+  'that coach’s plan is read-only — grant them a plan first': 'der Tarif dieses Coaches ist schreibgeschützt — vergib zuerst einen Tarif',
   'expected a video, got {0}': 'erwartet wurde ein Video, die Datei ist {0}',
   'expected an image, got {0}': 'erwartet wurde ein Bild, die Datei ist {0}',
   '{0} is not a supported video format — use MP4 or MOV': '{0} ist kein unterstütztes Videoformat — nimm MP4 oder MOV',

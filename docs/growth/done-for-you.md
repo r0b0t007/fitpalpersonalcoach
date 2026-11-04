@@ -69,7 +69,9 @@ language (leave out the "still need" sentence when nothing is missing):
 5. **Copy it.** Admin panel → Users → the coach → ⋯ → **Copy a program to this coach** → pick
    the program → Submit. "Program copied" means it's in their library under a new id. The copy is
    theirs: nothing links it to yours, and editing either one changes nothing in the other. A
-   refusal is shown as the app words it (not a coach, disabled, their 50-program library full).
+   refusal is shown as the app words it: not a coach, disabled, a plan that is read-only (grant
+   one first), or their 50-program library full. A program missing from the list was saved
+   before a newer rule; open it in your editor and save it again.
 6. **Delete your copy** from your own Programs.
 7. **Send the coach their part** (below), with their bio text ready to paste.
 8. **Check the page.** When they say it's done, open `coach.fitpal.ma/c/<handle>` in a private

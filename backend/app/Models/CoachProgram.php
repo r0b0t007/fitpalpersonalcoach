@@ -53,9 +53,9 @@ class CoachProgram extends Model
         return static::acrossCoaches()->where('coach_id', $coachId)->count(); // across coaches: the panel checks one named coach's cap
     }
 
-    /** @return array<string, string> $coachId's programs as program_id => name, in library order */
-    public static function namesOf(string $coachId): array
+    /** @return list<self> $coachId's library, in order */
+    public static function rowsOf(string $coachId): array
     {
-        return static::acrossCoaches()->where('coach_id', $coachId)->orderBy('id')->pluck('name', 'program_id')->all(); // across coaches: the panel lists the owner's own library
+        return static::acrossCoaches()->where('coach_id', $coachId)->orderBy('id')->get()->all(); // across coaches: the panel lists the owner's own library
     }
 }

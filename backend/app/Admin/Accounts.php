@@ -250,14 +250,25 @@ final class Accounts
     /**
      * The done-for-you setup (CHW-348): one program from the admin's own library, copied into a
      * coach's under a new id, because the owner cannot sign in as the coach to build it there.
-     * Checked as the coach's own save checks it — the bundle validated again (a row from before a
-     * rule would be a program they cannot send) and their cap counted under their row's lock — and
-     * nothing links the copy back: from the moment it lands it is theirs to edit or delete. The
-     * admin's exercise demos stay the admin's (ExerciseMedia is per coach).
+     * Checked as the coach's own save checks it: the bundle validated again (a row from before a
+     * rule would be a program they cannot send), before the coach's row is locked, as the save
+     * validates before it locks; then, under that lock, the gate a save passes (RequireWriter) and
+     * their cap. Nothing links the copy back: from the moment it lands it is theirs to edit or
+     * delete. The admin's exercise demos stay the admin's (ExerciseMedia is per coach).
      */
     public static function copyProgram(Request $request, User $admin, mixed $id, mixed $programId): CoachProgram
     {
-        [$u, $copy] = DB::transaction(function () use ($admin, $id, $programId): array {
+        if ($id === $admin->id) {
+            throw new ClientSafe(400, 'that is your own library');
+        }
+        $from = is_string($programId) ? CoachProgram::inLibraryOf($admin->id, $programId) : null;
+        if ($from === null) {
+            throw new ClientSafe(404, 'no such program');
+        }
+        [$name, $bundle] = PlanBundle::program($from->name, json_decode($from->bundle));
+        $stored = Js::stringify($bundle);
+
+        [$u, $copy] = DB::transaction(function () use ($id, $name, $stored): array {
             $u = self::locked($id);
             if (! $u->isCoach()) {
                 throw new ClientSafe(400, 'that user is not a coach');
@@ -265,18 +276,16 @@ final class Accounts
             if ($u->disabled) {
                 throw new ClientSafe(400, 'that coach is disabled');
             }
-            $from = is_string($programId) ? CoachProgram::inLibraryOf($admin->id, $programId) : null;
-            if ($from === null) {
-                throw new ClientSafe(404, 'no such program');
+            if (! Entitlement::canWrite($u)) {
+                throw new ClientSafe(402, 'that coach’s plan is read-only — grant them a plan first');
             }
-            [$name, $bundle] = PlanBundle::program($from->name, json_decode($from->bundle));
             if (CoachProgram::countOf($u->id) >= CoachProgramController::MAX) {
                 throw new ClientSafe(429, Say::f('that coach has {0} programs — they must delete one first', CoachProgramController::MAX));
             }
             $now = Js::nowMs();
             $copy = (new CoachProgram)->forceFill([
                 'coach_id' => $u->id, 'program_id' => (string) Str::uuid(), 'name' => $name,
-                'bundle' => Js::stringify($bundle), 'created' => $now, 'updated' => $now,
+                'bundle' => $stored, 'created' => $now, 'updated' => $now,
             ]);
             $copy->save();
 
@@ -285,6 +294,27 @@ final class Accounts
         Audit::record($request, 'admin.program.copy', ['user' => $admin, 'target' => $u, 'msg' => $copy->name]);
 
         return $copy;
+    }
+
+    /**
+     * The admin's programs the copy above would take, as program_id => name: a row a rule has
+     * since refused is left out of the panel's list rather than offered and then refused.
+     *
+     * @return array<string, string>
+     */
+    public static function copyablePrograms(User $admin): array
+    {
+        $out = [];
+        foreach (CoachProgram::rowsOf($admin->id) as $row) {
+            try {
+                PlanBundle::program($row->name, json_decode($row->bundle));
+                $out[$row->program_id] = $row->name;
+            } catch (ClientSafe) {
+                // Opened and saved again in the editor, it is offered.
+            }
+        }
+
+        return $out;
     }
 
     /**
