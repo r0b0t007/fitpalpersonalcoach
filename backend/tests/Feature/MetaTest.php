@@ -20,12 +20,18 @@ it('serves the same route without the /api prefix, as a prefix-stripping mount s
 });
 
 it('reports the sign-in flags and never offers access requests', function () {
-    config(['fitpal.invite_only' => true, 'fitpal.allow_guest' => false, 'fitpal.self_serve_coach' => true, 'fitpal.free_cap' => 0]);
+    config(['fitpal.invite_only' => true, 'fitpal.allow_guest' => false, 'fitpal.self_serve_coach' => true, 'fitpal.free_cap' => 0, 'fitpal.join_requests' => false]);
     $this->getJson('/api/config')->assertOk()->assertExactJson([
         'invite_only' => true, 'allow_guest' => false, 'request_access' => false, 'self_serve' => true,
         'upload' => ['chunked' => true, 'chunk_mb' => 4],
         'billing' => false, 'plans' => [], 'free_cap' => 0, 'login_email' => true, 'terms_version' => Terms::VERSION,
+        'join_requests' => false,
     ]);
+});
+
+it('says whether join requests are open, which the coach page offers the way to ask by', function () {
+    config(['fitpal.join_requests' => true]);
+    $this->getJson('/api/config')->assertOk()->assertJsonPath('join_requests', true);
 });
 
 it('answers an unknown path or method with the 404 envelope', function () {

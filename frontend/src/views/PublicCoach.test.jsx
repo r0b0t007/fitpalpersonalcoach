@@ -19,6 +19,7 @@ vi.mock('../lib/api.js', async orig => ({
 }))
 const { default: PublicCoach } = await import('./PublicCoach.jsx')
 const { useUI } = await import('../store/useUI.js')
+const { useStore } = await import('../store/useStore.js')
 const { saveRequest } = await import('../lib/join.js')
 
 let container, root
@@ -49,15 +50,33 @@ describe("a coach's public page", () => {
     expect(text()).toContain('Coached with FitPal')
   })
 
-  it('asks to join from the join form, with or without a WhatsApp number', async () => {
-    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark' } }
-    let at = null
-    const Where = () => { at = useLocation().pathname; return null }
-    await render(<><PublicCoach handle="yasmine.fit" /><Where /></>)
-    const ask = [...container.querySelectorAll('button')].find(b => b.textContent === 'Ask to join')
-    expect(ask.className).toContain('primary')
-    await act(async () => { ask.click() })
-    expect(at).toBe('/join/yasmine.fit')
+  it('offers no way to ask while the server takes no requests, and WhatsApp stays the main action', async () => {
+    useStore.setState({ config: { join_requests: false } })
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '212612345678', theme: 'dark' } }
+    await render(<PublicCoach handle="yasmine.fit" />)
+    expect(text()).not.toContain('Ask to join')
+    expect(container.querySelector('a[href^="https://wa.me/"]').className).toContain('primary')
+  })
+
+  it('asks to join from the join form once requests are open, WhatsApp beside it', async () => {
+    useStore.setState({ config: { join_requests: true } })
+    try {
+      let at = null
+      const Where = () => { at = useLocation().pathname; return null }
+      ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '212612345678', theme: 'dark' } }
+      await render(<><PublicCoach handle="yasmine.fit" /><Where /></>)
+      expect(container.querySelector('a[href^="https://wa.me/"]').className).not.toContain('primary')
+      act(() => root.unmount()); root = createRoot(container)
+      // A coach with no number still gets asked: the button never depended on WhatsApp.
+      ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark' } }
+      await render(<><PublicCoach handle="yasmine.fit" /><Where /></>)
+      const ask = [...container.querySelectorAll('button')].find(b => b.textContent === 'Ask to join')
+      expect(ask.className).toContain('primary')
+      await act(async () => { ask.click() })
+      expect(at).toBe('/join/yasmine.fit')
+    } finally {
+      useStore.setState({ config: null })
+    }
   })
 
   it("asks App for the coach's theme while it is open, and hands the person's own back after", async () => {
