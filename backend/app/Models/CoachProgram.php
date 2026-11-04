@@ -41,4 +41,16 @@ class CoachProgram extends Model
     {
         return static::query()->orderBy('id')->get()->map(fn (self $p) => $p->toNode())->all();
     }
+
+    /** One program in $coachId's library, for the admin panel, which acts as no coach (CHW-348). */
+    public static function inLibraryOf(string $coachId, string $programId): ?self
+    {
+        return static::acrossCoaches()->where('coach_id', $coachId)->where('program_id', $programId)->first(); // across coaches: the panel reads one named coach's library
+    }
+
+    /** @return list<self> $coachId's library, in order */
+    public static function rowsOf(string $coachId): array
+    {
+        return static::acrossCoaches()->where('coach_id', $coachId)->orderBy('id')->get()->all(); // across coaches: the panel lists the owner's own library
+    }
 }

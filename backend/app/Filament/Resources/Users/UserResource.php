@@ -46,7 +46,14 @@ class UserResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
-                TextColumn::make('email')->searchable()->toggleable(),
+                // A self-serve coach's address is pending until their first link confirms it, and the
+                // owner finds a new coach by the address they gave (docs/growth/done-for-you.md).
+                TextColumn::make('email')->searchable(['email', 'pending_email'])->toggleable()
+                    ->state(fn (User $u) => match (true) {
+                        $u->pending_email === null => $u->email,
+                        $u->email === null => "{$u->pending_email} (unconfirmed)",
+                        default => "{$u->email} → {$u->pending_email} (unconfirmed)",   // a change of address under way
+                    }),
                 TextColumn::make('role')->badge()
                     ->state(fn (User $u) => $u->isAdmin() ? 'admin' : ($u->isCoach() ? 'coach' : 'client')),
                 TextColumn::make('coachAccount.name')->label('Coach')->placeholder('—'),
@@ -94,6 +101,16 @@ class UserResource extends Resource
                         ->visible(fn (User $u) => $u->isCoach() && ! $u->isAdmin() && ! $u->disabled)
                         ->schema([Select::make('plan')->options(self::planOptions())->required()])
                         ->action(fn (User $u, array $data) => AdminAction::run(fn (Request $r, User $admin) => Accounts::grant($r, $admin, $u->id, $data['plan']), 'Plan granted')),
+                    // The done-for-you setup (CHW-348): a program built in the owner's own library,
+                    // copied into the coach's (docs/growth/done-for-you.md).
+                    Action::make('copyProgram')->label('Copy a program to this coach')->icon(Heroicon::OutlinedDocumentDuplicate)
+                        ->visible(fn (User $u) => $u->isCoach() && ! $u->disabled && $u->id !== auth('web')->id())
+                        ->schema([
+                            Select::make('programId')->label('One of your programs')->required()
+                                ->options(fn () => Accounts::copyablePrograms(auth('web')->user()))
+                                ->helperText('A program saved before a newer rule is left out until you open and save it again.'),
+                        ])
+                        ->action(fn (User $u, array $data) => AdminAction::run(fn (Request $r, User $admin) => Accounts::copyProgram($r, $admin, $u->id, $data['programId'] ?? null), 'Program copied')),
                     Action::make('revokeGrant')->label('Revoke granted plan')->icon(Heroicon::OutlinedMinusCircle)->color('danger')
                         ->visible(fn (User $u) => Entitlement::licenceOf($u)?->source === 'manual')->requiresConfirmation()
                         ->action(fn (User $u) => AdminAction::run(fn (Request $r, User $admin) => Accounts::revoke($r, $admin, $u->id), 'Granted plan revoked')),

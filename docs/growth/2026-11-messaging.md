@@ -182,7 +182,8 @@ section predates Free and still describes the booked call. CHW-342 rewrites it w
     That one says "on request": it stays only if we can actually send a coach their data when
     asked, which CHW-342 checks first.
 - **"Within 24 hours" is a founder's promise.** It holds only while one person can keep it. The
-  how-to is CHW-348, and the DMs stop offering it if the queue goes past a day.
+  how-to is `done-for-you.md` (CHW-348), and the DMs stop offering it if the queue goes past a
+  day.
 - **No testimonials, no client counts, no "X coaches already".** There are no real coaches yet.
   Social proof waits for the Founding Coaches (CHW-349).
 - **No prices in MAD** until the price test (CHW-355).

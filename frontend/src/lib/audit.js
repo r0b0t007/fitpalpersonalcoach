@@ -36,6 +36,7 @@ const LABELS = {
   'admin.user.unassign': () => t('Took a client off their coach’s list'),
   'admin.licence.grant': () => t('Granted a plan'),
   'admin.licence.revoke': () => t('Revoked a granted plan'),
+  'admin.program.copy': () => t('Copied a program to a coach'),
   'admin.media.delete': () => t('Deleted an exercise demo'),
   'admin.panel.login': () => t('Signed in to the admin panel'),
   'admin.panel.login.fail': () => t('Failed sign-in to the admin panel'),
