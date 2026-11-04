@@ -4,7 +4,7 @@
 // signed in or not, in the theme the coach chose.
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 let ANSWER = null
@@ -47,8 +47,17 @@ describe("a coach's public page", () => {
     const wa = container.querySelector('a[href^="https://wa.me/212612345678?text="]')
     expect(decodeURIComponent(wa.href.split('text=')[1])).toBe('Hello Yasmine, I found your page on FitPal')
     expect(text()).toContain('Coached with FitPal')
-    // No way to ask that leads nowhere: asking to join arrives with the join flow (CHW-336).
-    expect(text()).not.toContain('Ask to join')
+  })
+
+  it('asks to join from the join form, with or without a WhatsApp number', async () => {
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark' } }
+    let at = null
+    const Where = () => { at = useLocation().pathname; return null }
+    await render(<><PublicCoach handle="yasmine.fit" /><Where /></>)
+    const ask = [...container.querySelectorAll('button')].find(b => b.textContent === 'Ask to join')
+    expect(ask.className).toContain('primary')
+    await act(async () => { ask.click() })
+    expect(at).toBe('/join/yasmine.fit')
   })
 
   it("asks App for the coach's theme while it is open, and hands the person's own back after", async () => {
