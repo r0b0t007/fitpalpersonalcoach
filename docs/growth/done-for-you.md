@@ -52,9 +52,12 @@ language (leave out the "still need" sentence when nothing is missing):
 1. **Log the start.** In the Sheet's Setups tab (§5), add the coach's handle and the date and
    time the last file arrived.
 2. **Find the account.** In the admin panel, Users, search for their e-mail. It must show
-   `coach`. An address marked "(unconfirmed)" is fine for the setup; remind them to tap the link
-   in the mail we sent, or their e-mail sign-in won't work. No match means they haven't finished
-   signing up: tell them, and stop the clock.
+   `coach`, the name they gave, and a Created date that fits when they said they signed up. No
+   match means they haven't finished signing up: tell them, and stop the clock.
+   - **"(unconfirmed)"** means they haven't tapped the link in the mail we sent yet. An address
+     nobody has confirmed proves nothing: anyone can type it at sign-up, and two accounts can
+     carry the same one. If more than one row matches, or the name or date doesn't fit, ask them
+     to tap the link first and search again; a confirmed address belongs to one account only.
 3. **Build the program in your own account.** In the coach app (coach.fitpal.ma, signed in as
    yourself), open Programs → New program, and name it what the coach calls it. One routine per
    training day of their PDF, each exercise matched to the library. An exercise the library
@@ -70,7 +73,8 @@ language (leave out the "still need" sentence when nothing is missing):
    the program → Submit. "Program copied" means it's in their library under a new id. The copy is
    theirs: nothing links it to yours, and editing either one changes nothing in the other. A
    refusal is shown as the app words it: not a coach, disabled, a plan that is read-only (grant
-   one first), or their 50-program library full. A program missing from the list was saved
+   one first), a program of that name already in their library (a second submit), or their
+   50-program library full. A program missing from the list was saved
    before a newer rule; open it in your editor and save it again.
 6. **Delete your copy** from your own Programs.
 7. **Send the coach their part** (below), with their bio text ready to paste.
@@ -157,7 +161,7 @@ The issue is done when this has been used on 5 coaches with a median under 24 ho
   hours), then remove the `handle` and `notes` of every row older than 30 days. The `hours` stay,
   with no name.
 - The admin panel's audit log has each copy (`admin.program.copy`, with the coach and the
-  program's name) and each page save (`coach.page.save`). Use it to check a time you forgot to
+  copy's id) and each page save (`coach.page.save`). Use it to check a time you forgot to
   write down. It is pruned after 90 days by default (`AUDIT_DAYS`).
 
 ## 6. What we don't do

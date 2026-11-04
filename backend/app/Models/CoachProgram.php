@@ -48,11 +48,6 @@ class CoachProgram extends Model
         return static::acrossCoaches()->where('coach_id', $coachId)->where('program_id', $programId)->first(); // across coaches: the panel reads one named coach's library
     }
 
-    public static function countOf(string $coachId): int
-    {
-        return static::acrossCoaches()->where('coach_id', $coachId)->count(); // across coaches: the panel checks one named coach's cap
-    }
-
     /** @return list<self> $coachId's library, in order */
     public static function rowsOf(string $coachId): array
     {

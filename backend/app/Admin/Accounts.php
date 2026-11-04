@@ -252,9 +252,11 @@ final class Accounts
      * coach's under a new id, because the owner cannot sign in as the coach to build it there.
      * Checked as the coach's own save checks it: the bundle validated again (a row from before a
      * rule would be a program they cannot send), before the coach's row is locked, as the save
-     * validates before it locks; then, under that lock, the gate a save passes (RequireWriter) and
-     * their cap. Nothing links the copy back: from the moment it lands it is theirs to edit or
-     * delete. The admin's exercise demos stay the admin's (ExerciseMedia is per coach).
+     * validates before it locks; then, under that lock (CoachLock, as the save takes it), the gate a
+     * save passes (RequireWriter) and their cap. A program of the same name already there is
+     * refused: a second submit or a retry must not fill their library with duplicates. Nothing
+     * links the copy back: from the moment it lands it is theirs to edit or delete. The admin's
+     * exercise demos stay the admin's (ExerciseMedia is per coach).
      */
     public static function copyProgram(Request $request, User $admin, mixed $id, mixed $programId): CoachProgram
     {
@@ -269,7 +271,7 @@ final class Accounts
         $stored = Js::stringify($bundle);
 
         [$u, $copy] = DB::transaction(function () use ($id, $name, $stored): array {
-            $u = self::locked($id);
+            $u = (is_string($id) ? CoachLock::take($id) : null) ?? throw new ClientSafe(404, 'no such user');
             if (! $u->isCoach()) {
                 throw new ClientSafe(400, 'that user is not a coach');
             }
@@ -279,7 +281,11 @@ final class Accounts
             if (! Entitlement::canWrite($u)) {
                 throw new ClientSafe(402, 'that coach’s plan is read-only — grant them a plan first');
             }
-            if (CoachProgram::countOf($u->id) >= CoachProgramController::MAX) {
+            $library = CoachProgram::rowsOf($u->id);
+            if (array_filter($library, fn (CoachProgram $p) => $p->name === $name) !== []) {
+                throw new ClientSafe(409, Say::f('that coach already has a program called {0}', $name));
+            }
+            if (count($library) >= CoachProgramController::MAX) {
                 throw new ClientSafe(429, Say::f('that coach has {0} programs — they must delete one first', CoachProgramController::MAX));
             }
             $now = Js::nowMs();
@@ -291,7 +297,9 @@ final class Accounts
 
             return [$u, $copy];
         }, self::ATTEMPTS);
-        Audit::record($request, 'admin.program.copy', ['user' => $admin, 'target' => $u, 'msg' => $copy->name]);
+        // The copy's id, not its name: a program is often named after the coach or a client, and
+        // msg carries codes and ids (see assignCoach).
+        Audit::record($request, 'admin.program.copy', ['user' => $admin, 'target' => $u, 'msg' => $copy->program_id]);
 
         return $copy;
     }
@@ -304,8 +312,15 @@ final class Accounts
      */
     public static function copyablePrograms(User $admin): array
     {
+        // Once per request: the panel reads a Select's options several times for one modal.
+        return once(fn () => self::validPrograms($admin->id));
+    }
+
+    /** @return array<string, string> */
+    private static function validPrograms(string $adminId): array
+    {
         $out = [];
-        foreach (CoachProgram::rowsOf($admin->id) as $row) {
+        foreach (CoachProgram::rowsOf($adminId) as $row) {
             try {
                 PlanBundle::program($row->name, json_decode($row->bundle));
                 $out[$row->program_id] = $row->name;

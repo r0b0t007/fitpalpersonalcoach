@@ -19,7 +19,7 @@ const COPY_BUNDLE = '{"opengym_plan":1,"name":"old","week":{"1":["r1"]},"routine
 beforeEach(function () {
     $this->f = Coaching::twoCoaches();
     $this->made = Coaching::own(new CoachProgram, $this->f->admin, [
-        'program_id' => 'prog-made', 'name' => 'Sara · Prise de masse', 'bundle' => COPY_BUNDLE, 'created' => 1, 'updated' => 1,
+        'program_id' => 'prog-made', 'name' => 'Prise de masse 12 semaines', 'bundle' => COPY_BUNDLE, 'created' => 1, 'updated' => 1,
     ]);
 });
 
@@ -35,16 +35,21 @@ it('copies one of the owner\'s programs into a coach\'s library under a new id, 
     Livewire::test(ListUsers::class)->callAction(TestAction::make('copyProgram')->table($f->a), ['programId' => 'prog-made'])
         ->assertNotified('Program copied');
 
-    $copy = collect(programsOf($f->a->id))->firstWhere('name', 'Sara · Prise de masse');
+    $copy = collect(programsOf($f->a->id))->firstWhere('name', 'Prise de masse 12 semaines');
     expect($copy)->not->toBeNull()
         ->and($copy->program_id)->not->toBe('prog-made')
-        ->and(json_decode($copy->bundle)->name)->toBe('Sara · Prise de masse')   // the row's name wins, as a save's does
+        ->and(json_decode($copy->bundle)->name)->toBe('Prise de masse 12 semaines')   // the row's name wins, as a save's does
         ->and(json_decode($copy->bundle)->week)->toEqual((object) ['1' => ['r1']]);
     // The owner's own row is untouched, and nothing links the two: the copy is the coach's.
     expect($this->made->fresh()->only(['coach_id', 'program_id']))->toBe(['coach_id' => $f->admin->id, 'program_id' => 'prog-made']);
-    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.program.copy', 'uid' => $f->admin->id, 'tgt' => $f->a->id, 'msg' => 'Sara · Prise de masse']);
+    // By the copy's id: a program's name often names a person, and msg carries ids.
+    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.program.copy', 'uid' => $f->admin->id, 'tgt' => $f->a->id, 'msg' => $copy->program_id]);
+    // A second submit, or a retry, does not add a second copy.
+    Livewire::test(ListUsers::class)->callAction(TestAction::make('copyProgram')->table($f->a), ['programId' => 'prog-made'])
+        ->assertNotified('that coach already has a program called Prise de masse 12 semaines');
+    expect(collect(programsOf($f->a->id))->where('name', 'Prise de masse 12 semaines')->count())->toBe(1);
     // And the coach sees it in their own library, through their own route.
-    expect(collect($this->getJson('/api/coach/programs', bearer($f->a))->assertOk()->json('programs'))->pluck('name'))->toContain('Sara · Prise de masse');
+    expect(collect($this->getJson('/api/coach/programs', bearer($f->a))->assertOk()->json('programs'))->pluck('name'))->toContain('Prise de masse 12 semaines');
 });
 
 it('offers only the owner\'s own programs, and only on coaches other than the owner', function () {
@@ -63,7 +68,7 @@ it('offers only the owner\'s own programs, and only on coaches other than the ow
     expect(fn () => Accounts::copyProgram($req, $f->admin, $f->admin->id, 'prog-made'))->toThrow(ClientSafe::class, 'that is your own library');
     expect(count(programsOf($f->admin->id)))->toBe(2);
     // The list holds what the copy would take: prog-admin, from before the bundle rules, is left out.
-    expect(Accounts::copyablePrograms($f->admin))->toBe(['prog-made' => 'Sara · Prise de masse']);
+    expect(Accounts::copyablePrograms($f->admin))->toBe(['prog-made' => 'Prise de masse 12 semaines']);
 });
 
 it('refuses a client, a disabled coach, a full library and a bundle a save would refuse', function () {

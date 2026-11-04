@@ -1550,6 +1550,7 @@ export default {
   'you have {0} programs — delete one before saving another': 'du hast {0} Programme — lösch eins, bevor du ein weiteres speicherst',
   'that coach has {0} programs — they must delete one first': 'dieser Coach hat {0} Programme — zuerst muss eins gelöscht werden',
   'that is your own library': 'das ist deine eigene Bibliothek',
+  'that coach already has a program called {0}': 'dieser Coach hat schon ein Programm namens {0}',
   'that coach’s plan is read-only — grant them a plan first': 'der Tarif dieses Coaches ist schreibgeschützt — vergib zuerst einen Tarif',
   'expected a video, got {0}': 'erwartet wurde ein Video, die Datei ist {0}',
   'expected an image, got {0}': 'erwartet wurde ein Bild, die Datei ist {0}',
