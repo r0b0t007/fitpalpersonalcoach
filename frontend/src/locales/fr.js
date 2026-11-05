@@ -1547,6 +1547,8 @@ export default {
   'Billing needs attention': 'La facturation demande votre attention',
   'Choose a plan': 'Choisir une formule',
   'Ask to join': 'Demander à rejoindre',
+  'See my request': 'Voir ma demande',
+  'Followers see a button here to ask to join.': 'Vos abonnés voient ici un bouton pour demander à vous rejoindre.',
   'From {0}': 'De la part de {0}',
   'On a workout': 'Sur une séance',
   'On your check-in of {0}': 'Sur votre bilan du {0}',

@@ -9,11 +9,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 let ANSWER = null
 let ASKED = []
+let CONFIG = null
 vi.mock('../lib/api.js', async orig => ({
   ...(await orig()),
   api: async path => {
     ASKED.push(path)
     if (path.startsWith('/api/public/coach?h=')) { if (ANSWER instanceof Error) throw ANSWER; return ANSWER }
+    if (path === '/api/config') { if (!CONFIG) throw new Error('offline'); return CONFIG }
     throw new Error('unexpected ' + path)
   },
 }))
@@ -33,7 +35,7 @@ beforeEach(() => {
   document.documentElement.dataset.theme = 'dark'
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container)
 })
-afterEach(() => { act(() => root.unmount()); container.remove() })
+afterEach(() => { act(() => root.unmount()); container.remove(); useStore.setState({ config: null, user: null }); CONFIG = null; localStorage.clear() })
 
 describe("a coach's public page", () => {
   it('shows the coach, their bio, and WhatsApp when they gave a number', async () => {
@@ -43,7 +45,7 @@ describe("a coach's public page", () => {
     expect(text()).toContain('Yasmine')
     expect(text()).toContain('Force pour femmes.')
     // Counted as a view of the page, for the coach funnel (CHW-335).
-    expect(ASKED).toEqual(['/api/public/coach?h=yasmine.fit&view=1'])
+    expect(ASKED.filter(p => p.startsWith('/api/public/'))).toEqual(['/api/public/coach?h=yasmine.fit&view=1'])
     // A chat with the coach's number, the first line already typed (CHW-341).
     const wa = container.querySelector('a[href^="https://wa.me/212612345678?text="]')
     expect(decodeURIComponent(wa.href.split('text=')[1])).toBe('Hello Yasmine, I found your page on FitPal')
@@ -60,23 +62,48 @@ describe("a coach's public page", () => {
 
   it('asks to join from the join form once requests are open, WhatsApp beside it', async () => {
     useStore.setState({ config: { join_requests: true } })
-    try {
-      let at = null
-      const Where = () => { at = useLocation().pathname; return null }
-      ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '212612345678', theme: 'dark' } }
-      await render(<><PublicCoach handle="yasmine.fit" /><Where /></>)
-      expect(container.querySelector('a[href^="https://wa.me/"]').className).not.toContain('primary')
-      act(() => root.unmount()); root = createRoot(container)
-      // A coach with no number still gets asked: the button never depended on WhatsApp.
-      ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark' } }
-      await render(<><PublicCoach handle="yasmine.fit" /><Where /></>)
-      const ask = [...container.querySelectorAll('button')].find(b => b.textContent === 'Ask to join')
-      expect(ask.className).toContain('primary')
-      await act(async () => { ask.click() })
-      expect(at).toBe('/join/yasmine.fit')
-    } finally {
-      useStore.setState({ config: null })
-    }
+    let at = null
+    const Where = () => { at = useLocation().pathname; return null }
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '212612345678', theme: 'dark' } }
+    await render(<><PublicCoach handle="yasmine.fit" /><Where /></>)
+    expect(container.querySelector('a[href^="https://wa.me/"]').className).not.toContain('primary')
+    act(() => root.unmount()); root = createRoot(container)
+    // A coach with no number still gets asked: the button never depended on WhatsApp.
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark' } }
+    await render(<><PublicCoach handle="yasmine.fit" /><Where /></>)
+    const ask = [...container.querySelectorAll('button')].find(b => b.textContent === 'Ask to join')
+    expect(ask.className).toContain('primary')
+    await act(async () => { ask.click() })
+    expect(at).toBe('/join/yasmine.fit')
+  })
+
+  it('takes a browser that already asked to its request, even once requests close', async () => {
+    useStore.setState({ config: { join_requests: false } })
+    saveRequest('yasmine.fit', { id: 'r1', token: 't1' })
+    let at = null
+    const Where = () => { at = useLocation().pathname; return null }
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark' } }
+    await render(<><PublicCoach handle="yasmine.fit" /><Where /></>)
+    expect(text()).not.toContain('Ask to join')
+    const mine = [...container.querySelectorAll('button')].find(b => b.textContent === 'See my request')
+    await act(async () => { mine.click() })
+    expect(at).toBe('/join/yasmine.fit')
+  })
+
+  it('gives a coach previewing a page no button to press, and says what followers see', async () => {
+    useStore.setState({ config: { join_requests: true }, user: { id: 'c1', name: 'Yasmine', coach: true } })
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark' } }
+    await render(<PublicCoach handle="yasmine.fit" />)
+    expect(text()).not.toContain('Ask to join')
+    expect(text()).toContain('Followers see a button here to ask to join.')
+  })
+
+  it('draws the way to ask once the config has come, for a visitor who got here before boot had it', async () => {
+    ANSWER = { coach: { name: 'Yasmine', handle: 'yasmine.fit', bio: '', whatsapp: '', theme: 'dark' } }
+    CONFIG = { join_requests: true }
+    await render(<PublicCoach handle="yasmine.fit" />)
+    expect(ASKED).toContain('/api/config')
+    expect(text()).toContain('Ask to join')
   })
 
   it("asks App for the coach's theme while it is open, and hands the person's own back after", async () => {

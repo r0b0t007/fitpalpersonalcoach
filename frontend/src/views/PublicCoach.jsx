@@ -4,6 +4,7 @@ import { api } from '../lib/api.js'
 import { t } from '../lib/i18n.js'
 import { useUI } from '../store/useUI.js'
 import { useStore } from '../store/useStore.js'
+import { isCoach } from '../lib/role.js'
 import Logo from '../components/Logo.jsx'
 import { Button, Notice } from '../components/ui.jsx'
 import OpenInBrowser from '../components/OpenInBrowser.jsx'
@@ -29,22 +30,27 @@ export function useCoachTheme(theme) {
  * /c/<handle> (preview tags for the crawlers) and on to here. Anyone may see it, signed in or not.
  * It wears the coach's chosen theme (CHW-323) while open — handed to App through useUI, which applies
  * it — and gives the app its own back after. Asking to join opens the join form (CHW-336), while the
- * server takes requests (`join_requests` in /api/config, off until the DPIA's conditions are met);
- * WhatsApp, when the coach gave a number, is the other way to reach them.
+ * server takes requests (`join_requests` in /api/config, off until the DPIA's conditions are met), and
+ * not for a coach: the join form's claim would sign them out of their own account. A browser that
+ * already asked is taken to its request whatever the switch says. WhatsApp, when the coach gave a
+ * number, is the other way to reach them.
  */
 export default function PublicCoach({ handle }) {
   const nav = useNavigate()
-  const joinOpen = useStore(s => !!s.config?.join_requests)
+  const user = useStore(s => s.user)
   const [coach, setCoach] = useState(null)
+  const [config, setConfig] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     let live = true
     setCoach(null); setError(null)
     // view=1: this screen is a view of the page, for the coach funnel's count (CHW-335); the join
-    // form reads the same card without it.
-    api('/api/public/coach?h=' + encodeURIComponent(handle) + '&view=1')
-      .then(r => { if (live) setCoach(r.coach) })
+    // form reads the same card without it. With the config, so the page's actions are drawn once:
+    // a signed-in visitor gets here before boot has it, and a fetch that failed at boot is asked
+    // again (loadConfig is cached, and null on a failure, which reads as closed).
+    Promise.all([api('/api/public/coach?h=' + encodeURIComponent(handle) + '&view=1'), useStore.getState().loadConfig()])
+      .then(([r, c]) => { if (live) { setConfig(c); setCoach(r.coach) } })
       .catch(e => { if (live) setError(e.message || t('Could not load this page')) })
     return () => { live = false }
   }, [handle])
@@ -64,7 +70,10 @@ export default function PublicCoach({ handle }) {
   // name, so alt="": a screen reader says the name once.
   const photo = PHOTOS_REACHABLE ? coach.photo : null
   const hero = photo && coach.theme !== 'light'
-  const inBrowser = !savedRequest(handle) && <OpenInBrowser path={'/c/' + encodeURIComponent(handle)} style={{ marginBottom: 18 }} />
+  const asked = !!savedRequest(handle)
+  const coachHere = isCoach(user)
+  const canAsk = asked || (!!config?.join_requests && !coachHere)
+  const inBrowser = !asked && <OpenInBrowser path={'/c/' + encodeURIComponent(handle)} style={{ marginBottom: 18 }} />
   return <div className={'narrow' + (photo ? '' : ' gate')} style={{ textAlign: 'left' }}>
     {hero && <div className="coach-hero">
       <img src={photo} alt="" />
@@ -80,13 +89,16 @@ export default function PublicCoach({ handle }) {
     {!photo && <h1 style={{ marginBottom: 6 }}>{coach.name}</h1>}
     {coach.bio && <p className="muted" style={{ fontSize: 17, lineHeight: 1.4, marginTop: 0 }}>{coach.bio}</p>}
     {/* A shown page is an open one (the server answers a closed page with its refusal), so the
-        way to ask is there whenever the server takes requests; a browser that already asked
-        lands on its request. With none, WhatsApp is the page's one action, and stays primary. */}
-    {(joinOpen || coach.whatsapp) && <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
-      {joinOpen && <Button variant="primary" onClick={() => nav('/join/' + encodeURIComponent(handle))}>{t('Ask to join')}</Button>}
-      {coach.whatsapp && <a className={'btn ' + (joinOpen ? 'plain' : 'primary')} href={waLink(coach.whatsapp, t('Hello {0}, I found your page on FitPal', coach.name))} target="_blank" rel="noopener noreferrer">
+        way to ask is there whenever the server takes requests; a browser that already asked is
+        taken to its request, which the join form follows from its own route even once requests
+        close. With neither, WhatsApp is the page's one action, and stays primary. */}
+    {(canAsk || coach.whatsapp) && <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
+      {canAsk && <Button variant="primary" onClick={() => nav('/join/' + encodeURIComponent(handle))}>{asked ? t('See my request') : t('Ask to join')}</Button>}
+      {coach.whatsapp && <a className={'btn ' + (canAsk ? 'plain' : 'primary')} href={waLink(coach.whatsapp, t('Hello {0}, I found your page on FitPal', coach.name))} target="_blank" rel="noopener noreferrer">
         <span>{t('Message on WhatsApp')}</span></a>}
     </div>}
+    {/* A coach previewing a page ("See my page"): the button followers get is not theirs to press. */}
+    {coachHere && !asked && config?.join_requests && <div className="dim small" style={{ marginTop: 14 }}>{t('Followers see a button here to ask to join.')}</div>}
     <div className="dim small" style={{ marginTop: 28, textAlign: 'center' }}>{t('Coached with FitPal')}</div>
   </div>
 }
