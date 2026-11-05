@@ -461,9 +461,12 @@ Setting it up, once, by the owner:
 # 2. decrypt and unzip (Git Bash on Windows has gzip)
 age -d -i fitpal-backup-key.txt -o dump.sql.gz db-<time>-<NN>.sql.gz.age
 gzip -dk dump.sql.gz                      # -> dump.sql, and keeps dump.sql.gz for a server restore
-# 3. a rehearsal: load it into a scratch database (XAMPP's MariaDB) and look at it
+# 3. a rehearsal: load it into a scratch database (XAMPP's MariaDB) and look at it. XAMPP's
+#    MariaDB 10.4 is older than the server's 11.4: it refuses the dump's first line (11.4's
+#    "sandbox mode" marker: Unknown command '\-') and the utf8mb4_0900_bin collation, so skip the
+#    one and rename the other. A restore onto the server (11.4) needs neither.
 mysql -u root -e "CREATE DATABASE fitpal_restore CHARACTER SET utf8mb4"
-mysql -u root fitpal_restore < dump.sql
+tail -n +2 dump.sql | sed 's/utf8mb4_0900_bin/utf8mb4_bin/g' | mysql -u root fitpal_restore
 mysql -u root fitpal_restore -e "SELECT COUNT(*) FROM users; SELECT FROM_UNIXTIME(MAX(ts)/1000) FROM audit_events"
 mysql -u root -e "DROP DATABASE fitpal_restore"   # it holds client data: do not keep it
 ```

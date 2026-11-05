@@ -16,13 +16,15 @@ use App\Support\Js;
  * version is still bound by it and keeps using the app; from then, they are asked again, and one
  * who does not accept leaves with their clients' data. The very first version had nothing before
  * it, so it bound from the day it was published. So did 2026-11-03 (clause B6: a client's own
- * deletion, CHW-363): no real coach had accepted 2026-11-01, so none was owed the notice.
+ * deletion, CHW-363): no real coach had accepted 2026-11-01, so none was owed the notice. And
+ * 2026-11-05 (B9, Annexes 2 and 3: the nightly backup encrypted and copied to R2 in the EU,
+ * CHW-361), for the same reason: every coach account is still a test account.
  */
 final class Terms
 {
-    public const VERSION = '2026-11-03';
+    public const VERSION = '2026-11-05';
 
-    public const EFFECTIVE = '2026-11-03';
+    public const EFFECTIVE = '2026-11-05';
 
     public static function accepted(User $coach, ?int $nowMs = null): bool
     {

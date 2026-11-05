@@ -42,7 +42,7 @@
 
 <main id="main" class="wrap doc">
   <h1>Condiciones para entrenadores</h1>
-  <p><em>Versión 2026-11-03. Estas condiciones también existen en francés y en inglés; si difieren,
+  <p><em>Versión 2026-11-05. Estas condiciones también existen en francés y en inglés; si difieren,
   prevalece la versión francesa.</em></p>
   <p>
     Estas condiciones son el contrato entre tú, el entrenador, y FitPal Coach. La
@@ -230,8 +230,9 @@
     Al terminar el contrato, puedes pedirnos en 30 días que te enviemos los datos de tus clientes en
     JSON, un formato común legible por máquina. Pasado ese plazo, o antes si lo pides, borramos los
     Datos de Clientes. Las copias en nuestras copias de seguridad desaparecen con su rotación: las
-    copias diarias se conservan 14 días, y la copia hecha antes de cada actualización del servicio se
-    conserva 90 días como máximo. Mientras tanto, las
+    copias diarias, cifradas, se conservan 14 días (su copia fuera del alojamiento hasta un día más,
+    mientras se ejecuta su borrado automático), y la copia hecha antes de cada actualización del
+    servicio se conserva 90 días como máximo. Mientras tanto, las
     copias de seguridad solo sirven para restaurar el servicio. Solo conservamos Datos de Clientes
     más tiempo si lo exige una ley que nos sea aplicable, y únicamente para ese fin. Confirmamos el
     borrado por escrito si lo pides.
@@ -350,13 +351,21 @@
     </li>
     <li>
       <strong>Copias de seguridad y restauración:</strong> una copia de la base de datos cada noche,
-      conservada 14 días, más la copia hecha antes de cada actualización, conservada 90 días como
-      máximo; un procedimiento escrito para restaurar el servicio a partir de ellas.
+      cifrada antes de escribirse y copiada fuera del alojamiento, en un proveedor de almacenamiento
+      distinto, en la Unión Europea (anexo 3), donde ninguna copia puede borrarse ni modificarse antes
+      de 14 días, tras los cuales se borra; la copia hecha antes de cada actualización se queda en el
+      servidor, 90 días como máximo. Un procedimiento escrito restaura el servicio a partir de estas
+      copias; una restauración a partir de la copia fuera del alojamiento se comprobó el 5 de
+      noviembre de 2026, y se vuelve a comprobar en cada revisión anual. Las fotos y los vídeos no
+      forman parte de estas copias.
     </li>
     <li>
-      <strong>Cifrado en reposo:</strong> la base de datos y sus copias de seguridad no se cifran más
-      allá de las protecciones propias del proveedor de alojamiento; por eso su acceso está reservado
-      al gestor, como se indica arriba.
+      <strong>Cifrado en reposo:</strong> las copias diarias se cifran (formato age: X25519 y
+      ChaCha20-Poly1305) con una clave pública; la clave privada que permite leerlas no está ni en el
+      servidor ni en el proveedor de almacenamiento, y el gestor la guarda sin conexión. La base de
+      datos en sí y la copia hecha antes de cada actualización no se cifran más allá de las
+      protecciones propias del proveedor de alojamiento; por eso su acceso está reservado al gestor,
+      como se indica arriba.
     </li>
     <li>
       <strong>Revisión:</strong> estas medidas se revisan al menos una vez al año, y tras cualquier
@@ -380,7 +389,9 @@
     </li>
     <li>
       <strong>Cloudflare, Inc.</strong>, San Francisco, California, Estados Unidos: entrega y
-      protección del tráfico web. Datos de Clientes en tránsito.
+      protección del tráfico web (Datos de Clientes en tránsito); almacenamiento de las copias diarias
+      cifradas (Cloudflare R2, datos conservados en la Unión Europea), que Cloudflare no puede leer al
+      no tener la clave.
     </li>
     <li>
       <strong>Servicios de notificaciones de los navegadores</strong> (Google, Apple, Mozilla), según
