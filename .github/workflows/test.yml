@@ -149,6 +149,8 @@ jobs:
         working-directory: backend
       - run: ./vendor/bin/pint --test
         working-directory: backend
+      # The real age, so tests/Unit/AgeTest.php decrypts what App\Backup\Age writes with it (CHW-361).
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends age && age --version
       - run: ./vendor/bin/pest --ci
         working-directory: backend
         env:

@@ -258,6 +258,9 @@ case from this rollback to Node.
 
 Since CHW-306 the schedule also takes a dump every night at 03:00 UTC into
 `storage/backups/nightly/` (the newest fourteen), kept apart so the two never prune each other.
+Since CHW-361 those are encrypted to the owner's age key and copied to R2: restoring one needs the
+key, on the owner's computer (docs/DEPLOY_COACH_SUBDOMAIN.md, **Restoring from an encrypted
+dump**). The deploy dumps stay readable on the server, so the undo below needs no key.
 To undo a bad deploy, restore the dump named for its commit (`db-*-<commit>.sql.gz`, the first one
 if the run was retried), which is what the failed deploy's error message names, never simply the
 newest file: a nightly one may have been taken after the schema changed.

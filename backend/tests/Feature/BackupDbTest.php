@@ -3,12 +3,16 @@
 // fitpal:backup-db, the dump deploy-backend.yml takes before it changes anything (CHW-298): of
 // the connection Laravel resolved, whatever it is called; the password never on a command line;
 // a re-run never over an earlier dump; only the newest few kept. Also the nightly dump the
-// schedule takes into its own folder (CHW-306).
+// schedule takes into its own folder (CHW-306), encrypted and copied off the server (CHW-361).
 
 use App\Console\Commands\BackupDb;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Request;
 use Illuminate\Process\PendingProcess;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Tests\Support\AgeFiles;
 
 function clearDumps(): void
 {
@@ -134,7 +138,7 @@ it('refuses an --into that is not one plain folder name', function (string $into
 it('is scheduled nightly into its own folder, in the background', function () {
     $nightly = collect(app(Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'fitpal:backup-db'));
     expect($nightly)->not->toBeNull()
-        ->and((string) $nightly->command)->toContain('--into=nightly')->toContain('--keep=14')->toContain(' -v')
+        ->and((string) $nightly->command)->toContain('--into=nightly')->toContain('--keep=14')->toContain('--offsite')->toContain(' -v')
         ->and($nightly->expression)->toBe('0 3 * * *')
         ->and($nightly->runInBackground)->toBeTrue()
         ->and($nightly->withoutOverlapping)->toBeTrue()
@@ -154,4 +158,88 @@ it('deletes a dump taken before a deploy once it is 90 days old, and leaves the 
     touch($nightly, time() - 200 * 86400);   // the nightly folder keeps its own count (--keep=14)
     $this->artisan('fitpal:prune')->assertSuccessful();
     expect(file_exists($old))->toBeFalse()->and(file_exists($fresh))->toBeTrue()->and(file_exists($nightly))->toBeTrue();
+});
+
+/** The copy off the server set up (App\Backup\Offsite) to a fresh age key; returns its secret. */
+function offsiteReady(): string
+{
+    [$secret, $recipient] = AgeFiles::keyPair();
+    config(['fitpal.backup' => ['recipient' => $recipient, 'endpoint' => 'https://acct.eu.r2.cloudflarestorage.com',
+        'bucket' => 'fitpal-coach-backups', 'key_id' => 'key-id', 'secret' => 'secret']]);
+
+    return $secret;
+}
+
+function nightlyDumps(): array
+{
+    $files = glob(storage_path('backups').'/nightly/db-*') ?: [];
+    sort($files);
+
+    return $files;
+}
+
+it('encrypts the nightly dump to the owner\'s key and copies it to R2, signed', function () {
+    liveDb();
+    $secret = offsiteReady();
+    Process::fake(['*dump*' => Process::result('-- the dump'), '*' => Process::result('')]);
+    Http::fake(['acct.eu.r2.cloudflarestorage.com/*' => Http::response('', 200)]);
+
+    $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--into' => 'nightly', '--keep' => 14, '--offsite' => true])
+        ->assertSuccessful()->expectsOutputToContain(', encrypted')->expectsOutputToContain('copied to R2: nightly/db-');
+
+    // Only the encrypted file on the server, and it holds the dump for the owner's key alone.
+    $files = nightlyDumps();
+    expect($files)->toHaveCount(1)->and($files[0])->toEndWith('.sql.gz.age')
+        ->and(gzdecode(AgeFiles::decrypt(file_get_contents($files[0]), $secret)['plain']))->toStartWith('-- the dump')
+        ->and(AgeFiles::decrypt(file_get_contents($files[0]), random_bytes(32)))->toBeNull();
+
+    Http::assertSent(fn (Request $r) => $r->method() === 'PUT'
+        && $r->url() === 'https://acct.eu.r2.cloudflarestorage.com/fitpal-coach-backups/nightly/'.basename($files[0])
+        && $r->body() === file_get_contents($files[0])
+        && $r->header('x-amz-content-sha256')[0] === hash('sha256', $r->body())
+        && str_starts_with($r->header('Authorization')[0], 'AWS4-HMAC-SHA256 Credential=key-id/'.now()->utc()->format('Ymd').'/auto/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature='));
+    Http::assertSentCount(1);
+});
+
+it('still takes the dump when the copy is not set up, readable, and fails so the log says why', function () {
+    liveDb();
+    config(['fitpal.backup' => ['recipient' => '', 'endpoint' => '', 'bucket' => '', 'key_id' => '', 'secret' => '']]);
+    Process::fake(['*dump*' => Process::result('-- the dump'), '*' => Process::result('')]);
+    Http::fake();
+
+    $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--into' => 'nightly', '--offsite' => true])
+        ->assertFailed()->expectsOutputToContain('not copied off the server, and not encrypted: the nightly backup is not copied off the server: set BACKUP_AGE_RECIPIENT,');
+    expect(nightlyDumps())->toHaveCount(1)->and(nightlyDumps()[0])->toEndWith('.sql.gz')
+        ->and(gzdecode(file_get_contents(nightlyDumps()[0])))->toStartWith('-- the dump');
+    Http::assertNothingSent();
+});
+
+it('fails, and keeps the encrypted dump, when R2 refuses it or cannot be reached', function ($response, string $says) {
+    liveDb();
+    offsiteReady();
+    Process::fake(['*dump*' => Process::result('-- the dump'), '*' => Process::result('')]);
+    Http::fake(['*' => $response]);
+
+    $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--into' => 'nightly', '--offsite' => true])
+        ->assertFailed()->expectsOutputToContain("not copied off the server ($says); the encrypted dump stays in");
+    expect(nightlyDumps())->toHaveCount(1)->and(nightlyDumps()[0])->toEndWith('.sql.gz.age');
+})->with([
+    'refused' => [fn () => Http::response('<?xml version="1.0"?><Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>', 403), 'R2 refused the copy (HTTP 403, AccessDenied: Access Denied)'],
+    'unreachable' => [fn () => throw new ConnectionException('cURL error 6: Could not resolve host'), 'could not reach R2: cURL error 6: Could not resolve host'],
+]);
+
+it('rotates readable and encrypted dumps together, newest kept', function () {
+    liveDb();
+    Process::fake(['*dump*' => Process::result('-- dump'), '*' => Process::result('')]);
+    Http::fake(['*' => Http::response('', 200)]);
+    $this->freezeTime();
+    // the night before the copy was set up, then three after it
+    config(['fitpal.backup' => ['recipient' => '', 'endpoint' => '', 'bucket' => '', 'key_id' => '', 'secret' => '']]);
+    $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--into' => 'nightly', '--keep' => 3, '--offsite' => true])->assertFailed();
+    offsiteReady();
+    foreach (range(1, 3) as $i) {
+        $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--into' => 'nightly', '--keep' => 3, '--offsite' => true])->assertSuccessful();
+    }
+    expect(array_map(fn ($f) => preg_replace('/^db-[\d-]{22}-(\d\d)\.(.*)$/', '$1 $2', basename($f)), nightlyDumps()))
+        ->toBe(['02 sql.gz.age', '03 sql.gz.age', '04 sql.gz.age']);
 });
