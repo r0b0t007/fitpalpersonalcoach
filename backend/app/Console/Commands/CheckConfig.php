@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Auth\Bootstrap;
 use App\Auth\SessionToken;
+use App\Backup\Offsite;
 use App\Billing\Creem;
 use App\Console\LiveChecks;
 use App\Domain\Plans;
@@ -50,6 +51,11 @@ final class CheckConfig extends Command
             $warnings[] = 'SELF_SERVE_COACH is on but there is nothing to sign up to: set FREE_CAP for the Free plan, or CREEM_API_KEY, CREEM_WEBHOOK_SECRET and CREEM_PRODUCTS for paid plans. Coach sign-up stays closed until then.';
         }
         array_push($warnings, ...self::mailProblems(), ...LiveChecks::origin(app()->isProduction()), ...LiveChecks::vapid());
+        // The nightly dump's encrypted copy off the server (CHW-361): a condition before joining opens,
+        // so a live instance without it is told every deploy; a laptop only when it set some of it.
+        if (app()->isProduction() || Offsite::attempted()) {
+            array_push($warnings, ...Offsite::problems());
+        }
         // Live only: on a laptop the Node API and Laravel may well share a data dir under two secrets.
         if (app()->isProduction()) {
             array_push($warnings, ...LiveChecks::secret((string) config('fitpal.data_dir')));

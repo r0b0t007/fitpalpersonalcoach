@@ -31,6 +31,13 @@
         <env name="CREEM_API_KEY" value=""/>
         <env name="CREEM_WEBHOOK_SECRET" value=""/>
         <env name="CREEM_PRODUCTS" value=""/>
+        <!-- A developer's real R2 settings must never reach a test: the bucket is locked, so a
+             stray PUT could not even be deleted for 14 days (CHW-361). -->
+        <env name="BACKUP_AGE_RECIPIENT" value=""/>
+        <env name="BACKUP_R2_ENDPOINT" value=""/>
+        <env name="BACKUP_R2_BUCKET" value=""/>
+        <env name="BACKUP_R2_ACCESS_KEY_ID" value=""/>
+        <env name="BACKUP_R2_SECRET_ACCESS_KEY" value=""/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <!-- Small media caps: the fixtures are small, and the CLI's post_max_size (PHP's 8M default)
              is not the host's 100M, so the 90 MB default would read as a misconfiguration. -->

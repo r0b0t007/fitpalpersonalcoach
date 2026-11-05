@@ -399,16 +399,78 @@ in `~/fitpal-coach-backend/storage/backups`, which no deploy touches:
 - `db-<time>-<NN>-<commit>.sql.gz`, the newest five: `deploy-backend.yml` takes one in maintenance
   mode before each deploy, labelled with the commit it deploys. The undo for a bad deploy is the
   first one with that commit's label (a retried run takes another, of the half-migrated state).
-- `nightly/db-<time>-<NN>.sql.gz`, the newest fourteen: the schedule takes one at 03:00 UTC
-  (CHW-306). The copy of everything written since the last deploy. Each run's own output is in
+- `nightly/db-<time>-<NN>.sql.gz.age`, the newest fourteen: the schedule takes one at 03:00 UTC
+  (CHW-306), encrypted to the owner's age key and copied off the server (CHW-361, below). The copy
+  of everything written since the last deploy. Each run's own output is in
   `storage/logs/backup.log`; a failed one also logs an error to `laravel.log`. Retry by hand with
-  `php artisan fitpal:backup-db --into=nightly --keep=14` — without `--keep=14` the folder is
-  pruned to five.
+  `php artisan fitpal:backup-db --into=nightly --keep=14 --offsite` — without `--keep=14` the
+  folder is pruned to five. Until the copy is set up the dump is still taken, unencrypted
+  (`.sql.gz`), and every night fails so the log says what is missing.
 
-`<NN>` is a counter, so two dumps in the same microsecond never share a name. Both kinds are on the
-same cPanel account as the database, so they cover a bad deploy or a bad write, not the loss of
-the account. They are also full copies: an account deleted, or audit rows and IPs pruned past
-`AUDIT_DAYS`, live on in them for up to two weeks (nightly) or until five more deploys (deploy).
+`<NN>` is a counter, so two dumps in the same microsecond never share a name. The deploy dumps are
+on the same cPanel account as the database and readable there, so the undo for a bad deploy needs
+no key; they cover a bad deploy or a bad write, not the loss of the account. Both kinds are full
+copies: an account deleted, or audit rows and IPs pruned past `AUDIT_DAYS`, live on in them for up
+to two weeks (nightly; in R2 up to a day more, since R2 runs lifecycle deletions within a day of
+expiry) or until five more deploys (deploy).
+
+**Off the server (CHW-361, the DPIA's M2).** The nightly dump is encrypted before it is written,
+with age (`app/Backup/Age.php`, the age v1 format in PHP's sodium) to the owner's **public** key:
+the server can encrypt and can never decrypt, its own copies included. Then one signed `PUT`
+(`app/Backup/Offsite.php`) puts it at `nightly/<file>` in the Cloudflare R2 bucket
+`fitpal-coach-backups`, created in R2's **EU jurisdiction** (stored in the EU, guaranteed). The
+bucket keeps the rotation itself: a lifecycle rule deletes objects after 14 days, and a lock rule
+refuses any delete or overwrite before that. R2 has no write-only token, so the server's (*Object
+Read & Write*, this bucket only) could delete: **the lock rule is what keeps whoever takes the
+server's token from destroying the copies already there**, and nothing in the app can check it is
+in place (reading it needs an admin token), so look at the bucket's Settings after any change.
+The dump is encrypted whenever `BACKUP_AGE_RECIPIENT` is usable, even if an R2 setting is wrong:
+a broken setting costs the copy, not the encryption.
+`fitpal:check-config` (run by every deploy) names what is missing or wrong: a setting, PHP's
+`sodium` extension, a private key pasted where the public one goes.
+
+Setting it up, once, by the owner:
+
+1. On your own computer, install age (https://github.com/FiloSottile/age/releases; Windows:
+   `winget install FiloSottile.age`) and run `age-keygen -o fitpal-backup-key.txt`. It prints
+   `Public key: age1…`. **The file is the private key: keep it off the server, with a second copy
+   somewhere safe (a password manager, an encrypted USB key).** Without it no backup can be read,
+   by anyone.
+2. In Cloudflare, R2: create the bucket `fitpal-coach-backups`, **Specify jurisdiction: European
+   Union**. In its Settings: an **Object lifecycle rule** deleting objects after 14 days, and a
+   **Bucket lock rule** keeping all objects for 14 days (the lock wins over the lifecycle rule, so
+   nothing goes before day 14, and a locked object cannot be overwritten either). Then, from the R2
+   page, **Manage R2 API Tokens → Create API token**: *Object Read & Write*, *Apply to specific
+   buckets only* → this bucket. Note the Access Key ID, the Secret Access Key, and the EU endpoint
+   (`https://<account id>.eu.r2.cloudflarestorage.com`).
+3. In `~/fitpal-coach-backend/.env` on the server: `BACKUP_AGE_RECIPIENT=age1…` (the public key
+   only), `BACKUP_R2_ENDPOINT`, `BACKUP_R2_BUCKET=fitpal-coach-backups`,
+   `BACKUP_R2_ACCESS_KEY_ID`, `BACKUP_R2_SECRET_ACCESS_KEY`; then `php artisan config:cache`,
+   `php artisan fitpal:check-config`, and one run by hand:
+   `php artisan fitpal:backup-db --into=nightly --keep=14 --offsite`. It ends with
+   `copied to R2: nightly/db-….sql.gz.age`, and the object is in the bucket. Then delete the
+   readable nightly dumps from before: `rm storage/backups/nightly/db-*.sql.gz` (the pattern stops
+   at `.gz`, so the encrypted `.age` files stay).
+4. Rehearse a restore (below) from that copy.
+
+**Restoring from an encrypted dump**, on the owner's computer, where the key is:
+
+```sh
+# 1. the file: from R2 (bucket → Objects → the newest nightly/… → Download), or from the server
+#    (cPanel File Manager, storage/backups/nightly/)
+# 2. decrypt and unzip (Git Bash on Windows has gzip)
+age -d -i fitpal-backup-key.txt -o dump.sql.gz db-<time>-<NN>.sql.gz.age
+gzip -dk dump.sql.gz                      # -> dump.sql, and keeps dump.sql.gz for a server restore
+# 3. a rehearsal: load it into a scratch database (XAMPP's MariaDB) and look at it
+mysql -u root -e "CREATE DATABASE fitpal_restore CHARACTER SET utf8mb4"
+mysql -u root fitpal_restore < dump.sql
+mysql -u root fitpal_restore -e "SELECT COUNT(*) FROM users; SELECT FROM_UNIXTIME(MAX(ts)/1000) FROM audit_events"
+mysql -u root -e "DROP DATABASE fitpal_restore"   # it holds client data: do not keep it
+```
+
+For a real restore onto the server, upload `dump.sql.gz` (not the key) with the File Manager,
+then `php artisan down`, `gunzip -c dump.sql.gz | mysql -u <db user> -p <database>`,
+`php artisan up`, and delete the uploaded dump.
 
 `/usr/local/bin/php` is cPanel's `ea_php_cli` wrapper, which runs the PHP the selector picks for
 the account: verified `8.5.11`, `PHP_BINARY=/opt/alt/php85/usr/bin/php`, the same binary the

@@ -74,6 +74,19 @@ return [
         'products' => env('CREEM_PRODUCTS', ''),
     ],
 
+    // The nightly dump's copy off the server (CHW-361, App\Backup\Offsite): encrypted to the owner's
+    // age public key (age1…, from age-keygen; the private key never comes near the server), then
+    // put in a Cloudflare R2 bucket in the EU jurisdiction, whose own rules delete it after 14 days.
+    // The endpoint is the bucket's S3 API address without the bucket:
+    // https://<account id>.eu.r2.cloudflarestorage.com. All unset = no copy (check-config says so).
+    'backup' => [
+        'recipient' => trim((string) env('BACKUP_AGE_RECIPIENT', '')),
+        'endpoint' => rtrim(trim((string) env('BACKUP_R2_ENDPOINT', '')), '/'),
+        'bucket' => trim((string) env('BACKUP_R2_BUCKET', '')),
+        'key_id' => trim((string) env('BACKUP_R2_ACCESS_KEY_ID', '')),
+        'secret' => trim((string) env('BACKUP_R2_SECRET_ACCESS_KEY', '')),
+    ],
+
     // Parsed exactly as the Node API parsed them (api/server.js), which env()'s own typing gets in
     // the way of: env() turns `false` into boolean false, and a blank value into ''. So:
     //  - AUDIT_LOG is on unless it says 0/false/no/off (blank = on, as `process.env.X || ''`);

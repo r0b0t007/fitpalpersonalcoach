@@ -73,11 +73,13 @@ Schedule::command('fitpal:coach-digest')->hourly()->withoutOverlapping(30)->runI
 // line runs schedule:run -q, and -q puts SHELL_VERBOSITY=-1 in the environment every scheduled
 // command inherits: without an explicit verbosity of its own the dump prints nothing, failures
 // included, and the log stays empty (CHW-311). The failure message repeats the whole command: a
-// hand run without --keep=14 would prune the folder to 5.
-$nightly = 'fitpal:backup-db --into=nightly --keep=14 -v';
+// hand run without --keep=14 would prune the folder to 5. --offsite (CHW-361): encrypted to the
+// owner's age key and copied to the R2 bucket; until BACKUP_* is set the dump is still taken,
+// readable, and the run fails each night so the missing copy is in the log.
+$nightly = 'fitpal:backup-db --into=nightly --keep=14 --offsite -v';
 Schedule::command($nightly)
     ->dailyAt('03:00')
     ->withoutOverlapping(30)
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/backup.log'))
-    ->onFailure(fn () => Log::error("the nightly database dump failed (the reason is in storage/logs/backup.log); retry it by hand with: php artisan $nightly"));
+    ->onFailure(fn () => Log::error("the nightly database dump or its copy off the server failed (the reason is in storage/logs/backup.log); retry it by hand with: php artisan $nightly"));
