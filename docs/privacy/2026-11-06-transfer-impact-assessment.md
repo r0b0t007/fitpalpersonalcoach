@@ -26,7 +26,7 @@ Facts checked on 6 November 2026 are marked as such. Facts only the owner can co
 | T3 | FitPal → **Resend** (US): email | DPF (active, re-certification under review) and SCCs in Resend's DPA, Module Three when the customer is a processor | Proceed (lightweight) |
 | T4 | FitPal → **Cloudflare** (US): traffic, and encrypted backups stored in the EU (R2) | DPF (active) and SCCs as fallback in Cloudflare's DPA | Proceed. Backups: encryption with a key Cloudflare does not hold is an effective measure. Traffic: covered by the DPF |
 | T5 | FitPal → browser push services (Google, Apple, Mozilla) | Payload end-to-end encrypted (Web Push); only an opaque endpoint is sent | Proceed: the importer cannot read the content |
-| M | Morocco, law 09-08 (Moroccan coaches, and FitPal's own data on coaches) | The US is **not** on the CNDP's list of adequate states (deliberation 236-2015): a basis under article 44 is needed | **Not settled**: an owner decision with the CNDP (section 4, CHW-58) |
+| M | Morocco, law 09-08 (Moroccan coaches, and FitPal's own data on coaches) | The US is **not** on the CNDP's list of adequate states (deliberation 236-2015): a basis under article 44 is needed | **Not settled**: an owner decision with the CNDP (section 4; filing prepared in [CHW-367](2026-11-06-cndp-filing.md)) |
 
 Join requests stay closed until section 6's items 1–4 are done, as the DPIA's condition 1 requires.
 
@@ -140,9 +140,11 @@ small: an address, a first name, and the message, which can be a coach's answer 
 ### 2.4 T4: Cloudflare (US, DPF)
 
 **Tool.** Cloudflare, Inc. is on the **Data Privacy Framework list**: EU-U.S., Swiss-U.S. and UK
-Extension, Active, HR and non-HR data (checked 6 November 2026). Its Customer DPA forms part of the
-self-serve subscription too, relies on the DPF, and keeps the 2021 SCCs as the fallback "should
-these certifications lapse or become otherwise invalidated".
+Extension, Active, HR and non-HR data (checked 6 November 2026). Its Customer DPA (version 6.4, 3 April
+2026) is "hereby incorporated by reference" into the Self-Serve Subscription Agreement (§6.1,
+updated 12 September 2025), relies on the DPF, and keeps the 2021 SCCs as the fallback "should
+these certifications lapse or become otherwise invalidated": Module Two where the customer is a
+controller, **Module Three where it is a processor** (§6.2(a)(i)), as FitPal is here.
 
 **T4a, traffic.** TLS ends at Cloudflare's edge, so traffic is readable there in transit. Covered by
 the DPF; the realistic risk is that of any CDN.
@@ -204,7 +206,7 @@ transfer abroad, even to a listed state, to notification to the CNDP.
 
 **Options** (the owner's decision, not made here):
 1. **CNDP authorisation (44.3)**, relying on the three DPAs' SCCs, filed with the declaration of
-   CHW-58. The most durable. The health data needs the CNDP's prior authorisation in any case (article
+   **CHW-367**. The most durable. The health data needs the CNDP's prior authorisation in any case (article
    12.1(a): health data is sensitive data under article 1(3)).
 2. **Express consent (44, first paragraph)**, added to the client's consent screen (CHW-360) for
    clients of Moroccan coaches, and to coach sign-up. Available at once, but it must be express
@@ -232,9 +234,9 @@ CHW-359.
 
 | # | Action | Who | Status |
 |---|---|---|---|
-| 1 | Keep a dated copy of each DPA: Namecheap (public page, revised 27 Sept 2021), Resend (executed copy in the Resend dashboard), Cloudflare (Customer DPA, current version from cloudflare.com/cloudflare-customer-dpa) | Owner | To do |
+| 1 | Keep a dated copy of each DPA, outside this public repository (`Code Projects/fitpal-legal/processor-agreements/`). Saved on 6 November 2026: Cloudflare DPA v6.4 and the Self-Serve Subscription Agreement, Resend's public DPA. Still to save: Namecheap's DPA and Universal Terms (its site refuses automated copies), and Resend's executed copy from the dashboard | Owner | In progress |
 | 2 | Ask Namecheap whether its SCCs apply as Module Three when the customer is a processor; keep the answer | Owner | To do |
-| 3 | Settle the Moroccan basis for transfers to the US (section 4): CNDP declaration and authorisation, with CHW-58 | Owner | To do |
+| 3 | Settle the Moroccan basis for transfers to the US (section 4): CNDP declaration and authorisation, with **CHW-367** | Owner | To do |
 | 4 | Legal pages: name the DPF beside the SCCs for Cloudflare and Resend | Done in this change | Done |
 | 5 | Check in the Resend dashboard which region the sending domain uses | Owner | To do |
 | 6 | Move the hosting to an EU data centre, with CHW-362 | Owner | Recommended |
@@ -244,7 +246,7 @@ CHW-359.
 
 - Namecheap Data Processing Addendum, https://www.namecheap.com/legal/universal/data-processing-addendum/ (read 6 November 2026).
 - Resend DPA, https://resend.com/legal/dpa (read 6 November 2026); Resend changelog, Data Privacy Framework certification.
-- Cloudflare Customer DPA, https://www.cloudflare.com/cloudflare-customer-dpa/; Cloudflare GDPR trust hub.
+- Cloudflare Customer DPA v6.4 (3 April 2026), https://www.cloudflare.com/cloudflare-customer-dpa/; Self-Serve Subscription Agreement §6.1, https://www.cloudflare.com/terms/ (updated 12 September 2025).
 - Data Privacy Framework list, https://www.dataprivacyframework.gov/list (searched 6 November 2026).
 - Law 09-08, articles 43 and 44 (text of the Dahir 1-09-15, as published); CNDP deliberation 236-2015 of 18 December 2015, https://www.cndp.ma/wp-content/uploads/2023/12/deliberation-n-236-2015-18-12-2015.pdf.
 - Trump v. Slaughter: NPR, 29 June 2026; Congressional Research Service LSB11448. FISA Section 702: NPR, 12 June 2026. Latombe: WilmerHale, 1 December 2025.

@@ -63,7 +63,7 @@ the impact, and what a supervisory authority would expect.
 | **France (CNIL)** | Coaches and clients there | No entry matches. Closest: #1 health data warehouses (large scale, research: no), #10 large-scale data of vulnerable persons (no). | Individual health professional patient care (#3) does not fit: coaches are not health professionals. | Not listed |
 | **Belgium (APD)** | Coaches and clients there | No entry matches (biometrics, genetics, third-party exclusion data, employee monitoring, children's profiling, implantable devices, large-scale evaluation, public CCTV: none apply). | — | Not listed |
 | **Spain (AEPD)** | Coaches and clients there | **To verify:** the skill's reference set has no Spanish blacklist. The AEPD's published list is built on the same criteria as WP 248; check it directly for an entry combining health data with another criterion. | Self-employed professionals' client management (#3) excludes Art. 9 data, so it does not apply. | To verify |
-| **Morocco (law 09-08)** | The processor, Moroccan coaches and clients | Law 09-08 has no DPIA procedure. Processing health data is subject to the CNDP's prior **authorisation** rather than a declaration: **to verify with CHW-58.** | — | CNDP route |
+| **Morocco (law 09-08)** | The processor, Moroccan coaches and clients | Law 09-08 has no DPIA procedure. Processing health data is subject to the CNDP's prior **authorisation** rather than a declaration: **to verify with CHW-367.** | — | CNDP route |
 
 ### 1.4 Verdict
 
@@ -259,7 +259,7 @@ button may go live for real coaches.
    assessment done.
 2. **M6 and M9 / CHW-360:** explicit consent for health data a client logs, from a parent or
    guardian under 16, with the "training now" indicator disclosed.
-3. **CNDP (CHW-58):** the authorisation, or the position confirmed, for health data under law 09-08.
+3. **CNDP (CHW-367):** the authorisation, or the position confirmed, for health data under law 09-08.
 4. **M2 / CHW-361:** the nightly backup kept encrypted off the hosting account. **Met 5 November
    2026**: the first copy is in R2, and a restore from it matched the live database.
 
