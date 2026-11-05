@@ -48,6 +48,12 @@ it('refuses what is not an age X25519 recipient', function (string $bad) {
     'an ssh key' => 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl',
 ]);
 
+it('refuses a key nothing can be encrypted to, before a dump needs it', function () {
+    // The all-zero point decodes as 32 bytes but every shared secret with it is zero.
+    expect(fn () => Age::recipientKey(AgeFiles::recipient(str_repeat("\0", 32))))
+        ->toThrow(InvalidArgumentException::class, 'a low-order point');
+});
+
 it('writes files an X25519 identity decrypts, of every size around the 64 KiB chunk', function (int $size) {
     [$secret, $recipient] = AgeFiles::keyPair();
     $plain = $size > 0 ? random_bytes($size) : '';

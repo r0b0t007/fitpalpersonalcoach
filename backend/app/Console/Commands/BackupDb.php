@@ -22,11 +22,14 @@ use Illuminate\Support\Facades\Process;
  * nightly schedule (routes/console.php) uses it so that its dumps never push out a deploy's, and
  * never become "the newest db-*.sql.gz" that the undo for a bad deploy restores.
  *
- * `--offsite` (the nightly one, CHW-361) encrypts the dump to the owner's age key before it touches
- * the disk (`db-….sql.gz.age`; the server cannot read it back) and puts a copy in the R2 bucket
- * (App\Backup\Offsite), under `<into>/` there. Not set up, it still writes the dump as it always
- * did, readable, and fails: a night without a dump would be worse than a night without a copy.
- * A failed upload also fails, and keeps the encrypted dump on the server.
+ * `--offsite` (the nightly one, CHW-361) encrypts the dump to the owner's age key before it is
+ * written (`db-….sql.gz.age`; the server cannot read it back) and puts a copy in the R2 bucket
+ * (App\Backup\Offsite), under `<into>/` there. Encrypted whenever the key is usable, whatever
+ * state the R2 settings are in: a wrong endpoint or a blanked secret costs the copy, never the
+ * encryption. Without a usable key it still writes the dump as it always did, readable, and fails:
+ * a night without a dump would be worse than a night without a copy. A failed upload also fails,
+ * and keeps the encrypted dump on the server. (SQLite's VACUUM INTO copy is readable on disk for
+ * the moment it takes to gzip and encrypt it, as the live database file beside it always is.)
  */
 final class BackupDb extends Command
 {
@@ -63,7 +66,7 @@ final class BackupDb extends Command
         $file = sprintf('%s-%02d%s.sql.gz', $stamp, $n, $label !== '' ? "-$label" : '');
         $offsite = (bool) $this->option('offsite');
         $unready = $offsite ? Offsite::problems() : [];
-        $this->recipient = $offsite && $unready === [] ? (string) config('fitpal.backup.recipient') : null;
+        $this->recipient = $offsite && Offsite::recipientUsable() ? (string) config('fitpal.backup.recipient') : null;
         if ($this->recipient !== null) {
             $file .= '.age';
         }
@@ -81,13 +84,13 @@ final class BackupDb extends Command
         $this->prune($dir, max(1, (int) $this->option('keep')));
         $this->info('database dumped to '.$file.($this->recipient !== null ? ', encrypted' : ''));
         if ($unready !== []) {
-            $this->error('not copied off the server, and not encrypted: '.implode(' ', $unready));
+            $this->error('not copied off the server'.($this->recipient === null ? ', and not encrypted' : '').': '.implode(' ', $unready));
 
             return self::FAILURE;
         }
         if ($offsite) {
             $key = ($into !== '' ? $into : 'deploy').'/'.basename($file);
-            if (($why = Offsite::put($key, (string) file_get_contents($file))) !== null) {
+            if (($why = Offsite::put($key, (string) $this->written)) !== null) {
                 $this->error("not copied off the server ($why); the encrypted dump stays in $dir");
 
                 return self::FAILURE;
@@ -137,8 +140,11 @@ final class BackupDb extends Command
         }
     }
 
-    /** The age recipient the dump is encrypted to, when --offsite is set up; null writes it readable. */
+    /** The age recipient the dump is encrypted to, when --offsite has a usable key; null writes it readable. */
     private ?string $recipient = null;
+
+    /** The bytes write() put on disk, so the upload sends them without reading the file back. */
+    private ?string $written = null;
 
     /**
      * Gzipped (and encrypted, with a recipient), and all of it: a short write (a full disk) is a
@@ -148,11 +154,16 @@ final class BackupDb extends Command
     {
         $gz = gzencode($data, 6);
         if ($gz !== false && $this->recipient !== null) {
-            $gz = Age::encrypt($gz, $this->recipient);
+            try {
+                $gz = Age::encrypt($gz, $this->recipient);
+            } catch (\Throwable $e) {
+                return $this->refuse('cannot encrypt the dump: '.$e->getMessage());
+            }
         }
         if ($gz === false || @file_put_contents($file, $gz) !== strlen($gz)) {
             return $this->refuse("cannot write $file (is the disk full?)");
         }
+        $this->written = $gz;
 
         return true;
     }
@@ -167,7 +178,7 @@ final class BackupDb extends Command
     public static function pruneOld(int $nowSec): int
     {
         $removed = 0;
-        foreach (glob(storage_path('backups').DIRECTORY_SEPARATOR.'db-*.sql.gz') ?: [] as $dump) {
+        foreach (self::dumpsIn(storage_path('backups')) as $dump) {
             if (filemtime($dump) < $nowSec - self::DEPLOY_DUMP_DAYS * 86400 && @unlink($dump)) {
                 $removed++;
             }
@@ -178,12 +189,22 @@ final class BackupDb extends Command
 
     private function prune(string $dir, int $keep): void
     {
-        // Readable and encrypted dumps together (the night --offsite was first set up has both).
-        $dumps = glob($dir.DIRECTORY_SEPARATOR.'db-*.sql.gz*') ?: [];
+        $dumps = self::dumpsIn($dir);
         rsort($dumps);   // fixed-width time and counter first in the name: newest first
         foreach (array_slice($dumps, $keep) as $old) {
             @unlink($old);
         }
+    }
+
+    /**
+     * The dumps in a folder, readable (.sql.gz) and encrypted (.sql.gz.age) together — the night
+     * --offsite was first set up has both — and nothing else: not a SQLite copy still being taken.
+     *
+     * @return list<string>
+     */
+    private static function dumpsIn(string $dir): array
+    {
+        return array_values(array_filter(glob($dir.DIRECTORY_SEPARATOR.'db-*') ?: [], fn ($f) => (bool) preg_match('/\.sql\.gz(\.age)?$/', $f)));
     }
 
     private function refuse(string $why): bool

@@ -9,9 +9,11 @@ use InvalidArgumentException;
 /**
  * The nightly dump's copy off the hosting account (CHW-361, the DPIA's M2): encrypted to the owner's
  * age key (Age), then one PUT into a Cloudflare R2 bucket in the EU jurisdiction. The bucket keeps
- * it: a lifecycle rule deletes copies after 14 days and a bucket lock refuses an earlier delete or
- * an overwrite, so the server needs no right to list or delete, and someone holding its token can
- * add files but not destroy the copies already there.
+ * it: a lifecycle rule deletes copies after 14 days, and a bucket lock refuses any delete or
+ * overwrite before then. R2 has no write-only token, so the server's (Object Read & Write, this
+ * bucket only) could delete: the lock is what stops someone holding it from destroying the copies
+ * already there. Nothing here can see the lock (reading it takes an admin token); the runbook
+ * (docs/DEPLOY_COACH_SUBDOMAIN.md, Backups) sets it up.
  *
  * R2 speaks the S3 API; the one request is signed here (AWS Signature Version 4, region `auto`)
  * rather than through the AWS SDK, a dependency far larger than the job.
@@ -54,23 +56,43 @@ final class Offsite
         if (! extension_loaded('sodium')) {
             $out[] = "PHP's sodium extension is not loaded, and the nightly backup is encrypted with it: enable it for this PHP version (cPanel, Select PHP Version → Extensions).";
         }
-        $recipient = (string) config('fitpal.backup.recipient');
-        if (stripos($recipient, 'AGE-SECRET-KEY-') === 0) {
-            $out[] = 'BACKUP_AGE_RECIPIENT holds a PRIVATE key (AGE-SECRET-KEY-…). Remove it from this server now: the server needs only the public age1… line age-keygen printed, and the private key stays with the owner.';
-        } elseif ($recipient !== '' && extension_loaded('sodium')) {
-            try {
-                Age::recipientKey($recipient);
-            } catch (InvalidArgumentException $e) {
-                $out[] = "BACKUP_AGE_RECIPIENT is {$e->getMessage()}: copy the whole age1… line, nothing else.";
-            }
+        if (($why = self::recipientProblem()) !== null) {
+            $out[] = $why;
         }
         $endpoint = (string) config('fitpal.backup.endpoint');
         $parts = parse_url($endpoint) ?: [];
-        if ($endpoint !== '' && (($parts['scheme'] ?? '') !== 'https' || ($parts['host'] ?? '') === '' || ($parts['path'] ?? '') !== '' || isset($parts['query']))) {
-            $out[] = "BACKUP_R2_ENDPOINT ($endpoint) is not the bucket's S3 address: https://<account id>.eu.r2.cloudflarestorage.com, with no bucket or path after it.";
+        // No port either: the signature covers the host as written here, and an explicit port would
+        // go out in the Host header beside it.
+        if ($endpoint !== '' && (($parts['scheme'] ?? '') !== 'https' || ($parts['host'] ?? '') === '' || isset($parts['port']) || ($parts['path'] ?? '') !== '' || isset($parts['query']))) {
+            $out[] = "BACKUP_R2_ENDPOINT ($endpoint) is not the bucket's S3 address: https://<account id>.eu.r2.cloudflarestorage.com, with no bucket, path or port after it (the dashboard shows it with the bucket on the end).";
         }
 
         return $out;
+    }
+
+    /** Whether the dump can be encrypted: a valid recipient, and sodium to do it with. The upload may still be unready. */
+    public static function recipientUsable(): bool
+    {
+        return (string) config('fitpal.backup.recipient') !== '' && extension_loaded('sodium') && self::recipientProblem() === null;
+    }
+
+    /** What is wrong with BACKUP_AGE_RECIPIENT, when it is set and wrong. */
+    private static function recipientProblem(): ?string
+    {
+        $recipient = (string) config('fitpal.backup.recipient');
+        if (stripos($recipient, 'AGE-SECRET-KEY-') === 0) {
+            return 'BACKUP_AGE_RECIPIENT holds a PRIVATE key (AGE-SECRET-KEY-…). Remove it from this server now: the server needs only the public age1… line age-keygen printed, and the private key stays with the owner.';
+        }
+        if ($recipient === '' || ! extension_loaded('sodium')) {
+            return null;
+        }
+        try {
+            Age::recipientKey($recipient);
+        } catch (InvalidArgumentException $e) {
+            return "BACKUP_AGE_RECIPIENT is {$e->getMessage()}: copy the whole age1… line, nothing else.";
+        }
+
+        return null;
     }
 
     /** Puts $body at $key in the bucket. Null when R2 stored it, otherwise why not. */

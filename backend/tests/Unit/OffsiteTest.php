@@ -74,4 +74,16 @@ it('refuses a recipient or an endpoint that is not one', function (array $over, 
     'a typo in the key' => [['recipient' => 'age1zvkyg2lqzraa2lnjvqej32nkuu0ues2s82hzrye869xeexvn73equnujwq'], 'BACKUP_AGE_RECIPIENT is the Bech32 checksum does not match'],
     'the bucket in the endpoint' => [['endpoint' => 'https://0123.eu.r2.cloudflarestorage.com/fitpal-coach-backups'], 'is not the bucket\'s S3 address'],
     'plain http' => [['endpoint' => 'http://0123.eu.r2.cloudflarestorage.com'], 'is not the bucket\'s S3 address'],
+    'a port, which the signature would not cover' => [['endpoint' => 'https://0123.eu.r2.cloudflarestorage.com:443'], 'is not the bucket\'s S3 address'],
+    'a low-order key' => [['recipient' => AgeFiles::recipient(str_repeat("\0", 32))], 'a low-order point'],
 ]);
+
+it('can encrypt with a usable key whatever the R2 settings are, and cannot without one', function () {
+    offsiteConfig(['endpoint' => '', 'secret' => '']);
+    expect(Offsite::recipientUsable())->toBeTrue()->and(Offsite::problems())->not->toBe([]);
+
+    foreach (['', 'AGE-SECRET-KEY-1GFPYYSJZGFPYYSJZGFPYYSJZGFPYYSJZGFPYYSJZGFPYYSJZGFPQ4EGAEX', 'age1typo'] as $bad) {
+        offsiteConfig(['recipient' => $bad]);
+        expect(Offsite::recipientUsable())->toBeFalse();
+    }
+});

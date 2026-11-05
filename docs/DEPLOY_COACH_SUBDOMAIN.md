@@ -411,16 +411,21 @@ in `~/fitpal-coach-backend/storage/backups`, which no deploy touches:
 on the same cPanel account as the database and readable there, so the undo for a bad deploy needs
 no key; they cover a bad deploy or a bad write, not the loss of the account. Both kinds are full
 copies: an account deleted, or audit rows and IPs pruned past `AUDIT_DAYS`, live on in them for up
-to two weeks (nightly, here and in R2) or until five more deploys (deploy).
+to two weeks (nightly; in R2 up to a day more, since R2 runs lifecycle deletions within a day of
+expiry) or until five more deploys (deploy).
 
 **Off the server (CHW-361, the DPIA's M2).** The nightly dump is encrypted before it is written,
 with age (`app/Backup/Age.php`, the age v1 format in PHP's sodium) to the owner's **public** key:
 the server can encrypt and can never decrypt, its own copies included. Then one signed `PUT`
 (`app/Backup/Offsite.php`) puts it at `nightly/<file>` in the Cloudflare R2 bucket
 `fitpal-coach-backups`, created in R2's **EU jurisdiction** (stored in the EU, guaranteed). The
-bucket keeps the rotation itself, so the server's token needs no right to delete: a lifecycle rule
-deletes objects after 14 days, and a lock rule refuses any delete or overwrite before that, so
-whoever takes the server's token can add files but not destroy the copies already there.
+bucket keeps the rotation itself: a lifecycle rule deletes objects after 14 days, and a lock rule
+refuses any delete or overwrite before that. R2 has no write-only token, so the server's (*Object
+Read & Write*, this bucket only) could delete: **the lock rule is what keeps whoever takes the
+server's token from destroying the copies already there**, and nothing in the app can check it is
+in place (reading it needs an admin token), so look at the bucket's Settings after any change.
+The dump is encrypted whenever `BACKUP_AGE_RECIPIENT` is usable, even if an R2 setting is wrong:
+a broken setting costs the copy, not the encryption.
 `fitpal:check-config` (run by every deploy) names what is missing or wrong: a setting, PHP's
 `sodium` extension, a private key pasted where the public one goes.
 
@@ -455,11 +460,11 @@ Setting it up, once, by the owner:
 #    (cPanel File Manager, storage/backups/nightly/)
 # 2. decrypt and unzip (Git Bash on Windows has gzip)
 age -d -i fitpal-backup-key.txt -o dump.sql.gz db-<time>-<NN>.sql.gz.age
-gzip -d dump.sql.gz                       # -> dump.sql
+gzip -dk dump.sql.gz                      # -> dump.sql, and keeps dump.sql.gz for a server restore
 # 3. a rehearsal: load it into a scratch database (XAMPP's MariaDB) and look at it
 mysql -u root -e "CREATE DATABASE fitpal_restore CHARACTER SET utf8mb4"
 mysql -u root fitpal_restore < dump.sql
-mysql -u root fitpal_restore -e "SELECT COUNT(*) FROM users; SELECT MAX(created_at) FROM audit_events"
+mysql -u root fitpal_restore -e "SELECT COUNT(*) FROM users; SELECT FROM_UNIXTIME(MAX(ts)/1000) FROM audit_events"
 mysql -u root -e "DROP DATABASE fitpal_restore"   # it holds client data: do not keep it
 ```
 

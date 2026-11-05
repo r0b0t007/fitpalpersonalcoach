@@ -214,6 +214,21 @@ it('still takes the dump when the copy is not set up, readable, and fails so the
     Http::assertNothingSent();
 });
 
+it('still encrypts when the key is usable but an R2 setting is wrong, and fails for the copy alone', function () {
+    liveDb();
+    $secret = offsiteReady();
+    // As the dashboard shows it: the bucket on the end.
+    config(['fitpal.backup.endpoint' => 'https://acct.eu.r2.cloudflarestorage.com/fitpal-coach-backups']);
+    Process::fake(['*dump*' => Process::result('-- the dump'), '*' => Process::result('')]);
+    Http::fake();
+
+    $this->artisan('fitpal:backup-db', ['--connection' => 'live', '--into' => 'nightly', '--offsite' => true])
+        ->assertFailed()->expectsOutputToContain('not copied off the server: BACKUP_R2_ENDPOINT');
+    expect(nightlyDumps())->toHaveCount(1)->and(nightlyDumps()[0])->toEndWith('.sql.gz.age')
+        ->and(gzdecode(AgeFiles::decrypt(file_get_contents(nightlyDumps()[0]), $secret)['plain']))->toStartWith('-- the dump');
+    Http::assertNothingSent();
+});
+
 it('fails, and keeps the encrypted dump, when R2 refuses it or cannot be reached', function ($response, string $says) {
     liveDb();
     offsiteReady();
@@ -227,6 +242,19 @@ it('fails, and keeps the encrypted dump, when R2 refuses it or cannot be reached
     'refused' => [fn () => Http::response('<?xml version="1.0"?><Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>', 403), 'R2 refused the copy (HTTP 403, AccessDenied: Access Denied)'],
     'unreachable' => [fn () => throw new ConnectionException('cURL error 6: Could not resolve host'), 'could not reach R2: cURL error 6: Could not resolve host'],
 ]);
+
+it('deletes an encrypted dump taken outside --into once it is 90 days old, and counts nothing but dumps', function () {
+    $old = storage_path('backups/db-20260101-000000-000000-01.sql.gz.age');
+    $copying = storage_path('backups/db-20261101-000000-000000-01.sql.gz.age.sqlite');
+    foreach ([$old, $copying] as $f) {
+        file_put_contents($f, 'x');
+        touch($f, time() - (BackupDb::DEPLOY_DUMP_DAYS + 1) * 86400);
+    }
+    $this->artisan('fitpal:prune')->assertSuccessful();
+    // the SQLite copy is not a dump: its own command removes it, not the prune
+    expect(file_exists($old))->toBeFalse()->and(file_exists($copying))->toBeTrue();
+    unlink($copying);
+});
 
 it('rotates readable and encrypted dumps together, newest kept', function () {
     liveDb();

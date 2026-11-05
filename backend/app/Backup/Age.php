@@ -76,6 +76,13 @@ final class Age
         if ($hrp !== 'age' || strlen($key) !== 32) {
             throw new InvalidArgumentException('not an age X25519 recipient (age1… from age-keygen)');
         }
+        // A low-order point decodes fine but gives an all-zero shared secret, which sodium refuses:
+        // found here, where check-config reports it, rather than at 03:00 in the middle of a dump.
+        try {
+            sodium_crypto_scalarmult(random_bytes(32), $key);
+        } catch (\SodiumException) {
+            throw new InvalidArgumentException('not a key anything can be encrypted to (a low-order point)');
+        }
 
         return $key;
     }
