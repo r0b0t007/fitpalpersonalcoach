@@ -34,8 +34,15 @@ export default function Join({ handle }) {
 
   useEffect(() => {
     let live = true
-    const openPage = () => api('/api/public/coach?h=' + encodeURIComponent(handle))
-      .then(r => { if (live) { setCoach(r.coach); setStep('intake') } })
+    // Closed on the whole server (`join_requests`, off until the DPIA's conditions are met): said
+    // before the intake, not after it, as the server would on sending. A config that would not load
+    // opens the form, and the server still refuses.
+    const openPage = () => Promise.all([api('/api/public/coach?h=' + encodeURIComponent(handle)), useStore.getState().loadConfig()])
+      .then(([r, c]) => {
+        if (!live) return
+        if (c && !c.join_requests) { setError(t('this coach is not taking requests right now')); setStep('gone'); return }
+        setCoach(r.coach); setStep('intake')
+      })
       .catch(e => { if (live) { setError(e.message); setStep('gone') } })
     const saved = savedRequest(handle)
     if (!saved) { openPage(); return () => { live = false } }

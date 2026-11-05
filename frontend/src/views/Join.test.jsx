@@ -65,7 +65,7 @@ beforeEach(() => {
   useUI.setState({ themeOverride: null })
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container)
 })
-afterEach(() => { act(() => root.unmount()); container.remove() })
+afterEach(() => { act(() => root.unmount()); container.remove(); useStore.setState({ config: null }) })
 
 describe('asking to join a coach', () => {
   it('goes from the intake to an emailed code to "Request sent", and keeps the request', async () => {
@@ -93,6 +93,13 @@ describe('asking to join a coach', () => {
     expect(calls.find(([p]) => p === '/api/join/verify')[1]).toEqual({ id: 'req1', code: '123456' })
     expect(text()).toContain('Request sent')
     expect(JSON.parse(localStorage.getItem('join:yasmine.fit'))).toEqual({ id: 'req1', token: 'tok1' })
+  })
+
+  it('says the server is taking no requests before the intake, not after it', async () => {
+    useStore.setState({ config: { join_requests: false } })
+    await render()
+    expect(text()).toContain('this coach is not taking requests right now')
+    expect(container.querySelector('[role="checkbox"]')).toBe(null)
   })
 
   it('asks for consent before anything is sent', async () => {

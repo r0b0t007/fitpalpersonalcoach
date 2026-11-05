@@ -41,6 +41,9 @@ final class MetaController
             // A coach's sign-in by emailed link (spec §4a). The Node API has no such routes and
             // sends no such key, and the app then offers no email path at all.
             'login_email' => true,
+            // Asking to join a coach from their page (CHW-336), closed on the whole server until the
+            // DPIA's conditions are met: the page offers the way to ask only while it is open (CHW-366).
+            'join_requests' => (bool) config('fitpal.join_requests'),
         ]);
     }
 }
