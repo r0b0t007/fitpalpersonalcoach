@@ -202,13 +202,13 @@ place.
 
 | ID | Measure | Addresses | Owner | Status |
 |---|---|---|---|---|
-| M1 | Processor DPAs on file for Namecheap, Resend and Cloudflare, and a transfer impact assessment. The coach terms Annex 2 already says the sub-processors are "bound by data processing agreements": confirm that, or correct the terms. | R4 | Owner, **CHW-359** | Planned |
+| M1 | Processor DPAs on file for Namecheap, Resend and Cloudflare, and a transfer impact assessment. The coach terms Annex 2 already says the sub-processors are "bound by data processing agreements": confirm that, or correct the terms. | R4 | Owner, **CHW-359** | In progress: the [TIA](2026-11-06-transfer-impact-assessment.md) is written (6 November 2026) and each DPA identified (all three bind on acceptance of the provider's terms). Open: copies on file, Namecheap's SCC module, the Moroccan basis |
 | M2 | Copy the nightly backup **off the hosting account, encrypted** (key not on the server) | R1, R5, R13 | **CHW-361** | Implemented 5 November 2026: encrypted (age), copied to R2 (EU), restore rehearsed against the live database |
 | M3 | **Move FitPal Coach to its own hosting account**, separate from FIT'ONE | R1 | **CHW-362** | Planned |
 | M4 | Encrypt progress photos at rest in the application | R1 | Recommended, not planned | Open |
 | M5 | Coach guidance in the app and the terms: keep health answers in the app, not in chats | R8 | **CHW-363** | Planned |
 | M6 | **Explicit consent before a client's first check-in, body measurement, meal or photo** (Art. 9(2)(a)); from a parent or guardian for a client under 16 | R9, R10 | **CHW-360** | Implemented |
-| M7 | Self-service account deletion for clients | R11, R13 | **CHW-363** | Planned |
+| M7 | Self-service account deletion for clients | R11, R13 | **CHW-363** | Implemented |
 | M8 | Review of these measures, the tenancy tests and this DPIA: yearly, and after any incident (as the coach terms Annex 2 promises) | All | Owner | Every November, and after incidents |
 | M9 | Tell clients their coach sees when they are training (with M6's consent text, and the legal pages) | R14 | **CHW-360** | Implemented |
 | M10 | Back up progress photos and exercise media off the account too, encrypted like the database (M2 covers the database only) | R5 | Recommended, not planned | Open |
