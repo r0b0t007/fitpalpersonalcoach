@@ -1,6 +1,7 @@
 # DPIA: coaching clients on FitPal Coach, and requests to join a coach
 
-**Version 1, 1 November 2026.** Prepared by FitPal Coach (Ahmed Chioua) as processor, for the coaches
+**Version 1.1, 5 November 2026** (version 1 of 1 November 2026; 1.1 records M2 as implemented,
+CHW-361). Prepared by FitPal Coach (Ahmed Chioua) as processor, for the coaches
 who are the controllers, under Art. 28(3)(f) GDPR and Part B section 8 of the
 [coach terms](https://fitpal.ma/en/terms). A coach adopts it as their own DPIA by recording that they
 have read it; FitPal keeps it current. Linear: CHW-358.
@@ -21,7 +22,7 @@ in the code, not taken from documentation.
 |---|---|
 | **Controllers** | Each coach using FitPal Coach, for their own clients and the people who ask to join them. Coaches are independent professionals in France, Belgium, Spain and Morocco. |
 | **Processor** | FitPal Coach, Ahmed Chioua, auto-entrepreneur, ICE 003586839000050, Tétouan, Morocco. |
-| **Sub-processors** | Namecheap, Inc. (US): hosting of app and database. Resend, Inc. (US): email. Cloudflare, Inc. (US): traffic. Browser push services (Google, Apple, Mozilla): encrypted notifications. |
+| **Sub-processors** | Namecheap, Inc. (US): hosting of app and database. Resend, Inc. (US): email. Cloudflare, Inc. (US): traffic, and storage of the encrypted nightly backups (R2, EU jurisdiction; Cloudflare does not hold the key). Browser push services (Google, Apple, Mozilla): encrypted notifications. |
 | **Processing** | A coaching app: a coach's public page, requests to join with an intake form, a client roster, programs, workout logging, a live "training now" indicator, body weight and measurements, weekly check-ins, meals, progress photos. |
 | **Status** | Coaching is live (test accounts only, 1 November 2026). The join flow is built but **closed on the server**: `JOIN_REQUESTS` is off by default, so `/api/join/start` refuses every request, and the public page has no "Ask to join" button. It opens only once the conditions in section 6 are met, so this DPIA comes before the processing, as Art. 35(1) requires. |
 
@@ -113,9 +114,9 @@ no advertising, sale, profiling for others, or model training (coach terms Part 
 | Layer | Asset |
 |---|---|
 | Hosting | One Namecheap shared-hosting (cPanel) account in the US, **shared with another product (FIT'ONE) deployed from another repository**. LiteSpeed web server, MariaDB database, the app's files, photos under `media/photo/<client>/`. |
-| Edge | Cloudflare in front of the site. |
+| Edge | Cloudflare in front of the site; Cloudflare R2 also stores the encrypted nightly backups (see Backups). |
 | Application | Laravel API (`backend/`), React PWA (`frontend/`); tenancy scope on every coach query (`OwnedByCoach`); passkeys (WebAuthn) and email codes/links. |
-| Backups | Nightly database dumps kept 14 days, pre-deploy dumps kept 90 days at most, **on the same hosting account, not encrypted**. |
+| Backups | Nightly database dumps, **encrypted** to the operator's age key (the private key is offline, on neither the server nor the storage provider), kept 14 days on the hosting account and **copied to a Cloudflare R2 bucket in the EU jurisdiction**, where a bucket lock refuses any delete or overwrite for 14 days and a lifecycle rule then deletes them. Pre-deploy dumps stay on the hosting account, unencrypted, 90 days at most (they undo a bad deploy without the key). **Photos and exercise media are in no backup.** Since 5 November 2026 (M2); before, every dump was on the hosting account, unencrypted. |
 | People | One operator (SSH keys, Filament admin panel with a password). |
 | Delivery | GitHub Actions: tests gate every deploy. |
 
@@ -159,9 +160,10 @@ no advertising, sale, profiling for others, or model training (coach terms Part 
   - unverified requests are deleted after 24 hours;
   - the answers are erased at a no or a lapse, and the rest deleted 30 days later;
   - accepted requests are kept while the client trains with the coach, then forgotten (Unlink, Detach).
-  - **Backups:** anything deleted, a withdrawn consent's answers included, survives in unencrypted
-    backups for up to 14 days (nightly) or 90 days (pre-deploy), on the hosting account. The coach
-    terms disclose this (Part B §9); M2 encrypts the copies.
+  - **Backups:** anything deleted, a withdrawn consent's answers included, survives in the nightly
+    backups for up to 14 days (encrypted, on the hosting account and in R2, where deletion runs up
+    to a day later), and in the pre-deploy dumps (unencrypted, on the hosting account) for up to 90
+    days. The coach terms disclose this (Part B §9).
 
 ### 3.3 Proportionality
 
@@ -181,7 +183,7 @@ place.
 
 | ID | Track | Risk | Rights | L | S | Score | Modulating factors | Level |
 |---|---|---|---|---|---|---|---|---|
-| R1 | B | **Outside attacker reads health answers, check-ins and progress photos** through a compromise of the hosting account: this app, or the other product on the same cPanel account. The database, files and backups are all unencrypted there. | Confidentiality, dignity (REPD-03, CONF-02) | 3 | 4 | 12 | ↑ public-facing; ↑ shared account widens the attack surface; ↓ small target today | **High** |
+| R1 | B | **Outside attacker reads health answers, check-ins and progress photos** through a compromise of the hosting account: this app, or the other product on the same cPanel account. The database and files are unencrypted there, and so were all backups until M2 (the nightly ones are now encrypted; the pre-deploy dumps still are not). | Confidentiality, dignity (REPD-03, CONF-02) | 3 | 4 | 12 | ↑ public-facing; ↑ shared account widens the attack surface; ↓ small target today | **High** |
 | R2 | B | A coach sees another coach's clients through a tenancy bug | Confidentiality (CONF-02) | 2 | 3 | 6 | ↓ global scope plus cross-tenant tests on every change | Medium |
 | R3 | B | Coach account taken over (email account compromised: a sign-in link) | Confidentiality (IDTH-02) | 2 | 3 | 6 | ↓ passkeys, revocable sessions | Medium |
 | R4 | B | US authorities access data at the hosts | Confidentiality (CONF-03) | 2 | 3 | 6 | ↑ no transfer impact assessment yet (CHW-359) | Medium |
@@ -201,7 +203,7 @@ place.
 | ID | Measure | Addresses | Owner | Status |
 |---|---|---|---|---|
 | M1 | Processor DPAs on file for Namecheap, Resend and Cloudflare, and a transfer impact assessment. The coach terms Annex 2 already says the sub-processors are "bound by data processing agreements": confirm that, or correct the terms. | R4 | Owner, **CHW-359** | Planned |
-| M2 | Copy the nightly backup **off the hosting account, encrypted** (key not on the server) | R1, R5, R13 | **CHW-361** | Planned |
+| M2 | Copy the nightly backup **off the hosting account, encrypted** (key not on the server) | R1, R5, R13 | **CHW-361** | Implemented 5 November 2026: encrypted (age), copied to R2 (EU), restore rehearsed against the live database |
 | M3 | **Move FitPal Coach to its own hosting account**, separate from FIT'ONE | R1 | **CHW-362** | Planned |
 | M4 | Encrypt progress photos at rest in the application | R1 | Recommended, not planned | Open |
 | M5 | Coach guidance in the app and the terms: keep health answers in the app, not in chats | R8 | **CHW-363** | Planned |
@@ -209,6 +211,7 @@ place.
 | M7 | Self-service account deletion for clients | R11, R13 | **CHW-363** | Planned |
 | M8 | Review of these measures, the tenancy tests and this DPIA: yearly, and after any incident (as the coach terms Annex 2 promises) | All | Owner | Every November, and after incidents |
 | M9 | Tell clients their coach sees when they are training (with M6's consent text, and the legal pages) | R14 | **CHW-360** | Implemented |
+| M10 | Back up progress photos and exercise media off the account too, encrypted like the database (M2 covers the database only) | R5 | Recommended, not planned | Open |
 
 ### 4.3 Residual risk
 
@@ -221,12 +224,12 @@ Two views: **at go-live**, when the section 6 conditions (M1, M2, M6, M9, CNDP) 
 | R2 | 6 | Medium | 6 | Medium | Tests on every change. |
 | R3 | 6 | Medium | 6 | Medium | Passkeys preferred. |
 | R4 | 3–6 | Low–Medium | 3–6 | Low–Medium | Depends on the TIA's conclusion. |
-| R5 | 2 | Low | 2 | Low | |
+| R5 | database: 2; photos and media: 4 | Low; **Medium** | database: 2; photos and media: 2 (M10) | Low | The database is copied off the account (M2). Photos and exercise media are not backed up anywhere: until M10, a host failure still loses them, at the inherent level. |
 | R8 | 6 | Medium | 4 | Medium | M5 after go-live. |
 | R9 | 2 | Low | 2 | Low | Lawful once consent is collected. |
 | R10 | 4 | Medium | 4 | Medium | Parental consent for invited minors under 16 (M6); the coach terms carry the duty. |
 | R11 | 6 | Medium | 4 | Medium | M7 after go-live. |
-| R13 | 4 | Medium | 2 | Low | M2 at go-live (backups encrypted); M7 after. |
+| R13 | 4 | Medium | 2 | Low | M2 done (nightly backups encrypted; pre-deploy dumps still readable on the account, 90 days at most); M7 after. |
 | R14 | 2 | Low | 2 | Low | Disclosed (M9, done). |
 | Others | as 4.1 | Low–Medium | as 4.1 | Low–Medium | |
 
@@ -257,9 +260,10 @@ button may go live for real coaches.
 2. **M6 and M9 / CHW-360:** explicit consent for health data a client logs, from a parent or
    guardian under 16, with the "training now" indicator disclosed.
 3. **CNDP (CHW-58):** the authorisation, or the position confirmed, for health data under law 09-08.
-4. **M2 / CHW-361:** the nightly backup kept encrypted off the hosting account.
+4. **M2 / CHW-361:** the nightly backup kept encrypted off the hosting account. **Met 5 November
+   2026**: the first copy is in R2, and a restore from it matched the live database.
 
-M3, M5 and M7 should follow within the next quarter; M4 is recommended. Review this DPIA in
+M3, M5 and M7 should follow within the next quarter; M4 and M10 are recommended. Review this DPIA in
 November 2027, **after any incident or breach**, or earlier on any change to: the intake, the data
 logged, the hosting, the sub-processors, `AUDIT_IP`, a feature that decides automatically (CHW-338
 auto-accept), or request volumes that approach "large scale" (1.1(b)).

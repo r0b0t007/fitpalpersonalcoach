@@ -42,7 +42,7 @@
 
 <main id="main" class="wrap doc">
   <h1>Coach terms</h1>
-  <p><em>Version 2026-11-03. These terms also exist in French and Spanish; where they differ, the
+  <p><em>Version 2026-11-05. These terms also exist in French and Spanish; where they differ, the
   French version prevails.</em></p>
   <p>
     These terms are the contract between you, the coach, and FitPal Coach. <strong>Part A</strong>
@@ -224,8 +224,9 @@
   <p>
     When the contract ends, you can ask us within 30 days to send you your clients' data in JSON, a
     common machine-readable format. After that period, or sooner if you ask, we delete Client Data.
-    Copies in our backups disappear as the backups rotate: nightly backups are kept for 14 days, and
-    the copy taken before each update of the service is kept for 90 days at most. Until then, backups are not used for anything but restoring the service. We keep Client Data
+    Copies in our backups disappear as the backups rotate: nightly backups, encrypted, are kept for
+    14 days (their copy off the hosting account up to one day longer, while its automatic deletion
+    runs), and the copy taken before each update of the service is kept for 90 days at most. Until then, backups are not used for anything but restoring the service. We keep Client Data
     longer only where a law we are subject to requires it, and then only for that purpose. We
     confirm the deletion in writing if you ask.
   </p>
@@ -242,7 +243,9 @@
 
   <h3>11. International transfers</h3>
   <p>
-    FitPal Coach is operated from Morocco, and Client Data is hosted in the United States (Annex 3).
+    FitPal Coach is operated from Morocco, and Client Data is hosted in the United States; its
+    nightly backups, encrypted, are stored in the European Union by a US company that does not have
+    the key (Annex 3).
   </p>
   <p>
     If you are established in the European Economic Area, you (as data exporter) and FitPal Coach
@@ -334,14 +337,22 @@
       before it can be deployed, and the database is backed up before each update.
     </li>
     <li>
-      <strong>Backups and restoration:</strong> a database backup every night, kept for 14 days, plus
-      the copy taken before each update, kept for 90 days at most; a written procedure to restore the
-      service from them.
+      <strong>Backups and restoration:</strong> a database backup every night, encrypted before it is
+      written and copied off the hosting account to a separate storage provider in the European Union
+      (Annex 3), where no copy can be deleted or changed for 14 days, after which it is deleted; the
+      copy taken before each update stays on the server, for 90 days at most. A written procedure
+      restores the service from these backups; a restore from the copy off the hosting account was
+      verified on 5 November 2026, and is again at each yearly review. Photos and videos are not part
+      of these backups. On a night when encryption is not available, the backup is still taken,
+      unencrypted and without a copy off the hosting account, and the failure is recorded for the
+      operator to fix; like the others, it is gone after 14 days.
     </li>
     <li>
-      <strong>Encryption at rest:</strong> the database and its backups are not encrypted beyond the
-      hosting provider's own protections, which is why access to them is limited to the operator, as
-      above.
+      <strong>Encryption at rest:</strong> nightly backups are encrypted (age format: X25519 and
+      ChaCha20-Poly1305) with a public key; the private key that reads them is neither on the server
+      nor with the storage provider, and the operator keeps it offline. The database itself and the
+      copy taken before each update are not encrypted beyond the hosting provider's own protections,
+      which is why access to them is limited to the operator, as above.
     </li>
     <li>
       <strong>Review:</strong> these measures are reviewed at least once a year, and after any
@@ -365,7 +376,9 @@
     </li>
     <li>
       <strong>Cloudflare, Inc.</strong>, San Francisco, California, United States: delivery and
-      protection of web traffic. Client Data in transit.
+      protection of web traffic (Client Data in transit); storage of the encrypted nightly backups
+      (Cloudflare R2, data kept in the European Union), which Cloudflare cannot read, not having the
+      key.
     </li>
     <li>
       <strong>Browser notification services</strong> (Google, Apple, Mozilla), depending on the

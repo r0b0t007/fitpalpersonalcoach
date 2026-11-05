@@ -42,7 +42,7 @@
 
 <main id="main" class="wrap doc">
   <h1>Conditions coach</h1>
-  <p><em>Version du 3 novembre 2026 (2026-11-03). Ces conditions existent aussi en anglais et en
+  <p><em>Version du 5 novembre 2026 (2026-11-05). Ces conditions existent aussi en anglais et en
   espagnol ; en cas de différence, la version française fait foi.</em></p>
   <p>
     Ces conditions forment le contrat entre vous, le coach, et FitPal Coach. La
@@ -243,9 +243,10 @@
     À la fin du contrat, vous pouvez nous demander dans les 30 jours de vous transmettre les données
     de vos clients au format JSON, un format courant lisible par machine. Passé ce délai, ou plus tôt
     si vous le demandez, nous supprimons les Données Clients. Les copies présentes dans nos
-    sauvegardes disparaissent au fil de leur rotation : les sauvegardes quotidiennes sont conservées
-    14 jours, et la copie faite avant chaque mise à jour du service est conservée 90 jours au
-    plus. D'ici là, les sauvegardes ne servent qu'à
+    sauvegardes disparaissent au fil de leur rotation : les sauvegardes quotidiennes, chiffrées, sont
+    conservées 14 jours (leur copie hors de l'hébergement jusqu'à un jour de plus, le temps de sa
+    suppression automatique), et la copie faite avant chaque mise à jour du service est conservée
+    90 jours au plus. D'ici là, les sauvegardes ne servent qu'à
     restaurer le service. Nous ne conservons des Données Clients plus longtemps que si une loi qui
     nous est applicable l'exige, et uniquement à cette fin. Nous confirmons la suppression par écrit si
     vous le demandez.
@@ -263,8 +264,9 @@
 
   <h3>11. Transferts internationaux</h3>
   <p>
-    FitPal Coach est exploité depuis le Maroc, et les Données Clients sont hébergées aux États-Unis
-    (annexe 3).
+    FitPal Coach est exploité depuis le Maroc, et les Données Clients sont hébergées aux États-Unis ;
+    leurs sauvegardes quotidiennes, chiffrées, sont stockées dans l'Union européenne par une société
+    américaine qui n'en a pas la clé (annexe 3).
   </p>
   <p>
     Si vous êtes établi dans l'Espace économique européen, vous (en tant qu'exportateur de données)
@@ -366,14 +368,24 @@
       mise à jour.
     </li>
     <li>
-      <strong>Sauvegardes et restauration :</strong> une sauvegarde de la base chaque nuit, conservée
-      14 jours, plus la copie faite avant chaque mise à jour, conservée 90 jours au plus ; une procédure
-      écrite pour restaurer le service à partir d'elles.
+      <strong>Sauvegardes et restauration :</strong> une sauvegarde de la base chaque nuit, chiffrée
+      avant d'être écrite et copiée hors de l'hébergement, chez un prestataire de stockage distinct,
+      dans l'Union européenne (annexe 3), où aucune copie ne peut être supprimée ni modifiée avant
+      14 jours, puis est supprimée ; la copie faite avant chaque mise à jour reste sur le serveur,
+      90 jours au plus. Une procédure écrite permet de restaurer le service à partir de ces
+      sauvegardes ; une restauration à partir de la copie hors de l'hébergement a été vérifiée le
+      5 novembre 2026, et l'est de nouveau à chaque revue annuelle. Les photos et vidéos ne font pas
+      partie de ces sauvegardes. Une nuit où le chiffrement n'est pas disponible, la sauvegarde est
+      tout de même faite, non chiffrée et sans copie hors de l'hébergement, et l'échec est consigné
+      pour que l'exploitant le corrige ; elle disparaît, comme les autres, au bout de 14 jours.
     </li>
     <li>
-      <strong>Chiffrement au repos :</strong> la base de données et ses sauvegardes ne sont pas
-      chiffrées au-delà des protections propres à l'hébergeur ; c'est pourquoi leur accès est réservé
-      à l'exploitant, comme indiqué ci-dessus.
+      <strong>Chiffrement au repos :</strong> les sauvegardes quotidiennes sont chiffrées (format age :
+      X25519 et ChaCha20-Poly1305) avec une clé publique ; la clé privée qui permet de les lire n'est
+      ni sur le serveur ni chez le prestataire de stockage, l'exploitant la conserve hors ligne. La
+      base de données elle-même et la copie faite avant chaque mise à jour ne sont pas chiffrées
+      au-delà des protections propres à l'hébergeur ; c'est pourquoi leur accès est réservé à
+      l'exploitant, comme indiqué ci-dessus.
     </li>
     <li>
       <strong>Revue :</strong> ces mesures sont revues au moins une fois par an, et après tout
@@ -397,7 +409,9 @@
     </li>
     <li>
       <strong>Cloudflare, Inc.</strong>, San Francisco, Californie, États-Unis : acheminement et
-      protection du trafic web. Données Clients en transit.
+      protection du trafic web (Données Clients en transit) ; stockage des sauvegardes quotidiennes
+      chiffrées (Cloudflare R2, données conservées dans l'Union européenne), que Cloudflare ne peut
+      pas lire, faute d'en avoir la clé.
     </li>
     <li>
       <strong>Services de notification des navigateurs</strong> (Google, Apple, Mozilla), selon
