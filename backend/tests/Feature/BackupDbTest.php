@@ -146,18 +146,23 @@ it('is scheduled nightly into its own folder, in the background', function () {
         ->and($nightly->shouldAppendOutput)->toBeTrue();
 });
 
-it('deletes a dump taken before a deploy once it is 90 days old, and leaves the nightly ones to their rotation', function () {
+it('deletes a dump taken before a deploy once it is 90 days old, and a nightly one once it is 14', function () {
     @mkdir(storage_path('backups/nightly'), 0775, true);
     $old = storage_path('backups/db-20260101-000000-a.sql.gz');
     $fresh = storage_path('backups/db-20261101-000000-b.sql.gz');
-    $nightly = storage_path('backups/nightly/db-20260101-000000-n.sql.gz');
-    foreach ([$old, $fresh, $nightly] as $f) {
+    $nightlyOld = storage_path('backups/nightly/db-20260101-000000-n.sql.gz.age');
+    $nightlyFresh = storage_path('backups/nightly/db-20261104-000000-n.sql.gz.age');
+    foreach ([$old, $fresh, $nightlyOld, $nightlyFresh] as $f) {
         file_put_contents($f, 'x');
     }
     touch($old, time() - (BackupDb::DEPLOY_DUMP_DAYS + 1) * 86400);
-    touch($nightly, time() - 200 * 86400);   // the nightly folder keeps its own count (--keep=14)
+    // 15 days: still inside the deploy dumps' 90, past the nightly 14 that --keep alone would not
+    // enforce on nights the schedule did not run.
+    touch($nightlyOld, time() - (BackupDb::NIGHTLY_DUMP_DAYS + 1) * 86400);
+    touch($nightlyFresh, time() - (BackupDb::NIGHTLY_DUMP_DAYS - 1) * 86400);
     $this->artisan('fitpal:prune')->assertSuccessful();
-    expect(file_exists($old))->toBeFalse()->and(file_exists($fresh))->toBeTrue()->and(file_exists($nightly))->toBeTrue();
+    expect(file_exists($old))->toBeFalse()->and(file_exists($fresh))->toBeTrue()
+        ->and(file_exists($nightlyOld))->toBeFalse()->and(file_exists($nightlyFresh))->toBeTrue();
 });
 
 /** The copy off the server set up (App\Backup\Offsite) to a fresh age key; returns its secret. */

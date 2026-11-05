@@ -24,7 +24,8 @@ use Illuminate\Support\Facades\DB;
  *  - Creem webhook ids past the newest BillingEvent::KEEP;
  *  - sign-in and email-change links older than LoginLink::KEEP_HOURS;
  *  - join requests nobody is waiting on (JoinRequest::prune): their intake holds health data;
- *  - database dumps taken before a deploy, past BackupDb::DEPLOY_DUMP_DAYS (the coach terms' promise);
+ *  - database dumps taken before a deploy, past BackupDb::DEPLOY_DUMP_DAYS, and nightly ones past
+ *    BackupDb::NIGHTLY_DUMP_DAYS (the coach terms' promises);
  *  - chunked uploads nobody has sent to for a day, with their partial files;
  *  - temp files no request is writing any more (`.up-*` under media/ex and each photo folder)
  *    older than a day: a request killed mid-upload (a worker past its limit, a host reboot)
@@ -64,7 +65,7 @@ final class Prune extends Command
         $joins = JoinRequest::prune($now);
         $files = $this->orphans($now);
         $dumps = BackupDb::pruneOld(intdiv($now, 1000));
-        $this->info("pruned: {$audit} audit, {$offers} offers, {$presence} presence, {$uploads} uploads, {$files} temp files, {$cache} cache rows, {$events} billing events, {$links} sign-in links, {$joins} join requests, {$dumps} old deploy dumps");
+        $this->info("pruned: {$audit} audit, {$offers} offers, {$presence} presence, {$uploads} uploads, {$files} temp files, {$cache} cache rows, {$events} billing events, {$links} sign-in links, {$joins} join requests, {$dumps} old dumps");
 
         return self::SUCCESS;
     }

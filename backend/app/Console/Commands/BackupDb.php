@@ -171,16 +171,29 @@ final class BackupDb extends Command
     /**
      * The coach terms (CHW-357) promise that a copy taken before a deploy lasts 90 days at most:
      * with rare deploys, the newest five could otherwise hold deleted clients for months. Hourly,
-     * from fitpal:prune. Only the deploy's own dumps; the nightly folder rotates by its --keep.
+     * from fitpal:prune.
      */
     public const DEPLOY_DUMP_DAYS = 90;
+
+    /**
+     * And that a nightly one lasts 14 days (Part B §9). --keep=14 counts files, not days: nights
+     * the schedule did not run (a host outage, a broken cron) would leave the fourteen newest older
+     * than that, so the age is bounded here as well.
+     */
+    public const NIGHTLY_DUMP_DAYS = 14;
 
     public static function pruneOld(int $nowSec): int
     {
         $removed = 0;
-        foreach (self::dumpsIn(storage_path('backups')) as $dump) {
-            if (filemtime($dump) < $nowSec - self::DEPLOY_DUMP_DAYS * 86400 && @unlink($dump)) {
-                $removed++;
+        $limits = [
+            storage_path('backups') => self::DEPLOY_DUMP_DAYS,
+            storage_path('backups'.DIRECTORY_SEPARATOR.'nightly') => self::NIGHTLY_DUMP_DAYS,
+        ];
+        foreach ($limits as $dir => $days) {
+            foreach (self::dumpsIn($dir) as $dump) {
+                if (filemtime($dump) < $nowSec - $days * 86400 && @unlink($dump)) {
+                    $removed++;
+                }
             }
         }
 

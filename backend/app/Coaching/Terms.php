@@ -19,6 +19,10 @@ use App\Support\Js;
  * deletion, CHW-363): no real coach had accepted 2026-11-01, so none was owed the notice. And
  * 2026-11-05 (B9, Annexes 2 and 3: the nightly backup encrypted and copied to R2 in the EU,
  * CHW-361), for the same reason: every coach account is still a test account.
+ *
+ * The pages deploy to Cloudflare Pages and this file with the backend, separately. Once EFFECTIVE
+ * has passed, the app asks for VERSION as soon as the backend is live: check fitpal.ma shows the
+ * new version line before (or as soon as) it is, so nobody accepts a text not yet published.
  */
 final class Terms
 {
