@@ -84,7 +84,7 @@ The product can't do that today. A code check on 2026-11-01 found:
    `docs/DEPLOY_COACH_SUBDOMAIN.md`.
 7. **The intake collects health data.** Injuries are special-category data under GDPR art. 9
    (France, Spain, Belgium). In Morocco, law 09-08 applies and processing must be declared to
-   the CNDP (this ties into CHW-58's work). This needs an explicit consent checkbox, a retention
+   the CNDP (FitPal's own filing is CHW-367; CHW-58 is punchcard's). This needs an explicit consent checkbox, a retention
    rule and an update to the legal pages. The intake (and the phone number) must be wiped on
    **every** path that ends a client's link to a coach:
    - `CoachRosterController::release` (`coach.member.release`), when the coach releases one client;

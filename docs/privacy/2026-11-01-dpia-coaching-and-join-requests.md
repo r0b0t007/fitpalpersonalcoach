@@ -21,7 +21,7 @@ in the code, not taken from documentation.
 | | |
 |---|---|
 | **Controllers** | Each coach using FitPal Coach, for their own clients and the people who ask to join them. Coaches are independent professionals in France, Belgium, Spain and Morocco. |
-| **Processor** | FitPal Coach, Ahmed Chioua, auto-entrepreneur, ICE 003586839000050, Tétouan, Morocco. |
+| **Processor** | FitPal Coach, Ahmed Chioua, an individual (not registered as a business), Bureau 69, Wilaya Center, Tétouan, Morocco. |
 | **Sub-processors** | Namecheap, Inc. (US): hosting of app and database. Resend, Inc. (US): email. Cloudflare, Inc. (US): traffic, and storage of the encrypted nightly backups (R2, EU jurisdiction; Cloudflare does not hold the key). Browser push services (Google, Apple, Mozilla): encrypted notifications. |
 | **Processing** | A coaching app: a coach's public page, requests to join with an intake form, a client roster, programs, workout logging, a live "training now" indicator, body weight and measurements, weekly check-ins, meals, progress photos. |
 | **Status** | Coaching is live (test accounts only, 1 November 2026). The join flow is built but **closed on the server**: `JOIN_REQUESTS` is off by default, so `/api/join/start` refuses every request, and the public page has no "Ask to join" button. It opens only once the conditions in section 6 are met, so this DPIA comes before the processing, as Art. 35(1) requires. |
@@ -63,7 +63,7 @@ the impact, and what a supervisory authority would expect.
 | **France (CNIL)** | Coaches and clients there | No entry matches. Closest: #1 health data warehouses (large scale, research: no), #10 large-scale data of vulnerable persons (no). | Individual health professional patient care (#3) does not fit: coaches are not health professionals. | Not listed |
 | **Belgium (APD)** | Coaches and clients there | No entry matches (biometrics, genetics, third-party exclusion data, employee monitoring, children's profiling, implantable devices, large-scale evaluation, public CCTV: none apply). | — | Not listed |
 | **Spain (AEPD)** | Coaches and clients there | **To verify:** the skill's reference set has no Spanish blacklist. The AEPD's published list is built on the same criteria as WP 248; check it directly for an entry combining health data with another criterion. | Self-employed professionals' client management (#3) excludes Art. 9 data, so it does not apply. | To verify |
-| **Morocco (law 09-08)** | The processor, Moroccan coaches and clients | Law 09-08 has no DPIA procedure. Processing health data is subject to the CNDP's prior **authorisation** rather than a declaration: **to verify with CHW-58.** | — | CNDP route |
+| **Morocco (law 09-08)** | The processor, Moroccan coaches and clients | Law 09-08 has no DPIA procedure. Processing health data is subject to the CNDP's prior **authorisation** rather than a declaration: **to verify with CHW-367.** | — | CNDP route |
 
 ### 1.4 Verdict
 
@@ -202,13 +202,13 @@ place.
 
 | ID | Measure | Addresses | Owner | Status |
 |---|---|---|---|---|
-| M1 | Processor DPAs on file for Namecheap, Resend and Cloudflare, and a transfer impact assessment. The coach terms Annex 2 already says the sub-processors are "bound by data processing agreements": confirm that, or correct the terms. | R4 | Owner, **CHW-359** | Planned |
+| M1 | Processor DPAs on file for Namecheap, Resend and Cloudflare, and a transfer impact assessment. The coach terms Annex 2 already says the sub-processors are "bound by data processing agreements": confirm that, or correct the terms. | R4 | Owner, **CHW-359** | In progress: the [TIA](2026-11-06-transfer-impact-assessment.md) is written (6 November 2026) and each DPA identified (all three bind on acceptance of the provider's terms). Open: copies on file, Namecheap's SCC module, the Moroccan basis |
 | M2 | Copy the nightly backup **off the hosting account, encrypted** (key not on the server) | R1, R5, R13 | **CHW-361** | Implemented 5 November 2026: encrypted (age), copied to R2 (EU), restore rehearsed against the live database |
 | M3 | **Move FitPal Coach to its own hosting account**, separate from FIT'ONE | R1 | **CHW-362** | Planned |
 | M4 | Encrypt progress photos at rest in the application | R1 | Recommended, not planned | Open |
-| M5 | Coach guidance in the app and the terms: keep health answers in the app, not in chats | R8 | **CHW-363** | Planned |
+| M5 | Coach guidance in the app and the terms: keep health answers in the app, not in chats | R8 | **CHW-363** | Implemented: shown in the requests inbox and on the terms screen |
 | M6 | **Explicit consent before a client's first check-in, body measurement, meal or photo** (Art. 9(2)(a)); from a parent or guardian for a client under 16 | R9, R10 | **CHW-360** | Implemented |
-| M7 | Self-service account deletion for clients | R11, R13 | **CHW-363** | Planned |
+| M7 | Self-service account deletion for clients | R11, R13 | **CHW-363** | Implemented |
 | M8 | Review of these measures, the tenancy tests and this DPIA: yearly, and after any incident (as the coach terms Annex 2 promises) | All | Owner | Every November, and after incidents |
 | M9 | Tell clients their coach sees when they are training (with M6's consent text, and the legal pages) | R14 | **CHW-360** | Implemented |
 | M10 | Back up progress photos and exercise media off the account too, encrypted like the database (M2 covers the database only) | R5 | Recommended, not planned | Open |
@@ -259,7 +259,7 @@ button may go live for real coaches.
    assessment done.
 2. **M6 and M9 / CHW-360:** explicit consent for health data a client logs, from a parent or
    guardian under 16, with the "training now" indicator disclosed.
-3. **CNDP (CHW-58):** the authorisation, or the position confirmed, for health data under law 09-08.
+3. **CNDP (CHW-367):** the authorisation, or the position confirmed, for health data under law 09-08.
 4. **M2 / CHW-361:** the nightly backup kept encrypted off the hosting account. **Met 5 November
    2026**: the first copy is in R2, and a restore from it matched the live database.
 
