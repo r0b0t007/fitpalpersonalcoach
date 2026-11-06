@@ -71,6 +71,8 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 - Interview 20 coaches (10 in Morocco, 5 in France or Belgium, 5 in Spain): their tools today,
   what they charge, what they would pay for this.
 - Mystery-shop 20 coaches' prices by DM, posing as a prospective client.
+- The interview guide, the mystery-shop protocol and the results tables are in
+  `2026-11-interviews.md` (CHW-344).
 - Build the five template programs and shoot a 60-second demo video of the link, the request,
   the accept and workout 1.
 - Write the DM scripts in French, Spanish and English. Build a tracker sheet of 300 coaches
