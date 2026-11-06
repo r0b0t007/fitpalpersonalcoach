@@ -35,7 +35,9 @@ coaching online or one to one. Ten in Morocco, five in France or Belgium, five i
 **Where from, in this order:**
 1. **Coaches who answered a French outreach DM,** whatever they said, "no" excepted.
 2. **People who already know the founder:** coaches in their own network, and coaches those
-   coaches name. End every interview with « Qui d'autre je devrais appeler ? ».
+   coaches name. End every interview with « Qui d'autre je devrais appeler ? ». Outside France,
+   a coach who is named is contacted only through the person who named them: they pass on the
+   message, or start a group with both of you. Nobody gets a DM out of the blue.
 3. **A post on @fitpal.ma** and on the founder's own account, which coaches answer themselves:
    « On cherche 20 coachs en ligne pour 20 minutes de discussion sur leur façon de travailler.
    Pas de vente. En remerciement : 3 mois de Pro offerts et le résumé anonyme de ce que facturent
@@ -46,13 +48,22 @@ coaching online or one to one. Ten in Morocco, five in France or Belgium, five i
 **Cold DMs to recruit go to France only.** The question that blocks cold outreach in Morocco,
 Spain and Belgium (outreach doc §4: does an Instagram DM need prior consent there?) applies to an
 interview request too: it comes from a business that wants to sell to them. Until it is
-answered, coaches there come through channels 1–4, where they write first or know us.
+answered, coaches there come through channels 2–4, where they write first, know us or are
+introduced. Channel 1 is French only, like the outreach itself.
 
 **What they get for it:**
-- **3 months of Pro free:** granted from the admin panel if they sign up, whether or not they
-  sign up during the call. A licence granted by hand has no end date (`Accounts::grant` makes a
-  `manual` licence, valid until revoked). So put the revoke date in the founder's calendar, and
-  tell the coach a week before it ends. They then drop to Free, up to 3 clients.
+- **3 months of Pro free:** granted from the admin panel once they have an account, whenever
+  they make it. To find the account, they tell you the e-mail they signed up with.
+  - **It has no end date.** `Accounts::grant` makes a `manual` licence, valid until revoked. Put
+    the revoke date in the founder's calendar, with the account's e-mail, and delete that entry
+    once the licence is revoked.
+  - **Tell the coach a week before it ends.** They then drop to Free, because production sets
+    `FREE_CAP=3`: they keep every client they have, but take no new one while they have 3 or
+    more. Check that `/api/config` still shows `free_cap: 3` before revoking, because without it
+    a revoked coach is read-only while billing is on.
+  - **A grant is refused (409)** for a coach whose Creem subscription can still bill. Billing is
+    off today, so none can, but once it is on, a coach who already started a paid plan gets the
+    3 months only after they cancel it in Creem, or doesn't get them.
 - **The anonymous summary of §6** when it is done: what other coaches charge and how they work.
 
 **The ask** (DM or WhatsApp, to someone who wrote first or was introduced):
@@ -69,6 +80,9 @@ answered, coaches there come through channels 1–4, where they write first or k
 - **Write their exact words** for anything that hurts or that they love. Those are the quotes in
   §6, and later the copy.
 - **Show the product only to the last 10** (§3, step 6), so the first 10 aren't steered by it.
+- **Order the calls so the last 10 hold 5 Moroccan coaches,** 3 from France or Belgium and 2
+  from Spain. The price and cap rules in §6 read step 6's answers, and Morocco is where the
+  price question is open.
 
 **The guide** (FR, then ES). The numbers match the columns in §6.
 
@@ -99,12 +113,13 @@ answered, coaches there come through channels 1–4, where they write first or k
    - FR: « Qu'est-ce que tu as compris ? Qu'est-ce qui te gênerait ? »
    - FR: « Quand quelqu'un demande à s'entraîner avec toi, tu préfères accepter chaque personne, ou laisser entrer tout le monde directement ? »
    - FR: « À quel prix par mois tu trouverais ça trop cher pour l'essayer ? Et à quel prix ce serait une évidence ? »
-   - ES: «¿Qué has entendido? ¿Qué te molestaría?» · «Cuando alguien pide entrenar contigo, ¿prefieres aceptar a cada persona o dejar entrar a todos directamente?» · «¿A qué precio al mes te parecería demasiado caro para probarlo? ¿Y a qué precio sería obvio?»
+   - FR: « C'est gratuit jusqu'à 3 clients. Avec 3 clients, tu saurais si ça te convient, ou il t'en faudrait plus pour juger ? »
+   - ES: «¿Qué has entendido? ¿Qué te molestaría?» · «Cuando alguien pide entrenar contigo, ¿prefieres aceptar a cada persona o dejar entrar a todos directamente?» · «¿A qué precio al mes te parecería demasiado caro para probarlo? ¿Y a qué precio sería obvio?» · «Es gratis hasta 3 clientes. ¿Con 3 clientes sabrías si te sirve, o necesitarías más para juzgarlo?»
 7. **Close, 1 min.**
    - FR: « Qui d'autre je devrais appeler ? » Then say when the summary and the 3 months of Pro will arrive.
    - ES: «¿Con quién más debería hablar?»
 
-The first 10 get steps 0–5 and 7, in about 16 minutes. If time is short, cut step 2, not step 3.
+The first 10 get steps 0–5 and 7, in about 17 minutes. If time is short, cut step 2, not step 3.
 
 ## 4. The mystery-shop: 20 more coaches
 
@@ -114,8 +129,15 @@ fills the growth plan's "300–800 MAD (est.)" gap.
 **Public prices first.** Many coaches publish them: the bio link page (Linktree, Stan, a site), a
 "Tarifs" highlight, a pinned post. Record what is published, and send nothing to that coach.
 
-**Ask only where nothing is published,** from the founder's own account, as someone looking for
-coaching. Keep it to one exchange:
+**Ask only where nothing is published,** as someone looking for coaching. The account matters:
+- **Not the outreach account,** nor any account whose bio links to FitPal Coach. A coach who
+  opens it would see who is asking, and the prices would be skewed.
+- **A real person's own personal account,** never a made-up one: Instagram's rules forbid fake
+  accounts.
+- **Skip every coach already in the outreach tracker,** whatever their `outcome`. A coach who
+  said no or stop gets nothing more from us, this included.
+
+Keep it to one exchange:
 - FR: « Salut, je cherche un coaching en ligne. C'est combien par mois, qu'est-ce qui est inclus, et comment on paie ? »
 - ES: «Hola, busco un entrenamiento online. ¿Cuánto cuesta al mes, qué incluye y cómo se paga?»
 - After their answer: « Merci, je réfléchis et je reviens vers toi. » / «Gracias, lo pienso y te digo.» Then stop: no call, no form, no payment, no follow-up, and don't answer a follow-up of theirs beyond « merci, pas pour le moment ».
@@ -149,13 +171,16 @@ Not legal advice. Checked against the GDPR basics in lawve-ai/awesome-legal-skil
   Sheet. An interview is not a prospect row.
 - **The basis:** they agree to the interview and to the notes (step 0), and they can stop at any
   time.
-- **How long:** the notes are deleted 60 days after §6 is filled in. What stays is the anonymous
-  row in §6, which names no one. If they asked to hear about the Pro offer later, their handle
-  moves to the outreach tracker with `notes` "interview", and that tracker's rules apply from
-  then on.
+- **How long:** each interview's notes are deleted 60 days after that interview, once its row
+  in §6 is written. What stays is that anonymous row. If they take the 3 months of Pro, the
+  account's e-mail sits in the founder's calendar until the licence is revoked (§2), then goes.
+- **Nothing moves to the outreach tracker.** An interviewee who wants to try FitPal gets the
+  sign-up link at the end of the call. If they want to hear more later, they write to @fitpal.ma
+  themselves. The tracker is for cold outreach, with its own notice and France-only rule, and an
+  interview is neither.
 - **The notice,** read at step 0 or sent before the call:
-  - FR: « C'est moi, [nom], fondateur de FitPal Coach ([e-mail]), qui prends les notes, pour comprendre comment travaillent les coachs. Je note ton prénom, ton @ et tes réponses, sans enregistrer. Seul un résumé anonyme est gardé ; mes notes sont effacées dans les deux mois. Tu peux arrêter quand tu veux, et me demander de voir ou d'effacer mes notes. »
-  - ES: «Soy yo, [nom], fundador de FitPal Coach ([e-mail]), quien toma las notas, para entender cómo trabajan los entrenadores. Apunto tu nombre, tu @ y tus respuestas, sin grabar. Solo se guarda un resumen anónimo; mis notas se borran en dos meses. Puedes parar cuando quieras y pedirme ver o borrar mis notas.»
+  - FR: « C'est moi, [nom], fondateur de FitPal Coach ([e-mail]), qui prends les notes, pour comprendre comment travaillent les coachs. Je note ton prénom, ton @ et tes réponses, sans enregistrer. Seul un résumé anonyme est gardé ; mes notes sont effacées dans les deux mois. Si tu prends les 3 mois de Pro, je garde l'e-mail de ton compte jusqu'à leur fin. Tu peux arrêter quand tu veux, et me demander de voir ou d'effacer mes notes. »
+  - ES: «Soy yo, [nom], fundador de FitPal Coach ([e-mail]), quien toma las notas, para entender cómo trabajan los entrenadores. Apunto tu nombre, tu @ y tus respuestas, sin grabar. Solo se guarda un resumen anónimo; mis notas se borran en dos meses. Si aceptas los 3 meses de Pro, guardo el email de tu cuenta hasta que terminen. Puedes parar cuando quieras y pedirme ver o borrar mis notas.»
 - **To verify:**
   - **Google as host:** the Doc may be stored outside the EU. This goes with the Google Sheet
     question in the outreach doc §4.
@@ -164,14 +189,20 @@ Not legal advice. Checked against the GDPR basics in lawve-ai/awesome-legal-skil
 
 ## 6. Results
 
-Fill in one row per interview and per mystery-shop, as they happen. Use IDs (I01–I20, M01–M20),
-never names. The quotes are their words with nothing that identifies them.
+Fill in one row per interview and per mystery-shop, right after each one. Use IDs (I01–I20,
+M01–M20), never names. This file is public, and in a small market a row with exact numbers can
+point to one coach. So every row uses bands, and nothing more precise:
+- **Followers:** 5–20k, 20–50k, 50–100k.
+- **Clients:** 1–5, 6–15, 16–30, 30+. New per month: 0–2, 3–5, 6+.
+- **Prices:** rounded to the nearest 50 MAD or €10.
+- **Quotes:** no city, gym, niche detail or anything else that names them.
+Before writing a row, ask: could someone find this coach from it? If yes, cut more.
 
 ### Interviews
 
-| ID | Country | Followers | Clients now | New / month | Price (currency, period) | Clients pay by | Delivery today | Sells from | Tool paid today, how | Worst hour (quote) | Accept each or all | Too expensive / obvious | Confusion on the demo |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| | | | | | | | | | | | | | |
+| ID | Country | Followers | Clients now | New / month | Price (currency, period) | Clients pay by | Delivery today | Sells from | Tool paid today, how | Worst hour (quote) | Accept each or all | Too expensive / obvious | 3 enough to judge? | Confusion on the demo |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| | | | | | | | | | | | | | | |
 
 ### Mystery-shop
 
@@ -185,18 +216,24 @@ After the 20 and 20, write one paragraph per assumption in §1: held, broken, or
 count behind it (for example, "14 of 20 deliver by PDF or Sheet"). Then apply these rules and
 update the growth plan's §5 (open tests) and the messaging doc where a rule says so:
 
-- **The Free cap (A5):** keep 3 unless both are true: the median coach has 10 or more clients,
-  and half or more say 3 is too few to judge it. Then test 5. If the median is under 5 clients,
-  Free covers most of their business, and 3 stays whatever they say.
+- **The Free cap (A5):** keep 3 unless both are true: the median coach of the 20 has 10 or more
+  clients, and half or more of the last 10 answered "3 enough to judge?" with no. Then test 5.
+  If the median is under 5 clients, Free covers most of their business, and 3 stays whatever
+  they say.
 - **A price in MAD (A6):**
-  - **Run the 149 / 299 MAD test (CHW-355)** if, among the Moroccan coaches, half or more have
-    no card they use for subscriptions, or their median "too expensive" is under €19 (about
-    200 MAD).
+  - **Run the 149 / 299 MAD test (CHW-355)** if either is true:
+    - half or more of the 10 Moroccan coaches have no card they use for subscriptions (step 5,
+      asked to all 20);
+    - the median "too expensive" of the 5 Moroccan coaches in the last 10 is under €19 (about
+      200 MAD).
   - **Otherwise** keep euro prices for Morocco too, and close that half of CHW-355.
 - **Auto-accept by default (A7):** on if most of the last 10 would let everyone in, off if most
   want to accept each person. If it's split, keep today's default.
-- **The angles (A1–A4):** an assumption broken by 12 or more of the 20 changes the messaging
-  doc's §4 for that market, and the DM scripts and Reels that follow from it.
+- **The angles (A1–A4):** decide market by market. An assumption is broken in a market when
+  most of its coaches break it: 6 of the 10 in Morocco, 3 of the 5 in France or Belgium, 3 of
+  the 5 in Spain. Then that market's row in the messaging doc's §4 changes, with the DM scripts
+  and Reels that follow from it. When 12 or more of the 20 break it, it changes for every
+  market.
 - **Moroccan prices:** replace "300–800 MAD (est.)" in the growth plan §1 with the mystery-shop
   median and range, and mark where it came from.
 
