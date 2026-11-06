@@ -2,7 +2,7 @@
 // card and its one action, but a wrong pick sends a paying coach to "choose a plan" or tells a
 // lapsed one nothing at all, so every state the designs draw is pinned here.
 import { describe, it, expect } from 'vitest'
-import { plansOn, paidPlans, billingState, banner, daysLeft, checkoutSettled, pickPlan, planName, TRIAL_WARN_DAYS } from './billing.js'
+import { plansOn, paidPlans, billingState, banner, daysLeft, checkoutSettled, pickPlan, planName, unofferedPlan, TRIAL_WARN_DAYS } from './billing.js'
 
 // Local times: the trial countdown is in calendar days where the coach is.
 const NOW = new Date(2026, 8, 10, 9, 0).getTime()
@@ -203,5 +203,22 @@ describe('planName', () => {
   it('capitalises the plan, and is empty without one', () => {
     expect(planName('studio')).toBe('Studio')
     expect(planName(null)).toBe('')
+  })
+})
+
+describe('unofferedPlan', () => {
+  const FREE_ONLY = [{ plan: 'free', cap: 3, periods: [] }]   // production with billing off (2026-11-06)
+  const ALL = [...FREE_ONLY, { plan: 'solo', cap: 10, periods: ['month'] }, { plan: 'pro', cap: 30, periods: ['month'] }]
+
+  it('names the paid plan a link asked for when it is not sold here', () => {
+    expect(unofferedPlan(FREE_ONLY, 'solo')).toBe('solo')
+    expect(unofferedPlan(ALL, 'studio')).toBe('studio')
+  })
+
+  it('stays quiet when the plan is sold, nothing was asked, or the id is no paid plan', () => {
+    expect(unofferedPlan(ALL, 'solo')).toBe(null)
+    expect(unofferedPlan(FREE_ONLY, 'free')).toBe(null)
+    expect(unofferedPlan(FREE_ONLY, null)).toBe(null)
+    expect(unofferedPlan(FREE_ONLY, 'enterprise')).toBe(null)
   })
 })

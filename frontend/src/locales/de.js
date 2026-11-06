@@ -1790,6 +1790,8 @@ export default {
   'Yearly': 'Jährlich',
   'You can see everything, but inviting, sending programs and uploading demos are paused until the payment goes through.': 'Du siehst alles, aber Einladen, Programme senden und Demos hochladen sind pausiert, bis die Zahlung durchgeht.',
   'Your plan': 'Dein Tarif',
+  '{0} is not on sale online yet: you start on {1}, up to {2} clients.': '{0} ist online noch nicht erhältlich: Du startest mit {1}, bis zu {2} Klienten.',
+  'During the launch, paid plans are switched on by request:': 'Während des Starts werden bezahlte Tarife auf Anfrage freigeschaltet:',
   'Your plan is paused': 'Dein Tarif ist pausiert',
   'Your {0} plan starts on {1}.': 'Dein Tarif {0} beginnt am {1}.',
   'monthly': 'monatlich',

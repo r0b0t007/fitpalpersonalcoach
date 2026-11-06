@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useStore, hasData } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { coachSignupStart, coachSignupVerify } from '../lib/api.js'
-import { pickPlan } from '../lib/billing.js'
+import { pickPlan, planName, unofferedPlan } from '../lib/billing.js'
 import { isEmail } from '../lib/email.js'
 import { t, getLang } from '../lib/i18n.js'
 import Logo from '../components/Logo.jsx'
@@ -49,6 +49,7 @@ export default function Start() {
     if (!choice || !plans.some(p => p.plan === choice.plan)) setChoice(pickPlan(plans, choice?.plan ?? asked.get('plan'), choice?.period ?? asked.get('period')))
   }, [plans])
   if (!choice) return null
+  const notSold = unofferedPlan(plans, asked.get('plan'))
 
   const toast = msg => useUI.getState().toast(msg)
   const send = async () => {
@@ -109,6 +110,10 @@ export default function Start() {
       <div className="card" style={{ textAlign: 'left' }}>
         <h2 style={{ margin: '0 0 10px' }}>{t('Your plan')}</h2>
         <PlanPicker plans={plans} value={choice} onChange={setChoice} />
+        {notSold && <p className="small muted" role="note" style={{ lineHeight: 1.38, margin: '10px 0 0' }}>
+          {t('{0} is not on sale online yet: you start on {1}, up to {2} clients.', planName(notSold), planName(choice.plan), choice.cap)}{' '}
+          {t('During the launch, paid plans are switched on by request:')}{' '}
+          <a href="mailto:contact@fitpal.ma">contact@fitpal.ma</a></p>}
       </div>
       <div style={{ textAlign: 'left', marginTop: 6 }}>
         <input className="input" placeholder={t('Your name')} maxLength={40} autoComplete="name"

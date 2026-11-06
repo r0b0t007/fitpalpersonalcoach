@@ -1772,6 +1772,8 @@ export default {
   'Yearly': 'Anual',
   'You can see everything, but inviting, sending programs and uploading demos are paused until the payment goes through.': 'Puedes verlo todo, pero invitar, enviar programas y subir demos está en pausa hasta que el pago se complete.',
   'Your plan': 'Tu plan',
+  '{0} is not on sale online yet: you start on {1}, up to {2} clients.': '{0} aún no está a la venta en línea: empiezas con {1}, hasta {2} clientes.',
+  'During the launch, paid plans are switched on by request:': 'Durante el lanzamiento, los planes de pago se activan a petición:',
   'Your plan is paused': 'Tu plan está en pausa',
   'Your {0} plan starts on {1}.': 'Tu plan {0} empieza el {1}.',
   'monthly': 'mensual',
