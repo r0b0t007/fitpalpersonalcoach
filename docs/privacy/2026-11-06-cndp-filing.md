@@ -70,6 +70,16 @@ processor contract), and the security annex.
 
 ### Identification du responsable (section I)
 
+**Do not file before the CNDP has answered question 1.** For the coaching data the controller is
+the coach, and FitPal the processor (coach terms Part B, DPIA). So section I names:
+- **if each coach files**: the coach, as controller, with FitPal Coach named as the processor
+  (sous-traitant) wherever the form asks for one;
+- **if the CNDP lets the platform file once**: FitPal Coach in the capacity the CNDP indicates, as
+  processor for all the coaches, never as the controller of their clients' data.
+
+FitPal's own processing (coach accounts, the security log) is the one where it is the controller,
+and goes on an F-211. Its identification, for either case:
+
 - **Personne physique** : Ahmed Chioua, FitPal Coach (pas d'immatriculation commerciale : ni ICE
   ni RC).
 - Adresse : Bureau 69, Wilaya Center, Tétouan, Maroc.
@@ -105,13 +115,16 @@ processor contract), and the security annex.
 
 | Données | Personnes | Origine | Destinataires | Durée |
 |---|---|---|---|---|
-| Nom, prénom, e-mail | Clients, coachs | La personne | Son coach | Durée du compte |
+| Nom (tel que saisi), e-mail | Clients | La personne | Son coach | Durée du compte |
 | N° WhatsApp (facultatif) | Clients | La personne | Son coach | Comme l'inscription |
 | Objectif, niveau, séances par semaine, équipement | Clients | La personne | Son coach | Comme l'inscription |
 | **Blessures ou douleurs** (facultatif) | Clients | La personne | Son coach | Effacées au refus ou à l'expiration de la demande ; supprimées quand le lien avec le coach prend fin |
 | Programmes, séances, charges | Clients | Coach et client | Client, coach | Durée du compte |
 | **Poids, mensurations, photos, repas, bilans** (facultatifs) | Clients | La personne | Client, coach (après consentement) | Durée du compte ; effacés au retrait du consentement |
-| Journal de sécurité (sans adresse IP) | Utilisateurs | Le serveur | L'exploitant | 90 jours au plus |
+
+Les comptes des coachs eux-mêmes (nom, e-mail, offre) et le journal de sécurité (sans adresse IP,
+90 jours au plus) relèvent du traitement propre de FitPal Coach, qui en est le responsable : ils se
+déclarent sur un F-211, et non sur ce F-112.
 
 Demandes non vérifiées supprimées sous 24 heures. Sauvegardes : 14 jours (chiffrées), 90 jours au
 plus pour la copie faite avant une mise à jour.

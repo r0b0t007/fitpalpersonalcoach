@@ -28,7 +28,9 @@ Facts checked on 6 November 2026 are marked as such. Facts only the owner can co
 | T5 | FitPal → browser push services (Google, Apple, Mozilla) | Payload end-to-end encrypted (Web Push); only an opaque endpoint is sent | Proceed: the importer cannot read the content |
 | M | Morocco, law 09-08 (Moroccan coaches, and FitPal's own data on coaches) | The US is **not** on the CNDP's list of adequate states (deliberation 236-2015): a basis under article 44 is needed | **Not settled**: an owner decision with the CNDP (section 4; filing prepared in [CHW-367](2026-11-06-cndp-filing.md)) |
 
-Join requests stay closed until section 6's items 1–4 are done, as the DPIA's condition 1 requires.
+Join requests stay closed until the DPIA's conditions are met. Here: items 1 and 2 of section 6
+belong to its condition 1 (the DPAs and this assessment), item 3 is its condition 3 (the CNDP), and
+item 5 should be checked before relying on T3.
 
 ---
 
@@ -122,7 +124,9 @@ for the backups (T4b). What remains:
   (FitPal on its own hosting account).
 
 **Conclusion.** Proceed for now, documented, with two actions: the module (section 6, item 2) and
-the hosting location (item 6).
+the hosting location (item 6). The legal pages say the hosting transfer relies on the SCCs in
+Namecheap's DPA: true of the clauses it binds Namecheap to today, Module Two. If Namecheap will not
+apply Module Three, record its answer here and say so on the pages.
 
 ### 2.3 T3: Resend (US, DPF)
 
@@ -223,7 +227,8 @@ CHW-359.
 ## 5. Re-assessment (step 6)
 
 - **Periodic:** every November, with the DPIA review (M8).
-- **Standing:** Resend's DPF re-certification ("under review" on 6 November 2026); Namecheap's DPA
+- **Standing:** Resend's DPF re-certification ("under review" on 6 November 2026; if it lapses,
+  the legal pages stop naming the DPF for Resend, and T3 rests on its SCCs); Namecheap's DPA
   (last revised 2021); Section 702 reauthorisation; Latombe (C-703/25 P); any new noyb challenge.
 - **Events:** a request from any authority to FitPal or a provider; a change of provider or hosting
   location (CHW-362); a sub-processor notice from Namecheap, Resend or Cloudflare; the CNDP's answer.

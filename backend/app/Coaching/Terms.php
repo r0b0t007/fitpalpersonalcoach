@@ -20,7 +20,12 @@ use App\Support\Js;
  * 2026-11-05 (B9, Annexes 2 and 3: the nightly backup encrypted and copied to R2 in the EU,
  * CHW-361), for the same reason: every coach account is still a test account. And 2026-11-06
  * (Part A §1: the publisher is an individual; the ICE and the auto-entrepreneur status named
- * before were never FitPal's), for the same reason.
+ * before were never FitPal's), for the same reason, checked on production that day: one coach
+ * account (the operator's), which had accepted no version at all.
+ *
+ * Self-serve coach sign-up is open (SELF_SERVE_COACH), so a real coach may have accepted by the
+ * next change: from then, EFFECTIVE is 30 days after VERSION, unless the same check, run on
+ * production first, finds no coach but the operator's has accepted any version.
  *
  * The pages deploy to Cloudflare Pages and this file with the backend, separately. Once EFFECTIVE
  * has passed, the app asks for VERSION as soon as the backend is live: check fitpal.ma shows the
