@@ -186,7 +186,8 @@ section predates Free and still describes the booked call. CHW-342 rewrites it w
   how-to is `done-for-you.md` (CHW-348), and the DMs stop offering it if the queue goes past a
   day.
 - **No testimonials, no client counts, no "X coaches already".** There are no real coaches yet.
-  Social proof waits for the Founding Coaches (CHW-349).
+  Social proof waits for the Founding Coaches (CHW-349, `founding-coaches.md`), and each
+  testimonial then says what its coach got in return.
 - **No prices in MAD** until the price test (CHW-355).
 - **No free trial.** Free replaced the 14-day trial (CHW-329), but today's fitpal.ma still says
   "14 jours d'essai" in its plan cards, its JSON-LD offers and its FAQ, and its CTA is a booked
