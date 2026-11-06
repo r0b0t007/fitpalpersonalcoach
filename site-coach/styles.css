@@ -1,17 +1,17 @@
 /* FitPal Coach marketing site (fitpal.ma).
    Field-manual register: warm graphite ground, the app's gold, one family pushed hard on both
-   weight and width axes, visible rules as grammar. One stylesheet for both locales.
+   weight and width axes, visible rules as grammar. One stylesheet for every locale.
    Authored here and read here; scripts/build-site-coach.mjs minifies it into dist/ for
    deployment, so comment freely - none of this reaches the wire.
 
    Palette is verified, not estimated: `node scripts/check-site-coach-contrast.mjs` reads the
    hexes below and fails on any pair that drops under WCAG 2.2 AA. DESIGN.md explains the roles.
 
-   This is NOT site/ (fitpal.ma, gold on black) and NOT frontend/ (the app). Different buyer,
+   This is NOT site/ (gym.fitpal.ma, gold on black) and NOT frontend/ (the app). Different buyer,
    deliberately different look. */
 
-/* Hallmark · genre: editorial-industrial · macrostructure: Narrative Workflow · nav: N9 edge-aligned
- * footer: Ft2 single line · design-system: DESIGN.md · designed-as-app (CHW-318) */
+/* Hallmark · genre: editorial-industrial · macrostructure: one link, three steps (CHW-342)
+ * nav: N9 edge-aligned · footer: Ft2 single line · design-system: DESIGN.md */
 
 /* ---------------------------------------------------------------- type */
 
@@ -89,12 +89,8 @@
 
      There was a decorative --rule (#38342E) alongside this, at 1.40:1 on the ground. The
      intent was a quiet hairline for ornament; what actually happened is that it ended up
-     carrying every boundary on the site — row separators, feature separators, the FAQ
-     question edges, the sticky header's edge, the open mobile menu's bottom edge — which
-     DESIGN.md explicitly forbade it from doing. At 1.40:1 on a dim phone, the structure the
-     page calls its grammar was close to invisible, and hero copy showed through the open
-     menu. All nine were promoted here and the decorative token was deleted rather than left
-     lying about for someone to reach for again. */
+     carrying every boundary on the site, which DESIGN.md explicitly forbade it from doing.
+     It was deleted rather than left lying about for someone to reach for again. */
   --rule-strong:  #746C62;
 
   /* text */
@@ -110,22 +106,19 @@
 
      Gold fills ALWAYS take an --ink label: bone on gold is 1.80:1 and fails badly.
 
-     Gold is 8.26:1 on the graphite ground, so unlike the orange it replaced it needs no
-     lighter variant to survive small text — --gold carries every size on every dark ground,
-     and the accent system is two values rather than three.
+     Gold is 8.26:1 on the graphite ground, so it needs no lighter variant to survive small
+     text — --gold carries every size on every dark ground.
 
      --gold-deep exists only because the one light section breaks gold completely: gold on
      bone is 1.80:1, which is invisible text rather than merely tight. */
   --gold:         #D4AF37;
   --gold-deep:    #6F5A1C;
 
-  /* type */
-  /* Max lowered from 6.5rem. `.display` is the hero h1 and nothing else, and at 104px its
-     three lines ran ~287px tall — which pushed the film, the one real product on the
-     fold, down to 22% visible on a 1440x900 laptop. */
-  --t-display: clamp(2.75rem, 8.6vw, 5.75rem);
-  --t-h2:      clamp(2rem, 5vw, 3.25rem);
-  --t-h3:      clamp(1.25rem, 2.2vw, 1.5rem);
+  /* type. The CHW-342 design sets the display at 92px on a 1440 desktop and 52px on a 390
+     phone, h2 at 52 and 32: the clamps below land on exactly those four numbers. */
+  --t-display: clamp(3.25rem, 6.4vw, 5.75rem);
+  --t-h2:      clamp(2rem, 3.6vw, 3.25rem);
+  --t-h3:      clamp(1.3125rem, 1.7vw, 1.5rem);
   --t-body:    1.0625rem;
   --t-small:   0.9375rem;
   --t-label:   0.75rem;
@@ -133,11 +126,13 @@
   /* space */
   --sp-1: 4px;   --sp-2: 8px;   --sp-3: 12px;  --sp-4: 16px;
   --sp-5: 24px;  --sp-6: 32px;  --sp-7: 48px;  --sp-8: 64px;
-  --sp-9: 96px;  --sp-10: 128px; --sp-11: 160px;
+  --sp-9: 96px;
 
   --gutter:  clamp(20px, 5vw, 56px);
-  --max:     1200px;
-  --section: clamp(88px, 12vw, 168px);
+  /* 1088px of content: the design's 1200px container with its 56px gutters inside it. */
+  --max:     1088px;
+  --section: clamp(72px, 9vw, 128px);
+  --hdr-h:   68px;
 
   /* geometry: near-square on purpose. Nothing is pill-shaped.
      The device frame below is the one deliberate exception, and it is an exception because it
@@ -145,7 +140,7 @@
   --r-sm: 3px;
   --r:    6px;
 
-  /* device frame. Geometry lifted from the house component the ten tutorial videos use
+  /* device frame. Geometry lifted from the house component the tutorial videos use
      (compositions/components/device-frame-stage.html); the skin is restated in these tokens
      as a schematic outline rather than its gradient bezel and five-layer shadow.
      --dev-aspect is the app's real phone viewport, so the body shape is not invented. */
@@ -158,7 +153,6 @@
   /* motion: ease-out-quart, no spring, no bounce */
   --ease: cubic-bezier(0.165, 0.84, 0.44, 1);
   --fast: 180ms;
-  --med:  320ms;
   --slow: 520ms;
 
   color-scheme: dark;
@@ -188,7 +182,7 @@ body {
 img, svg, video { display: block; max-width: 100%; }
 img, video { height: auto; }
 
-h1, h2, h3, p, ul, ol, figure, blockquote { margin: 0; }
+h1, h2, h3, p, ul, ol, dl, dd, figure, blockquote { margin: 0; }
 ul, ol { padding: 0; list-style: none; }
 
 a { color: inherit; }
@@ -199,6 +193,9 @@ a { color: inherit; }
   outline-offset: 2px;
   border-radius: 2px;
 }
+
+/* Anchors land below the sticky header, not under it. */
+[id] { scroll-margin-top: calc(var(--hdr-h) + var(--sp-4)); }
 
 .skip {
   position: absolute; left: -9999px;
@@ -229,29 +226,30 @@ h1, h2, h3 { text-wrap: balance; }
   line-height: 0.92;
   letter-spacing: -0.02em;
   text-transform: uppercase;
-  margin: 0;
 }
 
+/* Sentence case since CHW-342: the section heads are full sentences now ("Trois étapes, et
+   votre abonné s'entraîne."), and a sentence in caps reads as shouting. The display stays in
+   caps; it is three or four words. */
 h2 {
   font-size: var(--t-h2);
   font-variation-settings: 'wght' 700, 'wdth' 78;
   line-height: 1.08;
-  letter-spacing: -0.015em;
-  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  max-width: 22ch;
 }
 
 h3 {
   font-size: var(--t-h3);
   font-variation-settings: 'wght' 600, 'wdth' 100;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
 .lead {
-  font-size: clamp(1.125rem, 2vw, 1.375rem);
+  font-size: clamp(1.125rem, 1.4vw, 1.25rem);
   line-height: 1.5;
-  color: var(--muted);
-  max-width: 54ch;
+  max-width: 34ch;
 }
 
 p { max-width: 68ch; }
@@ -267,26 +265,29 @@ p { max-width: 68ch; }
 
 .num { font-variant-numeric: tabular-nums; }
 
+.note { color: var(--muted); font-size: var(--t-small); }
+
 /* ---------------------------------------------------------------- header */
 
 .hdr {
   position: sticky; top: 0; z-index: 50;
-  background: var(--graphite);
+  background: var(--ink);
   border-bottom: 1px solid var(--rule-strong);
 }
 
 .hdr-in {
-  display: flex; align-items: center; gap: var(--sp-5);
-  height: 68px;
+  display: flex; align-items: center; gap: var(--sp-6);
+  min-height: var(--hdr-h);
 }
 
 .brand {
   display: inline-flex; align-items: center; gap: var(--sp-3);
-  text-decoration: none; margin-right: auto;
+  text-decoration: none;
   font-variation-settings: 'wght' 800, 'wdth' 84;
   font-size: 1.0625rem;
   letter-spacing: 0.01em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 /* The One Spine symbol (brand/logo-kit). Gold, not the text colour: the logo guidelines put the
    symbol in gold on dark grounds. This is the small-size drawing, which is the one for under 32px.
@@ -294,305 +295,180 @@ p { max-width: 68ch; }
 .brand svg { width: 16.5px; height: 22px; flex: none; color: var(--gold); }
 .brand b { font-weight: inherit; color: var(--gold); }
 
-.nav { display: flex; gap: var(--sp-6); }
+/* The legal pages' header is the brand and one .nav (Accueil and the two other languages); the
+   landing pages' is the brand, the section links, then the language switch and the CTA. Either
+   way the last group sits on the right edge, and on a landing page the section links stay next
+   to the brand, as the design draws them. */
+.hdr-in > :last-child { margin-left: auto; }
+
+.nav { display: flex; align-items: center; gap: 28px; }
 .nav a {
-  text-decoration: none; color: var(--muted);
+  text-decoration: none; color: var(--bone);
   font-size: var(--t-small);
   transition: color var(--fast) var(--ease);
 }
-.nav a:hover { color: var(--bone); }
+.nav a:hover { color: var(--gold); }
+
+.hdr-r { display: flex; align-items: center; gap: 18px; }
+
+/* The language switch. The current language is plain bold text, the other two are links: a link
+   to the page you are on is a dead control. */
+.langs { display: flex; align-items: center; gap: 10px; font-size: 0.8125rem; color: var(--muted); }
+.langs b { color: var(--bone); font-variation-settings: 'wght' 700, 'wdth' 100; }
 
 .lang {
-  display: inline-flex; align-items: center; gap: var(--sp-2);
-  font-size: var(--t-label); letter-spacing: 0.09em; text-transform: uppercase;
   color: var(--muted); text-decoration: none;
+  font-size: 0.8125rem; letter-spacing: 0.04em; text-transform: uppercase;
   transition: color var(--fast) var(--ease);
 }
 .lang:hover { color: var(--bone); }
 
-.burger {
-  display: none;
-  width: 40px; height: 40px;
-  background: none; border: 1px solid var(--rule-strong);
-  border-radius: var(--r-sm); color: var(--bone);
-  cursor: pointer; padding: 0;
-}
-.burger span {
-  display: block; width: 16px; height: 1.5px;
-  background: currentColor; margin: 3px auto;
+/* Under 760px the section links go: three in-page anchors are not worth a menu button, and the
+   page is one scroll. What stays is the brand, the language switch and the CTA, which is the
+   one action this page exists for - it is in the sticky bar on every screen. */
+@media (max-width: 760px) {
+  :root { --hdr-h: 60px; }
+  .hdr-in { gap: var(--sp-3); }
+  .hdr .nav.sections { display: none; }
+  .nav { gap: var(--sp-4); }
+  .hdr-r { gap: var(--sp-3); }
+  .langs { gap: var(--sp-2); }
+  .hide-sm { display: none; }
 }
 
 /* ---------------------------------------------------------------- buttons */
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
-  padding: 14px 24px;
-  border: 1px solid transparent;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
   border-radius: var(--r-sm);
-  font-size: var(--t-small);
+  font-size: 1rem;
   font-variation-settings: 'wght' 700, 'wdth' 100;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  text-align: center;
   text-decoration: none;
   cursor: pointer;
-  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+  transition: background var(--fast) var(--ease), box-shadow var(--fast) var(--ease), color var(--fast) var(--ease);
 }
 
-/* Gold fill, ink label. Never bone on gold: it measures 1.80:1. */
-.btn.primary { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+/* Gold fill, ink label. Never bone on gold: it measures 1.80:1. The hover inverts the plate
+   (ink fill, gold label), two ratios the contrast check already asserts. */
+.btn.primary { background: var(--gold); color: var(--ink); box-shadow: inset 0 0 0 1px var(--gold); }
 .btn.primary:hover { background: var(--ink); color: var(--gold); }
 
-.btn.ghost { border-color: var(--rule-strong); color: var(--bone); }
-.btn.ghost:hover { background: var(--raised); border-color: var(--bone); }
+/* Inset rather than a border, so a ghost and a primary button side by side are the same size. */
+.btn.ghost { background: transparent; color: var(--bone); box-shadow: inset 0 0 0 1px var(--rule-strong); }
+.btn.ghost:hover { box-shadow: inset 0 0 0 1px var(--bone); }
 
-.btn.sm { padding: 10px 16px; }
+.btn.sm { min-height: 40px; padding: 0 16px; font-size: 0.875rem; white-space: nowrap; }
+.btn.full { width: 100%; }
+
+.ctas { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: 28px; }
+.ctas.center { justify-content: center; margin-top: var(--sp-6); }
+
+@media (max-width: 760px) {
+  .ctas .btn { flex: 1 1 100%; }
+}
 
 /* ---------------------------------------------------------------- sections */
 
-.sec { padding-block: var(--section); }
-.sec.tight { padding-block: clamp(56px, 8vw, 104px); }
+.sec { padding-block: var(--section); border-bottom: 1px solid var(--rule-strong); }
+.sec.raised { background: var(--raised); }
 
-/* The repeated object: gold numeral, full-width rule, heading beneath. Six of them, as a
-   declared system rather than decoration. */
-.sec-head { margin-bottom: var(--sp-8); }
-
+/* The repeated object: gold numeral, full-width rule, the section's name, then the h2. Six of
+   them, as a declared system rather than decoration. */
 .sec-head .rule {
-  display: flex; align-items: baseline; gap: var(--sp-4);
+  display: flex; align-items: baseline; gap: 14px;
   border-top: 1px solid var(--rule-strong);
-  padding-top: var(--sp-3);
-  margin-bottom: var(--sp-6);
+  padding-top: 14px;
+  margin-bottom: 28px;
 }
-.sec-head .rule .n { color: var(--gold); }
+.sec-head .rule .n { color: var(--gold); font-variation-settings: 'wght' 700, 'wdth' 100; }
 .sec-head .rule .k { color: var(--muted); }
-
-/* Lead paragraph inside a section head, and the two spacing exceptions that would
-   otherwise be inline styles. */
-.sec-head .lead { margin-top: var(--sp-5); }
-.cta .sec-head { margin-bottom: var(--sp-6); }
-.ftr .brand    { margin-bottom: var(--sp-4); }
+.sec-head h2 { margin-bottom: 40px; }
 
 /* ---------------------------------------------------------------- hero */
 
-/* Tighter than the page's other sections on purpose. The film beneath this copy is 16:9 and
-   about 650px tall on a laptop; every pixel spent above it is a pixel of film below the fold,
-   so the hero's vertical rhythm runs one step tighter than the section rhythm everywhere. */
-.hero { padding-top: clamp(40px, 4.5vw, 68px); padding-bottom: var(--section); }
-
-/* The eyebrow carries three jobs that were missing or underweighted, and costs no extra
-   height for any of them — it was already a one-line row with ~300px of dead space at its
-   right end.
-
-   Left, in gold: what this is AND who it is for. The category used to sit here alone at 12px,
-   the smallest type on a page whose headline states only the problem — so the one line saying
-   what the product IS was the quietest thing in the hero. The client range is the stated ICP,
-   so printing it costs no honesty and filters the calls this page exists to book: success is a
-   QUALIFIED call, not a call.
-
-   Right, in muted: the evidence claim. With no customers yet there is no social proof to show,
-   and the brand bans logo walls, so the only honest credibility lever is the product itself —
-   which is exactly what the film and the four captures are. Saying so above the fold is what
-   makes a skeptical reader keep scrolling to them.
-
-   Laid out as label-left / value-right, the same spec-row grammar the page uses elsewhere. */
-.hero .eyebrow {
-  color: var(--gold);
-  margin-bottom: var(--sp-4);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--sp-2) var(--sp-5);
-  /* `p { max-width: 68ch }` is a READING measure, and at 12px it caps this element at ~469px —
-     narrower than its own two labels, so the strip wrapped to two lines and gave back the
-     height the smaller headline had just bought. This row is a spec strip, not prose. */
-  max-width: none;
-}
-
-.hero .eyebrow .proof {
-  margin-left: auto;      /* wraps to its own line before it would collide */
-  color: var(--muted);
-}
-
-.hero .display { margin-bottom: var(--sp-5); }
-.hero .display span { display: block; }
-
-.hero .lead { margin-bottom: var(--sp-6); }
-
-.hero .actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-bottom: var(--sp-5); }
-
-.hero .note { font-size: var(--t-small); color: var(--muted); }
-
-/* The hero STACKS: copy, then the film full width beneath it.
-   Side by side, a 16:9 film caps out around 530px wide, because the copy column cannot drop
-   below ~600px without breaking the 118px display measure — and 530px is LESS screen area than
-   the portrait cut had. Stacked, the film gets ~1000px, which is the difference between a
-   thumbnail and something you can read. */
-.hero-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(28px, 3.4vw, 44px);
-}
-
-.hero-stage {
+/* A photograph behind the copy, under a shade dark enough that the copy reads as if on the
+   ground itself: the shade is ink at 96% under the headline, easing to 55% at the far edge
+   where only the phone sits. On a phone it runs top to bottom and ends on the page ground, so
+   the hero has no seam with the section below. */
+.hero {
   position: relative;
-  min-width: 0;
-  display: grid;
-  justify-items: center;
-  gap: var(--sp-3);
-  width: 100%;
-}
-
-/* The price list beside the headline (CHW-318).
-
-   This column held a stock portrait, put there because the copy runs to a text measure and left
-   the right half of the hero empty. A fact fills it better than decoration: the price was the
-   one answer this buyer could not get without picking up the phone, and printing it is the
-   spec-sheet honesty PRODUCT.md asks for. Same row grammar as the spec table — label left,
-   tabular figure right, a rule between — so it reads as an excerpt of the sheet below.
-
-   It comes after the film in the source, so below 1040px it stacks under the film rather than
-   between the copy and it: on a phone the film and its poster stay where the portrait left
-   them, right under the copy, and the price list follows. The 1040px breakpoint, not 1000px, is
-   still deliberate: Chrome matches a media query against innerWidth, which includes the classic
-   scrollbar, so a 1000px rule fired with 985px to lay out and collapsed the second track. */
-.hero-plans {
-  min-width: 0;
-  max-width: 34rem;
-  border-top: 1px solid var(--rule-strong);
-  padding-top: var(--sp-4);
-}
-.hero-plans > .label { color: var(--gold); margin-bottom: var(--sp-2); }
-.hero-plans dl > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--sp-4);
-  padding-block: var(--sp-3);
+  overflow: hidden;
   border-bottom: 1px solid var(--rule-strong);
 }
-.hero-plans dt { font-variation-settings: 'wght' 600, 'wdth' 100; }
-.hero-plans dt span {
-  margin-left: var(--sp-2);
-  color: var(--muted);
-  font-size: var(--t-small);
-  font-variation-settings: 'wght' 400, 'wdth' 100;
-}
-.hero-plans dd {
-  margin: 0;
-  font-size: var(--t-h3);
-  font-variation-settings: 'wght' 700, 'wdth' 78;
-  white-space: nowrap;
-}
-.hero-plans-foot {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--sp-2) var(--sp-4);
-  margin-top: var(--sp-3);
-  max-width: none;
-  font-size: var(--t-small);
-  color: var(--muted);
-}
-.hero-plans-foot a { color: var(--gold); white-space: nowrap; }
 
-@media (min-width: 1040px) {
-  .hero-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.5fr);
-    column-gap: clamp(32px, 4vw, 64px);
-    align-items: end;      /* the list closes on the same line as the note */
-  }
-  .hero-copy  { grid-column: 1; grid-row: 1; }
-  .hero-plans { grid-column: 2; grid-row: 1; }
-  .hero-stage { grid-column: 1 / -1; }
+.hero-photo { position: absolute; inset: 0; }
+.hero-photo img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  filter: grayscale(0.25);
+}
+.hero-photo::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(20, 18, 15, 0.96) 0%, rgba(20, 18, 15, 0.88) 45%, rgba(20, 18, 15, 0.55) 100%);
 }
 
-/* The film is NOT in a phone. The four screenshots are phone screens and belong in a phone
-   body; the film is a film, and a bezel around it only makes it smaller. */
-.hero-media {
-  position: relative;          /* anchors .media-toggle */
-  display: inline-block;
-  max-width: 100%;
-  border-radius: var(--r);
-  overflow: hidden;
-  background: #000;
-  border: 1px solid var(--rule-strong);
-  line-height: 0;          /* no descender gap under an inline-block video */
-}
-.hero-media video {
-  display: block;
-  width: auto; height: auto;
-  max-width: 100%;
-  /* Two caps. 78svh is the ceiling on a tall window. The second yields to the copy above:
-     on a short laptop the film shrinks rather than pushing itself entirely past the fold.
-     svh, not vh, so a mobile URL bar collapsing does not resize the film mid-scroll. */
-  max-height: min(78svh, calc(100svh - 240px));
-}
-
-/* The film's pause control. Only ever inserted by site.js, on the one path where the native
-   controls were removed — see the WCAG 2.2.2 note there.
-
-   Sized and placed to acknowledge rather than perform: 34px, low opacity at rest, in the
-   corner of the film rather than over its centre. The glyphs are drawn in CSS rather than set
-   as a character, because a text pause glyph renders differently in every font fallback. */
-.media-toggle {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  width: 34px;
-  height: 34px;
-  padding: 0;
+.hero-in {
+  position: relative;
   display: grid;
-  place-items: center;
-  background: rgba(20, 18, 15, .72);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--r);
-  cursor: pointer;
-  line-height: 0;
-  opacity: .55;
-  transition: opacity .16s var(--ease), background-color .16s var(--ease);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
+  padding-block: 56px;
 }
 
-.media-toggle:hover,
-.media-toggle:focus-visible { opacity: 1; background: rgba(20, 18, 15, .92); }
+.hero .eyebrow { color: var(--gold); }
+.hero .display { margin: 14px 0 18px; }
+.hero .note { margin-top: 14px; }
 
-.media-toggle::before { content: ''; display: block; }
-
-/* two bars */
-.media-toggle[data-state="playing"]::before {
-  width: 10px;
-  height: 12px;
-  border-left: 3px solid var(--bone);
-  border-right: 3px solid var(--bone);
+/* The two-column breakpoint is 1040px, not 1000px: Chrome matches media queries against
+   innerWidth (scrollbar included) but lays out against clientWidth, and a 1000px rule once
+   collapsed the second track to 0px. Do not lower it back. */
+@media (min-width: 1040px) {
+  .hero-in {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 56px;
+    align-items: center;
+    padding-block: 96px;
+  }
 }
 
-/* one triangle */
-.media-toggle[data-state="paused"]::before {
-  width: 0;
-  height: 0;
-  margin-left: 3px;
-  border-left: 11px solid var(--bone);
-  border-top: 7px solid transparent;
-  border-bottom: 7px solid transparent;
+@media (max-width: 1039px) {
+  .hero-photo::after {
+    background: linear-gradient(180deg, rgba(20, 18, 15, 0.86) 0%, rgba(20, 18, 15, 0.94) 60%, var(--graphite) 100%);
+  }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .media-toggle { transition: none; }
+.hero .shot { --dev-w: 300px; }
+
+/* The phone's caption over the photograph: the shade at that edge is only 55%, so the caption
+   sits on its own ink plate rather than trusting whatever part of the photo lands behind it. */
+.hero .shot-cap {
+  width: auto;
+  align-items: center;
+  text-align: center;
+  background: rgba(20, 18, 15, 0.92);
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
 }
 
-/* The device frame. Every screen on this site is a phone screen, so there is no flat variant
-   left; the old `.shot` hairline-and-mat is gone rather than kept as dead CSS.
+@media (max-width: 760px) {
+  .hero .shot { --dev-w: 250px; }
+}
 
-   The frame is schematic on purpose: a 1px outline and an ink bezel, no gradient, no shadow,
-   no imitation hardware. It depicts a device without pretending to be a photograph of one,
-   which is the only device treatment that sits with numbered sections and visible rules.
+/* ---------------------------------------------------------------- device frame */
 
-   Evidence positioning: the flat frame used to be what separated a real capture from
-   atmosphere. That job now belongs to the visible caption under every device ("Capture
-   réelle" / "Real capture") — see .shot-cap. Moving the claim from a frame treatment to an
-   explicit label is stronger, because a reader does not have to infer it. */
+/* Every app screen on this site sits in a phone. The frame is schematic on purpose: a 1px
+   outline and an ink bezel, no gradient, no shadow, no imitation hardware. The evidence claim
+   lives in the visible caption under each one ("Capture de l'app"), not in the frame. */
 .device {
   position: relative;
   box-sizing: border-box;
-  margin-inline: auto;
   width: min(100%, var(--dev-w));
   padding: var(--dev-bezel);
   border: 1px solid var(--rule-strong);
@@ -621,139 +497,157 @@ p { max-width: 68ch; }
   background: #000;
 }
 
-/* Beats the global `img, video { height: auto }` on specificity, which would otherwise fight
-   height:100% and let the media set the box height instead of the aspect ratio. Same trap
-   .people-img img documents.
-
-   The screenshots sit inside <picture>, so the img is a grandchild: a `> img` selector here
-   matched nothing and only looked fine because the captures happen to be exactly
-   --dev-aspect. Descendant selector, so any re-capture at another aspect still fills. */
-.device-screen img,
-.device-screen > video {
+/* Descendant selector: the img is inside a <picture>. It beats the global `img { height:
+   auto }` on specificity, which would otherwise let the image set the box height instead of
+   the aspect ratio. */
+.device-screen img {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover; object-position: top center;
-  display: block;
 }
 
-.device :focus-visible { border-radius: var(--dev-screen-radius); }
-
-/* The figure holding a device and its caption. */
-.shot-wrap {
+/* A device and its caption. --dev-w lives on the figure, not the device, because the caption
+   reads it too: set it on the device and the caption stops matching the phone it labels. */
+.shot {
   display: grid;
   justify-items: center;
+  align-content: start;
   gap: var(--sp-3);
   min-width: 0;
 }
 
 .shot-cap {
-  display: flex; flex-wrap: wrap; justify-content: space-between;
-  gap: var(--sp-1) var(--sp-4);
-  width: 100%; max-width: var(--dev-w, none);
+  display: flex; flex-direction: column; gap: 2px;
+  width: 100%; max-width: var(--dev-w);
   color: var(--muted);
+  font-size: 0.8125rem;
+}
+.shot-cap .url { color: var(--bone); }
+
+/* ---------------------------------------------------------------- 01 · steps */
+
+/* Three columns, each hung on its own left rule: the link, the request, workout 1. The phone
+   closes each column and the three phones share a baseline (margin-top: auto), so the row
+   reads as one strip of evidence. Not cards: a rule and a numeral, as everywhere else. */
+.steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 56px;
 }
 
-/* A device in a wide feature column is constrained rather than blown up to the column width,
-   which would render the app's UI text larger than life. --dev-w carries that.
-
-   Sizing this correctly turns on one fact that is easy to get wrong: the captures are 720px
-   wide but were shot at a 360 CSS px viewport with --force-device-scale-factor=2, so those
-   720 pixels encode 360 CSS px of UI, not 720. The life-size ratio is therefore
-   (--dev-w - 2 * --dev-bezel) / 360, NOT / 720. Reading it as /720 makes the type look half
-   as big as it is and invites a "fix" that doubles every feature row's height for nothing.
-
-   At 360px the screen is 338px, a ratio of 0.94 — near life-size, so the app's 17px body text
-   lands at ~16px, in the same register as this page's own 17px body. The row runs ~780px tall
-   at 9:19.5, which the two-column feature grid absorbs (each column is ~560px at the 1200px
-   container). */
-.stage .shot-wrap { --dev-w: 360px; }
-
-/* ---------------------------------------------------------------- problem rows */
-
-.rows { border-top: 1px solid var(--rule-strong); }
-
-.row {
-  display: grid;
-  grid-template-columns: 3.5rem minmax(0, 1fr) minmax(0, 1.1fr);
-  gap: var(--sp-5);
-  padding-block: var(--sp-6);
-  border-bottom: 1px solid var(--rule-strong);
-  align-items: start;
-}
-.row .n { color: var(--gold); padding-top: 0.35em; }
-.row h3 { margin-bottom: var(--sp-2); }
-.row p { color: var(--muted); }
-
-/* ---------------------------------------------------------------- the week */
-
-/* Narrative Workflow (CHW-318). The problem rows and the alternating feature rows were two
-   sections that said the same four things twice — four complaints, then four screens — and left
-   the reader to pair them. Each stage now pairs one chore with the capture that removes it, in
-   the order a coach's week meets them, hung on one spine.
-
-   The spine is the left rule; each stage's time stamp sits on a gold graduation leaving it, the
-   same square-ended tick the steps scale uses. It does not alternate: a timeline reads down one
-   line, and alternating sides would make it a zigzag. */
-.week { border-top: 1px solid var(--rule-strong); }
-
-.stage {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: clamp(32px, 5vw, 80px);
-  align-items: start;
-  padding: var(--sp-8) 0 var(--sp-8) clamp(20px, 3vw, 48px);
+.step {
+  display: flex; flex-direction: column;
   border-left: 1px solid var(--rule-strong);
-}
-.stage + .stage { border-top: 1px solid var(--rule-strong); }
-
-.stage::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: calc(var(--sp-8) + 0.45em);
-  width: 12px;
-  height: 2px;
-  background: var(--gold);
-}
-
-/* The copy rides beside its phone while the phone scrolls past: the capture is roughly twice
-   the height of the text, and without this the column ends halfway down the frame. Plain
-   sticky, no scroll-linked script. */
-.stage-body {
+  padding-left: 20px;
   min-width: 0;
-  position: sticky;
-  top: calc(68px + var(--sp-6));   /* under the 68px sticky header */
 }
-.stage figure { min-width: 0; }
+.step-n { color: var(--gold); font-size: var(--t-label); font-variation-settings: 'wght' 700, 'wdth' 100; letter-spacing: 0.09em; margin-bottom: 10px; }
+.step h3 { margin-bottom: var(--sp-2); }
+.step p { color: var(--muted); margin-bottom: var(--sp-5); max-width: 36ch; }
 
-.stage-when { color: var(--gold); margin-bottom: var(--sp-4); }
-.stage h3 { margin-bottom: var(--sp-4); }
+.step .shot { --dev-w: 250px; margin-top: auto; justify-items: start; }
 
-/* The chore it replaces. Smaller and muted, between two rules, so the eye lands on it second;
-   not struck through, which costs legibility to make a joke. */
-.before {
-  margin-bottom: var(--sp-5);
-  padding-block: var(--sp-3);
-  border-block: 1px solid var(--rule-strong);
-  color: var(--muted);
-  font-size: var(--t-small);
+/* Life-size check for the 220px desktop phone: the captures encode 360 CSS px of UI, so its
+   198px screen draws the app at 0.55. Small, and meant to be - three phones in a row are a
+   strip of evidence, the hero's 300px phone is the one to read. */
+@media (min-width: 900px) {
+  .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; }
+  .step .shot { --dev-w: 220px; }
 }
-.before .label { display: block; margin-bottom: var(--sp-1); }
 
-.stage-body > p:not(.before):not(.stage-when) { margin-bottom: var(--sp-5); }
+/* ---------------------------------------------------------------- 02 · both sides */
 
-.stage ul { display: grid; gap: var(--sp-3); }
-.stage li {
-  display: grid; grid-template-columns: 1.25rem 1fr; gap: var(--sp-3);
-  font-size: var(--t-small); color: var(--muted);
+.sides {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 48px;
 }
-.stage li::before {
-  content: ''; width: 9px; height: 9px; margin-top: 0.45em;
+@media (min-width: 900px) {
+  .sides { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.side-ph {
+  height: 210px;
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-bottom: 22px;
+  box-shadow: 0 0 0 1px var(--rule-strong);
+}
+.side-ph img { width: 100%; height: 100%; object-fit: cover; }
+@media (min-width: 900px) {
+  .side-ph { height: 300px; }
+}
+
+.side h3 { margin-bottom: var(--sp-3); }
+
+/* A short gold dash, square-ended, instead of a bullet: the same tick the rules carry. */
+.ticks { display: flex; flex-direction: column; }
+.ticks li {
+  position: relative;
+  padding: 12px 0 12px 22px;
+  border-top: 1px solid var(--rule-strong);
+}
+.ticks li::before {
+  content: '';
+  position: absolute; left: 0; top: calc(12px + 0.75em);
+  width: 10px; height: 2px;
   background: var(--gold);
 }
 
-/* ---------------------------------------------------------------- spec (light) */
+/* ---------------------------------------------------------------- 03 · pricing */
+
+/* Four plans in one ruled block, not four cards. The 1px gap over a rule-coloured ground draws
+   every inner rule at any column count, so the grid can go 4 -> 2 -> 1 without per-breakpoint
+   border bookkeeping. Solo is marked by the raised ground and a gold rule along its top, never
+   by a "recommended" badge. */
+.plans {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  background: var(--rule-strong);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .plans { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1040px) {
+  .plans { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.plan {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  padding: 28px 24px;
+  background: var(--graphite);
+  min-width: 0;
+}
+.plan.hl { background: var(--raised); box-shadow: inset 0 3px 0 var(--gold); }
+
+.plan h3 { font-size: var(--t-label); color: var(--muted); }
+.plan .price {
+  margin-top: var(--sp-2);
+  color: var(--bone);
+  font-size: 2.75rem;
+  font-variation-settings: 'wght' 800, 'wdth' 72;
+  line-height: 1;
+  white-space: nowrap;
+}
+.plan .price span {
+  margin-left: var(--sp-1);
+  font-size: var(--t-small);
+  font-variation-settings: 'wght' 400, 'wdth' 100;
+  color: var(--muted);
+}
+.plan .seats { color: var(--gold); font-variation-settings: 'wght' 600, 'wdth' 100; }
+.plan p { flex: 1; color: var(--muted); font-size: var(--t-small); margin-bottom: 14px; }
+/* Four buttons in ~220px columns: "Commencer gratuitement" needs the tighter padding to stay on
+   one line. */
+.plan .btn { padding-inline: 12px; font-size: var(--t-small); }
+
+.fine { color: var(--muted); font-size: var(--t-small); margin-top: 18px; }
+
+/* ---------------------------------------------------------------- 04 · included (light) */
 
 /* The one light section. The manual metaphor is literal here, so the ground is paper. */
 .spec {
@@ -764,376 +658,94 @@ p { max-width: 68ch; }
 .spec .sec-head .rule { border-top-color: var(--mute-bone); }
 .spec .sec-head .rule .n { color: var(--gold-deep); }
 .spec .sec-head .rule .k { color: var(--mute-bone); }
-.spec .lead { color: var(--mute-bone); }
-
-/* The two terms rows closing the spec sheet. Same .rows object as section 01, restated for the
-   bone ground: --gold measures 1.80:1 on bone and --muted is a dark-ground token, so both would
-   fail here. --gold-deep (5.71:1) and --mute-bone are the documented light-ground values, and
-   the separator matches the spec table's own tint rather than the dark-ground rule token. */
-.spec .terms {
-  border-top: 1px solid var(--mute-bone);
-  margin-top: var(--sp-7);
-}
-.spec .terms .row { border-bottom-color: var(--rule-bone); }
-.spec .terms .row:last-child { border-bottom: 0; }
-.spec .terms .row .n { color: var(--gold-deep); }
-.spec .terms .row h3 { color: var(--graphite); }
-.spec .terms .row p { color: var(--mute-bone); }
-
-.spec-table {
-  border-top: 1px solid var(--mute-bone);
-  margin-top: var(--sp-7);
-}
-.spec-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  gap: var(--sp-5);
-  padding-block: var(--sp-4);
-  border-bottom: 1px solid var(--rule-bone);
-  align-items: baseline;
-}
-.spec-row dt { color: var(--mute-bone); }
-.spec-row dd { margin: 0; font-variation-settings: 'wght' 500, 'wdth' 100; }
-.spec-row dd .y { color: var(--gold-deep); font-variation-settings: 'wght' 700, 'wdth' 100; }
-
-/* ---------------------------------------------------------------- plans (light) */
-
-/* Three plans as three columns of the same rows, not three cards (CHW-318). DESIGN.md allows one
-   card on the page, and it is the spec block; a plan is the same kind of object, a short spec,
-   so it takes the spec grammar. The middle plan is marked by a gold-deep rule along its top, not
-   a "recommended" badge. Monthly and yearly are two rows rather than a toggle: no script, and
-   both numbers are visible at once, which is the honest way to show a discount.
-
-   Tarifs and the spec sheet share one bone run, so the second section drops its top padding and
-   the run reads as one printed sheet with two headings. Without that padding, a jump to #fiche
-   would put the section head under the 68px sticky header, so the anchor carries the offset. */
-.plans + .spec { padding-top: 0; scroll-margin-top: calc(68px + var(--sp-6)); }
-
-.plan-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--mute-bone);
-}
-
-.plan {
-  position: relative;
-  min-width: 0;
-  padding: var(--sp-5) var(--sp-5) var(--sp-6);
-}
-.plan + .plan { border-left: 1px solid var(--rule-bone); }
-.plan.mid::before {
-  content: '';
-  position: absolute;
-  left: 0; right: 0; top: -2px;
-  height: 3px;
-  background: var(--gold-deep);
-}
-
-.plan h3 { color: var(--graphite); }
-
-.plan-price {
-  margin-block: var(--sp-3) var(--sp-5);
-  color: var(--mute-bone);
-  font-size: var(--t-small);
-}
-.plan-price .num {
-  display: block;
-  margin-bottom: var(--sp-1);
-  color: var(--graphite);
-  font-size: var(--t-h2);
-  font-variation-settings: 'wght' 800, 'wdth' 68;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.plan dl > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--sp-4);
-  padding-block: var(--sp-3);
-  border-top: 1px solid var(--rule-bone);
-}
-.plan dt { color: var(--mute-bone); font-size: var(--t-small); }
-.plan dd { margin: 0; font-variation-settings: 'wght' 500, 'wdth' 100; white-space: nowrap; }
-
-.plan-note {
-  margin-top: var(--sp-6);
-  color: var(--mute-bone);
-  font-size: var(--t-small);
-}
-
-/* Links on bone: --gold measures 1.80:1 here; --gold-deep is the light ground's accent. The
-   bone focus ring would vanish on its own ground, so the light section rings in graphite
-   (14.89:1), the same move the gold band makes with --ink. These are the first links the bone
-   run has ever held. */
-.plan-note a,
-.spec-row dd a { color: var(--gold-deep); }
 .spec :focus-visible { outline-color: var(--graphite); }
 
-@media (max-width: 760px) {
-  .plan-grid { grid-template-columns: minmax(0, 1fr); }
-  .plan { padding-inline: 0; }
-  .plan + .plan { border-left: 0; border-top: 1px solid var(--rule-bone); }
-}
-
-/* ---------------------------------------------------------------- steps */
-
-/* Four graduations on one rule, not four cards.
-
-   DESIGN.md: "Cards are used once, for the spec block... Feature content is laid out as ruled
-   rows, not as a repeating icon-heading-text grid." This was the single place that broke that,
-   and it was the one section a visitor would have called generic SaaS — which is the exact
-   anti-reference PRODUCT.md names first.
-
-   Drawing it as a scale is also what the content means. "De l'appel au premier lundi" is a
-   sequence in time, not four peers, and a ruled scale with four ticks says so without a word. */
-.steps {
+.spec-table { font-size: 1rem; }
+.spec-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(20px, 2.6vw, 44px);
-  border-top: 1px solid var(--rule-strong);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-1);
+  padding-block: 14px;
+  border-top: 1px solid var(--rule-bone);
+}
+.spec-row:first-child { border-top-color: var(--mute-bone); }
+.spec-row dt { color: var(--gold-deep); padding-top: 2px; }
+.spec-row dd { color: var(--ink); }
+
+@media (min-width: 760px) {
+  .spec-row { grid-template-columns: 220px minmax(0, 1fr); gap: var(--sp-5); }
 }
 
-.step {
-  position: relative;
-  padding-top: var(--sp-5);
-}
+/* ---------------------------------------------------------------- 05 · faq */
 
-/* The graduation itself: a tick standing on the rule. Square-ended, like everything else in
-   this system — a round dot would be the one pill-shaped object on the page. */
-.step::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: 0;
-  width: 2px;
-  height: 10px;
-  background: var(--gold);
-}
-
-.step .n {
-  display: block; color: var(--gold);
-  margin-bottom: var(--sp-3);
-}
-/* Was hard-coded to 1.0625rem, exactly body size, so the heading was distinguished from its
-   own paragraph by weight alone. It is a heading; it takes the heading step. */
-.step h3 { margin-bottom: var(--sp-2); font-size: var(--t-h3); }
-.step p { color: var(--muted); font-size: var(--t-small); }
-
-@media (max-width: 760px) {
-  /* Stacked, a horizontal scale stops meaning anything, so each step carries its own rule and
-     the object degrades into exactly the ruled rows the rest of the page is built from. */
-  .steps { grid-template-columns: minmax(0, 1fr); gap: 0; border-top: 0; }
-  .step { border-top: 1px solid var(--rule-strong); padding-block: var(--sp-5); }
-  .step::before { top: -1px; }
-}
-
-/* ---------------------------------------------------------------- people */
-
-/* The one photograph on the site, and the only image here that is NOT evidence.
-   It is deliberately the inverse of .device: full-bleed and unframed, where a screenshot sits
-   inside a phone body with a visible "real capture" caption under it. That contrast is how a
-   reader tells atmosphere from proof without being told which is which.
-
-   Unnumbered on purpose. 01 to 06 is a declared system; a "07" would give a stock photograph
-   the same standing as the spec sheet.
-
-   Full-bleed WITHOUT 100vw: that unit includes the scrollbar and is the usual way the
-   320-1920 no-horizontal-overflow rule gets broken. This is a block-level section outside
-   .wrap, the same pattern .cta already uses. */
-.people { background: var(--ink); }
-
-.people-img { position: relative; }
-
-/* Beats the global `img { height: auto }` on specificity, so a 2.4:1 source cannot become
-   700px tall on a phone. */
-.people-img img {
-  display: block; width: 100%;
-  height: clamp(200px, 30vw, 420px);
-  object-fit: cover; object-position: center 34%;
-}
-
-/* The scrim lives here rather than baked into the JPEG, so it survives any responsive crop. */
-.people-img::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 42%;
-  background: linear-gradient(0deg, var(--ink), transparent);
-  pointer-events: none;
-}
-
-/* The illustrative disclosure is VISIBLE, not hidden in the alt attribute. A sighted reader
-   needs to know this is stock as much as a screen-reader user does, and the site's whole
-   credibility position is that you cannot mistake atmosphere for evidence. */
-.people-cap {
-  display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5);
-  justify-content: space-between;
-  color: var(--muted);
-  padding-block: var(--sp-4) var(--sp-6);
-  max-width: none;
-}
-
-/* ---------------------------------------------------------------- cta band */
-
-.cta {
-  background: var(--gold);
-  color: var(--ink);
-}
-.cta h2 { color: var(--ink); }
-.cta p { color: var(--ink); opacity: 0.82; max-width: 52ch; }
-.cta .actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-6); }
-
-.cta .btn.solid { background: var(--ink); color: var(--bone); }
-.cta .btn.solid:hover { background: var(--graphite); color: var(--bone); }
-.cta .btn.line { border-color: var(--ink); color: var(--ink); }
-.cta .btn.line:hover { background: rgba(20, 18, 15, 0.12); }
-.cta :focus-visible { outline-color: var(--ink); }
-
-/* The signature at the ask: a named human where the page previously had nobody.
-
-   Text only. A portrait was here and was removed at the owner's request; if one ever returns,
-   note that it has to be graded so its background lands on --ink, because a light studio
-   backdrop reads as a hole punched in the gold band. */
-.signed {
-  margin-top: var(--sp-7);
-  padding-top: var(--sp-6);
-  border-top: 1px solid rgba(20, 18, 15, 0.28);
-  max-width: 62ch;
-}
-
-.signed p {
-  margin: 0;
-  color: var(--ink);
-  opacity: 0.82;
-  font-size: var(--t-small);
-  max-width: none;
-}
-
-.signed b {
-  display: block;
-  opacity: 1;
-  font-variation-settings: 'wght' 700, 'wdth' 100;
-  margin-bottom: var(--sp-2);
-}
-
-/* Ink on gold, underlined, because colour alone cannot carry a link on a single-accent band. */
-.signed a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
-/* Section 06 completes the 01-06 system, which previously stopped at 05 at the one section
-   that matters most. On the gold ground the numeral and the rule take ink: gold on gold is
-   invisible, and bone on gold is 1.80:1. */
-.cta .sec-head .rule { border-color: rgba(20, 18, 15, 0.28); }
-.cta .sec-head .n,
-.cta .sec-head .k { color: var(--ink); }
-.cta .note { color: var(--ink); opacity: 0.74; margin-top: var(--sp-5); }
-
-/* ------------------------------------------------------- mobile ask bar */
-
-/* PRODUCT.md puts this buyer "standing in a gym between sessions with ten minutes on their
-   phone". At 390px this page runs about 11,200px, which puts the ask on screen twelve, and
-   the header CTA is hidden below 620px. Without this the primary action appears once above
-   the fold and then not again for 10,000px.
-
-   Three deliberate choices:
-   - It links to the ask, not straight to WhatsApp. Success is a QUALIFIED call; a one-tap
-     jump to the chat from screen one would buy volume at the cost of the thing being bought.
-   - It is pure CSS and always present below the breakpoint. Gating it on JS would put the
-     only conversion behind the same script failure that already blanks every `.rv` element.
-   - `body` gets bottom padding to match, so the footer can always clear it. */
-.ask-bar { display: none; }
-
-@media (max-width: 620px) {
-  .ask-bar {
-    display: block;
-    position: fixed;
-    inset: auto 0 0 0;
-    z-index: 60;              /* above the sticky header at 50, below the skip link at 100 */
-    padding: var(--sp-3) var(--gutter);
-    padding-bottom: calc(var(--sp-3) + env(safe-area-inset-bottom));
-    background: var(--ink);
-    border-top: 1px solid var(--rule-strong);
-  }
-  .ask-bar .btn { width: 100%; }
-  body { padding-bottom: 92px; }
-}
-
-/* ---------------------------------------------------------------- faq */
-
-.faq { border-top: 1px solid var(--rule-strong); }
-.faq details { border-bottom: 1px solid var(--rule-strong); }
+.faq { max-width: 820px; }
+.faq details { border-top: 1px solid var(--rule-strong); padding-block: 18px; }
 .faq summary {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4);
-  padding-block: var(--sp-5);
+  display: flex; gap: 14px;
   cursor: pointer;
-  font-variation-settings: 'wght' 600, 'wdth' 100;
   list-style: none;
+  font-size: var(--t-h3);
+  font-variation-settings: 'wght' 600, 'wdth' 100;
+  line-height: 1.25;
 }
 .faq summary::-webkit-details-marker { display: none; }
-.faq summary::after {
-  content: '+'; color: var(--gold);
-  font-variation-settings: 'wght' 700;
-  flex: none; font-size: 1.25rem; line-height: 1;
+.faq summary::before {
+  content: '+';
+  flex: none; width: 14px;
+  color: var(--gold);
+  font-variation-settings: 'wght' 700, 'wdth' 100;
 }
-.faq details[open] summary::after { content: '\2212'; }
-.faq details p { color: var(--muted); padding-bottom: var(--sp-5); }
+.faq details[open] summary::before { content: '\2212'; }
+.faq details p { color: var(--muted); margin: 10px 0 0 28px; max-width: 62ch; }
+.faq a { color: var(--gold); }
+
+/* ---------------------------------------------------------------- 06 · the film */
+
+/* Landscape and unframed: a 16:9 film is not a phone screen, and it already draws its phones
+   itself. It ships with controls and preload="none" - it has a voice-over, so it never plays
+   by itself, and nobody pays for 2 MB they did not press play on. */
+.film {
+  border-radius: var(--r);
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 1px var(--rule-strong);
+}
+.film video { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+.film-cap { margin-top: var(--sp-3); }
 
 /* ---------------------------------------------------------------- footer */
 
 .ftr {
   background: var(--ink);
   border-top: 1px solid var(--rule-strong);
-  padding-block: var(--sp-8);
-  padding-bottom: calc(var(--sp-8) + env(safe-area-inset-bottom));
+  padding-block: 56px 32px;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
 }
 .ftr-in {
-  display: flex; flex-wrap: wrap; gap: var(--sp-6);
+  display: flex; flex-wrap: wrap; gap: 40px;
   justify-content: space-between; align-items: flex-start;
 }
 .ftr a { color: var(--muted); text-decoration: none; transition: color var(--fast) var(--ease); }
 .ftr a:hover { color: var(--bone); }
 .ftr ul { display: grid; gap: var(--sp-2); font-size: var(--t-small); }
-.ftr .fine { color: var(--muted); font-size: var(--t-small); max-width: 42ch; }
+.ftr .fine { margin-top: 0; max-width: 42ch; }
 
-/* ---------------------------------------------------------------- responsive */
+.ftr-c { max-width: 52ch; }
+.ftr-c .fine { margin-top: var(--sp-3); max-width: none; }
 
-@media (max-width: 1000px) {
-  .hero-grid { grid-template-columns: minmax(0, 1fr); }
-  /* A phone-sized picture of a phone, shown on a phone, is the classic mockup absurdity. */
-  .hero-media video { max-height: 56svh; }
-  .stage { grid-template-columns: minmax(0, 1fr); }
-  .stage-body { position: static; }
+.ftr .links { display: flex; flex-wrap: wrap; gap: var(--sp-2) 22px; }
+.ftr .links a { color: var(--bone); }
+.ftr .links a:hover { color: var(--gold); }
+
+.credits {
+  margin-top: 40px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule-strong);
+  color: var(--muted);
+  font-size: 0.8125rem;
 }
-
-/* The header collapses well before the body does. Five French nav labels plus the CTA needed
-   about 940px; below that they overflowed the bar between this breakpoint and the old 760px
-   one, which is a band only a tablet ever lands in and no desktop check would surface.
-   With a second language link (CHW-203) the header keeps its full right margin only from
-   ~955px in French and ~965px in Spanish, whose labels and CTA are the longest; below that
-   the CTA eats into the gutter. 980px leaves room for one more locale's worth of slack. */
-@media (max-width: 980px) {
-  .nav {
-    display: none;
-    position: absolute; left: 0; right: 0; top: 100%;
-    flex-direction: column; gap: 0;
-    background: var(--graphite);
-    border-bottom: 1px solid var(--rule-strong);
-    padding: var(--sp-3) var(--gutter) var(--sp-5);
-  }
-  .nav.open { display: flex; }
-  .nav a { padding-block: var(--sp-3); font-size: var(--t-body); }
-  .burger { display: block; }
-  .hdr-in { position: relative; }
-}
-
-/* The header CTA goes last: on a tablet there is still room for it next to the burger. */
-@media (max-width: 620px) {
-  .hdr .btn.primary { display: none; }
-}
-
-@media (max-width: 760px) {
-  .row { grid-template-columns: 2.5rem minmax(0, 1fr); }
-  .row p { grid-column: 2; }
-
-  .spec-row { grid-template-columns: 1fr; gap: var(--sp-1); }
-}
+.credits p { max-width: none; }
+.ftr .credits a { text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---------------------------------------------------------------- motion */
 
@@ -1146,8 +758,7 @@ p { max-width: 68ch; }
 .js .rv.in { opacity: 1; transform: none; }
 
 /* First-visit hero intro. The `.intro` class is set pre-paint by an inline head script, so the
-   hero never paints and then hides. Staggered so the screenshot arrives last and reads as
-   depth. */
+   hero never paints and then hides. Staggered so the phone arrives last and reads as depth. */
 @keyframes introUp {
   from { opacity: 0; transform: translateY(18px); }
   to   { opacity: 1; transform: none; }
@@ -1158,24 +769,20 @@ p { max-width: 68ch; }
 }
 
 .js.intro .hero .eyebrow,
-.js.intro .hero .display span,
+.js.intro .hero .display,
 .js.intro .hero .lead,
-.js.intro .hero .actions,
+.js.intro .hero .ctas,
 .js.intro .hero .note,
-.js.intro .hero-plans,
-.js.intro .hero-stage {
+.js.intro .hero .shot {
   opacity: 0;
   animation: introUp var(--slow) var(--ease) forwards;
 }
-.js.intro .hero .eyebrow           { animation-delay: 40ms; }
-.js.intro .hero .display span:nth-child(1) { animation-delay: 90ms; }
-.js.intro .hero .display span:nth-child(2) { animation-delay: 150ms; }
-.js.intro .hero .display span:nth-child(3) { animation-delay: 210ms; }
-.js.intro .hero .lead              { animation-delay: 300ms; }
-.js.intro .hero .actions           { animation-delay: 380ms; }
-.js.intro .hero .note              { animation-delay: 430ms; }
-.js.intro .hero-plans              { animation-delay: 400ms; }
-.js.intro .hero-stage {
+.js.intro .hero .eyebrow { animation-delay: 40ms; }
+.js.intro .hero .display { animation-delay: 110ms; }
+.js.intro .hero .lead    { animation-delay: 240ms; }
+.js.intro .hero .ctas    { animation-delay: 320ms; }
+.js.intro .hero .note    { animation-delay: 380ms; }
+.js.intro .hero .shot {
   animation-name: introRise;
   animation-delay: 460ms;
   animation-duration: 680ms;
@@ -1192,18 +799,18 @@ p { max-width: 68ch; }
   }
   .js .rv { opacity: 1; transform: none; }
   .js.intro .hero .eyebrow,
-  .js.intro .hero .display span,
+  .js.intro .hero .display,
   .js.intro .hero .lead,
-  .js.intro .hero .actions,
+  .js.intro .hero .ctas,
   .js.intro .hero .note,
-  .js.intro .hero-plans,
-  .js.intro .hero-stage { opacity: 1; animation: none; }
+  .js.intro .hero .shot { opacity: 1; animation: none; }
 }
 
 /* ---------------------------------------------------------------- doc pages */
 
-/* Legal and privacy prose. Same system, narrower measure, no hero. */
+/* Legal and privacy prose, and the 404. Same system, narrower measure, no hero. */
 .doc { padding-block: var(--sp-8) var(--sp-9); }
+.doc .eyebrow { color: var(--gold); margin-bottom: var(--sp-4); }
 .doc h1 {
   font-size: var(--t-h2);
   font-variation-settings: 'wght' 700, 'wdth' 78;
@@ -1215,8 +822,8 @@ p { max-width: 68ch; }
 .doc h2 {
   font-size: var(--t-h3);
   font-variation-settings: 'wght' 600, 'wdth' 100;
-  text-transform: none;
   letter-spacing: -0.01em;
+  max-width: none;
   margin-top: var(--sp-7);
   margin-bottom: var(--sp-3);
   padding-top: var(--sp-4);
@@ -1228,12 +835,3 @@ p { max-width: 68ch; }
 .doc a { color: var(--gold); }
 .doc [id] { scroll-margin-top: 96px; }   /* below the sticky header, for the app's link to #donnees */
 .doc .todo { color: var(--gold); }
-
-/* Smallest screens: shrink again so nothing dominates a real phone. */
-@media (max-width: 420px) {
-  .hero-media video { max-height: 44svh; }
-  /* No narrowing here. `.device` is already `width: min(100%, var(--dev-w))`, so on a phone
-     the column caps it at roughly 350px, which is ~0.97 life-size — the app rendered at
-     very nearly the size it actually runs at on the reader's own phone. Capping it at
-     230px made the one context where the capture can be life-size the blurriest. */
-}

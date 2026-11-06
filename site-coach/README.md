@@ -1,7 +1,8 @@
 # site-coach — the FitPal Coach marketing site
 
-Static FR/EN/ES marketing site for **fitpal.ma**, the software sold to independent personal
-trainers. Plain HTML/CSS/JS, no framework, no runtime dependencies.
+Static FR/EN/ES marketing site for **fitpal.ma**, the software sold to independent coaches who
+find their clients on Instagram. Its one conversion is "Commencer gratuitement", the self-serve
+Free plan (CHW-342; `PRODUCT.md`). Plain HTML/CSS/JS, no framework, no runtime dependencies.
 
 **This directory is source, not the deployable.** `node scripts/build-site-coach.mjs`
 writes `dist/site-coach/`, and that is what ships: minified CSS/JS under content-hashed
@@ -35,158 +36,135 @@ site; this one is a field manual.
 index.html              FR landing (root locale)
 en/index.html           EN landing
 es/index.html           ES landing
-mentions-legales.html   FR legal
-en/legal.html           EN legal
-es/legal.html           ES legal
+mentions-legales.html   FR legal          conditions.html   FR terms
+en/legal.html           EN legal          en/terms.html     EN terms
+es/legal.html           ES legal          es/terms.html     ES terms
+404.html                not found, noindex
 styles.css              the whole design system, one file
-site.js                 menu, scroll reveal, hero video
-img/screens/*.png       real app screenshots (see below), every one per locale (`-fr` /
-                        `-en` / `-es`): client-home, client-stats, coach-today, coach-clients.
+site.js                 scroll reveal, nothing else (CHW-342 removed the menu and the hero loop)
+img/screens/*.png       real app screenshots (see below), 720x1560, one per locale:
+                        public-page, request, client-day1 (CHW-342, shown) and client-home,
+                        client-stats, coach-today, coach-clients (CHW-318, not shown any more).
                         Their AVIF/WebP variants come from `python scripts/build-images.py`.
-                        "Training now" is live presence: POST /api/activity for two demo clients
-                        right before each capture, and drop any non-demo client from the capture
-                        instance or the counters will not read 6. Name those two live sessions in
-                        the page's language ("Bas du corps", "Tren inferior"): the name is shown.
+img/hero-lift.jpg       hero photograph, 1920x1080      } stock, Vitaly Gariev on Unsplash,
+img/side-client.jpg     section 02, client side, 1600   } NOTICE.md. AVIF/WebP variants from
+img/side-coach.jpg      section 02, coach side, 1600    } build-images.py.
+img/demo-poster-{fr,es}.jpg  the demo film's poster, 1280x720, the frame at 1.5s
 img/og-{fr,en,es}.png   1200x630 social cards, one layout in three languages, all ending in
                         fitpal.ma (rendered from an HTML card in headless Chrome, Archivo)
-img/promo-poster-{fr,en,es}.jpg  hero video poster (the frame at 10.1s, 800x450)
-img/coach-hero.jpg      hero portrait, NOT SHOWN since CHW-318 (the price list took its column);
-                        kept, with its NOTICE.md entry, in case it returns
-img/coaches.jpg         the full-bleed photo band (stock, illustrative — both in NOTICE.md)
-assets/promo-{fr,en,es}.{mp4,webm}  the hero loop, 16.8s, silent, 1280x720 (H.264 ~130 kbps;
-                        AV1 via libsvtav1 -crf 50), cut down from the 1920x1080 render
+assets/demo-{fr,es}.{mp4,webm}  the 47s demo film with voice-over, 1280x720 (see below)
+img/promo-poster-*.jpg, assets/promo-*  the CHW-318 hero loop, NOT SHOWN since CHW-342
+img/coach-hero.jpg, img/coaches.jpg     CHW-318 photographs, NOT SHOWN; kept with their
+                        NOTICE.md entries in case they return
 favicon.svg  icon-180.png  robots.txt  sitemap.xml  _headers
 ```
+
+**The EN page has no demo film.** There is no English render of the demo
+(`../fitpal-coach-videos/videos/fitpal-coach-demo-join/build.mjs` builds FR and ES only), so
+`en/index.html` keeps section 06's heading and its two buttons and drops the video. When an EN
+render exists, encode it as below and copy the FR page's `<figure>` into the EN page.
 
 Design decisions and their reasoning live in `DESIGN.md` and `PRODUCT.md` at the repo root.
 
 ## The screenshots are real, and regenerating them is scripted
 
 Every product claim on the page is attached to a screenshot of the actual app. None of them are
-mockups. They were filmed off a local throwaway instance through `frontend/dev/capture-boot.html`,
-the same harness the tutorial videos use, which freezes every CSS transition and animation so the
-output is deterministic.
+mockups. The design (Claude Design, CHW-342) drew its phone screens in HTML; each was replaced by a
+capture before it shipped.
 
-To refilm them, see `docs/VIDEO_CAPTURE.md`. Two things that are specific to these shots:
+The three CHW-342 captures come from the demo film's own run, filmed off a local throwaway
+instance through `frontend/dev/capture-boot.html`:
+`../fitpal-coach-videos/videos/fitpal-coach-demo-join/assets/<lang>/`
 
-- **Film at 360x780 with `--force-device-scale-factor=2`**, giving 720x1560 files. Two reasons,
-  and both matter:
-  - **360x780 is exactly 9:19.5**, the aspect of the device frame the site and the film both
-    use, so a capture fills the phone screen with zero cropping.
-  - **2x, not 1x.** The tutorial pipeline films at 1x because its mockup's screen box is
-    exactly 359x776 — 1:1, no resampling. Neither surface here is 1:1: the film draws its phone
-    about 420x910 on a 1920x1080 frame, and the site's `--dev-w` is 300px. A 720-wide source
-    downscales into both, which is the right direction; a 359-wide 1x capture would have to be
-    *upscaled* into the film, which is the softness `docs/VIDEO_CAPTURE.md` exists to prevent.
-    2x also doubles as the site's retina asset.
+| Site file | Film capture | What it shows |
+|---|---|---|
+| `public-page-<lang>.png` | `01-page.png` | the demo coach's public page (hero and step 1) |
+| `request-<lang>.png` | `c3-request-open.png` | a request in the coach's inbox, Accept and Decline (step 2) |
+| `client-day1-<lang>.png` | `08-home.png` | the client's home, "Séance 1 · aujourd'hui" (step 3) |
+
+The demo accounts are Karim and Sara in French (`coach.fitpal.ma/c/karim.coach`), Javier and Lucía
+in Spanish (`javier.coach`), Jake and Emma in English (`jake.coach`; Karim's page and starter
+program translated, Sara's answers). **The hero caption prints the handle, so it must match the
+capture.** The FR and ES sets come from the demo film's captures (`fitpal-coach-videos`, CHW-346);
+the EN set was filmed for this page on the same local instance: the public page and the request
+through `capture-boot.html`, the client's home in a 360x780 @2x mobile emulation instead, because
+the client's tab bar does not render inside the harness's iframe (Sara's home filmed through it
+lacks the bar too), and the FR/ES `08-home` shots have it.
+
+The coach's portrait in those captures is a stock photograph (Vitaly Gariev, Unsplash; the same
+file is `assets/brand/coach-photo.jpg` in the film project), credited in the footer and NOTICE.md.
+
+To refilm, see `docs/VIDEO_CAPTURE.md`. Things specific to these shots:
+
+- **Film at 360x780 with `--force-device-scale-factor=2`**, giving 720x1560 files. 360x780 is
+  exactly 9:19.5, the aspect of the device frame, so a capture fills the phone screen with zero
+  cropping; 2x means every placement on the site downscales, never upscales.
 
   Under 1000px the app renders its real phone layout (single column, full-width tab bar), not a
   shrunken desktop, so these are genuine phone screens rather than squeezed ones.
-- **The client screens must be shot in EVERY language.** `client-home` and `client-stats` ship
-  as `-fr`, `-en` and `-es` sets. They were English-only once, which meant the French landing page
-  showed a French coach what his client sees *in English*, about a thousand pixels above a spec
-  row promising the client app in French. For a buyer looking for a reason to dismiss, that was
-  the cheapest one available.
-
-  The app's language is `S.lang` in the persisted store, so it comes from the server copy of the
-  client's state. Set it before capturing:
-
-  ```bash
-  cd backend && php artisan tinker --execute '$r = App\Models\UserState::find("demo-karim");
-    $s = json_decode($r->state); $s->lang = "fr"; $r->state = App\Support\Js::stringify($s); $r->save();'
-  ```
-
-  No restart: the backend reads the database on every request. The coach screens follow the same rule
-  (CHW-212): the coach's own `S.lang` sets their language. Set it from the app, signed in as
-  the capture instance's coach (Account → Training settings → Language), before each language's
-  pair of shots. Not by editing the database: the coach's id is whichever coach
-  `php artisan fitpal:seed-demo` seeded onto, and a coach who never changed a setting has no
-  state row yet.
-- **"Training now" cannot be seeded.** It reads the `presence` table, whose rows go stale after
-  70 seconds, so `fitpal:seed-demo` cannot fake it. A demo client cannot sign in to send the
-  heartbeat (`POST /api/activity`, `ActivityController`), so write its row by hand immediately
-  before the capture, in the shape that heartbeat writes.
+- **Every capture is shot in every language.** A French coach must see the app in French, a
+  thousand pixels above a row promising the app in French. The app's language is `S.lang` in the
+  persisted store: set it on the capture instance's accounts before each language's shots.
 - **Always verify which screen you actually captured.** A capture can silently land on the app's
   default route instead of the one you asked for, and the resulting PNG looks perfectly fine
-  until someone reads it. This shipped a dashboard crop labelled as the client roster once.
-  The harness already tells you: it writes `data-dbg` onto `<html>` with the resolved `hash` and
-  the screen's text. Read it, don't eyeball the image:
+  until someone reads it. The harness writes `data-dbg` onto `<html>` with the resolved `hash`
+  and the screen's text. Read it, don't eyeball the image:
 
   ```bash
   chrome --headless=new --dump-dom ... "http://localhost:5173/capture-boot.html?..." \
     | grep -o 'data-dbg="[^"]*"'
-  # expect: "hash":"#/clients"  and text starting "Clients 6 clients Invite ..."
   ```
 
   Adding `&do=wait:1800` gives the SPA time to settle on the requested route after the cookie is
-  planted, which is what the failed attempt was missing.
+  planted.
 
 ## Every app screen is in a phone — the film is not
 
-`.device` wraps all four screenshots: a 1px outline, an ink bezel, a small speaker slot, and a
-screen at `aspect-ratio: 9 / 19.5`.
+`.device` wraps every screenshot: a 1px outline, an ink bezel, a small speaker slot, and a
+screen at `aspect-ratio: 9 / 19.5`. Under each one is a caption ("Capture de l'app").
 
-It does **not** wrap the hero film, which is 1920x1080 and sits unframed at the container's full
-width. The film's own frames already hold phones, drawn in this same geometry — framing the film
-would nest a phone inside a phone, and would crop a landscape picture to a 9:19.5 slot, throwing
-away most of every frame. `DESIGN.md` states the rule; this is the same rule, not an exception.
+It does **not** wrap the demo film, which is 16:9 and sits unframed at the container's full
+width. The film's own frames already hold phones, drawn in this same geometry; framing the film
+would nest a phone inside a phone. `DESIGN.md` states the rule.
 
-Three things worth knowing before changing it:
+Things worth knowing before changing it:
 
 - **The ratio is measured, not chosen.** 9:19.5 is the app's own phone viewport, so the captures
-  and the film fill the screen with no cropping and no letterbox. Change the ratio and everything
-  inside starts getting cropped silently by `object-fit: cover`.
-- **The hero's two-column breakpoint is 1040px, not 1000px.** Chrome matches media
-  queries against `innerWidth` (scrollbar included) but lays out against `clientWidth`, so a
-  1000px rule fires with 985px of room; the second grid track (then the photo) collapsed to `0px` and its
-  caption spilled 78px, giving the page a horizontal scrollbar. Do not lower it back.
-- **`--dev-w` lives on the CONTAINER** (`.stage .shot-wrap`), not on `.device`,
-  because the caption reads it too (`max-width`). Set it on the device and the caption stops
-  matching the phone it labels.
-- **The geometry is borrowed, the skin is not.** It comes from the house component the ten
-  tutorial videos use, which wears a gradient bezel under a five-layer shadow. This one is a flat
-  outline: a glossy phone would be the one glossy thing on a page built to look like a manual.
+  fill the screen with no cropping and no letterbox. Change the ratio and everything inside starts
+  getting cropped silently by `object-fit: cover`.
+- **The hero's two-column breakpoint is 1040px, not 1000px.** Chrome matches media queries
+  against `innerWidth` (scrollbar included) but lays out against `clientWidth`, so a 1000px rule
+  fires with 985px of room; the second grid track once collapsed to `0px` and its caption spilled,
+  giving the page a horizontal scrollbar. Do not lower it back.
+- **`--dev-w` lives on the figure** (`.shot`), not on `.device`, because the caption reads it
+  too (`max-width`). Set it on the device and the caption stops matching the phone it labels.
+  Hero 300px (250 on a phone), steps 220px from 900px (250 below).
+- **The geometry is borrowed, the skin is not.** It comes from the house component the tutorial
+  videos use, which wears a gradient bezel under a five-layer shadow. This one is a flat outline:
+  a glossy phone would be the one glossy thing on a page built to look like a manual. (The design
+  export drew a drop shadow; it was not carried over.)
 
-The flat `.shot` treatment this replaced is gone, and with it the signal that separated evidence
-from atmosphere — so that claim now lives in the visible caption under every device.
+## The demo film
 
-## The hero video
+`assets/demo-{fr,es}.{mp4,webm}` is the 47-second demo (link, request, accept, workout 1) with a
+voice-over and burned-in captions, cut for the web from the 1920x1080 renders in
+`../fitpal-coach-videos/videos/fitpal-coach-demo-join/renders/demo-<lang>-h.mp4`:
 
-`assets/promo-{fr,en,es}.mp4` is a 16.8-second silent loop built with HyperFrames. The project lives
-**outside this repo**, at `../fitpal-coach-videos/videos/fitpal-coach-site-hero`, following the
-same convention as the ten tutorial episodes (`docs/VIDEO_CAPTURE.md`).
+```bash
+ffmpeg -i demo-fr-h.mp4 -vf scale=1280:720:flags=lanczos -c:v libx264 -preset slow -crf 25 \
+  -profile:v high -pix_fmt yuv420p -c:a aac -b:a 96k -ac 2 -movflags +faststart demo-fr.mp4
+ffmpeg -i demo-fr-h.mp4 -vf scale=1280:720:flags=lanczos -c:v libsvtav1 -crf 42 -preset 6 \
+  -pix_fmt yuv420p -c:a libopus -b:a 64k -ac 2 demo-fr.webm
+ffmpeg -ss 1.5 -i demo-fr-h.mp4 -frames:v 1 -vf scale=1280:720:flags=lanczos -q:v 4 demo-poster-fr.jpg
+```
 
-Four things about it that are not obvious:
+The two videos go in `assets/`, the poster in `img/`. The same for `es`.
 
-- **It is landscape because the type is the script.** It was built portrait, to sit in a phone
-  beside the hero copy. In that track a 16:9 film resolves to ~530px wide and a 9:19.5 one to
-  ~355px — and with no voiceover, every word of the argument is on screen. Both were too small
-  to read. It was re-laid-out at 1920x1080 (not resized — five frames recomposed) and the hero
-  stacked, which puts it near 1000px. The opening title frame was cut in the process: it said
-  the same three words as the page headline sitting directly above it, which is a poor use of
-  the first three seconds. That is where 20s became 16.8s.
-- **It is silent on purpose, and that is what shapes it.** A hero video autoplays muted, so a
-  film that needs sound is a film nobody hears. There is no voiceover, no music, no SFX
-  (`music: none` plus no `SCRIPT.md` is HyperFrames' canonical silent marker). Type and motion
-  carry the whole argument, and every frame ends on at least half a second of complete stillness
-  because continuous motion in peripheral vision is what makes a hero loop irritating by the
-  third pass.
-- **There is one render per locale because the type IS the script.** With no voiceover, one file
-  cannot serve every locale. Each copy string is authored as `<span data-i18n="04.2">…</span>` and
-  `localize.mjs fr|en|es` swaps them by key; it is strict, so an unknown key or an unused one fails
-  rather than shipping a half-translated video. Every layout is measured against the French
-  string, which is longer in every beat. The Spanish strings were chosen to fit it: "El Excel" and
-  "Los DM" rather than "La hoja de cálculo", and frame 05 breaks as "Tus clientes tienen / una
-  app de verdad." — check that frame after any copy change, an orphaned "app." is the failure.
-- **The fonts are staged locally, not fetched.** `stage-fonts.mjs` puts Archivo's latin and
-  latin-ext subsets in the project's `assets/fonts/` and rewrites each frame's `@font-face`.
-  Without it the render silently falls back to a system sans and loses the `wdth 68`
-  condensation that is most of the visual identity. Paths must be root-relative
-  (`assets/fonts/…`), not `../../` — compositions are served with the project root as base URL.
-
-To rebuild: `node stage-fonts.mjs && npx hyperframes check && npx hyperframes render --output
-renders/video-en.mp4`, then `node localize.mjs fr` and render again, the same for `es`, then lift
-a poster frame with ffmpeg and `node localize.mjs en` to restore the source.
+About 2.0 MB (H.264) and 1.45 MB (AV1) each. It ships with `controls`, `preload="none"` and
+`playsinline`, and no autoplay: it has a voice-over, so it plays only when pressed, and nobody
+downloads 2 MB they did not ask for. That is also why `site.js` no longer touches video. The
+poster is a plain JPEG rather than a `<picture>` because `<video poster>` takes one URL; it is not
+in `build-images.py`'s POSTERS list, which would shrink it to 800px for a slot that is 1088px wide.
 
 ## Contrast is verified, not asserted
 
@@ -205,12 +183,18 @@ whole extra token to rescue 12px labels. The primary button's hover does not tin
 — it inverts the plate (ink fill, gold label), which uses two ratios the checker already asserts
 and costs no token at all.
 
-## Two gotchas
+## Gotchas
 
 **Automated contrast checkers fail the landing pages, and they are wrong.** The first-visit hero
 intro fades in, so an auditor sampling mid-animation reports the hero as failing at a different
 ratio every run. Measured at rest with all animations finished, everything passes. The legal
 pages, which have no intro, audit clean. Audit with reduced motion, or after animations settle.
+The hero copy also sits on a photograph: the checker cannot see that, so the shade is ink at 96%
+under the copy and the phone's caption has its own ink plate.
+
+**Headless Chrome cannot screenshot a 390px page directly on Windows.** The window has a minimum
+width, so `--window-size=390,…` lays the page out wider and crops it, and the result looks like a
+page overflowing its viewport. Load the page in a 390px `<iframe>` inside a wider window instead.
 
 **Extensionless URLs.** Cloudflare Pages serves `/foo.html` at `/foo` and 308-redirects the
 `.html` form, so canonicals, hreflangs, the sitemap and internal links all use the extensionless
@@ -226,14 +210,16 @@ cd site-coach && python3 -m http.server 8080
 No build, no watch, no dependencies. Edit and reload.
 
 Bump the `?v=` on `styles.css` and `site.js` when you change either — the browser cache-bust is
-manual, the same convention `website/` uses.
+manual, the same convention `website/` uses. (The landings and the 404 are on `styles.css?v=19`;
+the legal pages still say `?v=18`, which only matters to a local preview: the build replaces both
+with the hashed name.)
 
 ## Still open
 
 **These block deployment, by design.** `deploy-site-coach.yml` has a gate that fails the build
-while any of them is still present, because the page's only conversion is a call and the call is
-booked through the details below — ship them as placeholders and every visitor who reaches the
-ask hits a dead end. That is the one failure no other check in the job can see.
+while any of them is still present, because the page's second button is WhatsApp and the footer's
+Contact is the mailbox below — ship them as placeholders and a visitor with a question hits a dead
+end. That is the one failure no other check in the job can see.
 
 - `wa.me/212600000000` is a placeholder. So is `contact@fitpal.ma`.
 - Company name, address, legal form and registration number in both legal pages are bracketed

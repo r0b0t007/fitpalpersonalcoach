@@ -41,11 +41,19 @@ SITE = os.path.join(HERE, 'site-coach')
 JOBS = [
     ('img/coach-hero.jpg', [400, 800, 1100], ('avif', 'webp')),
     ('img/coaches.jpg', [600, 1200, 1800], ('avif', 'webp')),
+    # CHW-342: the hero photo runs full-bleed behind the copy, so it needs a desktop width; the
+    # two side photos sit in half a 1200px container, about 560 CSS px at most.
+    ('img/hero-lift.jpg', [800, 1280, 1920], ('avif', 'webp')),
+    ('img/side-client.jpg', [600, 1200], ('avif', 'webp')),
+    ('img/side-coach.jpg', [600, 1200], ('avif', 'webp')),
 ] + [
     # Every app screenshot exists once per page language: a French coach reading the French page
     # sees the app in French (CHW-212 for the coach screens, which were English-only until then).
+    # The first four are the CHW-318 page's and no page shows them since CHW-342; the last three
+    # are the join flow's, from the demo film's captures.
     ('img/screens/%s-%s.png' % (shot, lang), [360, 720], ('avif', 'webp'))
-    for shot in ('coach-today', 'coach-clients', 'client-home', 'client-stats')
+    for shot in ('coach-today', 'coach-clients', 'client-home', 'client-stats',
+                 'public-page', 'request', 'client-day1')
     for lang in ('fr', 'en', 'es')
 ]
 

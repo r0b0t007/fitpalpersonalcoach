@@ -116,17 +116,57 @@ the source files.
 
 ## Marketing photography
 
-Two photographs appear on the FitPal Coach marketing site. Both are licensed stock, used
-illustratively: neither carries a name, a quote or a claimed result, and neither makes a product
-claim. `DESIGN.md` states that rule. Both are under **the Pexels License**, which permits free
-commercial use and modification and does not require attribution — recorded here anyway, because
-a file whose provenance is not written down is a file nobody can re-licence or replace later.
+Since CHW-342 the FitPal Coach marketing site shows three photographs, and a fourth appears inside
+its app captures. All four are by **Vitaly Gariev** (<https://unsplash.com/@silverkblack>), under
+**the Unsplash License** (<https://unsplash.com/license>), which permits free commercial use and
+modification and does not require attribution. They are credited in the site's footer anyway,
+with the line saying the people photographed are not FitPal clients or coaches. Each is
+self-hosted: `_headers` allows images from the site's own origin only. Photographer and licence
+were checked on each photo's Unsplash page on 2026-11-06.
+
+**`site-coach/img/hero-lift.jpg`** — the hero, behind an ink shade.
+
+- **Source**: Unsplash, photo **rD0poLlu57M** (`photo-1758875569256-f37c438cac65`), "a young woman
+  lifts a heavy barbell while a male trainer watches" (<https://unsplash.com/photos/rD0poLlu57M>)
+- **Modifications**: downloaded at 2400px and resized to 1920x1080. The page greys it 25% and
+  shades it in CSS; the file itself is not graded.
+
+**`site-coach/img/side-client.jpg`** — section 02, the client's side.
+
+- **Source**: Unsplash, photo **ChQzCFlNJDE** (`photo-1758599878868-52cced2f8154`), a woman
+  exercising on a mat at home (<https://unsplash.com/photos/ChQzCFlNJDE>)
+- **Modifications**: resized to 1600x900, cropped by the page to a 300px band.
+
+**`site-coach/img/side-coach.jpg`** — section 02, the coach's side.
+
+- **Source**: Unsplash, photo **6ESp0qoio_I** (`photo-1758875569399-99a7d80ace43`), "trainer and
+  client discussing workout plan in gym" (<https://unsplash.com/photos/6ESp0qoio_I>)
+- **Modifications**: resized to 1600x900, cropped by the page to a 300px band.
+
+**The demo coach's portrait inside `site-coach/img/screens/public-page-*.png`** — the photo the
+demo account "Karim" / "Javier" uses on its public page, in the captures and in the demo film
+(`fitpal-coach-videos/videos/fitpal-coach-demo-join/assets/brand/coach-photo.jpg`).
+
+- **Source**: Unsplash, photo **V-gUIqzSXig** (`photo-1758875568932-0eefd3e60090`), "a young
+  athlete stands in a gym with arms crossed" (<https://unsplash.com/photos/V-gUIqzSXig>)
+- **Modifications**: cropped square by the film project; the app crops it again on the page.
+
+The design export credited "Vitaly Gariev, Stepan et Meghan Holmes". Stepan and Meghan Holmes took
+two photographs in the design's photo set that no page uses; every photograph on the site is
+Vitaly Gariev's.
+
+Two earlier photographs, from CHW-318, are no longer shown but their files stay in
+`site-coach/img/`. Both are licensed stock, used illustratively: neither carries a name, a quote
+or a claimed result, and neither makes a product claim. `DESIGN.md` states that rule. Both are
+under **the Pexels License**, which permits free commercial use and modification and does not
+require attribution — recorded here anyway, because a file whose provenance is not written down
+is a file nobody can re-licence or replace later.
 
 A third, a portrait of the project's owner used at the ask, was added and then removed at his
 request. No third-party rights were ever involved and the file is gone; this note exists only so
 the removal does not read as an oversight later.
 
-**`site-coach/img/coaches.jpg`** — the full-bleed band.
+**`site-coach/img/coaches.jpg`** — the full-bleed band. Not shown since CHW-342.
 
 - **Source**: Pexels, photo id **4944433**, by **Anastasia Shuraeva**
   (<https://www.pexels.com/photo/4944433/>)
