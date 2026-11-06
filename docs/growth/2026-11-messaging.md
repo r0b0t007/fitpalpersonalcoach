@@ -40,12 +40,13 @@ Linktree. Their limit is admin time, not demand.
 Each one is a fact about the product today. The lines under it are what to say. Don't stretch it.
 
 1. **It works inside Instagram.** The follower taps the link in the bio, asks to train with you
-   and signs in with a 6-digit code sent by email. There is no store app to download and no
-   password. Inside Instagram's browser, a prompt offers to open the page in Safari or Chrome so
+   and confirms the request with a 6-digit code sent by email. Their account is made when the
+   coach accepts them, or at once with auto-accept: the code alone makes no account, so "they're
+   in" always comes after "you accept". There is no store app to download and no password. Inside Instagram's browser, a prompt offers to open the page in Safari or Chrome so
    it can be added to the home screen (CHW-332).
-   - FR: « Ton abonné demande depuis Instagram. Un code par e-mail, et il est dedans. Pas d'app à télécharger. »
-   - ES: «Tu seguidor lo pide desde Instagram. Un código por email y ya está dentro. Sin descargar ninguna app.»
-   - EN: "Your follower asks from Instagram. One code by email and they're in. No app to download."
+   - FR: « Ton abonné demande depuis Instagram, avec un code reçu par e-mail. Pas d'app à télécharger. Tu acceptes, et il est dedans. »
+   - ES: «Tu seguidor lo pide desde Instagram, con un código que recibe por email. Sin descargar ninguna app. Aceptas y ya está dentro.»
+   - EN: "Your follower asks from Instagram, with a code sent by email. No app to download. You accept, and they're in."
 2. **One price, no add-ons.**
    - **Free:** up to 3 active clients at a time, no card, for as long as you like (production
      sets `FREE_CAP=3`: coach.fitpal.ma's `/api/config` answered `free_cap: 3` on 2026-11-03). Release a
