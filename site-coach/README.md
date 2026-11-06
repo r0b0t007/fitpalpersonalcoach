@@ -48,6 +48,7 @@ es/alternativa-harbiz.html    ES    comparison with Harbiz
                         The comparisons quote competitors' prices from their own pages on a
                         stated date, and all six repeat FitPal's own prices by hand: when
                         either changes, update them with the landings' pricing section.
+                        `grep -rn "19&nbsp;€\|39&nbsp;€\|79&nbsp;€" site-coach` lists every copy.
 404.html                not found, noindex
 styles.css              the whole design system, one file
 site.js                 scroll reveal, nothing else (CHW-342 removed the menu and the hero loop)
