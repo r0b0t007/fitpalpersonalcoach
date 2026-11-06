@@ -25,7 +25,7 @@ section 1.
 
 > Madame, Monsieur,
 >
-> J'exploite, en tant qu'auto-entrepreneur établi à Tétouan (ICE 003586839000050), FitPal Coach
+> J'exploite, en tant que personne physique établie à Tétouan, FitPal Coach
 > (https://fitpal.ma), une application web que des coachs sportifs indépendants utilisent pour
 > suivre leurs clients : programmes d'entraînement, séances, et, si le client le choisit, des
 > données qui peuvent révéler sa santé (blessures signalées à l'inscription, bilans hebdomadaires,
@@ -44,7 +44,7 @@ section 1.
 >    peut figurer dans la section VIII du F-112, sur la base des clauses contractuelles types des
 >    prestataires (article 44.3 de la loi 09-08) ;
 > 3. le mode de dépôt en vigueur (en ligne, par e-mail ou au bureau d'ordre) et les pièces
->    attendues pour une personne physique auto-entrepreneur.
+>    attendues pour une personne physique.
 >
 > Je reste à votre disposition pour tout complément.
 >
@@ -70,9 +70,9 @@ processor contract), and the security annex.
 
 ### Identification du responsable (section I)
 
-- **Personne physique**, auto-entrepreneur : Ahmed Chioua, FitPal Coach.
-- Adresse : [à compléter], Tétouan, Maroc.
-- ICE : 003586839000050. N° d'inscription au registre national de l'auto-entrepreneur : [à compléter].
+- **Personne physique** : Ahmed Chioua, FitPal Coach (pas d'immatriculation commerciale : ni ICE
+  ni RC).
+- Adresse : Bureau 69, Wilaya Center, Tétouan, Maroc.
 - Activité : édition et exploitation d'un logiciel en ligne de suivi pour coachs sportifs.
 - E-mail : contact@fitpal.ma. Téléphone : [à compléter].
 - Représentant légal : Ahmed Chioua. CNI n° : [à compléter].
@@ -148,7 +148,8 @@ Celles de l'annexe 2 des conditions coachs (https://fitpal.ma/conditions#annexe-
 
 ## 4. Pièces à joindre
 
-1. **Document attestant du pouvoir de signature** : attestation d'auto-entrepreneur et CNI [à préparer].
+1. **Document attestant du pouvoir de signature** : copie de la CNI, la personne physique signant
+   pour elle-même [à préparer].
 2. **Note d'information** : les mentions légales (FR), imprimées en PDF.
 3. **Document de consentement** : captures des écrans de consentement (inscription chez un coach ;
    première saisie de données de santé).

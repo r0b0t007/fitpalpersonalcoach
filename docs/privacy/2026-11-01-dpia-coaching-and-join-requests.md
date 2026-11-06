@@ -21,7 +21,7 @@ in the code, not taken from documentation.
 | | |
 |---|---|
 | **Controllers** | Each coach using FitPal Coach, for their own clients and the people who ask to join them. Coaches are independent professionals in France, Belgium, Spain and Morocco. |
-| **Processor** | FitPal Coach, Ahmed Chioua, auto-entrepreneur, ICE 003586839000050, Tétouan, Morocco. |
+| **Processor** | FitPal Coach, Ahmed Chioua, an individual (not registered as a business), Bureau 69, Wilaya Center, Tétouan, Morocco. |
 | **Sub-processors** | Namecheap, Inc. (US): hosting of app and database. Resend, Inc. (US): email. Cloudflare, Inc. (US): traffic, and storage of the encrypted nightly backups (R2, EU jurisdiction; Cloudflare does not hold the key). Browser push services (Google, Apple, Mozilla): encrypted notifications. |
 | **Processing** | A coaching app: a coach's public page, requests to join with an intake form, a client roster, programs, workout logging, a live "training now" indicator, body weight and measurements, weekly check-ins, meals, progress photos. |
 | **Status** | Coaching is live (test accounts only, 1 November 2026). The join flow is built but **closed on the server**: `JOIN_REQUESTS` is off by default, so `/api/join/start` refuses every request, and the public page has no "Ask to join" button. It opens only once the conditions in section 6 are met, so this DPIA comes before the processing, as Art. 35(1) requires. |

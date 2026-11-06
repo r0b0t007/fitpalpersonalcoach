@@ -18,7 +18,9 @@ use App\Support\Js;
  * it, so it bound from the day it was published. So did 2026-11-03 (clause B6: a client's own
  * deletion, CHW-363): no real coach had accepted 2026-11-01, so none was owed the notice. And
  * 2026-11-05 (B9, Annexes 2 and 3: the nightly backup encrypted and copied to R2 in the EU,
- * CHW-361), for the same reason: every coach account is still a test account.
+ * CHW-361), for the same reason: every coach account is still a test account. And 2026-11-06
+ * (Part A §1: the publisher is an individual; the ICE and the auto-entrepreneur status named
+ * before were never FitPal's), for the same reason.
  *
  * The pages deploy to Cloudflare Pages and this file with the backend, separately. Once EFFECTIVE
  * has passed, the app asks for VERSION as soon as the backend is live: check fitpal.ma shows the
@@ -26,9 +28,9 @@ use App\Support\Js;
  */
 final class Terms
 {
-    public const VERSION = '2026-11-05';
+    public const VERSION = '2026-11-06';
 
-    public const EFFECTIVE = '2026-11-05';
+    public const EFFECTIVE = '2026-11-06';
 
     public static function accepted(User $coach, ?int $nowMs = null): bool
     {
