@@ -80,9 +80,9 @@ the queue goes past a day.
 
 ### Follow-up 1, day 3: proof 1 (it works inside Instagram)
 
-- **FR:** [prénom], je reviens vers toi. Ce qui change pour tes abonnés : ils demandent depuis Instagram, reçoivent un code par e-mail, et ils sont dedans. Pas d'app à télécharger. L'offre tient toujours : ton programme sur l'app en 24 h, gratuit.
-- **ES:** [prénom], vuelvo a escribirte. Lo que cambia para tus seguidores: lo piden desde Instagram, reciben un código por email y ya están dentro. Sin descargar ninguna app. La oferta sigue en pie: tu programa en la app en 24 h, gratis.
-- **EN:** [prénom], following up. What changes for your followers: they ask from Instagram, get a code by email, and they're in. No app to download. The offer still stands: your program in the app within 24 hours, free.
+- **FR:** [prénom], je reviens vers toi. Ce qui change pour tes abonnés : ils demandent depuis Instagram avec un code reçu par e-mail, sans app à télécharger, et dès que tu acceptes, ils sont dedans. L'offre tient toujours : ton programme sur l'app en 24 h, gratuit.
+- **ES:** [prénom], vuelvo a escribirte. Lo que cambia para tus seguidores: lo piden desde Instagram con un código que reciben por email, sin descargar ninguna app, y en cuanto aceptas, ya están dentro. La oferta sigue en pie: tu programa en la app en 24 h, gratis.
+- **EN:** [prénom], following up. What changes for your followers: they ask from Instagram with a code sent by email, no app to download, and once you accept, they're in. The offer still stands: your program in the app within 24 hours, free.
 
 ### Follow-up 2, day 7: proof 3 in Morocco, proof 2 elsewhere
 

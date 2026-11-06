@@ -83,7 +83,7 @@ online (Instagram: Insights › Total followers › Most active times), move the
 | Week | Mon | Wed | Fri |
 |---|---|---|---|
 | 1 | **R01** B · Un lien dans ta bio: the demo film, cut to 25 s | **R02** A · Envoie ton PDF, reçois ton lien en 24 h | **R03** C · Ce que ton client voit en ouvrant l'app |
-| 2 | **R04** D · Ton prix de coaching en ligne : 3 questions avant de le fixer | **R05** B · Il demande depuis Instagram : un code par e-mail, il est dedans | **R06** A · Ton Sheet, et la même semaine dans l'app |
+| 2 | **R04** D · Ton prix de coaching en ligne : 3 questions avant de le fixer | **R05** B · Il demande depuis Instagram avec un code par e-mail, tu acceptes | **R06** A · Ton Sheet, et la même semaine dans l'app |
 | 3 | **R07** C · Il a fait sa séance : tu le vois, tu lui réponds | **R08** D · Payé à ta façon : FitPal ne touche pas à ton argent | **R09** B · Accepter à la main, ou l'acceptation automatique |
 | 4 | **R10** A · Pas encore de programme écrit ? 5 modèles prêts | **R11** C · Fini le « tu peux me renvoyer le PDF ? » | **R12** D · Gratuit jusqu'à 3 clients : ce que ça veut dire |
 | 5 | **R13** B · Ta page : photo, bio, et un bouton | **R14** A · Ce que je t'envoie, ce que tu me renvoies (the setup, step by step) | **R15** C · Le bilan de la semaine, sans WhatsApp |
