@@ -66,6 +66,9 @@
   </url>
   <url>
     <loc>https://fitpal.ma/logiciel-coach-sportif</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/logiciel-coach-sportif"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://fitpal.ma/es/app-entrenadores-personales"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/logiciel-coach-sportif"/>
   </url>
   <url>
     <loc>https://fitpal.ma/alternative-trainerize</loc>
@@ -84,6 +87,9 @@
   </url>
   <url>
     <loc>https://fitpal.ma/es/app-entrenadores-personales</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://fitpal.ma/logiciel-coach-sportif"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://fitpal.ma/es/app-entrenadores-personales"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://fitpal.ma/logiciel-coach-sportif"/>
   </url>
   <url>
     <loc>https://fitpal.ma/es/alternativa-harbiz</loc>

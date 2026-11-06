@@ -839,10 +839,8 @@ p { max-width: 68ch; }
 /* The guides and comparisons (CHW-352) reuse the spec table and the FAQ on the dark ground: the
    spec colours are the light section's, so they are reset here to the doc page's. */
 .doc .spec-table { margin-block: var(--sp-4) var(--sp-5); }
-.doc .spec-row { border-top-color: var(--rule-strong); }
-.doc .spec-row:first-child { border-top-color: var(--rule-strong); }
+.doc .spec-row, .doc .spec-row:first-child { border-top-color: var(--rule-strong); }
 .doc .spec-row dt { color: var(--gold); }
 .doc .spec-row dd { color: var(--muted); }
 .doc .spec-row dd strong { color: var(--bone); }
-.doc .faq p { margin-bottom: 0; }
 .doc .cta { margin-top: var(--sp-7); }
