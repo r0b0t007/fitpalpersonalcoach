@@ -18,6 +18,12 @@ Four places where this page differs from the issue's text, and why:
 - **UTM tags would be read by nothing.** fitpal.ma runs no analytics and sets no cookies (its
   legal page says so), so a tagged bio link counts nothing. §6 says what is counted instead.
 
+**Nothing is posted until join requests are on in production.** Most Reels show a follower
+asking to train with a coach, and the core line promises it, but on 2026-11-06 coach.fitpal.ma's
+`/api/config` answered `join_requests: false`. The form is switched off until the CNDP and
+processor questions are settled (CHW-359, CHW-367; CHW-366 closes once it is on). Check
+`/api/config` again before week 1, and film the request flow on the demo instance only.
+
 ## 1. Rules for every Reel
 
 1. **One proof per Reel, shown on a real phone, never described** (messaging §8). The screen does
@@ -60,11 +66,16 @@ Without one, its slot is the objection Reel named in the table below.
 
 ## 3. The calendar
 
-Week 1 is the Monday after the accounts are set up (§5). If that is **Monday 16 November 2026**,
-week 7 is the New Year week and week 12 starts on 1 February 2027, one week before Ramadan (it
-starts about 8 February 2027; the exact date depends on the moon). Two Reels are timed to those
-dates: R20 in week 7 and R35 in week 12. If the start moves, move those two Reels with their
-dates, not with their week numbers.
+Week 1 is the Monday after the accounts are set up (§6) and join requests are on. If that is **Monday 16 November 2026**,
+week 6 starts on 21 December and week 11 on 25 January 2027. Two Reels are timed to dates, early
+enough for a coach to set up before the date arrives:
+- **R16, « Janvier arrive »,** on 21 December, eleven days before the January requests;
+- **R33, Ramadan,** on 29 January, about ten days before Ramadan (it starts about 8 February
+  2027; the exact date depends on the moon).
+
+If the start moves, keep each one 10 days or more before its date by swapping it with another
+Reel of the same theme (D) in the week it needs. Swapping two D Reels leaves every week's themes
+as they are.
 
 Post on Monday, Wednesday and Friday, in the evening. Once Insights shows when the followers are
 online (Instagram: Insights › Total followers › Most active times), move the times to match.
@@ -76,16 +87,16 @@ online (Instagram: Insights › Total followers › Most active times), move the
 | 3 | **R07** C · Il a fait sa séance : tu le vois, tu lui réponds | **R08** D · Payé à ta façon : FitPal ne touche pas à ton argent | **R09** B · Accepter à la main, ou l'acceptation automatique |
 | 4 | **R10** A · Pas encore de programme écrit ? 5 modèles prêts | **R11** C · Fini le « tu peux me renvoyer le PDF ? » | **R12** D · Gratuit jusqu'à 3 clients : ce que ça veut dire |
 | 5 | **R13** B · Ta page : photo, bio, et un bouton | **R14** A · Ce que je t'envoie, ce que tu me renvoies (the setup, step by step) | **R15** C · Le bilan de la semaine, sans WhatsApp |
-| 6 | **R16** D · Un client qui arrête : libère sa place | **R17** B · Ton lien en story : copie-le, colle-le dans un sticker lien | **R18** A · Le programme de départ : la séance 1 est prête le jour où tu acceptes |
-| 7 | **R19** E · La semaine d'un Founding Coach, or the objection « Mes clients n'installeront pas d'app » | **R20** D · Janvier arrive : ton lien est prêt avant les demandes | **R21** C · Son historique : chaque séance, chaque charge |
+| 6 | **R16** D · Janvier arrive : ton lien est prêt avant les demandes | **R17** B · Ton lien en story : copie-le, colle-le dans un sticker lien | **R18** A · Le programme de départ : la séance 1 est prête le jour où tu acceptes |
+| 7 | **R19** E · La semaine d'un Founding Coach, or the objection « Mes clients n'installeront pas d'app » | **R20** D · Un client qui arrête : libère sa place | **R21** C · Son historique : chaque séance, chaque charge |
 | 8 | **R22** B · Le lien dans ta bio, vu depuis le téléphone de ton abonné | **R23** E · Founding Coach, or the objection « Mes clients me paient en cash » | **R24** A · Photos de ton programme papier : ça marche aussi |
 | 9 | **R25** C · Ses graphiques de progression, sur ton téléphone aussi | **R26** E · Founding Coach, or the objection « Et mes données ? » | **R27** D · Répondre à un bilan en 30 secondes |
 | 10 | **R28** B · Ce que ton abonné voit après avoir demandé | **R29** A · 24 h plus tard : le lien qu'on te renvoie | **R30** E · Founding Coach, or the objection « J'utilise déjà une autre app » |
-| 11 | **R31** C · Le bouton WhatsApp : pour tout le reste | **R32** E · Founding Coach, or the objection « Je n'ai pas le temps » (answer: proof 4) | **R33** B · Trois demandes ce matin : le résumé de 7 h |
-| 12 | **R34** A · De zéro à ta page en ligne, en accéléré | **R35** D · Ramadan arrive : un programme après l'iftar (the template) | **R36** E · Founding Coach, or a recap of the 12 weeks' best Reel |
+| 11 | **R31** C · Le bouton WhatsApp : pour tout le reste | **R32** E · Founding Coach, or the objection « Je n'ai pas le temps » (answer: proof 4) | **R33** D · Ramadan arrive : un programme après l'iftar (the template) |
+| 12 | **R34** A · De zéro à ta page en ligne, en accéléré | **R35** B · Trois demandes ce matin : le résumé de 7 h | **R36** E · Founding Coach, or a recap of the 12 weeks' best Reel |
 
 Every Reel is filmed in French first. **Make a Spanish and an English version of the two best
-Reels of each two-week block**, judged by link taps and then shares (§6). Post them on the same
+Reels of each two-week block**, judged by shares plus saves, then APP comments (§6). Post them on the same
 account. The Spanish and English hooks and captions for weeks 1–4 are ready below.
 
 ## 4. Weeks 1–4, scripted
@@ -96,14 +107,15 @@ Reel counts as produced once it is filmed, edited and scheduled.
 ### R01 · B · Un lien dans ta bio (week 1, Monday)
 
 - **Hook:** « Un lien dans ta bio. C'est tout. »
-- **Shots:** cut `site-coach/assets/demo-fr.mp4` to 25 s:
-  - an Instagram profile, and a tap on the bio link;
-  - Karim's page and « Demander à m'entraîner »;
-  - the request arriving on the coach's phone, and Accept;
-  - Sara's home with workout 1.
-  - Subtitles: « Ton abonné tape le lien. » « Il demande. » « Tu acceptes. » « Sa première séance est prête le jour même. »
+- **The film:** post the demo film's vertical render, `renders/demo-fr-v.mp4` (1080x1920) in the
+  `fitpal-coach-videos` repo (`videos/fitpal-coach-demo-join`), as it is: the bio link, Karim's
+  page, the request, Accept and Sara's workout 1. It already has its voice-over and burned-in
+  captions, so add no subtitles. Don't cut it to 30 s either, because that would cut the
+  narration mid-sentence. R01 is the one Reel allowed past rule 4. The hook goes in as the
+  cover text.
+  Not `site-coach/assets/demo-fr.mp4`: that is the 16:9 web cut.
 - **Caption FR:** Un lien dans ta bio, et leur première séance est prête le jour même. Gratuit jusqu'à 3 clients. Commente APP, je t'envoie la démo.
-- **ES hook / caption:** «Un enlace en tu bio. Nada más.» / Un enlace en tu bio, y su primer entreno está listo ese mismo día. Gratis hasta 3 clientes. Comenta APP y te mando la demo. (Cut from `demo-es.mp4`.)
+- **ES hook / caption:** «Un enlace en tu bio. Nada más.» / Un enlace en tu bio, y su primer entreno está listo ese mismo día. Gratis hasta 3 clientes. Comenta APP y te mando la demo. (`renders/demo-es-v.mp4`, as it is.)
 - **EN hook / caption:** "One link in your bio. That's it." / One link in your bio, and their first workout is ready that day. Free up to 3 clients. Comment APP and I'll send you the demo. (No EN render exists: film the EN demo accounts first.)
 
 ### R02 · A · Envoie ton PDF, reçois ton lien en 24 h (week 1, Wednesday)
@@ -155,10 +167,14 @@ The call to action here is a question, not APP: this Reel is for reach and comme
   - the request form;
   - the e-mail with the 6-digit code;
   - the code typed in, and the request sent.
-  - Subtitles: « Il demande depuis Instagram. » « Un code par e-mail. » « Il est dedans. »
-- **Caption FR:** Ton abonné demande depuis Instagram. Un code par e-mail, et il est dedans. Pas d'app à télécharger. Commente APP.
-- **ES:** «Sin descargar ninguna app.» / Tu seguidor lo pide desde Instagram. Un código por email y ya está dentro. Sin descargar ninguna app. Comenta APP.
-- **EN:** "No app to download." / Your follower asks from Instagram. One code by email and they're in. No app to download. Comment APP.
+  - Subtitles: « Il demande depuis Instagram. » « Un code par e-mail. » « Demande envoyée : à toi d'accepter. »
+- **Caption FR:** Ton abonné demande depuis Instagram, avec un code reçu par e-mail. Pas d'app à télécharger, pas de mot de passe. Tu acceptes, et il est dedans. Commente APP.
+- **ES:** «Sin descargar ninguna app.» / Tu seguidor lo pide desde Instagram, con un código que recibe por email. Sin descargar ninguna app ni contraseña. Aceptas y ya está dentro. Comenta APP.
+- **EN:** "No app to download." / Your follower asks from Instagram, with a code sent by email. No app to download, no password. You accept, and they're in. Comment APP.
+
+The code sends a request and makes no account: the account is made when the coach accepts (or
+at once, with auto-accept). So the screen ends on "request sent", and "il est dedans" comes after
+"tu acceptes".
 
 Film it inside Instagram's own browser, on an iPhone and on an Android phone, before posting. If
 the in-app prompt to open Safari or Chrome shows up, keep it in: it is part of the real path
@@ -253,31 +269,53 @@ Don't say "upgrade in one tap": paid plans can't be bought online until CHW-302 
 **Manual first.** Reply by hand, from @fitpal, within 24 hours of the comment:
 1. Answer under the comment publicly: « Envoyé en DM. » / «Enviado por DM.» / "Sent you a DM."
 2. Send one DM, in the language of the comment, with the demo video attached
-   (`site-coach/assets/demo-fr.mp4` or `demo-es.mp4`; in English, link to `https://fitpal.ma/en/`
+   (`demo-fr-v.mp4` or `demo-es-v.mp4`, as in R01; in English, link to `https://fitpal.ma/en/`
    until an English render exists).
 
-- **FR:** Salut, merci pour ton commentaire. Voici la démo : ton abonné tape le lien de ta bio, demande, tu acceptes, et sa première séance est prête le jour même. Pour essayer, c'est gratuit jusqu'à 3 clients, sans carte : https://coach.fitpal.ma/#/start?plan=free. Ou envoie-moi ton programme (PDF ou Sheet) ici, et je te le mets sur l'app en 24 h.
-- **ES:** Hola, gracias por tu comentario. Aquí tienes la demo: tu seguidor toca el enlace de tu bio, lo pide, aceptas, y su primer entreno está listo ese mismo día. Para probarlo, es gratis hasta 3 clientes, sin tarjeta: https://coach.fitpal.ma/#/start?plan=free. O mándame aquí tu programa (PDF o Sheet) y te lo paso a la app en 24 h.
-- **EN:** Hi, thanks for the comment. Here's the demo: your follower taps the link in your bio, asks, you accept, and their first workout is ready that day. To try it, it's free up to 3 clients, no card: https://coach.fitpal.ma/#/start?plan=free. Or send me your program here (PDF or Sheet) and I'll put it in the app within 24 hours.
+- **FR:** Salut, merci pour ton commentaire. Voici la démo : ton abonné tape le lien de ta bio, demande, tu acceptes, et sa première séance est prête le jour même. Si tu veux que je m'occupe de tout, écris-moi sur WhatsApp ([WhatsApp]) : je te mets ton programme sur l'app en 24 h. Pour essayer toi-même, c'est gratuit jusqu'à 3 clients, sans carte :
+  https://coach.fitpal.ma/#/start?plan=free
+- **ES:** Hola, gracias por tu comentario. Aquí tienes la demo: tu seguidor toca el enlace de tu bio, lo pide, aceptas, y su primer entreno está listo ese mismo día. Si quieres que me encargue de todo, escríbeme por WhatsApp ([WhatsApp]) y te paso tu programa a la app en 24 h. Para probarlo tú, es gratis hasta 3 clientes, sin tarjeta:
+  https://coach.fitpal.ma/#/start?plan=free
+- **EN:** Hi, thanks for the comment. Here's the demo: your follower taps the link in your bio, asks, you accept, and their first workout is ready that day. If you'd like me to do it all, message me on WhatsApp ([WhatsApp]) and I'll put your program in the app within 24 hours. To try it yourself, it's free up to 3 clients, no card:
+  https://coach.fitpal.ma/#/start?plan=free
+
+**The link ends the message, on its own line.** Nothing goes after it, punctuation included. If
+Instagram keeps a trailing full stop as part of the link, the Start page reads a plan called
+"free." and falls back to another plan. While billing is off that is Free, the only plan on
+offer, but once billing is on it would be paid Pro. `[WhatsApp]` is the founder's number, as in
+the outreach doc. The setup itself starts there, with what `done-for-you.md` asks for.
 
 **The rules for these DMs:**
 - **One DM per comment and no follow-up.** They asked for the demo, not for a conversation. If
   they answer, carry on with the outreach doc's "When they say yes" (§2) and its objection
   answers.
 - **No list of commenters.** Count the APP comments and the DMs sent each week (§6), and keep
-  no handles. A commenter goes into the outreach tracker only once they answer and want the setup.
-  Then they get a row like any coach, with `notes` set to "inbound, R07" (the Reel's number).
+  no handles. Commenters never go into the outreach tracker, even after they sign up: its rates
+  divide sign-ups by DMs sent, and they would raise it with sign-ups the DMs didn't bring. A
+  commenter who signs up is counted in the Content tab's `inbound_signups` for the week.
 - **The 24 hours is the outreach doc's promise, with its limit:** drop that sentence from the DM
   while the setup queue is past a day (`done-for-you.md`).
 - **Until CHW-368's phone test passes,** add the outreach doc's browser line to the link: three
   dots, then "Open in browser". Coach sign-up now uses an emailed code, which works inside
   Instagram's browser, but nobody has tested it on a real phone yet.
 
-**Automate past about 20 APP comments a week.** Use ManyChat or Meta's own comment-to-DM tool,
-whichever is available then. Either one sends the same DM, once, only to people who commented the
-keyword, with no follow-up sequence. Meta lets an account send one private reply to a comment,
-within a few days of it; check the exact window in Meta's documentation when setting it up. The
-public reply stays manual. Write down the switch date in §7's changes.
+**Automation past about 20 APP comments a week needs a privacy check first.** A tool like
+ManyChat keeps a contact record, with the handle and the messages, for everyone it replies to.
+That breaks "no list of commenters", and it makes the tool a new processor of personal data,
+which CHW-359 doesn't cover. Before switching:
+- **Choose the tool and set its retention.** Prefer Meta's own comment-to-DM tool if it keeps
+  nothing beyond the Instagram inbox. Otherwise set ManyChat's contacts to be deleted after a
+  few days.
+- **Check its processor terms and US transfers** the way CHW-359 checks Namecheap, Resend and
+  Cloudflare.
+- **Add it to the privacy page,** after a review with the legal skills.
+
+Until all three are done, reply by hand. The automation sends the same DM, once, only to people
+who commented the keyword, with no follow-up sequence. Meta lets an account send one private
+reply to a comment, within a few days of it; check the exact window in Meta's documentation.
+The outreach doc's rule 5 ("by hand, never automated") is about cold DMs to coaches, so it
+doesn't forbid answering a comment that asked for the demo. The public reply stays manual. Note
+the switch date in §7.
 
 ## 6. The accounts, and what is counted
 
@@ -287,27 +325,30 @@ public reply stays manual. Write down the switch date in §7's changes.
 - **Type:** a professional account, set to Business. Name it "FitPal Coach".
 - **Profile picture:** the C1 brand mark, gold on graphite (`site-coach/favicon.svg`, exported
   square).
-- **Bio:** « Un lien dans ta bio, et leur première séance est prête le jour même. Gratuit jusqu'à
-  3 clients. » The link is `https://fitpal.ma`.
+- **Bio:** the link is `https://fitpal.ma` on both.
+  - Instagram (150 characters): « Un lien dans ta bio, et leur première séance est prête le jour
+    même. Gratuit jusqu'à 3 clients. »
+  - TikTok (80 characters): « Un lien en bio, 1re séance prête le jour même. Gratuit jusqu'à 3
+    clients. »
 - **Highlights, as their Reels exist:**
   - « Comment ça marche »: R01, R05 and R09;
   - « Prix »: R12;
   - « Coachs »: the first Founding Coach Reel. Create it then, not empty before.
 
-**Counted each week.** Add a "Content" tab to the outreach Sheet, one row per Reel. Like the
-Totals tab it holds no names, only counts. The columns:
-- `reel`, `lang`, `platform`, `posted`;
-- `reach`, `plays`, `shares`, `saves`;
-- `profile_visits`, `link_taps`;
-- `app_comments`, `dms_sent`.
-
-`link_taps` is Instagram's "External link taps" (professional dashboard). On TikTok, use profile
-views and link clicks from TikTok Analytics.
+**Counted each week.** Add a "Content" tab to the outreach Sheet. Like the Totals tab it holds no
+names, only counts, and it has two kinds of row, because the platforms report some numbers per
+Reel and others only for the whole account:
+- **One row per Reel:** `reel`, `lang`, `platform`, `posted`, `reach`, `plays`, `shares`,
+  `saves`, `app_comments`, `dms_sent`.
+- **One row per week and platform:** `week`, `platform`, `profile_visits`, `link_taps`,
+  `inbound_signups`. `link_taps` is Instagram's "External link taps" (professional dashboard).
+  On TikTok, use profile views and bio-link clicks from TikTok Analytics.
 
 **Sign-ups per week** come from the admin panel's coach funnel (CHW-335). It counts every
 self-serve coach, not only those the Reels brought, so read it beside the link taps; it isn't
 caused by them. To credit a sign-up to the content, ask the coach who signs up « Tu nous as
-connus comment ? » when they write. Note the answer in their tracker row's `notes`.
+connus comment ? » when they write. A coach from the outreach notes the answer in their tracker
+row's `notes`. A commenter adds one to the week's `inbound_signups` (§5).
 
 Real attribution needs a change to the product: the Start page would keep a short source from its
 link (`#/start?plan=free&src=ig`) and the sign-up audit event would record it. That is a
@@ -315,11 +356,12 @@ separate issue, because it touches what the privacy page says is collected. Wait
 enough sign-ups to be worth splitting.
 
 **At the Monday review** (outreach doc §5), after the DM totals:
-- **The week's Reels:** reach, link taps and APP comments, per theme.
-- **The best Reel:** the two-week block's top two by link taps, then shares. They get Spanish
-  and English versions (§3).
-- **The theme check:** a theme that comes last on link taps for three blocks in a row gives up
-  its slots to the best theme for the next block. Write it down in §7.
+- **The week's Reels:** reach, shares and saves, and APP comments, per theme. The account's
+  link taps and inbound sign-ups come once for the week.
+- **The best Reel:** the two-week block's top two by shares plus saves, then APP comments. Every
+  Reel has those numbers, whatever its call to action. They get Spanish and English versions (§3).
+- **The theme check:** a theme that comes last on shares plus saves for three blocks in a row
+  gives up its slots to the best theme for the next block. Write it down in §7.
 
 **Done when** (CHW-351): the 12 weeks are planned (§3), weeks 1–4 are produced (§4, filmed and
 scheduled), and the weekly numbers are in the Monday review.
