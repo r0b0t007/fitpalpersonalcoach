@@ -6,10 +6,10 @@ Run: python scripts/build-images.py           (variants older than their master)
 The -NNNw.avif / -NNNw.webp variants are derived from the originals, which stay in the repo as
 the masters, so re-running only ever rewrites derived files.
 
-The two posters are the exception: they are shrunk IN PLACE, so the 1920x1080 masters are
-replaced. That is deliberate - nothing renders them at that size and carrying both a master and
-a derivative inside the deploy root means shipping the master to every visitor too. Git history
-is the backup; `git show <rev>:site-coach/img/promo-poster-fr.jpg` gets the original back.
+The posters are the exception: they are shrunk IN PLACE to their target width, so a larger
+master is replaced. That is deliberate - carrying both a master and a derivative inside the
+deploy root means shipping the master to every visitor too. Git history is the backup;
+`git show <rev>:site-coach/img/demo-poster-fr.jpg` gets the original back.
 Running this script twice does not degrade them further, because the resize is skipped once the
 image is already at or below the target width - but re-encoding a JPEG repeatedly would, so do
 not add a second in-place pass here.
@@ -39,8 +39,6 @@ SITE = os.path.join(HERE, 'site-coach')
 
 # (source, widths, formats). Widths are intrinsic pixels, not CSS pixels.
 JOBS = [
-    ('img/coach-hero.jpg', [400, 800, 1100], ('avif', 'webp')),
-    ('img/coaches.jpg', [600, 1200, 1800], ('avif', 'webp')),
     # CHW-342: the hero photo runs full-bleed behind the copy, so it needs a desktop width; the
     # two side photos sit in half a 1200px container, about 560 CSS px at most.
     ('img/hero-lift.jpg', [800, 1280, 1920], ('avif', 'webp')),
@@ -48,17 +46,16 @@ JOBS = [
     ('img/side-coach.jpg', [600, 1200], ('avif', 'webp')),
 ] + [
     # Every app screenshot exists once per page language: a French coach reading the French page
-    # sees the app in French (CHW-212 for the coach screens, which were English-only until then).
-    # The first four are the CHW-318 page's and no page shows them since CHW-342; the last three
-    # are the join flow's, from the demo film's captures.
+    # sees the app in French. The join flow's three, from the demo film's captures (FR, ES) and
+    # the EN set filmed for the page (CHW-342).
     ('img/screens/%s-%s.png' % (shot, lang), [360, 720], ('avif', 'webp'))
-    for shot in ('coach-today', 'coach-clients', 'client-home', 'client-stats',
-                 'public-page', 'request', 'client-day1')
+    for shot in ('public-page', 'request', 'client-day1')
     for lang in ('fr', 'en', 'es')
 ]
 
 # The poster is rewritten in place at a sane size rather than given variants. See the note above.
-POSTERS = [('img/promo-poster-%s.jpg' % lang, 800) for lang in ('fr', 'en', 'es')]
+# The demo film's (CHW-346), at the film's own 1280: there is no EN render, so no EN poster.
+POSTERS = [('img/demo-poster-%s.jpg' % lang, 1280) for lang in ('fr', 'es')]
 
 QUALITY = {'avif': 55, 'webp': 78, 'jpeg': 82}
 

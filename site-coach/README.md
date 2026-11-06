@@ -43,8 +43,7 @@ es/legal.html           ES legal          es/terms.html     ES terms
 styles.css              the whole design system, one file
 site.js                 scroll reveal, nothing else (CHW-342 removed the menu and the hero loop)
 img/screens/*.png       real app screenshots (see below), 720x1560, one per locale:
-                        public-page, request, client-day1 (CHW-342, shown) and client-home,
-                        client-stats, coach-today, coach-clients (CHW-318, not shown any more).
+                        public-page, request, client-day1.
                         Their AVIF/WebP variants come from `python scripts/build-images.py`.
 img/hero-lift.jpg       hero photograph, 1920x1080      } stock, Vitaly Gariev on Unsplash,
 img/side-client.jpg     section 02, client side, 1600   } NOTICE.md. AVIF/WebP variants from
@@ -53,9 +52,6 @@ img/demo-poster-{fr,es}.jpg  the demo film's poster, 1280x720, the frame at 1.5s
 img/og-{fr,en,es}.png   1200x630 social cards, one layout in three languages, all ending in
                         fitpal.ma (rendered from an HTML card in headless Chrome, Archivo)
 assets/demo-{fr,es}.{mp4,webm}  the 47s demo film with voice-over, 1280x720 (see below)
-img/promo-poster-*.jpg, assets/promo-*  the CHW-318 hero loop, NOT SHOWN since CHW-342
-img/coach-hero.jpg, img/coaches.jpg     CHW-318 photographs, NOT SHOWN; kept with their
-                        NOTICE.md entries in case they return
 favicon.svg  icon-180.png  robots.txt  sitemap.xml  _headers
 ```
 

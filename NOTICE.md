@@ -155,45 +155,10 @@ The design export credited "Vitaly Gariev, Stepan et Meghan Holmes". Stepan and 
 two photographs in the design's photo set that no page uses; every photograph on the site is
 Vitaly Gariev's.
 
-Two earlier photographs, from CHW-318, are no longer shown but their files stay in
-`site-coach/img/`. Both are licensed stock, used illustratively: neither carries a name, a quote
-or a claimed result, and neither makes a product claim. `DESIGN.md` states that rule. Both are
-under **the Pexels License**, which permits free commercial use and modification and does not
-require attribution — recorded here anyway, because a file whose provenance is not written down
-is a file nobody can re-licence or replace later.
-
-A third, a portrait of the project's owner used at the ask, was added and then removed at his
-request. No third-party rights were ever involved and the file is gone; this note exists only so
-the removal does not read as an oversight later.
-
-**`site-coach/img/coaches.jpg`** — the full-bleed band. Not shown since CHW-342.
-
-- **Source**: Pexels, photo id **4944433**, by **Anastasia Shuraeva**
-  (<https://www.pexels.com/photo/4944433/>)
-- **Modifications**: cropped to a 1800x750 band and graded down (brightness, saturation,
-  contrast, plus a warm veil) so it sits on the site's graphite ground rather than looking
-  pasted in from a brighter page.
-
-**`site-coach/img/coach-hero.jpg`** — the portrait beside the hero headline. Not shown on the site
-since CHW-318, when the price list took its column; the file and this entry stay in case it returns.
-
-- **Source**: Pexels, photo id **37963582**, by **Bulat843**
-  (<https://www.pexels.com/photo/37963582/>)
-- **Modifications**: cropped from the 3024x4032 original to a 1100x1375 portrait and graded to
-  the same ground. Exact recipe, so it can be reproduced or applied to a replacement:
-
-  ```
-  crop=1980:2475:640:620,scale=1100:1375:flags=lanczos
-  eq=brightness=-0.085:saturation=0.30:contrast=1.05
-  colorbalance=rs=.045:rm=.03:gm=.01:bs=-.06:bm=-.05
-  vignette=angle=PI/5
-  ```
-
-  The heavy desaturation is not only for tone: at the original saturation the client's red top
-  competes with `--gold`, which is the page's only accent. The vignette sinks a bright window
-  behind the coach. A subject's shirt carries a small gym wordmark; it was left alone, because
-  a local blur to remove it read as a smear at full resolution and is more conspicuous at the
-  rendered size than the wordmark it hid.
+The CHW-318 site's two Pexels photographs (`coaches.jpg`, Pexels 4944433 by Anastasia Shuraeva;
+`coach-hero.jpg`, Pexels 37963582 by Bulat843) were deleted with their files after CHW-342, as
+was a portrait of the project's owner before them (removed at the owner's request; no third-party rights
+were involved). Their entries are in this file's history.
 
 ## Barcode scanning — `@capacitor-mlkit/barcode-scanning`
 
