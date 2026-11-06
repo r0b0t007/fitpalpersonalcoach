@@ -53,7 +53,7 @@ reply to a yes).
 ### When they say yes
 
 Both ways start with the coach making their own account: only the coach can, because it is made
-with their passkey, and the admin panel can't make one for them.
+with a code sent to their own e-mail address, and the admin panel can't make one for them.
 
 - **FR:** Parfait. D'abord, crée ton compte, ça prend une minute : ouvre ce lien, puis touche les trois points en haut à droite et « Ouvrir dans le navigateur » (dans Instagram, le compte ne se crée pas), ou copie-le dans Safari ou Chrome : https://coach.fitpal.ma/#/start?plan=free
   Ensuite, au choix. Je m'occupe du reste : envoie-moi sur WhatsApp ([WhatsApp]) ton programme (PDF, Sheet ou photos), une photo de toi et deux lignes sur ce que tu fais, et je te renvoie ton lien dans les 24 h. Ou tu le fais toi-même : sur ta page, choisis un programme de départ, c'est lui qui est prêt le jour où tu acceptes. Dans les deux cas, dis-moi quand ton compte est créé.
@@ -67,10 +67,11 @@ which e-mail they signed up with, search the admin panel's users list by it (a n
 unique; an address they haven't confirmed yet shows as "(unconfirmed)" and is found all the same)
 and fill `signed_up`. The e-mail itself never goes in the sheet.
 
-Why the browser line: coach sign-up (`Start.jsx`) makes the account with a passkey, which fails in
-Instagram's in-app browser (`lib/inapp.js`). Unlike Join and Home it shows no "open in your
-browser" prompt, and when the passkey is refused it shows nothing at all, so the coach just sees
-the button do nothing. Drop the line once Start shows the prompt.
+Why the browser line: coach sign-up (`Start.jsx`) used to make the account with a passkey, which
+fails in Instagram's in-app browser (`lib/inapp.js`). Since CHW-368 it sends a 6-digit code by
+e-mail instead, which works there, and offers the passkey afterwards, outside Instagram only.
+Keep the line until CHW-368's test on a real iPhone and Android phone inside Instagram passes,
+then drop it here and in `2026-11-content-calendar.md` §5.
 
 The setup itself is `done-for-you.md` (CHW-348): what the coach sends, how the founder builds the
 program in their own account and copies it into the coach's from the admin panel, the message
