@@ -23,7 +23,8 @@ use function Illuminate\Support\defer;
 
 /**
  * Signing in by email (spec §4a, R4; Laravel only): a mail with a link and a 6-digit code, and
- * changing the address those mails go to. A coach's second way in beside their passkey; since
+ * changing the address those mails go to. A coach's second way in beside their passkey (their only
+ * one, until they add a passkey, when they signed up with a code: CHW-368); since
  * CHW-331 a client's too, once their address is proven (a join request accepted), because a
  * passkey fails inside Instagram's browser, where most clients arrive.
  *

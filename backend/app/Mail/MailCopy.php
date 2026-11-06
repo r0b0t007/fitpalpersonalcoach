@@ -42,6 +42,10 @@ final class MailCopy
             'joincode.heading' => ':code',
             'joincode.body' => 'Enter this code to send your request to :coach. It works for :minutes minutes.',
             'joincode.footer' => 'Did not ask for this? Ignore this message — nothing is sent without this code.',
+            'signupcode.subject' => 'Your FitPal Coach code: :code',
+            'signupcode.heading' => ':code',
+            'signupcode.body' => 'Enter this code to create your FitPal Coach account. It works for :minutes minutes.',
+            'signupcode.footer' => 'Did not ask for this? Ignore this message — no account is created without this code.',
             'request.subject' => 'A new request on FitPal Coach',
             'request.heading' => 'Someone wants to train with you',
             'request.body' => 'Someone asked to train with you from your page. Open FitPal Coach to see their answers and accept or decline.',
@@ -89,6 +93,10 @@ final class MailCopy
             'joincode.heading' => ':code',
             'joincode.body' => 'Saisissez ce code pour envoyer votre demande à :coach. Il est valable :minutes minutes.',
             'joincode.footer' => 'Vous n’avez rien demandé ? Ignorez ce message — rien n’est envoyé sans ce code.',
+            'signupcode.subject' => 'Votre code FitPal Coach : :code',
+            'signupcode.heading' => ':code',
+            'signupcode.body' => 'Saisissez ce code pour créer votre compte FitPal Coach. Il est valable :minutes minutes.',
+            'signupcode.footer' => 'Vous n’avez rien demandé ? Ignorez ce message — aucun compte n’est créé sans ce code.',
             'request.subject' => 'Nouvelle demande sur FitPal Coach',
             'request.heading' => 'Quelqu’un veut s’entraîner avec vous',
             'request.body' => 'Quelqu’un a demandé à s’entraîner avec vous depuis votre page. Ouvrez FitPal Coach pour voir ses réponses et accepter ou refuser.',
@@ -136,6 +144,10 @@ final class MailCopy
             'joincode.heading' => ':code',
             'joincode.body' => 'Introduce este código para enviar tu solicitud a :coach. Sirve durante :minutes minutos.',
             'joincode.footer' => '¿No lo has pedido? Ignora este mensaje: no se envía nada sin este código.',
+            'signupcode.subject' => 'Tu código de FitPal Coach: :code',
+            'signupcode.heading' => ':code',
+            'signupcode.body' => 'Introduce este código para crear tu cuenta de FitPal Coach. Sirve durante :minutes minutos.',
+            'signupcode.footer' => '¿No lo has pedido? Ignora este mensaje: no se crea ninguna cuenta sin este código.',
             'request.subject' => 'Nueva solicitud en FitPal Coach',
             'request.heading' => 'Alguien quiere entrenar contigo',
             'request.body' => 'Alguien ha pedido entrenar contigo desde tu página. Abre FitPal Coach para ver sus respuestas y aceptar o rechazar.',
@@ -183,6 +195,10 @@ final class MailCopy
             'joincode.heading' => ':code',
             'joincode.body' => 'Gib diesen Code ein, um deine Anfrage an :coach zu senden. Er gilt :minutes Minuten.',
             'joincode.footer' => 'Nicht angefordert? Ignoriere diese Nachricht — ohne diesen Code wird nichts gesendet.',
+            'signupcode.subject' => 'Dein Code für FitPal Coach: :code',
+            'signupcode.heading' => ':code',
+            'signupcode.body' => 'Gib diesen Code ein, um dein FitPal-Coach-Konto zu erstellen. Er gilt :minutes Minuten.',
+            'signupcode.footer' => 'Nicht angefordert? Ignoriere diese Nachricht — ohne diesen Code wird kein Konto erstellt.',
             'request.subject' => 'Neue Anfrage bei FitPal Coach',
             'request.heading' => 'Jemand möchte mit dir trainieren',
             'request.body' => 'Jemand hat über deine Seite angefragt, mit dir zu trainieren. Öffne FitPal Coach, um die Antworten zu sehen und anzunehmen oder abzulehnen.',
@@ -228,8 +244,9 @@ final class MailCopy
     public static function words(string $lang, string $kind, array $fill): array
     {
         $copy = self::COPY[$lang] ?? self::COPY['en'];
-        // A join code (CHW-336) goes to an address nobody has proven either, typed by a stranger.
-        $unproven = in_array($kind, ['confirm', 'joincode', 'joinyes', 'joinno'], true);
+        // A join code (CHW-336) and a coach's sign-up code (CHW-368) go to an address nobody has
+        // proven either, typed by a stranger.
+        $unproven = in_array($kind, ['confirm', 'joincode', 'joinyes', 'joinno', 'signupcode'], true);
         $name = $unproven ? '' : trim((string) preg_replace('/\s+/u', ' ', (string) ($fill['name'] ?? '')));
         $out = ['fallback' => $copy['fallback'], 'hello' => $name === '' ? $copy['hello.anon'] : strtr($copy['hello'], [':name' => $name])];
         $values = [':email' => $fill['email'] ?? '', ':code' => $fill['code'] ?? '', ':coach' => $fill['coach'] ?? '', ':minutes' => (string) ($fill['minutes'] ?? '')];

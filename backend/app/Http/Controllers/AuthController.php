@@ -293,7 +293,9 @@ final class AuthController
 
     /**
      * A coach signing up on their own (spec §2 flow, §4): name, email and a passkey, then the
-     * checkout. Behind SELF_SERVE_COACH, which opens this WITHOUT an invite even when INVITE_ONLY
+     * checkout. The Start page signs coaches up with an emailed code instead since CHW-368
+     * (CoachSignupController), as Instagram's browser fails passkeys; this stays for an app built
+     * before it. Behind SELF_SERVE_COACH, which opens this WITHOUT an invite even when INVITE_ONLY
      * — and only with a plan to sign up to (Plans::selfServeOpen): a paid one, or the Free plan,
      * which caps the account at FREE_CAP. With neither, every coach is unlicensed and unlimited,
      * which would make an invite-only instance open to anyone.

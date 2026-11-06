@@ -111,7 +111,13 @@ Read this before hosting it for anyone other than yourself.
   works: 5 wrong tries spend it, never the link beside it. Asking, and a refused code, answer the
   same and take as long whether or not the address has an account (`app/Http/Controllers/LoginLinkController.php`,
   `app/Models/LoginLink.php`). **Such a client's account is as safe as their inbox**: many have
-  no passkey at all, since passkeys fail inside Instagram's browser. And an admin can
+  no passkey at all, since passkeys fail inside Instagram's browser. Since CHW-368 so is a coach
+  who signed up on their own: the Start page makes the account with a 6-digit code mailed to the
+  address, not a passkey (`app/Http/Controllers/CoachSignupController.php`), and offers a passkey
+  only afterwards. Nothing is written to `users` until the code is right; the pending sign-up
+  (`coach_signups`) keeps only the code's HMAC, takes 5 wrong tries, and is pruned after a day.
+  The passkey sign-up for coaches is still served (`/api/register/options` with `coach: true`),
+  for an app built before it. And an admin can
   be given an email and password for the admin panel (`php artisan fitpal:panel-login`); that
   password opens the panel, on Laravel's own session and CSRF token, not the app
   (`app/Providers/Filament/AdminPanelProvider.php`, `User::canAccessPanel`).
