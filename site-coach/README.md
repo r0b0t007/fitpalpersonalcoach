@@ -39,6 +39,16 @@ es/index.html           ES landing
 mentions-legales.html   FR legal          conditions.html   FR terms
 en/legal.html           EN legal          en/terms.html     EN terms
 es/legal.html           ES legal          es/terms.html     ES terms
+logiciel-coach-sportif.html  FR guide  } a pair (hreflang): what a tool must do for a coach whose
+es/app-entrenadores-personales.html     } clients come from Instagram (CHW-352)
+alternative-trainerize.html   FR  } a pair: comparison with Trainerize
+en/trainerize-alternative.html EN }
+alternative-everfit.html      FR    comparison with Everfit
+es/alternativa-harbiz.html    ES    comparison with Harbiz
+                        The comparisons quote competitors' prices from their own pages on a
+                        stated date, and all six repeat FitPal's own prices by hand: when
+                        either changes, update them with the landings' pricing section.
+                        `grep -rn "19&nbsp;€\|39&nbsp;€\|79&nbsp;€" site-coach` lists every copy.
 404.html                not found, noindex
 styles.css              the whole design system, one file
 site.js                 scroll reveal, nothing else (CHW-342 removed the menu and the hero loop)
@@ -206,7 +216,7 @@ cd site-coach && python3 -m http.server 8080
 No build, no watch, no dependencies. Edit and reload.
 
 Bump the `?v=` on `styles.css` and `site.js` when you change either — the browser cache-bust is
-manual, the same convention `website/` uses. (The landings and the 404 are on `styles.css?v=19`;
+manual, the same convention `website/` uses. (The landings, the 404 and the CHW-352 pages are on `styles.css?v=20`;
 the legal pages still say `?v=18`, which only matters to a local preview: the build replaces both
 with the hashed name.)
 

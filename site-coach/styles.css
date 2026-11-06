@@ -831,7 +831,17 @@ p { max-width: 68ch; }
 }
 .doc p { color: var(--muted); margin-bottom: var(--sp-4); }
 .doc h3 { font-size: 1.05rem; font-variation-settings: 'wght' 600; margin-top: var(--sp-5); margin-bottom: var(--sp-2); }
-.doc ul { color: var(--muted); margin: 0 0 var(--sp-4) 1.2em; display: grid; gap: var(--sp-2); }
+.doc ul { color: var(--muted); margin: 0 0 var(--sp-4) 1.2em; display: grid; gap: var(--sp-2); list-style: disc; }
+.doc li::marker { color: var(--gold); }
 .doc a { color: var(--gold); }
 .doc [id] { scroll-margin-top: 96px; }   /* below the sticky header, for the app's link to #donnees */
 .doc .todo { color: var(--gold); }
+
+/* The guides and comparisons (CHW-352) reuse the spec table and the FAQ on the dark ground: the
+   spec colours are the light section's, so they are reset here to the doc page's. */
+.doc .spec-table { margin-block: var(--sp-4) var(--sp-5); }
+.doc .spec-row, .doc .spec-row:first-child { border-top-color: var(--rule-strong); }
+.doc .spec-row dt { color: var(--gold); }
+.doc .spec-row dd { color: var(--muted); }
+.doc .spec-row dd strong { color: var(--bone); }
+.doc .cta { margin-top: var(--sp-7); }

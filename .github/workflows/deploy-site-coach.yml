@@ -105,6 +105,26 @@ jobs:
               grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
             done
           done
+          # The guides and comparisons (CHW-352) exist only for search: each keeps its canonical, its
+          # structured data, its preview card and its h1, and the two translated pairs keep their
+          # hreflang to each other.
+          for f in site-coach/logiciel-coach-sportif.html site-coach/alternative-*.html \
+                   site-coach/es/app-entrenadores-personales.html site-coach/es/alternativa-*.html \
+                   site-coach/en/trainerize-alternative.html; do
+            for tag in 'rel="canonical"' 'application/ld+json' 'og:image' '<h1'; do
+              grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
+            done
+          done
+          for f in site-coach/logiciel-coach-sportif.html site-coach/es/app-entrenadores-personales.html; do
+            for tag in 'hreflang="fr"' 'hreflang="es"' 'hreflang="x-default"'; do
+              grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
+            done
+          done
+          for f in site-coach/alternative-trainerize.html site-coach/en/trainerize-alternative.html; do
+            for tag in 'hreflang="fr"' 'hreflang="en"' 'hreflang="x-default"'; do
+              grep -q "$tag" "$f" || { echo "::error file=$f::missing $tag"; fail=1; }
+            done
+          done
           grep -q 'Sitemap:' site-coach/robots.txt || { echo "::error::robots.txt missing Sitemap"; fail=1; }
           # Cloudflare Pages serves /foo.html at /foo — canonicals/sitemap must use the
           # extensionless form or every legal-page URL resolves through a 308.
@@ -316,7 +336,7 @@ jobs:
         run: |
           base="${{ vars.SITE_COACH_URL }}"
           base="${base%/}"
-          for path in "/" "/en/" "/es/" "/sitemap.xml"; do
+          for path in "/" "/en/" "/es/" "/sitemap.xml" "/logiciel-coach-sportif" "/es/alternativa-harbiz"; do
             ok=0
             for i in 1 2 3; do
               if curl -fsS --max-time 15 "$base$path" > /tmp/out; then ok=1; break; fi
