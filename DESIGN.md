@@ -7,16 +7,18 @@ live in `frontend/src/index.css`). Those are separate surfaces and deliberately 
 
 ## Theme
 
-Dark, warm graphite. The physical scene that forced it: a trainer at 21:40, sitting on a bench
-in a half-lit gym after the last client of the day, phone in hand, deciding whether this is
-worth a call. Dim room, tired eyes, small screen.
+Dark, warm graphite. The physical scene that forced it: a coach at 21:40, sitting on a bench
+in a half-lit gym after the last client of the day, phone in hand, having tapped a link from
+Instagram, deciding whether this is worth starting. Dim room, tired eyes, small screen.
 
 Warm graphite rather than pure black, because black is the sibling product's ground and because
 a field manual is a printed object, not a void. Every neutral is tinted toward the accent's warm
 hue (chroma 0.007 to 0.018), so the greys read as paper under sodium light rather than as
 switched-off screen.
 
-One light section (bone ground) carries the spec table, where the manual metaphor is literal.
+One light section (bone ground) carries the "what is included" table, where the manual metaphor
+is literal. Two sections (02, both sides; 06, the demo) sit on `--raised`, so the dark run
+alternates ground without a new colour.
 
 ## Aesthetic lane
 
@@ -49,7 +51,6 @@ fitpal.ma. Every value below is verified against WCAG 2.2 AA, not estimated.
 | `--muted` | `#A9A198` | `oklch(0.713 0.016 70.8)` | Secondary text on dark |
 | `--mute-bone` | `#5E574E` | `oklch(0.461 0.017 74.2)` | Secondary text on bone |
 | `--gold` | `#D4AF37` | `oklch(0.767 0.139 91.1)` | Fills, rules, numerals, and accent text at any size on any dark ground |
-| `--gold-lift` | `#E3C356` | `oklch(0.822 0.132 90.6)` | The primary button's hover fill, and nothing else |
 | `--gold-deep` | `#6F5A1C` | `oklch(0.476 0.083 89.7)` | Accent text on `--bone` only |
 
 ### Verified pairs
@@ -64,7 +65,7 @@ fitpal.ma. Every value below is verified against WCAG 2.2 AA, not estimated.
  7.44:1  gold on raised          accent text on a card
  5.71:1  gold-deep on bone       accent text, light section
  8.89:1  ink on gold             button label
-10.87:1  ink on gold-lift        button label, hover
+ 8.89:1  gold on ink             button label, hover (the plate inverts)
  3.36:1  rule-strong on graphite boundary (3:1 target)
  3.03:1  rule-strong on raised   boundary (3:1 target)
 ```
@@ -79,7 +80,8 @@ exactly what it was documented never to do.
 it replaced.** `--gold` is 8.26:1 on the page ground and 7.44:1 on a card, so it carries every
 size on every dark ground. The orange was 4.62:1, which passed AA but left no margin at the 12px
 `--t-label` size, and needed a whole extra token to rescue the eyebrow, the section numerals and
-the FAQ markers. `--gold-lift` survives only as the primary button's hover fill.
+the FAQ markers. The `--gold-lift` hover fill that outlived it is gone too: the primary button's
+hover inverts the plate instead, which uses two ratios the checker already asserts.
 
 **`--gold-deep` exists because gold cannot survive the light section.** Gold on bone is 1.80:1,
 and the app's own darker gold `#A5821F` only reaches 3.10:1, so the bone ground needs a value far
@@ -108,71 +110,81 @@ display-plus-body pair. There is no second family and no monospace: mono as shor
 
 | Step | Size | Axes | Use |
 |---|---|---|---|
-| `--t-display` | `clamp(2.75rem, 8.6vw, 5.75rem)` | wght 800, wdth 68, caps | Hero. One idea, three lines |
-| `--t-h2` | `clamp(2rem, 5vw, 3.25rem)` | wght 700, wdth 78 | Section heads |
-| `--t-h3` | `clamp(1.25rem, 2.2vw, 1.5rem)` | wght 600, wdth 100 | Sub-heads |
+| `--t-display` | `clamp(3.25rem, 6.4vw, 5.75rem)` | wght 800, wdth 68, caps | Hero. One idea, two or three lines (52px on a 390 phone, 92px at 1440) |
+| `--t-h2` | `clamp(2rem, 3.6vw, 3.25rem)` | wght 700, wdth 78, sentence case, 22ch | Section heads (32 / 52px) |
+| `--t-h3` | `clamp(1.3125rem, 1.7vw, 1.5rem)` | wght 600, wdth 100 | Sub-heads, FAQ questions |
+| plan price | `2.75rem` | wght 800, wdth 72 | The four prices, tabular |
 | `--t-body` | `1.0625rem` (17px) | wght 400, wdth 100 | Body, matches the app's 17px base |
 | `--t-small` | `0.9375rem` | wght 400 | Captions, legal |
 | `--t-label` | `0.75rem` | wght 600, tracking `.09em`, caps | Spec labels, section numerals |
 
 Line length capped at 68ch. Line-height 1.55 on body (light-on-dark needs the extra room),
 0.92 on display, 1.08 on h2. Display tracking is negative (`-0.02em`); only `--t-label` gets
-positive tracking, and it is the one place caps are allowed.
+positive tracking, and it is the one place caps are allowed besides the display. Section heads
+were set in caps until CHW-342; they are full sentences now ("Trois étapes, et votre abonné
+s'entraîne.") and a sentence in caps reads as shouting.
 
 ## Layout
 
 Visible structure is the grammar. Rules and numbered sections are load-bearing, not decoration.
 
-- Container `min(1200px, 100% - 2 * var(--gutter))`, gutter `clamp(20px, 5vw, 56px)`.
-- Section rhythm varies on purpose: `--sp-section` is `clamp(88px, 12vw, 168px)`, but the spec
-  table and the CTA band run tighter to read as a different kind of object.
-- Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64, 96, 128, 160.
+- Container `min(1088px, 100% - 2 * var(--gutter))`, gutter `clamp(20px, 5vw, 56px)`: the
+  design's 1200px frame with its 56px gutters inside it.
+- Section rhythm: `--section` is `clamp(72px, 9vw, 128px)`, the design's 72px on a phone and
+  128px at 1440. Every section closes on a full-width `--rule-strong` line.
+- Spacing scale: 4, 8, 12, 16, 24, 32, 48, 64, 96.
 - Radii near-square: 0 on rules and tables, `3px` on buttons and blocks, `6px` maximum. Nothing
   is pill-shaped. **One deliberate exception: the device frame** (`--dev-radius: 30px`,
   `--dev-screen-radius: 19px`). It is an exception because it DEPICTS AN OBJECT rather than
   styling a surface, and a phone with 6px corners is not a phone. Do not "fix" it back.
-- Sections are numbered `01` to `06` in gold, set in `--t-label`, sitting on a full-width rule:
-  the week, pricing, spec sheet, getting set up, questions, book.
-- **Page shape: Narrative Workflow** (CHW-318, stamped in `styles.css`). The problem and the
-  product used to be two sections that said the same four things twice, four complaints and then
-  four screens, and left the reader to pair them. Section 01 is now "the week": four stages in
-  the order a coach's week meets them, each pairing the chore it removes ("Avant") with the real
-  capture that removes it. The stages hang on one spine, a left rule with a gold tick at each
-  stage's time label. They do not alternate sides: a timeline reads down one line. The time
-  labels name moments ("before your first client"), not weekdays, because the captures carry
-  their own dates and a label must not contradict its picture.
-- Asymmetric by default, with one deliberate exception. The hero **stacks**: left-aligned copy
-  on a text measure, then the film beneath it at the container's full width. It was a two-column
-  grid with the film in the narrow right track, which is what a portrait cut wanted; a 16:9 film
-  in that track resolves to about 530px wide, and the on-screen type IS the film's script, so
-  that was a film nobody could read. Stacking roughly doubles it. From 1040px the price list
-  sits beside the copy, in the column a stock portrait used to fill.
-- Pricing and the spec sheet share the one bone run: two numbered heads on one printed sheet.
+- Sections are numbered `01` to `06` in gold, set in `--t-label`, on a full-width rule with the
+  section's name beside the numeral: how it works, both sides, pricing, included, questions,
+  the demo. Two of them (02, 05) carry their h2 for screen readers only, as the design draws no
+  heading there.
+- **Page shape: one link, three steps** (CHW-342). The page follows the path it sells: the link
+  in the bio (hero), the three steps from link to workout 1 (01), what each side then sees (02),
+  what it costs (03), what is in it (04), the objections (05), and the whole path in the demo
+  film (06). It replaced CHW-318's "week of a coach" narrative, which sold to a coach who already
+  had a roster; this buyer is still turning followers into clients.
+- The hero is a photograph under an ink shade, copy left and the coach's public page in a phone
+  on the right, from 1040px. Below that it stacks, copy first, and the shade turns vertical and
+  ends on the page ground. The 1040px breakpoint is deliberate (see `site-coach/README.md`).
+- 01 is three columns from 900px, each hung on its own left rule, each closing on a 220px phone;
+  the phones share a baseline so the row reads as one strip of evidence. Stacked, the phones are
+  250px.
+- No sticky ask bar and no menu button. The sticky header holds the CTA at every width, and the
+  three section links are dropped under 760px rather than hidden behind a menu.
 
-Cards are used once, for the spec block, because a spec sheet is genuinely tabular. Feature
-content is laid out as ruled rows, not as a repeating icon-heading-text grid.
+No cards. The pricing block is one ruled object with four columns, the included list is a
+ruled table, and the two sides are photographs over ruled tick lists. Nothing is a repeating
+icon-heading-text grid.
 
 ## Components
 
-- **Primary button.** Gold fill, `--ink` label, 3px radius, no shadow, no gradient. Hover
-  shifts the fill to `--gold-lift` and the label stays ink. Focus shows a 2px bone ring at 2px
-  offset.
-- **Secondary button.** Transparent with a 1px `--rule-strong` border, bone label. Hover fills
-  with `--raised`.
-- **Section head.** Gold numeral, full-width rule, then the h2 beneath. One consistent object
-  repeated six times, which is a deliberate system rather than scaffolding.
-- **Spec row.** Label left in `--t-label` `--muted`, value right in tabular numerals. Separated
-  by a `--mute-bone` tint at 28%, not by boxes. The light section needs its own value; the
-  dark-ground rule token would be invisible on bone.
-- **Plan table.** Three plans as three columns of the same spec rows on bone, not three cards:
-  name, the monthly price at display size (`wght` 800, `wdth` 68, tabular), then clients, yearly
-  price and trial as label/value rows. The middle plan is marked by a 3px `--gold-deep` rule along
-  its top, never a "recommended" badge. Monthly and yearly are both printed, not toggled. Below
-  760px the columns stack. Every number on it is a real price; nothing is "from" or "contact us".
-- **Hero price list.** The same three prices as label/value rows on the dark ground, closing on
-  the trial terms and a link down to the table. It is an excerpt of the sheet, not a promotion:
-  no strike-through prices, no badge, no "most popular". Beside the copy from 1040px; below
-  that it follows the film, so a phone still meets the film right under the headline.
+- **Primary button.** Gold fill, `--ink` label, 3px radius, 48px tall (40px for `.sm` in the
+  header), sentence case, no shadow, no gradient. Hover inverts the plate: ink fill, gold label.
+  Focus shows a 2px bone ring at 2px offset.
+- **Ghost button.** Transparent with a 1px inset `--rule-strong` line (inset, so it is the same
+  size as a primary beside it), bone label. Hover turns the line bone.
+- **Language switch.** FR, ES, EN in the header, 13px, muted. The current language is bold bone
+  text, not a link: a link to the page you are on is a dead control.
+- **Section head.** Gold numeral and the section's name on a full-width rule, then the h2
+  beneath. One consistent object repeated six times, which is a deliberate system rather than
+  scaffolding.
+- **Steps.** A numeral, an h3, a muted paragraph and a phone, on a left rule. Not cards.
+- **Tick list.** Rows separated by `--rule-strong`, each led by a 10x2px gold dash instead of a
+  bullet: the same square-ended tick the rules carry.
+- **Included table.** Label left in `--t-label` `--gold-deep`, 220px wide; value right in ink.
+  Rows separated by `--rule-bone` (`--mute-bone` at 28%), the first by full `--mute-bone`. The
+  light section needs its own values; the dark-ground rule token would be invisible on bone.
+  Below 760px the label sits above its value.
+- **Plan block.** Four plans in one ruled block on the dark ground: the plan name as a label,
+  the monthly price at 44px (`wght` 800, `wdth` 72, tabular), the client count in gold, one line,
+  and a full-width button. Solo is marked by the raised ground and a 3px gold rule along its
+  top, never by a "recommended" badge. The inner rules are a 1px grid gap over a rule-coloured
+  ground, so the block goes 4, 2 and 1 columns (1040px, 640px) without per-breakpoint border
+  bookkeeping. The yearly price is in the fine print under it, not a toggle. Every number on it
+  is a real price; nothing is "from" or "contact us".
 - **Device frame.** Every app screen on the site sits inside a phone: a 1px `--rule-strong`
   outline, an `--ink` bezel, `--dev-radius` corners, a small speaker slot, and a screen at
   `aspect-ratio: 9 / 19.5`. That ratio is the app's own phone viewport, so the body shape is
@@ -187,17 +199,18 @@ content is laid out as ruled rows, not as a repeating icon-heading-text grid.
   **This replaces an earlier rule that said the opposite** — screenshots used to be presented
   flat, deliberately, on the grounds that evidence should not be dressed up. The device frame
   is better for showing a product people hold, but it did cost that signal, so the evidence
-  claim moved somewhere explicit: every device carries a visible caption ("Capture réelle" /
-  "Real capture"). Stating it beats implying it.
+  claim moved somewhere explicit: every device carries a visible caption ("Capture de l'app" /
+  "Captura de la app" / "App capture"). Stating it beats implying it. The hero's caption also
+  names the page's address, `coach.fitpal.ma/c/<handle>`, matching the handle in the capture,
+  on its own ink plate because the shade behind it is only 55%.
 
   Never put a device frame around anything that is not a phone screen. The moment a desktop
   capture or an OG card gets a phone body, the gesture stops meaning anything.
 
-  **The hero film is not in one, and that is the same rule, not an exception to it.** It is a
-  1920x1080 film whose frames hold phones — the device bodies are inside the picture, drawn by
-  the film in the same geometry. Putting the film itself in a phone would nest a phone in a
-  phone and force a landscape picture into a 9:19.5 hole, where `object-fit: cover` throws away
-  most of every frame. It sits unframed and as wide as the fold allows.
+  **The demo film is not in one, and that is the same rule, not an exception to it.** It is a
+  16:9 film whose frames hold phones, drawn by the film in the same geometry. Putting the film in
+  a phone would nest a phone in a phone. It sits unframed, as wide as the container, with native
+  controls and `preload="none"`: it has a voice-over, so it never plays on its own.
 
 ## Motion
 
@@ -208,8 +221,8 @@ silence.
   no elastic, no bounce.
 - Durations `--fast: 180ms`, `--med: 320ms`, `--slow: 520ms`.
 - **Hero intro**, first visit only, armed pre-paint by an inline head script so nothing flashes
-  then hides. Staggered: eyebrow 40ms, display lines 90/150/210ms, lead 300ms, actions 380ms,
-  screenshot 460ms with a slightly longer travel so it arrives last and reads as depth.
+  then hides. Staggered: eyebrow 40ms, display 110ms, lead 240ms, buttons 320ms, note 380ms,
+  phone 460ms with a slightly longer travel so it arrives last and reads as depth.
 - **Scroll reveal** via IntersectionObserver, 16px rise plus opacity, `--slow`. JS-gated on a
   `.js` root class so a no-JS reader sees everything.
 - Only `opacity` and `transform` are animated. Never layout properties. Collapsing sections
@@ -230,32 +243,26 @@ in the header; the app's `Logo.jsx` and `frontend/resources/icon.svg` use the th
 drawing. Copy paths from `brand/logo-kit/master`, not from one surface to another. It replaced
 the bolt that used to be shared with the sibling brand.
 
-**Photography is illustrative, and is marked as such.** One stock photograph appears on the
-site: the full-bleed band between the argument and the ask. It carries a visible caption saying
-so. A second, a portrait beside the hero headline, was removed in CHW-318: its column now holds
-the price list, a fact where there was decoration. Its files stay in `img/` and `NOTICE.md` in
-case it returns; if it does, everything below applies to it too.
-
-The signature at the ask names a real person but shows no photograph of him. A portrait was
-tried there and removed. If one ever returns, two things learned the first time: it must be
-graded so its background lands on `--ink`, or a light studio backdrop reads as a hole punched
-in the gold band, and it must be square, because a circular avatar is the most template-looking
-object a landing page can carry and nothing else here is pill-shaped.
+**Photography is illustrative, and is disclosed in one place.** Three stock photographs appear,
+all by Vitaly Gariev on Unsplash (`NOTICE.md`): the hero, behind its shade, and one above each
+side in section 02. The demo coach's portrait inside the captures is a fourth from the same
+photographer. The footer's credit line names him and says that the people photographed are not
+FitPal clients or coaches, and that the coach and client in the captures are demo accounts. That
+one line replaced the per-photo "stock photograph" caption CHW-318 used, because the design puts
+the photographs behind text and above lists, where a caption on each would be noise.
 
 A photograph carries no name, quote, claimed result or product claim: a stock portrait captioned
 as a named customer would be fabricated social proof, and a photograph is the easiest place to do
-that by accident. Stock is licensed and recorded in `NOTICE.md` with source and licence.
+that by accident. The demo coach in the captures has a first name because the app shows one; the
+footer says it is a demo account. Stock is licensed and recorded in `NOTICE.md` with source and
+licence.
 
-The band is presented **unframed** and full-bleed, which is the deliberate inverse of the device
-treatment. Evidence sits inside a phone body with a "real capture" caption under it; atmosphere
-gets the full width, no frame and a "stock photograph" caption. That contrast is how a reader
-tells the two apart without being told which is which, and it is why the photograph sits in an
-**unnumbered** band: `01` to `06` is a declared system, and a "07" would give a stock photograph
-the same standing as the spec sheet.
+Evidence and atmosphere still read apart without being told: evidence sits inside a phone body
+with a "Capture de l'app" caption under it; a photograph is unframed, under a shade or in a plain
+6px-radius box.
 
-The caption states that it is a stock photograph, in the page's own language. The disclosure is
-visible rather than hidden in the `alt` attribute, because a sighted reader needs it as much as
-a screen-reader user does.
+The CHW-318 band (`img/coaches.jpg`) and hero portrait (`img/coach-hero.jpg`) are no longer
+shown; their files and `NOTICE.md` entries stay.
 
 **A photograph must never contain a legible app screen.** Invented UI is still forbidden when it
 arrives inside a photo.

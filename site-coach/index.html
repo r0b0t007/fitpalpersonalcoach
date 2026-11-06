@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Logiciel pour coach sportif au Maroc | FitPal Coach</title>
-<meta name="description" content="Application pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une vraie app pour vos clients. Dès 19 € par mois. Appel de 20 min sur WhatsApp.">
-<meta name="theme-color" content="#1C1A17">
+<meta name="description" content="Pour les coachs sportifs qui travaillent sur Instagram : un lien dans votre bio, vos abonnés demandent à s'entraîner avec vous, vous acceptez, leur première séance est prête le jour même. Gratuit jusqu'à 3 clients, sans carte bancaire.">
+<meta name="theme-color" content="#14120F">
 
 <link rel="canonical" href="https://fitpal.ma/">
 <link rel="alternate" hreflang="fr" href="https://fitpal.ma/">
@@ -18,23 +18,23 @@
 <meta property="og:locale:alternate" content="en_MA">
 <meta property="og:locale:alternate" content="es_MA">
 <meta property="og:url" content="https://fitpal.ma/">
-<meta property="og:title" content="Logiciel pour coach sportif au Maroc | FitPal Coach">
-<meta property="og:description" content="Application pour coachs sportifs au Maroc. Vos clients reçoivent une vraie app d'entraînement, vous voyez qui décroche.">
+<meta property="og:title" content="Un lien dans votre bio | FitPal Coach">
+<meta property="og:description" content="Vos abonnés demandent à s'entraîner avec vous, vous acceptez, leur première séance est prête le jour même. Gratuit jusqu'à 3 clients.">
 <meta property="og:image" content="https://fitpal.ma/img/og-fr.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Logiciel pour coach sportif au Maroc | FitPal Coach">
-<meta name="twitter:description" content="Le logiciel des coachs sportifs indépendants au Maroc. Fini les DM et le tableur.">
+<meta name="twitter:title" content="Un lien dans votre bio | FitPal Coach">
+<meta name="twitter:description" content="Le logiciel des coachs qui travaillent sur Instagram. Gratuit jusqu'à 3 clients, sans carte bancaire.">
 <meta name="twitter:image" content="https://fitpal.ma/img/og-fr.png">
 
 <link rel="icon" href="favicon.ico" sizes="32x32">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 
-<link rel="preload" as="image" href="img/promo-poster-fr.jpg" fetchpriority="high">
+<link rel="preload" as="image" type="image/avif" href="img/hero-lift-1280w.avif" imagesrcset="img/hero-lift-800w.avif 800w, img/hero-lift-1280w.avif 1280w, img/hero-lift-1920w.avif 1920w" imagesizes="100vw" fetchpriority="high">
 <link rel="preload" as="font" type="font/woff2" href="fonts/archivo-latin.woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=17">
+<link rel="stylesheet" href="styles.css?v=19">
 
 <script>
 /* Pre-paint: arm the intro before first paint so the hero never shows and then hides.
@@ -70,7 +70,7 @@
         "de",
         "es"
       ],
-      "description": "Logiciel pour coachs sportifs indépendants au Maroc : programmes, suivi d'assiduité et une app d'entraînement pour vos clients, en français, anglais, allemand et espagnol, tableau de bord coach compris.",
+      "description": "Logiciel pour coachs sportifs indépendants qui travaillent sur Instagram : une page publique pour la bio, les demandes d'abonnés avec questionnaire, un programme de départ dès l'acceptation, et une app d'entraînement pour les clients, en français, anglais, allemand et espagnol.",
       "publisher": {
         "@id": "https://ahmedchioua.com/#person"
       }
@@ -88,6 +88,13 @@
         "name": "Maroc"
       },
       "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free",
+          "price": "0",
+          "priceCurrency": "EUR",
+          "description": "Jusqu'à 3 clients actifs. Sans carte bancaire."
+        },
         {
           "@type": "Offer",
           "name": "Solo",
@@ -109,7 +116,7 @@
               "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
             }
           ],
-          "description": "Jusqu'à 10 clients actifs, par mois, TTC. 190 € à l'année. 14 jours d'essai."
+          "description": "Jusqu'à 10 clients actifs, par mois, TTC. 190 € à l'année."
         },
         {
           "@type": "Offer",
@@ -132,7 +139,7 @@
               "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
             }
           ],
-          "description": "Jusqu'à 30 clients actifs, par mois, TTC. 390 € à l'année. 14 jours d'essai."
+          "description": "Jusqu'à 30 clients actifs, par mois, TTC. 390 € à l'année."
         },
         {
           "@type": "Offer",
@@ -155,7 +162,7 @@
               "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "ANN" }
             }
           ],
-          "description": "Jusqu'à 75 clients actifs, par mois, TTC. 790 € à l'année. 14 jours d'essai."
+          "description": "Jusqu'à 75 clients actifs, par mois, TTC. 790 € à l'année."
         }
       ]
     },
@@ -193,434 +200,325 @@
       FitPal&nbsp;<b>Coach</b>
     </a>
 
-    <button class="burger" type="button" aria-expanded="false" aria-controls="nav" aria-label="Ouvrir le menu">
-      <span></span><span></span><span></span>
-    </button>
-
-    <nav class="nav" id="nav" aria-label="Principal">
-      <a href="#semaine">La semaine</a>
+    <nav class="nav sections" aria-label="Principal">
+      <a href="#comment">Comment ça marche</a>
       <a href="#tarifs">Tarifs</a>
-      <a href="#fiche">Fiche technique</a>
-      <a href="#demarrage">Mise en route</a>
-      <a href="#questions">Questions</a>
-      <a class="lang" href="/en/" hreflang="en" lang="en">EN</a>
-      <a class="lang" href="/es/" hreflang="es" lang="es">ES</a>
+      <a href="#faq">FAQ</a>
     </nav>
 
-    <a class="btn primary sm" href="#appel">Réserver un appel</a>
+    <div class="hdr-r">
+      <nav class="langs" aria-label="Langue">
+        <b>FR</b>
+        <a class="lang" href="/es/" hreflang="es" lang="es">ES</a>
+        <a class="lang" href="/en/" hreflang="en" lang="en">EN</a>
+      </nav>
+      <a class="btn primary sm" href="https://coach.fitpal.ma/#/start?plan=free"><span>Commencer<span class="hide-sm"> gratuitement</span></span></a>
+    </div>
   </div>
 </header>
 
 <main id="main">
 
-  <!-- hero -->
-  <section class="hero wrap">
-    <div class="hero-grid">
+  <!-- Hero. The phone holds a real capture of a coach's public page (a demo account, credited
+       in the footer), not a drawing of one: PRODUCT.md principle 1. -->
+  <section class="hero">
+    <div class="hero-photo">
+      <picture>
+        <source type="image/avif" srcset="img/hero-lift-800w.avif 800w, img/hero-lift-1280w.avif 1280w, img/hero-lift-1920w.avif 1920w" sizes="100vw">
+        <source type="image/webp" srcset="img/hero-lift-800w.webp 800w, img/hero-lift-1280w.webp 1280w, img/hero-lift-1920w.webp 1920w" sizes="100vw">
+        <img src="img/hero-lift.jpg" width="1920" height="1080" fetchpriority="high"
+             alt="Une femme soulève une barre en salle, un entraîneur la regarde.">
+      </picture>
+    </div>
+
+    <div class="wrap hero-in">
       <div class="hero-copy">
-        <p class="label eyebrow"><span>Logiciel de coaching · jusqu'à 75 clients</span><span class="proof">Captures réelles, pas de maquettes</span></p>
-        <h1 class="display"><span>L'admin</span><span>vous coûte</span><span>des clients.</span></h1>
-        <p class="lead">
-          FitPal Coach remplace les DM WhatsApp, les notes vocales et le tableur. Vos clients reçoivent
-          une vraie app d'entraînement. Vous voyez qui s'entraîne, qui décroche, et qui est sur
-          le point d'arrêter.
-        </p>
-        <div class="actions">
-          <a class="btn primary" href="#appel">Réserver un appel</a>
-          <a class="btn ghost" href="#semaine">Voir le produit</a>
+        <p class="label eyebrow">Pour les coachs qui travaillent sur Instagram</p>
+        <h1 class="display">Un lien dans votre bio.</h1>
+        <p class="lead">Vos abonnés demandent à s'entraîner avec vous, vous acceptez, leur première séance est prête le jour même.</p>
+        <div class="ctas">
+          <a class="btn primary" href="https://coach.fitpal.ma/#/start?plan=free">Commencer gratuitement</a>
+          <a class="btn ghost" href="https://wa.me/212626410690?text=Bonjour%2C%20je%20suis%20coach%20et%20j%27ai%20une%20question%20sur%20FitPal%20Coach.">Écrire sur WhatsApp</a>
         </div>
-        <p class="note">Appel de 20 minutes. Pas de démo automatisée, pas de carte bancaire.</p>
+        <p class="note">Gratuit jusqu'à 3 clients. Sans carte bancaire.</p>
       </div>
 
-      <div class="hero-stage">
-        <div class="hero-media">
-          <!-- [html-validate-disable-next aria-label-misuse: the site script adds controls on every path that can play it; with no JS it is a still poster and the label still names it] -->
-          <video data-autoplay poster="img/promo-poster-fr.jpg" muted playsinline preload="none"
-                 width="1280" height="720"
-                 aria-label="FitPal Coach en dix-sept secondes : le coût de l'admin, puis le tableau de bord qui le supprime.">
-            <source data-src="assets/promo-fr.webm" type='video/webm; codecs="av01.0.05M.08"'>
-              <source data-src="assets/promo-fr.mp4" type="video/mp4">
-            </video>
+      <figure class="shot">
+        <div class="device">
+          <div class="device-screen"><picture>
+            <source type="image/avif" srcset="img/screens/public-page-fr-360w.avif 360w, img/screens/public-page-fr-720w.avif 720w" sizes="(max-width: 760px) 228px, 278px">
+            <source type="image/webp" srcset="img/screens/public-page-fr-360w.webp 360w, img/screens/public-page-fr-720w.webp 720w" sizes="(max-width: 760px) 228px, 278px">
+            <img src="img/screens/public-page-fr.png" width="720" height="1560"
+                 alt="La page publique d'un coach de démonstration, Karim : sa photo, deux lignes sur son coaching à Casablanca, le bouton « Demander à rejoindre » et, en bas, « Coaché avec FitPal ».">
+          </picture></div>
         </div>
-        <p class="shot-cap label"><span>Lundi 08:12</span><span class="num">Capture réelle</span></p>
-      </div>
-
-      <!-- The price, beside the headline. This column held a stock portrait; a fact fills it
-           better than decoration, and "le montant est fixé pendant l'appel" was the one answer
-           this buyer could not get without picking up the phone. -->
-      <aside class="hero-plans" aria-labelledby="hero-plans-h">
-        <p class="label" id="hero-plans-h">Tarifs, par mois</p>
-        <dl>
-          <div><dt>Solo <span>10 clients</span></dt><dd class="num">19&nbsp;€</dd></div>
-          <div><dt>Pro <span>30 clients</span></dt><dd class="num">39&nbsp;€</dd></div>
-          <div><dt>Studio <span>75 clients</span></dt><dd class="num">79&nbsp;€</dd></div>
-        </dl>
-        <p class="hero-plans-foot"><span>14 jours d'essai · TTC</span><a href="#tarifs">Le détail</a></p>
-      </aside>
+        <figcaption class="shot-cap"><span class="url">coach.fitpal.ma/c/karim.coach</span><span class="label">Capture de l'app</span></figcaption>
+      </figure>
     </div>
   </section>
 
-  <!-- 01 · The week. Problem and product used to be two sections: four complaints, then four
-       screens, so the reader matched them up alone. Here each admin chore sits beside the real
-       capture that removes it, in the order a coach's week meets them. -->
-  <section class="sec wrap" id="semaine">
-    <div class="sec-head rv">
-      <div class="rule label"><span class="n num">01</span><span class="k">La semaine</span></div>
-      <h2>Quatre moments où l'admin disparaît</h2>
-      <p class="lead">
-        Vous travaillez dans le tableau de bord coach, vos clients dans l'app d'entraînement.
-        Chaque écran ci-dessous est une capture du produit tel qu'il tourne, pas une maquette.
-      </p>
-    </div>
-
-    <ol class="week">
-      <li class="stage rv">
-        <div class="stage-body">
-          <p class="stage-when label">Le matin, chez le client</p>
-          <h3>Leur séance les attend</h3>
-          <p class="before"><span class="label">Avant</span>Un tableur refait à la main pour chaque client, envoyé en capture d'écran. Une correction et tout recommence.</p>
-          <p>Une vraie app, installable sur l'écran d'accueil. Pas un PDF, pas un lien vers un tableur.</p>
-          <ul>
-            <li><span>La séance du jour, et la semaine devant</span></li>
-            <li><span>Son poids et sa courbe, contre son objectif</span></li>
-            <li><span>Fonctionne hors-ligne, se synchronise après</span></li>
-          </ul>
-        </div>
-        <figure class="shot-wrap">
-          <div class="device">
-            <div class="device-screen"><picture>
-              <source type="image/avif" srcset="img/screens/client-home-fr-360w.avif 360w, img/screens/client-home-fr-720w.avif 720w" sizes="360px">
-              <source type="image/webp" srcset="img/screens/client-home-fr-360w.webp 360w, img/screens/client-home-fr-720w.webp 720w" sizes="360px">
-              <img src="img/screens/client-home-fr.png" alt="Accueil côté client, en français : la bande de la semaine, la séance du jour marquée « Terminé », puis le poids corporel à 83,5 kg et sa courbe sur cinq mois." width="720" height="1560" loading="lazy">
-            </picture></div>
-          </div>
-          <p class="shot-cap label"><span>Accueil client</span><span class="num">Capture réelle</span></p>
-        </figure>
-      </li>
-
-      <li class="stage rv">
-        <div class="stage-body">
-          <p class="stage-when label">Avant votre premier client</p>
-          <h3>Vous voyez qui a besoin de vous</h3>
-          <p class="before"><span class="label">Avant</span>Une note vocale à 22h, enterrée trois jours plus tard sous vingt autres conversations.</p>
-          <p>Une page qui répond à la seule question qui compte avant votre premier client : qui a besoin de vous aujourd'hui.</p>
-          <ul>
-            <li><span>Qui s'entraîne en ce moment, en direct</span></li>
-            <li><span>Qui n'a rien fait depuis sept jours</span></li>
-            <li><span>Qui attend une réponse de votre part</span></li>
-          </ul>
-        </div>
-        <figure class="shot-wrap">
-          <div class="device">
-            <div class="device-screen"><picture>
-              <source type="image/avif" srcset="img/screens/coach-today-fr-360w.avif 360w, img/screens/coach-today-fr-720w.avif 720w" sizes="360px">
-              <source type="image/webp" srcset="img/screens/coach-today-fr-360w.webp 360w, img/screens/coach-today-fr-720w.webp 720w" sizes="360px">
-              <img src="img/screens/coach-today-fr.png" alt="Tableau de bord coach : les compteurs Clients 6, En séance 2 et Actifs 7 j 5, une carte « à traiter » nommant trois clients, puis la carte « en séance » avec la progression en direct de deux clients." width="720" height="1560" loading="lazy">
-            </picture></div>
-          </div>
-          <p class="shot-cap label"><span>Tableau de bord</span><span class="num">Capture réelle</span></p>
-        </figure>
-      </li>
-
-      <li class="stage rv">
-        <div class="stage-body">
-          <p class="stage-when label">En cours de semaine</p>
-          <h3>Celui qui décroche se voit avant qu'il parte</h3>
-          <p class="before"><span class="label">Avant</span>Quand vous réalisiez qu'un client ne s'entraînait plus, il avait déjà décidé d'arrêter.</p>
-          <p>L'assiduité de chaque client sur 28 jours, la couleur avant le chiffre, tout le roster sur une page.</p>
-          <ul>
-            <li><span>Assiduité sur 28 jours, client par client</span></li>
-            <li><span>Point vert : en séance en ce moment</span></li>
-            <li><span>Programme envoyé, accepté, ou resté sans réponse</span></li>
-          </ul>
-        </div>
-        <figure class="shot-wrap">
-          <div class="device">
-            <div class="device-screen"><picture>
-              <source type="image/avif" srcset="img/screens/coach-clients-fr-360w.avif 360w, img/screens/coach-clients-fr-720w.avif 720w" sizes="360px">
-              <source type="image/webp" srcset="img/screens/coach-clients-fr-360w.webp 360w, img/screens/coach-clients-fr-720w.webp 720w" sizes="360px">
-              <img src="img/screens/coach-clients-fr.png" alt="Liste des clients : six fiches ; les cinq clients qui ont un programme affichent leur taux d'assiduité sur 28 jours en couleur, de 42 % en rouge à 100 % en vert, et une pastille verte marque les deux clients en séance." width="720" height="1560" loading="lazy">
-            </picture></div>
-          </div>
-          <p class="shot-cap label"><span>Liste des clients</span><span class="num">Capture réelle</span></p>
-        </figure>
-      </li>
-
-      <li class="stage rv">
-        <div class="stage-body">
-          <p class="stage-when label">Fin du mois</p>
-          <h3>Le bilan se fait avec des faits</h3>
-          <p class="before"><span class="label">Avant</span>Une impression, et un client qui se souvient surtout des séances qu'il a faites.</p>
-          <p>L'assiduité par rapport au plan, pas une moyenne flatteuse. De quoi tenir une conversation difficile avec des faits.</p>
-          <ul>
-            <li><span>Assiduité mesurée contre les jours prévus</span></li>
-            <li><span>Charge estimée au 1RM par exercice</span></li>
-            <li><span>Poids, mensurations, équilibre musculaire</span></li>
-          </ul>
-        </div>
-        <figure class="shot-wrap">
-          <div class="device">
-            <div class="device-screen"><picture>
-              <source type="image/avif" srcset="img/screens/client-stats-fr-360w.avif 360w, img/screens/client-stats-fr-720w.avif 720w" sizes="360px">
-              <source type="image/webp" srcset="img/screens/client-stats-fr-360w.webp 360w, img/screens/client-stats-fr-720w.webp 720w" sizes="360px">
-              <img src="img/screens/client-stats-fr.png" alt="Écran statistiques, en français : 79 séances, 10 ce mois-ci, une série de 21 semaines, la carte de chaleur des douze derniers mois, et la carte musculaire avant et arrière." width="720" height="1560" loading="lazy">
-            </picture></div>
-          </div>
-          <p class="shot-cap label"><span>Statistiques client</span><span class="num">Capture réelle</span></p>
-        </figure>
-      </li>
-    </ol>
-  </section>
-
-  <!-- 02 · Plans. On the bone ground with the spec sheet: terms belong with the spec, and the
-       light section is where the manual metaphor is literal. Three columns of the same rows, not
-       three cards; the middle plan is marked by a rule, not a badge. -->
-  <section class="sec spec plans" id="tarifs">
+  <!-- 01 · How it works. Three real captures from the demo film's run: the page, the request
+       in the coach's inbox, the client's first day. -->
+  <section class="sec" id="comment">
     <div class="wrap">
       <div class="sec-head rv">
-        <div class="rule label"><span class="n num">02</span><span class="k">Tarifs</span></div>
-        <h2>Un forfait par taille de roster</h2>
-        <p class="lead">Ce qui vous plafonne, ce n'est pas le nombre d'heures de coaching, c'est tout le reste. Chaque forfait contient tout le produit ; seul le nombre de clients change.</p>
+        <div class="rule label"><span class="n num">01</span><span class="k">Comment ça marche</span></div>
+        <h2>Trois étapes, et votre abonné s'entraîne.</h2>
       </div>
 
-      <div class="plan-grid rv">
-        <div class="plan">
-          <h3 id="plan-solo">Solo</h3>
-          <p class="plan-price"><span class="num">19&nbsp;€</span> par mois</p>
-          <dl>
-            <div><dt>Clients actifs</dt><dd class="num">jusqu'à 10</dd></div>
-            <div><dt>À l'année</dt><dd class="num">190&nbsp;€</dd></div>
-            <div><dt>Essai</dt><dd class="num">14 jours</dd></div>
-          </dl>
-        </div>
-        <div class="plan mid">
-          <h3 id="plan-pro">Pro</h3>
-          <p class="plan-price"><span class="num">39&nbsp;€</span> par mois</p>
-          <dl>
-            <div><dt>Clients actifs</dt><dd class="num">jusqu'à 30</dd></div>
-            <div><dt>À l'année</dt><dd class="num">390&nbsp;€</dd></div>
-            <div><dt>Essai</dt><dd class="num">14 jours</dd></div>
-          </dl>
-        </div>
-        <div class="plan">
-          <h3 id="plan-studio">Studio</h3>
-          <p class="plan-price"><span class="num">79&nbsp;€</span> par mois</p>
-          <dl>
-            <div><dt>Clients actifs</dt><dd class="num">jusqu'à 75</dd></div>
-            <div><dt>À l'année</dt><dd class="num">790&nbsp;€</dd></div>
-            <div><dt>Essai</dt><dd class="num">14 jours</dd></div>
-          </dl>
-        </div>
-      </div>
-
-      <p class="plan-note rv">
-        Prix TTC, en euros. L'année coûte dix mois. Si un client arrête, libérez-le depuis sa page dans l'app : sa place est aussitôt disponible.
-        Le paiement en ligne ouvre bientôt ; d'ici là, on démarre ensemble après
-        <a href="#appel">un appel de 20&nbsp;minutes</a>.
-      </p>
-    </div>
-  </section>
-
-  <!-- 03 -->
-  <section class="sec spec" id="fiche">
-    <div class="wrap">
-      <div class="sec-head rv">
-        <div class="rule label"><span class="n num">03</span><span class="k">Fiche technique</span></div>
-        <h2>Ce que vous achetez</h2>
-        <p class="lead">Ce qui est prêt, et ce qui ne l'est pas.</p>
-      </div>
-
-      <dl class="spec-table rv">
-        <div class="spec-row"><dt>Plateformes</dt><dd>Web, Android, iOS. Installable depuis le navigateur, sans passer par un store.</dd></div>
-        <div class="spec-row"><dt>Langues de l'app client</dt><dd class="num">4 (français, anglais, allemand, espagnol)</dd></div>
-        <div class="spec-row"><dt>Langues du tableau de bord coach</dt><dd>Les mêmes 4 langues</dd></div>
-        <div class="spec-row"><dt>Connexion</dt><dd>Passkey (WebAuthn). Pas de mot de passe à réinitialiser.</dd></div>
-        <div class="spec-row"><dt>Bibliothèque d'exercices</dt><dd class="num">1 324 exercices illustrés, plus les vôtres</dd></div>
-        <div class="spec-row"><dt>Progression des charges</dt><dd>Linéaire, Greyskull LP ou double progression, au choix par exercice.</dd></div>
-        <div class="spec-row"><dt>Hors-ligne</dt><dd>La séance se déroule et s'enregistre sans réseau, la synchronisation suit.</dd></div>
-        <div class="spec-row"><dt>Notifications</dt><dd>Fin de repos et rappel de séance, par Web Push.</dd></div>
-        <div class="spec-row"><dt>Hébergement</dt><dd>Hébergé pour vous, rien à installer. Aucune télémétrie.</dd></div>
-        <div class="spec-row"><dt>Export</dt><dd>Les données client sont exportables à tout moment, en JSON.</dd></div>
-        <div class="spec-row"><dt>Tarif</dt><dd>Trois forfaits selon le nombre de clients, voir <a href="#tarifs">Tarifs</a>. Pas de prix par client.</dd></div>
-        <div class="spec-row"><dt>Pays</dt><dd>Maroc. L'appel de démarrage et l'assistance se font sur WhatsApp.</dd></div>
-      </dl>
-
-      <!-- The two facts most likely to close this buyer used to live only inside collapsed FAQ
-           items at ~85% scroll, while the feature list sat open: the objection-handling was
-           hidden and the features were not. They close the spec sheet now, which is the most
-           credible object on the page and the right place for terms. -->
-      <ol class="rows rv terms">
-        <li class="row">
-          <span class="n label">Sortie</span>
-          <div><h3>Vous repartez avec vos données</h3></div>
-          <p>Exportables en JSON à tout moment. Rien ne reste enfermé chez nous.</p>
+      <ol class="steps">
+        <li class="step rv">
+          <span class="step-n num">1</span>
+          <h3>Le lien</h3>
+          <p>Votre page : une photo, votre nom, quelques lignes sur votre coaching et, si vous voulez, votre WhatsApp. Son adresse va dans votre bio Instagram.</p>
+          <figure class="shot">
+            <div class="device">
+              <div class="device-screen"><picture>
+                <source type="image/avif" srcset="img/screens/public-page-fr-360w.avif 360w, img/screens/public-page-fr-720w.avif 720w" sizes="(min-width: 900px) 198px, 228px">
+                <source type="image/webp" srcset="img/screens/public-page-fr-360w.webp 360w, img/screens/public-page-fr-720w.webp 720w" sizes="(min-width: 900px) 198px, 228px">
+                <img src="img/screens/public-page-fr.png" width="720" height="1560" loading="lazy"
+                     alt="La page publique du coach de démonstration, telle que l'abonné l'ouvre depuis la bio : photo, présentation et bouton « Demander à rejoindre ».">
+              </picture></div>
+            </div>
+            <figcaption class="shot-cap"><span>Votre page</span><span class="label">Capture de l'app</span></figcaption>
+          </figure>
         </li>
-        <li class="row">
-          <span class="n label">Clients</span>
-          <div><h3>Votre facture ne bloque jamais un client</h3></div>
-          <p>L'app de vos clients ne dépend pas de votre forfait. Un paiement en retard ne coupe la séance de personne.</p>
+
+        <li class="step rv">
+          <span class="step-n num">2</span>
+          <h3>La demande</h3>
+          <p>L'abonné indique son objectif, son niveau, ses jours, ses blessures éventuelles et son matériel, puis confirme son e-mail avec un code. Vous êtes prévenu par une notification et un e-mail, et vous acceptez d'un geste.</p>
+          <figure class="shot">
+            <div class="device">
+              <div class="device-screen"><picture>
+                <source type="image/avif" srcset="img/screens/request-fr-360w.avif 360w, img/screens/request-fr-720w.avif 720w" sizes="(min-width: 900px) 198px, 228px">
+                <source type="image/webp" srcset="img/screens/request-fr-360w.webp 360w, img/screens/request-fr-720w.webp 720w" sizes="(min-width: 900px) 198px, 228px">
+                <img src="img/screens/request-fr.png" width="720" height="1560" loading="lazy"
+                     alt="Les demandes, côté coach : Sara veut perdre du gras, débute, peut s'entraîner trois jours par semaine, en salle avec des haltères. Boutons Accepter et Refuser.">
+              </picture></div>
+            </div>
+            <figcaption class="shot-cap"><span>Vos demandes</span><span class="label">Capture de l'app</span></figcaption>
+          </figure>
+        </li>
+
+        <li class="step rv">
+          <span class="step-n num">3</span>
+          <h3>La séance 1</h3>
+          <p>Le programme de départ que vous avez choisi pour votre page l'attend dès que vous acceptez. Il s'entraîne le jour même, et chaque séance qu'il termine apparaît sur sa fiche.</p>
+          <figure class="shot">
+            <div class="device">
+              <div class="device-screen"><picture>
+                <source type="image/avif" srcset="img/screens/client-day1-fr-360w.avif 360w, img/screens/client-day1-fr-720w.avif 720w" sizes="(min-width: 900px) 198px, 228px">
+                <source type="image/webp" srcset="img/screens/client-day1-fr-360w.webp 360w, img/screens/client-day1-fr-720w.webp 720w" sizes="(min-width: 900px) 198px, 228px">
+                <img src="img/screens/client-day1-fr.png" width="720" height="1560" loading="lazy"
+                     alt="L'accueil de Sara le jour où elle est acceptée : « Séance 1 · aujourd'hui, Full body B » avec un bouton Démarrer, puis son point hebdomadaire et son poids.">
+              </picture></div>
+            </div>
+            <figcaption class="shot-cap"><span>Son premier jour</span><span class="label">Capture de l'app</span></figcaption>
+          </figure>
         </li>
       </ol>
     </div>
   </section>
 
-  <!-- 04 -->
-  <section class="sec wrap" id="demarrage">
-    <div class="sec-head rv">
-      <div class="rule label"><span class="n num">04</span><span class="k">Mise en route</span></div>
-      <h2>De l'appel au premier lundi</h2>
-    </div>
-
-    <ol class="steps rv">
-      <li class="step">
-        <span class="n label num">01</span>
-        <h3>L'appel</h3>
-        <p>Vingt minutes. Vous montrez comment vous travaillez aujourd'hui, on regarde si l'outil correspond.</p>
-      </li>
-      <li class="step">
-        <span class="n label num">02</span>
-        <h3>Votre compte</h3>
-        <p>Votre compte coach est ouvert, sur le forfait qui correspond à votre roster. Rien à installer de votre côté.</p>
-      </li>
-      <li class="step">
-        <span class="n label num">03</span>
-        <h3>Vos programmes</h3>
-        <p>On reprend vos séances existantes et on les met dans l'éditeur, avec vous, une fois.</p>
-      </li>
-      <li class="step">
-        <span class="n label num">04</span>
-        <h3>Vos clients</h3>
-        <p>Ils reçoivent une invitation, installent l'app, et leur séance les attend lundi matin.</p>
-      </li>
-    </ol>
-  </section>
-
-  <!-- 05 -->
-  <section class="sec tight wrap" id="questions">
-    <div class="sec-head rv">
-      <div class="rule label"><span class="n num">05</span><span class="k">Questions</span></div>
-      <h2>Ce qu'on nous demande</h2>
-    </div>
-
-    <div class="faq rv">
-      <details>
-        <summary>Je n'ai que huit clients. C'est trop peu ?</summary>
-        <p>Non. L'outil est construit pour une personne seule avec un téléphone, pas pour une salle avec un accueil. C'est à huit clients que le temps gagné se voit le plus, parce que vous n'avez personne à qui déléguer l'admin.</p>
-      </details>
-      <details>
-        <summary>Mes clients doivent télécharger une application ?</summary>
-        <p>Ils ouvrent un lien et l'ajoutent à leur écran d'accueil. Pas de store, pas de compte à créer, pas de mot de passe. Des versions Android et iOS natives existent si vous les préférez.</p>
-      </details>
-      <details>
-        <summary>Qu'est-ce qui se passe si j'arrête ?</summary>
-        <p>Vous repartez avec vos données, exportées en JSON. Le tableau de bord reste utilisable jusqu'à la fin de la période déjà payée.</p>
-      </details>
-      <details>
-        <summary>Le tableau de bord coach est-il en français ?</summary>
-        <p>Oui. Le tableau de bord coach et l'app client existent en français, anglais, allemand et espagnol, et chacun choisit sa langue dans ses réglages : par défaut, celle de son navigateur. Les noms et les instructions des exercices sont traduits en français et en espagnol, avec le nom anglais entre parenthèses pour s'y retrouver dans les vidéos et les programmes. En allemand, ils restent en anglais pour l'instant.</p>
-      </details>
-      <details>
-        <summary>Quelle différence avec une application de coach sportif grand public ?</summary>
-        <p>Une application grand public donne à tout le monde le même programme générique. FitPal Coach est une application pour coach sportif : c'est vous qui écrivez le programme, votre client le suit dans son app, et vous voyez s'il s'y tient.</p>
-      </details>
-      <details>
-        <summary>C'est adapté au coaching en ligne au Maroc ?</summary>
-        <p>Oui. FitPal Coach est conçu et édité au Maroc. Votre client s'entraîne avec l'app où qu'il soit, en salle ou à la maison, et vous suivez son assiduité à distance. L'appel de démarrage et l'assistance se font sur WhatsApp.</p>
-      </details>
-      <details>
-        <summary>Combien ça coûte ?</summary>
-        <p>De 19 à 79 € par mois selon le nombre de clients actifs : Solo jusqu'à 10, Pro jusqu'à 30, Studio jusqu'à 75. TTC, 14 jours d'essai, et l'année coûte dix mois. Le détail est dans <a href="#tarifs">Tarifs</a>.</p>
-      </details>
-      <details>
-        <summary>Et si je dépasse mon forfait ?</summary>
-        <p>Vos clients actuels continuent comme avant. Vous ne pouvez simplement plus en inviter de nouveaux, jusqu'à ce que vous passiez au forfait du dessus ou que vous libériez un client qui a arrêté, depuis sa page dans l'app : sa place est aussitôt disponible. Son compte et son journal d'entraînement restent les siens ; les programmes auxquels il n'a pas encore répondu sont retirés, et pour le suivre à nouveau, vous lui envoyez une nouvelle invitation.</p>
-      </details>
-      <details>
-        <summary>Je peux changer de forfait ?</summary>
-        <p>Oui, à tout moment. Pour l'instant, un message suffit : nous changeons votre forfait de notre côté. Quand le paiement en ligne ouvrira, la carte, les factures et le forfait se géreront depuis votre compte.</p>
-      </details>
-    </div>
-  </section>
-
-  <!-- The one photograph on the site. Illustrative: no name, no quote, no claimed result.
-       Placed between the argument and the ask, unnumbered and unmatted. -->
-  <section class="people">
-    <div class="people-img">
-      <picture>
-            <source type="image/avif" srcset="img/coaches-600w.avif 600w, img/coaches-1200w.avif 1200w, img/coaches-1800w.avif 1800w" sizes="100vw">
-            <source type="image/webp" srcset="img/coaches-600w.webp 600w, img/coaches-1200w.webp 1200w, img/coaches-1800w.webp 1800w" sizes="100vw">
-            <img src="img/coaches.jpg" width="1800" height="750" loading="lazy" decoding="async"
-           alt="Deux coachs sportifs, une femme et un homme, se parlent au milieu d'un plateau de musculation, entre les cages à squat et les anneaux.">
-          </picture>
-    </div>
-    <p class="wrap label people-cap">
-      <span>Votre métier se passe ici. L'admin, non.</span>
-      <span>Photo d'illustration</span>
-    </p>
-  </section>
-
-  <!-- 06 -->
-  <section class="sec tight cta" id="appel">
+  <!-- 02 · Both sides. Photographs, so atmosphere, not evidence: the footer credits them and
+       says the people in them are not FitPal clients or coaches. -->
+  <section class="sec raised" id="cotes">
     <div class="wrap">
       <div class="sec-head rv">
-        <div class="rule label"><span class="n num">06</span><span class="k">Réserver</span></div>
-        <h2>Vingt minutes, et vous saurez</h2>
+        <div class="rule label"><span class="n num">02</span><span class="k">Les deux côtés</span></div>
+        <h2 class="sr-only">Ce que voit votre client, et ce que vous voyez</h2>
       </div>
-      <p class="rv">Montrez comment vous travaillez aujourd'hui. Si l'outil ne correspond pas, on vous le dira pendant l'appel.</p>
-      <div class="actions rv">
-        <a class="btn solid" href="https://wa.me/212626410690?text=Bonjour%2C%20je%20suis%20coach%20ind%C3%A9pendant(e).%20Je%20voudrais%20r%C3%A9server%20un%20appel%20de%2020%20minutes%20au%20sujet%20de%20FitPal%20Coach.">Réserver sur WhatsApp</a>
-        <a class="btn line" href="tel:+212626410690">+212&nbsp;626&nbsp;410&nbsp;690</a>
-      </div>
-      <p class="note rv">Appel de 20 minutes. Pas de démo automatisée, pas de carte bancaire.</p>
 
-      <!-- The page promises software "bâti par quelqu'un qui a fait ce métier". It then
-           anonymised that person entirely: no name, no face, and both photographs correctly
-           labelled as stock. A named human at the ask is what turns a form letter into a
-           person. The line states what is actually true — a developer's record, not a
-           coach's — because inventing coaching credentials here would be the one dishonest
-           sentence on a page whose whole conversion mechanism is spec-sheet honesty. -->
-      <div class="signed rv">
-        <p>
-          <b>Vous parlerez à Ahmed.</b>
-          Ahmed Chioua, développeur web et SaaS. Neuf ans à livrer du logiciel en production,
-          notamment pour Bell, BMW et Bayer. <a href="https://ahmedchioua.com/" rel="noopener">ahmedchioua.com</a>
-        </p>
+      <div class="sides">
+        <div class="side rv">
+          <div class="side-ph"><picture>
+            <source type="image/avif" srcset="img/side-client-600w.avif 600w, img/side-client-1200w.avif 1200w" sizes="(min-width: 900px) 520px, 100vw">
+            <source type="image/webp" srcset="img/side-client-600w.webp 600w, img/side-client-1200w.webp 1200w" sizes="(min-width: 900px) 520px, 100vw">
+            <img src="img/side-client.jpg" width="1600" height="900" loading="lazy" decoding="async"
+                 alt="Une femme fait une planche sur un tapis, chez elle.">
+          </picture></div>
+          <h3>Ce que voit votre client</h3>
+          <ul class="ticks">
+            <li>La séance du jour, prête, avec les séries et les répétitions que vous avez prévues</li>
+            <li>Ses séries, ses charges et son minuteur de repos</li>
+            <li>Un point chaque semaine, et votre réponse</li>
+            <li>Ses progrès : poids, mensurations, photos</li>
+          </ul>
+        </div>
+        <div class="side rv">
+          <div class="side-ph"><picture>
+            <source type="image/avif" srcset="img/side-coach-600w.avif 600w, img/side-coach-1200w.avif 1200w" sizes="(min-width: 900px) 520px, 100vw">
+            <source type="image/webp" srcset="img/side-coach-600w.webp 600w, img/side-coach-1200w.webp 1200w" sizes="(min-width: 900px) 520px, 100vw">
+            <img src="img/side-coach.jpg" width="1600" height="900" loading="lazy" decoding="async"
+                 alt="Un entraîneur et une cliente assis en salle ; il écrit un plan d'entraînement.">
+          </picture></div>
+          <h3>Ce que vous voyez</h3>
+          <ul class="ticks">
+            <li>Les nouvelles demandes, avec les réponses de chacun</li>
+            <li>Qui s'est entraîné, qui a manqué une séance, qui décroche</li>
+            <li>Les points à lire, et un résumé le matin, à partir de 7 h à votre heure, quand quelque chose vous attend</li>
+            <li>Vos programmes, envoyés à un client ou à plusieurs</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 · Pricing. Plan ids and the query string are the app's own: pickPlan() in
+       frontend/src/lib/billing.js reads ?plan= and &period=, Plans.php sells free, solo, pro
+       and studio by the month or the year. -->
+  <section class="sec" id="tarifs">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">03</span><span class="k">Tarifs</span></div>
+        <h2>Sans options payantes. Seul le nombre de clients change.</h2>
+      </div>
+
+      <div class="plans rv">
+        <div class="plan">
+          <h3 class="label">Free</h3>
+          <p class="price num">0&nbsp;€</p>
+          <p class="seats">3 clients</p>
+          <p>Sans carte bancaire. Pour commencer avec de vrais clients.</p>
+          <a class="btn ghost full" href="https://coach.fitpal.ma/#/start?plan=free">Commencer gratuitement</a>
+        </div>
+        <div class="plan hl">
+          <h3 class="label">Solo</h3>
+          <p class="price num">19&nbsp;€<span>/mois</span></p>
+          <p class="seats">10 clients</p>
+          <p>Quand vos trois premiers clients sont là.</p>
+          <a class="btn primary full" href="https://coach.fitpal.ma/#/start?plan=solo&amp;period=month">Choisir Solo</a>
+        </div>
+        <div class="plan">
+          <h3 class="label">Pro</h3>
+          <p class="price num">39&nbsp;€<span>/mois</span></p>
+          <p class="seats">30 clients</p>
+          <p>Un coaching qui tourne à plein.</p>
+          <a class="btn ghost full" href="https://coach.fitpal.ma/#/start?plan=pro&amp;period=month">Choisir Pro</a>
+        </div>
+        <div class="plan">
+          <h3 class="label">Studio</h3>
+          <p class="price num">79&nbsp;€<span>/mois</span></p>
+          <p class="seats">75 clients</p>
+          <p>Pour les plus grosses audiences.</p>
+          <a class="btn ghost full" href="https://coach.fitpal.ma/#/start?plan=studio&amp;period=month">Choisir Studio</a>
+        </div>
+      </div>
+
+      <p class="fine rv">Prix TTC, en euros. À l'année, vous payez dix mois : 190, 390 ou 790&nbsp;€. Tout est inclus dans chaque formule ; seul le nombre de clients actifs change.</p>
+    </div>
+  </section>
+
+  <!-- 04 · What is included. Every row was checked against the code (CHW-342): five templates
+       (lib/program-templates.js), dark or light page (CoachPage theme), auto-accept and the
+       starter program (JoinAccept, Starter), the morning summary from 07:00 on the coach's clock,
+       only on a day with something in it (CoachDigest). -->
+  <section class="sec spec" id="inclus">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">04</span><span class="k">Sans options</span></div>
+        <h2>Ce qui est inclus, dès le plan Free.</h2>
+      </div>
+
+      <dl class="spec-table rv">
+        <div class="spec-row"><dt class="label">Programmes</dt><dd>Écrits par vous ou copiés depuis cinq modèles prêts à l'emploi, envoyés à un client ou à plusieurs</dd></div>
+        <div class="spec-row"><dt class="label">Page publique</dt><dd>Votre adresse coach.fitpal.ma/c/vous, en sombre ou en clair, avec un aperçu quand le lien est partagé sur Instagram ou WhatsApp</dd></div>
+        <div class="spec-row"><dt class="label">Demandes</dt><dd>Questionnaire d'accueil, acceptation par vous ou automatique, programme de départ dès l'acceptation</dd></div>
+        <div class="spec-row"><dt class="label">Point hebdo</dt><dd>Cinq échelles, une note, des photos, et votre réponse</dd></div>
+        <div class="spec-row"><dt class="label">Suivi</dt><dd>Séances, assiduité, poids, mensurations, photos de progression</dd></div>
+        <div class="spec-row"><dt class="label">Nutrition</dt><dd>Objectifs de calories et de macros fixés par vous, suivis par le client</dd></div>
+        <div class="spec-row"><dt class="label">Notifications</dt><dd>Vos clients reçoivent leurs rappels de séance et de point hebdo ; vous recevez les demandes, et un résumé le matin quand quelque chose vous attend</dd></div>
+        <div class="spec-row"><dt class="label">Langues de l'app</dt><dd>Français, espagnol, anglais, allemand, au choix de chacun</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- 05 · Questions. The build turns this list into the page's FAQPage JSON-LD, so the
+       structured data cannot drift from what a visitor reads. -->
+  <section class="sec" id="faq">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">05</span><span class="k">Questions</span></div>
+        <h2 class="sr-only">Questions fréquentes</h2>
+      </div>
+
+      <div class="faq rv">
+        <details open>
+          <summary>Où va l'argent ?</summary>
+          <p>Chez vous. Vos clients vous paient directement, par virement, en espèces ou comme vous le faites aujourd'hui. FitPal ne touche pas à ces paiements et ne prend aucune commission.</p>
+        </details>
+        <details open>
+          <summary>Mes clients doivent-ils installer une app ?</summary>
+          <p>Non. Ils ouvrent votre lien et s'entraînent dans le navigateur. Ils peuvent ajouter l'app à leur écran d'accueil en deux gestes ; sur iPhone, c'est ce qui leur permet de recevoir les rappels.</p>
+        </details>
+        <details open>
+          <summary>Ça marche depuis Instagram ?</summary>
+          <p>Oui. Votre abonné fait sa demande sans quitter le navigateur d'Instagram : il reçoit un code à six chiffres par e-mail et le saisit sur la même page, et la réponse arrive au même endroit et par e-mail. La page lui propose aussi de s'ouvrir dans Safari ou Chrome, pour ajouter l'app à son écran d'accueil ; c'est une suggestion, pas une étape obligatoire.</p>
+        </details>
+        <details>
+          <summary>Mes données et celles de mes clients ?</summary>
+          <p>Elles sont hébergées par nos prestataires : l'app et sa base de données chez Namecheap, aux États-Unis, et les sauvegardes de chaque nuit chiffrées et stockées dans l'Union européenne. Elles ne sont jamais vendues et restent exportables à tout moment. Dans l'app, les réponses de santé du questionnaire ne sont visibles que par le coach du client. La liste complète est dans les <a href="/mentions-legales#donnees">mentions légales</a>.</p>
+        </details>
+        <details>
+          <summary>Et après 3 clients ?</summary>
+          <p>Vous passez à Solo pour en accepter jusqu'à 10. D'ici là, les nouvelles demandes continuent d'arriver et attendent votre réponse.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 · The demo. preload="none" and no autoplay: it has a voice-over, so it plays only when
+       pressed, and nobody downloads 2 MB they did not ask for. -->
+  <section class="sec raised" id="demo">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <div class="rule label"><span class="n num">06</span><span class="k">En moins d'une minute</span></div>
+        <h2>Du lien à la première série.</h2>
+      </div>
+
+      <figure class="rv">
+        <div class="film">
+          <video controls preload="none" playsinline poster="img/demo-poster-fr.jpg" width="1280" height="720">
+            <source src="assets/demo-fr.webm" type='video/webm; codecs="av01.0.05M.08, opus"'>
+            <source src="assets/demo-fr.mp4" type="video/mp4">
+          </video>
+        </div>
+        <figcaption class="note film-cap">Démo de 47 secondes, avec voix off et sous-titres en français. Karim et Sara sont des comptes de démonstration.</figcaption>
+      </figure>
+
+      <div class="ctas center rv">
+        <a class="btn primary" href="https://coach.fitpal.ma/#/start?plan=free">Commencer gratuitement</a>
+        <a class="btn ghost" href="https://wa.me/212626410690?text=Bonjour%2C%20je%20suis%20coach%20et%20j%27ai%20une%20question%20sur%20FitPal%20Coach.">Écrire sur WhatsApp</a>
       </div>
     </div>
   </section>
 
 </main>
 
-<div class="ask-bar">
-  <a class="btn primary" href="#appel">Réserver un appel</a>
-</div>
-
 <footer class="ftr">
   <div class="wrap ftr-in">
-    <div>
+    <div class="ftr-c">
       <a class="brand" href="/">
         <svg viewBox="50 22 156 208" aria-hidden="true" focusable="false">
           <path fill="currentColor" fill-rule="evenodd" d="M50.5 93.2H88.8C88.8 54 120.5 22.2 159.8 22.2V65.9C144.7 65.9 132.4 78.1 132.4 93.2H148.8C180 93.2 205.2 118.4 205.2 149.6C205.2 180.7 180 206 148.8 206H132.4V229.7H88.8V129.6H50.5V93.2ZM132.4 129.6V169.6H143.4C154.4 169.6 163.4 160.6 163.4 149.6C163.4 138.5 154.4 129.6 143.4 129.6H132.4Z"/>
         </svg>
         FitPal&nbsp;<b>Coach</b>
       </a>
-      <p class="fine">Le logiciel des coachs sportifs indépendants au Maroc. Bâti sur openGym.</p>
+      <p class="fine">« Coaché avec FitPal » apparaît en bas de la page de chaque coach. C'est ainsi que d'autres coachs nous découvrent.</p>
     </div>
-    <ul>
-      <li><a href="#semaine">La semaine</a></li>
-      <li><a href="#tarifs">Tarifs</a></li>
-      <li><a href="#fiche">Fiche technique</a></li>
-      <li><a href="#questions">Questions</a></li>
+    <ul class="links">
       <li><a href="/mentions-legales">Mentions légales</a></li>
+      <li><a href="/mentions-legales#donnees">Confidentialité</a></li>
+      <li><a href="/conditions">Conditions</a></li>
+      <li><a href="mailto:contact@fitpal.ma">Contact</a></li>
     </ul>
-    <ul>
-      <li><a href="/en/" hreflang="en" lang="en">English</a></li>
-      <li><a href="/es/" hreflang="es" lang="es">Español</a></li>
-      <li><a href="https://gym.fitpal.ma">FitPal pour les salles</a></li>
-      <li><a href="mailto:contact@fitpal.ma">contact@fitpal.ma</a></li>
-    </ul>
+  </div>
+  <div class="wrap credits">
+    <p>Photos : <a href="https://unsplash.com/@silverkblack">Vitaly Gariev</a> sur Unsplash, y compris le portrait de la page de démonstration. Les personnes photographiées ne sont pas des clientes ni des coachs FitPal. Karim et Sara sont des comptes de démonstration.</p>
   </div>
 </footer>
 
-<script src="site.js?v=6" defer></script>
+<script src="site.js?v=7" defer></script>
 </body>
 </html>
