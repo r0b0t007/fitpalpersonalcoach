@@ -168,7 +168,7 @@ final class MemberCard
      */
     public static function adherenceParts(stdClass $s, User $u, array $trainable): array
     {
-        $since = Js::addDaysIso(gmdate('Y-m-d'), -(self::ADHERENCE_SEND_DAYS - 1));
+        $since = Js::addDaysIso(now()->utc()->format('Y-m-d'), -(self::ADHERENCE_SEND_DAYS - 1));
         $dayPlan = new stdClass;
         if (($s->dayPlan ?? null) instanceof stdClass) {
             foreach (get_object_vars($s->dayPlan) as $iso => $v) {

@@ -25,7 +25,7 @@ final class CheckinAlert
         if ($after === null || ($before !== null && strcmp($after, $before) <= 0)) {
             return;   // nothing newer: an edit, a stale device, a check-in deleted and filed again, or none
         }
-        if (strcmp($after, Js::addDaysIso(gmdate('Y-m-d'), -self::FRESH_DAYS)) < 0) {
+        if (strcmp($after, Js::addDaysIso(now()->utc()->format('Y-m-d'), -self::FRESH_DAYS)) < 0) {
             return;
         }
         // Their coach sees none of their check-ins until they agree (CHW-360), so is not told of one.
