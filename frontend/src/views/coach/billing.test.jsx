@@ -23,7 +23,8 @@ vi.mock('../../lib/api.js', async orig => ({
     throw new Error('unexpected ' + path)
   },
   webauthnOK: () => true,
-  passkeyRegisterCoach: async (name, email, lang, terms) => { calls.push(['register', { name, email, lang, terms }]); return { id: 'u1', name, coach: true } },
+  coachSignupStart: async (name, email, lang, terms) => { calls.push(['signup-start', { name, email, lang, terms }]); return { ok: true } },
+  coachSignupVerify: async (email, code) => { calls.push(['signup-verify', { email, code }]); return { id: 'u1', name: 'Ahmed', coach: true } },
   fetchExerciseMedia: async () => [],
 }))
 vi.mock('../../lib/mobile.js', () => ({
@@ -287,35 +288,58 @@ describe('/#/start', () => {
     expect([...container.querySelectorAll('.seg button.on')].map(b => b.textContent)).toEqual(['Pro', 'Monthly'])
   })
 
-  it('makes the account with its email, then opens the payment page for the plan chosen', async () => {
+  it('mails a code, makes the account with it, then opens the payment page for the plan chosen', async () => {
     await render(<Start />, '/start?plan=studio&period=month')
     await type('Your name', 'Ahmed')
     await type('Email', 'ahmed@example.com')
     await act(async () => { container.querySelector('[role="checkbox"]').click() })
-    await click('Create passkey and continue')
+    await click('Send me a code')
+    // With the version of the coach terms the page showed (CHW-357). No account yet.
+    expect(calls.find(([p]) => p === 'signup-start')[1]).toEqual({ name: 'Ahmed', email: 'ahmed@example.com', lang: expect.any(String), terms: '2026-11-01' })
+    expect(useStore.getState().user).toBe(null)
+    expect(text()).toContain('A 6-digit code is on its way to ahmed@example.com.')
+    await type('123456', '482913')
+    await click('Continue to payment')
     await act(async () => {})
-    // With the version of the coach terms the page showed (CHW-357).
-    expect(calls.find(([p]) => p === 'register')[1]).toEqual({ name: 'Ahmed', email: 'ahmed@example.com', lang: expect.any(String), terms: '2026-11-01' })
+    expect(calls.find(([p]) => p === 'signup-verify')[1]).toEqual({ email: 'ahmed@example.com', code: '482913' })
     expect(useStore.getState().user).toMatchObject({ id: 'u1', coach: true })
     expect(calls.find(([p]) => p === '/api/billing/checkout')[1]).toEqual({ plan: 'studio', period: 'month' })
     expect(assign).toHaveBeenCalledWith('https://checkout.creem.test/ch_1')
   })
 
-  it('asks for an email before any passkey prompt', async () => {
+  it('asks for an email before mailing any code', async () => {
     await render(<Start />, '/start')
     await type('Your name', 'Ahmed')
     await type('Email', 'not-an-address')
-    await click('Create passkey and continue')
-    expect(calls.find(([p]) => p === 'register')).toBe(undefined)
+    await click('Send me a code')
+    expect(calls.find(([p]) => p === 'signup-start')).toBe(undefined)
   })
 
-  it('makes no account until the coach terms are accepted', async () => {
+  it('mails no code until the coach terms are accepted', async () => {
     await render(<Start />, '/start')
     await type('Your name', 'Ahmed')
     await type('Email', 'ahmed@example.com')
-    await click('Create passkey and continue')
-    expect(calls.find(([p]) => p === 'register')).toBe(undefined)
+    await click('Send me a code')
+    expect(calls.find(([p]) => p === 'signup-start')).toBe(undefined)
     expect(container.querySelector('a[href^="https://fitpal.ma/"]')).toBeTruthy()
+  })
+
+  it('needs no passkey: the form shows where the browser has none (Instagram\'s)', async () => {
+    await render(<Start />, '/start')
+    expect(container.querySelector('input[placeholder="Email"]')).toBeTruthy()
+    expect(text()).not.toContain('passkey')
+  })
+
+  it('goes back to the form to change the address, and sends the code again', async () => {
+    await render(<Start />, '/start')
+    await type('Your name', 'Ahmed')
+    await type('Email', 'ahmed@example.com')
+    await act(async () => { container.querySelector('[role="checkbox"]').click() })
+    await click('Send me a code')
+    await click('Send the code again')
+    expect(calls.filter(([p]) => p === 'signup-start')).toHaveLength(2)
+    await click('Use another address')
+    expect(container.querySelector('input[placeholder="Email"]').value).toBe('ahmed@example.com')
   })
 })
 
@@ -335,11 +359,15 @@ describe('the Free plan', () => {
     await type('Your name', 'Salma')
     await type('Email', 'salma@example.com')
     await act(async () => { container.querySelector('[role="checkbox"]').click() })
-    await click('Create passkey and start')
+    await click('Send me a code')
+    await type('123456', '482913')
+    await click('Create my account')
     await act(async () => {})
-    expect(calls.find(([p]) => p === 'register')).toBeTruthy()
+    expect(calls.find(([p]) => p === 'signup-verify')).toBeTruthy()
     expect(calls.find(([p]) => p === '/api/billing/checkout')).toBe(undefined)
     expect(assign).not.toHaveBeenCalled()
+    // Signed in by email: the passkey is offered now, outside an in-app browser (AddPasskeySheet).
+    expect(useUI.getState().sheets).toHaveLength(1)
   })
 
   it('works on an instance with no Creem at all', async () => {

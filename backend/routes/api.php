@@ -14,6 +14,7 @@ use App\Http\Controllers\CoachPhotoController;
 use App\Http\Controllers\CoachProgramController;
 use App\Http\Controllers\CoachRequestController;
 use App\Http\Controllers\CoachRosterController;
+use App\Http\Controllers\CoachSignupController;
 use App\Http\Controllers\CoachTermsController;
 use App\Http\Controllers\CreemWebhookController;
 use App\Http\Controllers\DataController;
@@ -75,6 +76,9 @@ $routes = static function (): void {
     Route::post('/join/verify', [JoinController::class, 'verify']);
     Route::post('/join/status', [JoinController::class, 'status']);
     Route::post('/join/claim', [JoinController::class, 'claim']);
+    // A coach signing up with an emailed code (CHW-368): no session until the code proves the address.
+    Route::post('/coach/signup/start', [CoachSignupController::class, 'start']);
+    Route::post('/coach/signup/verify', [CoachSignupController::class, 'verify']);
 
     // A coach's exercise demo: the file is the body. Outside the groups below so CloseOnRefusal
     // wraps the sign-in, coach and licence checks too — their refusals must close the connection

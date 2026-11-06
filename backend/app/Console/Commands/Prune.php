@@ -6,6 +6,7 @@ use App\Audit\Audit;
 use App\Media\Paths;
 use App\Models\Assignment;
 use App\Models\BillingEvent;
+use App\Models\CoachSignup;
 use App\Models\JoinRequest;
 use App\Models\LoginLink;
 use App\Models\MediaUpload;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\DB;
  *  - Creem webhook ids past the newest BillingEvent::KEEP;
  *  - sign-in and email-change links older than LoginLink::KEEP_HOURS;
  *  - join requests nobody is waiting on (JoinRequest::prune): their intake holds health data;
+ *  - coach sign-ups nobody finished, a day after they were started (CoachSignup::prune);
  *  - database dumps taken before a deploy, past BackupDb::DEPLOY_DUMP_DAYS, and nightly ones past
  *    BackupDb::NIGHTLY_DUMP_DAYS (the coach terms' promises);
  *  - chunked uploads nobody has sent to for a day, with their partial files;
@@ -63,9 +65,10 @@ final class Prune extends Command
         // Sign-in links: past use within minutes, and their ip is personal data (spec §4a).
         $links = LoginLink::query()->where('created_at', '<', now()->subHours(LoginLink::KEEP_HOURS))->delete();
         $joins = JoinRequest::prune($now);
+        $signups = CoachSignup::prune($now);
         $files = $this->orphans($now);
         $dumps = BackupDb::pruneOld(intdiv($now, 1000));
-        $this->info("pruned: {$audit} audit, {$offers} offers, {$presence} presence, {$uploads} uploads, {$files} temp files, {$cache} cache rows, {$events} billing events, {$links} sign-in links, {$joins} join requests, {$dumps} old dumps");
+        $this->info("pruned: {$audit} audit, {$offers} offers, {$presence} presence, {$uploads} uploads, {$files} temp files, {$cache} cache rows, {$events} billing events, {$links} sign-in links, {$joins} join requests, {$signups} coach sign-ups, {$dumps} old dumps");
 
         return self::SUCCESS;
     }

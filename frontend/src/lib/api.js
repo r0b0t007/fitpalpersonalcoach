@@ -263,11 +263,13 @@ async function registerWith(base, body) {
   return api(base + '/verify', { method: 'POST', body: JSON.stringify({ cid, credential: credToJSON(cred) }) })
 }
 export const passkeyRegister = (name, code) => registerWith('/api/register', { name, code: code || '' }).then(r => r.user)
-// A coach signing themselves up (R4, Laravel only; /#/start): a coach's account, with no invite.
-// The address is kept pending and the server's first mail is the link that confirms it, in
-// `lang` — the account has no saved language yet.
+// A coach signing themselves up (/#/start) with an emailed code (CHW-368), not a passkey: the
+// coaches fitpal.ma sends there come from Instagram, whose browser fails passkeys. start mails the
+// code in `lang` (the account has no saved language yet) and answers alike for any address;
+// verify makes the account, its address proven, and signs this browser in.
 // terms: the version of the coach terms accepted on the Start page (CHW-357), sent back as read.
-export const passkeyRegisterCoach = (name, email, lang, terms) => registerWith('/api/register', { name, email, coach: true, lang, terms }).then(r => r.user)
+export const coachSignupStart = (name, email, lang, terms) => api('/api/coach/signup/start', { method: 'POST', body: JSON.stringify({ name, email, lang, terms }) })
+export const coachSignupVerify = (email, code) => api('/api/coach/signup/verify', { method: 'POST', body: JSON.stringify({ email, code }) }).then(r => r.user)
 // Another passkey for the signed-in account (R4, Laravel only) — offered after a sign-in by email
 // link, on a device that had none. The server wants a session that signed in just now.
 export const passkeyAdd = () => registerWith('/api/passkeys', {}).then(() => {})
