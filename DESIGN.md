@@ -261,8 +261,8 @@ Evidence and atmosphere still read apart without being told: evidence sits insid
 with a "Capture de l'app" caption under it; a photograph is unframed, under a shade or in a plain
 6px-radius box.
 
-The CHW-318 band (`img/coaches.jpg`) and hero portrait (`img/coach-hero.jpg`) are no longer
-shown; their files and `NOTICE.md` entries stay.
+The CHW-318 band and hero portrait (Pexels) were deleted after CHW-342; `NOTICE.md` records
+where they came from.
 
 **A photograph must never contain a legible app screen.** Invented UI is still forbidden when it
 arrives inside a photo.
