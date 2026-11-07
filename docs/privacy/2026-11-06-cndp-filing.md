@@ -78,8 +78,8 @@ the coach, and FitPal the processor (coach terms Part B, DPIA). So section I nam
 - **if the CNDP lets the platform file once**: FitPal Coach in the capacity the CNDP indicates, as
   processor for all the coaches, never as the controller of their clients' data.
 
-FitPal's own processing (coach accounts, the security log) is the one where it is the controller,
-and goes on an F-211. Its identification, for either case:
+FitPal's own processing (coach accounts, the security log, the referral programme and its check)
+is the one where it is the controller, and goes on an F-211 (section 3 bis). Its identification, for either case:
 
 - **Personne physique** : Ahmed Chioua, FitPal Coach (pas d'immatriculation commerciale : ni ICE
   ni RC).
@@ -123,9 +123,11 @@ and goes on an F-211. Its identification, for either case:
 | Programmes, séances, charges | Clients | Coach et client | Client, coach | Durée du compte |
 | **Poids, mensurations, photos, repas, bilans** (facultatifs) | Clients | La personne | Client, coach (après consentement) | Durée du compte ; effacés au retrait du consentement |
 
-Les comptes des coachs eux-mêmes (nom, e-mail, offre) et le journal de sécurité (sans adresse IP,
-90 jours au plus) relèvent du traitement propre de FitPal Coach, qui en est le responsable : ils se
-déclarent sur un F-211, et non sur ce F-112.
+Les comptes des coachs eux-mêmes (nom, e-mail, offre), le journal de sécurité (sans adresse IP,
+90 jours au plus), le programme de parrainage et sa vérification (qui lit, chez un coach parrainé,
+les dates d'entraînement de ses clients pour n'en retenir qu'un oui ou un non) relèvent du
+traitement propre de FitPal Coach, qui en est le responsable : ils se déclarent sur un F-211, et
+non sur ce F-112.
 
 Demandes non vérifiées supprimées sous 24 heures. Sauvegardes : 14 jours (chiffrées), 90 jours au
 plus pour la copie faite avant une mise à jour.
@@ -137,6 +139,7 @@ plus pour la copie faite avant une mise à jour.
 | Namecheap, Inc. | États-Unis (Phoenix, Arizona) | Hébergement de l'application et de la base | Toutes | Accord de traitement, clauses contractuelles types de la Commission européenne (décision 2021/914) |
 | Resend | États-Unis | Envoi des e-mails | E-mail, prénom, message | Accord de traitement, clauses contractuelles types ; certifié Data Privacy Framework UE–États-Unis |
 | Cloudflare, Inc. | États-Unis ; sauvegardes stockées dans l'UE | Acheminement du trafic ; stockage des sauvegardes | Trafic en transit ; sauvegardes chiffrées (Cloudflare n'a pas la clé) | Accord de traitement, clauses contractuelles types ; certifié Data Privacy Framework |
+| Services de notification des navigateurs (Google, Apple, Mozilla) | États-Unis | Acheminement des notifications | Notifications chiffrées, qu'ils ne peuvent pas lire ; un identifiant d'abonnement | Aucun accord de traitement : le navigateur de la personne les choisit. **To verify (counsel):** whether the CNDP wants them listed as recipients. |
 
 Base : article 44.3 (clauses contractuelles). Les accords de traitement sont joints (section 4).
 
@@ -187,11 +190,12 @@ data it reads (dates of training) is not health data, so it needs no prior autho
 | Données | Personnes | Origine | Destinataires | Durée |
 |---|---|---|---|---|
 | Nom, e-mail, passkeys ou codes de connexion, offre, version et date d'acceptation des conditions | Coachs | Le coach | FitPal Coach | Durée du compte |
+| Abonnement payant : identifiants client, abonnement et produit chez Creem, statut, période | Coachs | Creem, le coach | FitPal Coach ; Creem (vendeur officiel, qui encaisse et facture) | Durée du compte |
 | Page publique : nom affiché, photo, présentation, n° WhatsApp (facultatif) | Coachs | Le coach | Public (c'est une page publique) | Jusqu'à ce que le coach la modifie ou ferme son compte |
-| Inscription en attente : e-mail, empreinte du code envoyé | Coachs | Le coach | FitPal Coach | 24 heures au plus |
-| Journal de sécurité : l'action, l'heure, le compte, le nom saisi ; **sans adresse IP** | Coachs, clients, exploitant | Le système | FitPal Coach | 90 jours au plus |
+| Inscription en attente : e-mail, nom, langue, version des conditions affichées, empreinte du code envoyé, nombre d'essais, et la page du coach parrain si l'inscription vient d'un lien de parrainage | Coachs | Le coach | FitPal Coach | 24 heures au plus |
+| Journal de sécurité : l'action, l'heure, le compte qui agit et le compte visé (identifiants et noms), une note brève (par exemple celle de l'exploitant quand il utilise un mois offert) ; **sans adresse IP**. Pour le parrainage, il note qu'un coach s'est inscrit par le lien d'un autre, et qu'un mois a été crédité | Coachs, clients, exploitant | Le système | FitPal Coach | 90 jours au plus ; les sauvegardes de nuit en gardent une copie 14 jours de plus |
 | Coach qui a parrainé (identifiant) | Coachs parrainés | Le lien de parrainage suivi | FitPal Coach | Durée du compte du coach parrainé, ou jusqu'à son opposition |
-| Mois offerts : coach crédité, coach parrainé, date, date et mode d'utilisation | Coachs | Le système, l'exploitant | FitPal Coach ; le coach crédité voit des **nombres** seulement, jamais lesquels | Durée du compte du coach crédité |
+| Mois offerts : coach crédité, coach parrainé, date, date et mode d'utilisation | Coachs | Le système, l'exploitant | FitPal Coach ; le coach crédité voit des **nombres** seulement, jamais lesquels | Durée du compte du coach crédité. Le coach parrainé n'y est plus nommé après son opposition. Aujourd'hui la ligne disparaît aussi si le compte du coach parrainé est supprimé (voir la note en fin de section) |
 | **Lu sans être conservé** pour la vérification : l'e-mail d'un client accepté (pour écarter les adresses des deux coachs), la date de son acceptation, s'il est toujours client de ce coach, la date de sa dernière séance et l'heure de sa première sauvegarde | Clients d'un coach parrainé | Le client (son application) | Personne : seul le oui ou le non sert | Rien n'est conservé au titre de ce traitement |
 
 **Fondement (article 4 de la loi 09-08) :**
@@ -207,14 +211,19 @@ data it reads (dates of training) is not health data, so it needs no prior autho
   CHW-350 item).
 
 **Transferts à l'étranger :** les mêmes que pour le F-112 (section VIII ci-dessus) : Namecheap
-(hébergement), Resend (e-mails), Cloudflare (trafic, sauvegardes chiffrées dans l'UE). Sur le
-F-211, ils se déclarent par le F-118.
+(hébergement), Resend (e-mails), Cloudflare (trafic, sauvegardes chiffrées dans l'UE), et les
+services de notification des navigateurs. S'y ajoute **Creem**, vendeur officiel des formules
+payantes, quand la facturation est ouverte (elle ne l'est pas encore) : il reçoit les données de
+paiement du coach directement, et l'identité du coach. **To verify:** Creem's country and transfer
+basis. Sur le F-211, les transferts se déclarent par le F-118.
 
 **Droits des personnes :** information dans les mentions légales (« Parrainage » ; « Demander à
 s'entraîner avec un coach ») ; accès, rectification et opposition à contact@fitpal.ma. Sur une
 opposition au parrainage, d'un coach parrainé ou d'un client, l'exploitant retire l'indication du
 coach qui a parrainé (commande `fitpal:referral-forget`) : la vérification n'a plus lieu, et le mois
-déjà crédité reste acquis.
+déjà crédité reste acquis. Les lignes du journal de sécurité qui notaient ce parrainage ne sont pas
+retirées : elles s'effacent avec le journal, en 90 jours au plus (plus 14 jours dans les
+sauvegardes), comme pour une suppression de compte (mentions légales).
 
 **Mesures de sécurité :** celles de la section XIII ci-dessus.
 
