@@ -262,7 +262,7 @@ button may go live for real coaches.
 3. **CNDP (CHW-367):** the authorisation, or the position confirmed, for health data under law 09-08.
 4. **M2 / CHW-361:** the nightly backup kept encrypted off the hosting account. **Met 5 November
    2026**: the first copy is in R2, and a restore from it matched the live database.
-5. **Referrals / CHW-372:** the coach terms' Part B §2 and Annex 1 cover the referral check (CHW-350:
+5. **Referrals / CHW-372:** the coach terms' Part B §2 covers the referral check (CHW-350:
    whether a client who came through a referred coach's public page has trained since being
    accepted, keeping only a yes or no), and the legal notice tells clients so. Until then
    `fitpal:referral-credits` reads nothing (it does nothing while `JOIN_REQUESTS` is off).

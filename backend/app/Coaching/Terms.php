@@ -11,25 +11,24 @@ use App\Support\Js;
  * fitpal.ma (site-coach/conditions.html, en/terms.html, es/terms.html), each page carrying this
  * version. A coach accepts the current one at sign-up, or in the app (views/coach/TermsGate.jsx).
  *
- * A new version: VERSION is its date, and EFFECTIVE at least 30 days later (the terms promise that
- * notice, Part A §9); coaches are told by email. Until EFFECTIVE, a coach who accepted an earlier
- * version is still bound by it and keeps using the app; from then, they are asked again, and one
- * who does not accept leaves with their clients' data. The very first version had nothing before
- * it, so it bound from the day it was published. So did 2026-11-03 (clause B6: a client's own
- * deletion, CHW-363): no real coach had accepted 2026-11-01, so none was owed the notice. And
- * 2026-11-05 (B9, Annexes 2 and 3: the nightly backup encrypted and copied to R2 in the EU,
- * CHW-361), for the same reason: every coach account is still a test account. And 2026-11-06
- * (Part A §1: the publisher is an individual; the ICE and the auto-entrepreneur status named
- * before were never FitPal's), for the same reason, checked on production that day: one coach
- * account (the operator's), which had accepted no version at all. 2026-11-07 (Part A §4 bis, the
- * referral programme; Part B §2, the referred coach authorises the referral check, of which
- * FitPal is the controller, CHW-372; Referrals::TERMS_FROM) bound from the day it was published too: the same
- * check, run on production that day, found no account with the coach flag (the operator's is a
- * coach through ADMIN_UIDS), so no coach but the operator's had accepted any version.
+ * A new version: VERSION is its date, and EFFECTIVE 30 days later (the terms promise that notice,
+ * Part A §9); coaches are told by email. Until EFFECTIVE, a coach who accepted an earlier version
+ * is still bound by it and keeps using the app; from then, they are asked again, and one who does
+ * not accept leaves with their clients' data.
  *
- * Self-serve coach sign-up is open (SELF_SERVE_COACH), so a real coach may have accepted by the
- * next change: from then, EFFECTIVE is 30 days after VERSION, unless the same check, run on
- * production first, finds no coach but the operator's has accepted any version.
+ * EFFECTIVE may equal VERSION only when nobody but the operator holds a version: run
+ * `php artisan fitpal:terms-holders` on production before the change, and again once it deploys
+ * (`on_earlier` must then be 0). It counts terms_version, not the coach column: an admin through
+ * ADMIN_UIDS has no coach flag, and a demoted coach keeps what they accepted.
+ *
+ * Versions that bound from the day they were published, nobody but the operator holding one:
+ * - 2026-11-01, the first.
+ * - 2026-11-03: B6, a client's own deletion (CHW-363).
+ * - 2026-11-05: B9 and Annexes 2 and 3, the nightly backup encrypted and copied to R2 (CHW-361).
+ * - 2026-11-06: Part A §1, the publisher is an individual.
+ * - 2026-11-07: Part A §4 bis, referrals; Part B §2, the referred coach authorises the referral
+ *   check, of which FitPal is the controller (CHW-372, Referrals::TERMS_FROM). Checked on
+ *   production before the merge: no account but the operator's held any terms_version.
  *
  * The pages deploy to Cloudflare Pages and this file with the backend, separately. Once EFFECTIVE
  * has passed, the app asks for VERSION as soon as the backend is live: check fitpal.ma shows the
