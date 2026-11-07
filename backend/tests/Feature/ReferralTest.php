@@ -163,6 +163,9 @@ it('runs hourly in the background', function () {
 it('checks every referred coach in turn, a batch at a time', function () {
     $coaches = collect(['n1@example.com', 'n2@example.com', 'n3@example.com'])
         ->map(fn ($e) => referredSignup($e, 'yasmine.fit'))->sortBy('id')->values();
+    // Only coaches with an accepted client are looked at: the first two have one who never trained.
+    acceptedClient($coaches[0], 'idle0@example.com', null, null);
+    acceptedClient($coaches[1], 'idle1@example.com', null, null);
     acceptedClient($coaches[2], 'sara@example.com', REF_ACCEPTED + 1, '2025-11-08');
 
     expect(Referrals::creditDue(Request::create('/'), 2))->toBe(0);   // looked at the first two
@@ -172,9 +175,21 @@ it('checks every referred coach in turn, a batch at a time', function () {
 
 it('banks when the first workout is at the very moment of acceptance', function () {
     $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
-    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED, null);
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED, '2025-11-07');
     creditRun();
     expect(ReferralCredit::query()->count())->toBe(1);
+});
+
+it('banks nothing for history uploaded after the acceptance, whose last workout is an earlier day', function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 3_600_000, '2025-11-01');
+    creditRun();
+    expect(ReferralCredit::query()->count())->toBe(0);
+});
+
+it('records no referrer whose pending address is the new coach\'s', function () {
+    $this->f->a->forceFill(['email' => null, 'pending_email' => 'nadia@example.com'])->save();
+    expect(Referrals::referrerFor('yasmine.fit', 'Nadia@example.com'))->toBeNull();
 });
 
 // ---------------------------------------------------------------- what the coach sees
@@ -186,10 +201,10 @@ it("tells a coach their own link's counts and nobody else's", function () {
     creditRun();
 
     $this->getJson('/api/coach/referrals', bearer($this->f->a))->assertOk()
-        ->assertExactJson(['handle' => 'yasmine.fit', 'signedUp' => 2, 'activated' => 1, 'monthsUnused' => 1]);
+        ->assertExactJson(['handle' => 'yasmine.fit', 'signedUp' => 2, 'activated' => 1]);
     // Coach B has no page and no referrals: none of A's leak into B's answer.
     $this->getJson('/api/coach/referrals', bearer($this->f->b))->assertOk()
-        ->assertExactJson(['handle' => null, 'signedUp' => 0, 'activated' => 0, 'monthsUnused' => 0]);
+        ->assertExactJson(['handle' => null, 'signedUp' => 0, 'activated' => 0]);
     expect($this->getJson('/api/billing/me', bearer($this->f->a))->assertOk()->json('referralMonths'))->toBe(1)
         ->and($this->getJson('/api/billing/me', bearer($this->f->b))->json('referralMonths'))->toBe(0);
     // A client is no coach.
@@ -237,18 +252,20 @@ it('banks nothing for a pending or declined join request whose member trained', 
     expect(ReferralCredit::query()->count())->toBe(0);
 });
 
-it('keeps the month but names no one after an objection', function () {
+it('keeps the month but names no one after an objection, and never credits that coach again', function () {
     $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
     acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 3_600_000, '2025-11-07');
     creditRun();
     expect(Referrals::monthsUnused($this->f->a))->toBe(1);
 
-    $nadia->forceFill(['referred_by' => null])->save();
-    ReferralCredit::query()->update(['referred_id' => null]);
-    $other = referredSignup('omar@example.com', 'yasmine.fit');
-    $other->forceFill(['referred_by' => null])->save();
+    $this->artisan('fitpal:referral-forget', ['email' => 'nadia@example.com'])->assertSuccessful();
+    expect($nadia->fresh()->referred_by)->toBeNull();
     creditRun();
     expect(Referrals::monthsUnused($this->f->a))->toBe(1)
         ->and(ReferralCredit::query()->count())->toBe(1)
         ->and(ReferralCredit::query()->sole()->referred_id)->toBeNull();
+});
+
+it('fails the forget command for an unknown address', function () {
+    $this->artisan('fitpal:referral-forget', ['email' => 'nobody@example.com'])->assertFailed();
 });

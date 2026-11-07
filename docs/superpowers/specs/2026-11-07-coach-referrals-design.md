@@ -92,9 +92,9 @@ Otherwise `referred_by` stays null, quietly. An audit event `coach.referral.sign
    `status = 'accepted'` (its client is `member_id`, its acceptance time `decided`, in ms) whose
    client:
    - is still on the coach's roster (`users.coach_id` = the coach);
-   - has trained since the acceptance: `user_states.first_workout_at >= decided` (a new account),
-     or `user_states.last_workout` (YYYY-MM-DD) is a later day than `decided`'s UTC date (an
-     account that had trained before it joined);
+   - has trained since the acceptance, by `user_states.last_workout` (YYYY-MM-DD): a later UTC day
+     than `decided`'s, or `decided`'s own day with `first_workout_at >= decided`. History synced
+     after the acceptance carries an earlier `last_workout` and counts for nothing;
    - has a request email (`join_requests.email`), lower-cased, different from both the referred
      coach's and the referrer's.
 3. If one exists and the referrer is still an enabled coach, insert the credit. The unique index
@@ -115,7 +115,7 @@ billing):
 - **With a page:** the link `fitpal.ma/?ref=<handle>`, with Copy and Share (`navigator.share` when
   there is one), and one line: « Un mois offert pour chaque coach inscrit par votre lien dont un
   client fait sa première séance. »
-- **Counts:** « {0} inscrits · {1} actifs », as counts only, with no names. Signed up is the
+- **Counts:** « Inscrits : {0} · Actifs : {1} » (no plural to agree), as counts only, with no names. Signed up is the
   coaches with `referred_by` = them; active is their credit rows.
 - Changing the handle changes the link, and old links stop crediting. The card always shows the
   current link.
@@ -123,8 +123,12 @@ billing):
 **Plan & billing** (`PlanBillingSection`): one row « Mois offerts », with the unused months, shown
 only when there is at least one.
 
-**API:** `GET /api/coach/referrals` returns `{ handle, signedUp, activated, monthsUnused }` for the
-signed-in coach only. `monthsUnused` is the sum of `months` where `used_at` is null.
+**The card is drawn only when the instance bills and takes join requests** (`plans` and
+`join_requests` in `/api/config`): without join requests no referral can activate, so it would
+promise a month that cannot come.
+
+**API:** `GET /api/coach/referrals` returns `{ handle, signedUp, activated }` for the signed-in
+coach only. The unused months are `billing/me`'s `referralMonths`.
 
 ## 5. Using a credit (owner)
 
@@ -144,8 +148,10 @@ decides how checkout uses it.
 - **Retention:** coach accounts are not deleted in the app today. If one ever is, its credit rows
   go with it (the foreign keys on `referral_credits`). The audit events age out with the audit
   log.
-- **Objection:** the owner nulls `users.referred_by` for that coach and `referral_credits.referred_id`
-  on its credit row, so the month stays the referrer's but no longer names who earned it. The
+- **Objection:** the owner runs `php artisan fitpal:referral-forget {email}` (`Referrals::forget`),
+  which in one transaction nulls `users.referred_by` for that coach and `referral_credits.referred_id`
+  on its credit row, so the month stays the referrer's but no longer names who earned it, and that
+  coach is never credited for again (with `referred_by` null they are no candidate). The
   audit rows age out with the audit log.
 - The change goes through the lawve-ai/awesome-legal-skills review, labelled "not legal advice".
 

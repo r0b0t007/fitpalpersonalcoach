@@ -143,6 +143,12 @@ class JoinRequest extends Model
             ->get(['j.email', 'j.decided', 's.first_workout_at', 's.last_workout']);
     }
 
+    /** The coaches who have accepted a request, as a subquery of ids (the referral check's prefilter). */
+    public static function coachIdsWithAccepted(): Builder
+    {
+        return self::acrossCoaches()->where('status', 'accepted')->select('coach_id'); // across coaches: the hourly command runs with no coach context
+    }
+
     /** Someone can no longer coach (Detach): every request they hold, waiting or answered, goes. */
     public static function forgetCoach(string $coachId): int
     {

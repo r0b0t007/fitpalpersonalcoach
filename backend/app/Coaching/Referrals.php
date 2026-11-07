@@ -42,11 +42,25 @@ final class Referrals
             return null;
         }
         [, $coach] = CoachPage::findPublic($handle);
-        if ($coach === null || ($coach->email !== null && mb_strtolower($coach->email) === mb_strtolower($email))) {
+        if ($coach === null || in_array(mb_strtolower($email), self::addressesOf($coach), true)) {
             return null;
         }
 
         return $coach;
+    }
+
+    /**
+     * Every address a coach holds, confirmed or not (a new coach's is pending until their first
+     * link), lower-cased.
+     *
+     * @return list<string>
+     */
+    private static function addressesOf(User $coach): array
+    {
+        return array_values(array_filter([
+            $coach->email === null ? null : mb_strtolower($coach->email),
+            $coach->pending_email === null ? null : mb_strtolower($coach->pending_email),
+        ]));
     }
 
     /** Referred coaches looked at per run: one run stays well inside the host's 50 s. */
@@ -55,22 +69,25 @@ final class Referrals
     /**
      * Whether $coach has activated, for the referral: a client who came through their page (a
      * join request they accepted) is still on their roster and has trained since, and asked with
-     * an address that is neither coach's. A new account's first workout counts from the
-     * acceptance; an account that trained before it joined counts from the next UTC day.
+     * an address that is neither coach's. Trained since goes by the last workout's date, because
+     * an account can sync history it logged elsewhere and the server's time of the first save
+     * proves nothing alone: a later UTC day than the acceptance, or the acceptance's own day
+     * with the first save at or after the acceptance.
      */
     public static function activated(User $coach, User $referrer): bool
     {
-        $coachEmails = array_filter([mb_strtolower((string) $coach->email), mb_strtolower((string) $referrer->email)]);
+        $coachEmails = [...self::addressesOf($coach), ...self::addressesOf($referrer)];
         $rows = JoinRequest::acceptedClientActivity($coach);
         foreach ($rows as $r) {
             if (in_array(mb_strtolower(trim((string) $r->email)), $coachEmails, true)) {
                 continue;
             }
             $decided = (int) $r->decided;
-            if ($r->first_workout_at !== null && (int) $r->first_workout_at >= $decided) {
-                return true;
+            if ($r->last_workout === null) {
+                continue;
             }
-            if ($r->last_workout !== null && $r->last_workout > gmdate('Y-m-d', intdiv($decided, 1000))) {
+            $day = gmdate('Y-m-d', intdiv($decided, 1000));
+            if ($r->last_workout > $day || ($r->last_workout === $day && $r->first_workout_at !== null && (int) $r->first_workout_at >= $decided)) {
                 return true;
             }
         }
@@ -95,15 +112,18 @@ final class Referrals
             return 0;
         }
         $cursor = (string) Cache::get('referrals:cursor', '');
+        // Only coaches with an accepted client can have activated.
         $referred = User::query()
             ->whereNotNull('referred_by')->where('coach', true)->where('disabled', false)
+            ->whereIn('id', JoinRequest::coachIdsWithAccepted())
             ->whereNotExists(fn ($q) => $q->from('referral_credits')->whereColumn('referral_credits.referred_id', 'users.id'))
             ->where('id', '>', $cursor)
             ->orderBy('id')->limit($batch)->get();
         Cache::forever('referrals:cursor', $referred->count() < $batch ? '' : $referred->last()->id);
+        $referrers = User::query()->whereIn('id', $referred->pluck('referred_by'))->get()->keyBy('id');
         $banked = 0;
         foreach ($referred as $coach) {
-            $referrer = User::query()->find($coach->referred_by);
+            $referrer = $referrers->get($coach->referred_by);
             if ($referrer === null || ! $referrer->isCoach() || $referrer->disabled || ! self::activated($coach, $referrer)) {
                 continue;
             }
@@ -124,18 +144,30 @@ final class Referrals
 
     /**
      * A coach's own referral counts, for their Account (GET /api/coach/referrals): coaches signed
-     * up through their link, coaches who have activated, and months not used yet. Counts only:
-     * never who.
+     * up through their link and coaches who have activated. Counts only: never who.
      *
-     * @return array{signedUp: int, activated: int, monthsUnused: int}
+     * @return array{signedUp: int, activated: int}
      */
     public static function summary(User $coach): array
     {
         return [
             'signedUp' => User::query()->where('referred_by', $coach->id)->count(),
             'activated' => ReferralCredit::query()->where('referrer_id', $coach->id)->count(),
-            'monthsUnused' => self::monthsUnused($coach),
         ];
+    }
+
+    /**
+     * An objection (fitpal:referral-forget): the coach is no longer recorded as referred, and the
+     * credit their activation banked stays the referrer's but no longer names them. One
+     * transaction, and the only path: with referred_by null the coach is never looked at again,
+     * so no second credit can follow.
+     */
+    public static function forget(User $coach): void
+    {
+        DB::transaction(function () use ($coach): void {
+            User::query()->whereKey($coach->id)->update(['referred_by' => null]);
+            ReferralCredit::query()->where('referred_id', $coach->id)->update(['referred_id' => null]);
+        });
     }
 
     public static function monthsUnused(User $coach): int

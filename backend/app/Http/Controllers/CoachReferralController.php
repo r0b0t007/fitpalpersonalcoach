@@ -10,7 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * GET /api/coach/referrals → {handle, signedUp, activated, monthsUnused} (CHW-350): the Account
+ * GET /api/coach/referrals → {handle, signedUp, activated} (CHW-350): the Account
  * card. The handle is the coach's page's, which their link carries, or null with no page yet.
  */
 final class CoachReferralController
