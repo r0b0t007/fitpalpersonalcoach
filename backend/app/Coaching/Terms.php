@@ -28,7 +28,7 @@ use App\Support\Js;
  * - 2026-11-06: Part A §1, the publisher is an individual.
  * - 2026-11-07: Part A §4 bis, referrals; Part B §2, the referred coach authorises the referral
  *   check, of which FitPal is the controller (CHW-372, Referrals::TERMS_FROM). Checked on
- *   production before the merge: no account but the operator's held any terms_version.
+ *   production before the merge: no account held any terms_version.
  *
  * The pages deploy to Cloudflare Pages and this file with the backend, separately. Once EFFECTIVE
  * has passed, the app asks for VERSION as soon as the backend is live: check fitpal.ma shows the
