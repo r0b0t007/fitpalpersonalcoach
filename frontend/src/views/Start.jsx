@@ -6,6 +6,7 @@ import { coachSignupStart, coachSignupVerify } from '../lib/api.js'
 import { paidPlans, pickPlan, unofferedPlan } from '../lib/billing.js'
 import { CONTACT_EMAIL } from '../lib/contact.js'
 import { isEmail } from '../lib/email.js'
+import { privacyUrl } from '../lib/terms.js'
 import { t, tp, getLang } from '../lib/i18n.js'
 import Logo from '../components/Logo.jsx'
 import { Button, CodeField } from '../components/ui.jsx'
@@ -129,7 +130,8 @@ export default function Start() {
         <div style={{ height: 10 }} />
         <input className="input" type="email" placeholder={t('Email')} maxLength={254} autoComplete="email"
           value={email} onChange={ev => setEmail(ev.target.value)} />
-        <div className="dim small" style={{ margin: '6px 4px 0' }}>{t('For receipts, and to sign in: we email you a code.')}</div>
+        <div className="dim small" style={{ margin: '6px 4px 0' }}>{t('For receipts, and to sign in: we email you a code.')}{' '}
+          <a href={privacyUrl(getLang())} target="_blank" rel="noopener noreferrer">{t('Your data and your rights')}</a></div>
         <div style={{ marginTop: 14 }}><TermsConsent checked={agreed} onChange={setAgreed} id="start-terms" /></div>
         <div style={{ height: 14 }} />
         <Button variant="primary" icon="person" onClick={send} disabled={busy}>{busy ? t('Sending…') : t('Send me a code')}</Button>
