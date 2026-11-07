@@ -6,6 +6,8 @@
 
 use App\Coaching\Referrals;
 use App\Coaching\Terms;
+use App\Filament\Resources\ReferralCredits\Pages\ListReferralCredits;
+use App\Filament\Resources\ReferralCredits\ReferralCreditResource;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Mail\SignupCodeMail;
 use App\Models\CoachPage;
@@ -230,6 +232,47 @@ it('lets the owner mark a month used, oldest first, with a note', function () {
     // None left: refused, as the API would say it.
     expect(fn () => Referrals::markUsed(request(), $this->f->admin, $this->f->a->id, 'again'))
         ->toThrow(ClientSafe::class, 'this coach has no unused referral month');
+});
+
+it('lists each credit for the owner: who earned it, for whom, when, and how it was used (CHW-374)', function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 1, '2025-11-08');
+    creditRun();
+    // Coach B's own credit, for someone else, already used: the filters keep it off A's list.
+    (new User)->forceFill(['id' => 'tOther0000000000', 'name' => 'Omar', 'email' => 'omar@example.com', 'coach' => true])->save();
+    ReferralCredit::query()->create(['id' => ReferralCredit::newId(), 'referrer_id' => $this->f->b->id,
+        'referred_id' => 'tOther0000000000', 'months' => 1, 'created' => 1, 'used_at' => 2, 'used_note' => 'Applied by hand']);
+    $mine = ReferralCredit::query()->where('referrer_id', $this->f->a->id)->sole();
+    $theirs = ReferralCredit::query()->where('referrer_id', $this->f->b->id)->sole();
+
+    $this->actingAs($this->f->admin, 'web');
+    Livewire::test(ListReferralCredits::class)->assertCanSeeTableRecords([$mine, $theirs])
+        ->assertSee('nadia@example.com')->assertSee('omar@example.com')->assertSee('Applied by hand')
+        ->filterTable('referrer', $this->f->a->id)
+        ->assertCanSeeTableRecords([$mine])->assertCanNotSeeTableRecords([$theirs])
+        ->resetTableFilters()->filterTable('used', false)
+        ->assertCanSeeTableRecords([$mine])->assertCanNotSeeTableRecords([$theirs])
+        // A suspicious address is what the owner has in hand: either coach's finds the row.
+        ->resetTableFilters()->searchTable('omar@example.com')
+        ->assertCanSeeTableRecords([$theirs])->assertCanNotSeeTableRecords([$mine])
+        ->searchTable('yasmine@example.com')
+        ->assertCanSeeTableRecords([$mine])->assertCanNotSeeTableRecords([$theirs]);
+    // Two referrers with one name stay apart in the filter: each carries its address.
+    $this->f->b->forceFill(['name' => 'Coach A', 'email' => 'second@example.com'])->save();
+    expect(Livewire::test(ListReferralCredits::class)->instance()->getTable()->getFilter('referrer')->getOptions())
+        ->toBe([$this->f->a->id => 'Coach A (yasmine@example.com)', $this->f->b->id => 'Coach A (second@example.com)']);
+
+    // From a coach's row, straight to their credits; a coach with none has no such link.
+    Livewire::test(ListUsers::class)
+        ->assertActionVisible(TestAction::make('referralCredits')->table($this->f->a))
+        ->assertActionHasUrl(TestAction::make('referralCredits')->table($this->f->a),
+            ReferralCreditResource::getUrl('index', ['filters' => ['referrer' => ['value' => $this->f->a->id]]]))
+        ->assertActionHidden(TestAction::make('referralCredits')->table($this->f->admin));
+
+    // A referred coach who objected (fitpal:referral-forget) is no longer named on the credit.
+    $this->artisan('fitpal:referral-forget', ['email' => 'nadia@example.com'])->assertSuccessful();
+    Livewire::test(ListReferralCredits::class)->assertCanSeeTableRecords([$mine->fresh()])
+        ->assertDontSee('nadia@example.com')->assertSee('Forgotten on objection');
 });
 
 it('banks nothing while join requests are off', function () {
