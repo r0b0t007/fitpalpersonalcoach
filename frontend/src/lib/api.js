@@ -268,7 +268,8 @@ export const passkeyRegister = (name, code) => registerWith('/api/register', { n
 // code in `lang` (the account has no saved language yet) and answers alike for any address;
 // verify makes the account, its address proven, and signs this browser in.
 // terms: the version of the coach terms accepted on the Start page (CHW-357), sent back as read.
-export const coachSignupStart = (name, email, lang, terms) => api('/api/coach/signup/start', { method: 'POST', body: JSON.stringify({ name, email, lang, terms }) })
+// ref: the handle of the coach whose referral link this came through (CHW-350), sent only when there is one.
+export const coachSignupStart = (name, email, lang, terms, ref) => api('/api/coach/signup/start', { method: 'POST', body: JSON.stringify({ name, email, lang, terms, ...(ref ? { ref } : {}) }) })
 export const coachSignupVerify = (email, code) => api('/api/coach/signup/verify', { method: 'POST', body: JSON.stringify({ email, code }) }).then(r => r.user)
 // Another passkey for the signed-in account (R4, Laravel only) — offered after a sign-in by email
 // link, on a device that had none. The server wants a session that signed in just now.
