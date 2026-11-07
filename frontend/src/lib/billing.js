@@ -119,5 +119,19 @@ export function pickPlan(plans, plan, period) {
   return { plan: p.plan, period: per, cap: p.cap }
 }
 
+/** The paid tiers, Plans::CAPS's keys in the backend; tests/Unit/PaidPlanIdsTest.php keeps them equal. */
+export const PAID_PLAN_IDS = ['solo', 'pro', 'studio']
+
+/**
+ * The paid plan a pricing link asked for (`?plan=solo`) when this instance doesn't sell it, so
+ * pickPlan() landed somewhere else: with billing off, on Free. fitpal.ma's cards link to every
+ * paid plan, and the sign-up screen says so rather than quietly making a Free account (CHW-371).
+ * Null when the plan is sold, when nothing was asked, and for an id that is no paid plan.
+ */
+export function unofferedPlan(plans, plan) {
+  if (!PAID_PLAN_IDS.includes(plan)) return null
+  return Array.isArray(plans) && plans.some(p => p.plan === plan) ? null : plan
+}
+
 /** "pro" → "Pro". Plan names are the product's, the same in every language. */
 export const planName = plan => (plan ? plan[0].toUpperCase() + plan.slice(1) : '')

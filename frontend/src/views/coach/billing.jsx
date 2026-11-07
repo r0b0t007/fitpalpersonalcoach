@@ -24,7 +24,8 @@ const day = iso => {
 }
 const periodName = p => (p === 'year' ? t('yearly') : t('monthly'))
 // Solo, Pro and Studio are names, the same in every language; "Free" is a word, and is translated.
-const planLabel = p => (p === 'free' ? t('Free') : planName(p))
+/** A plan id as the coach reads it: Free in their language, the paid tiers by name. */
+export const planLabel = p => (p === 'free' ? t('Free') : planName(p))
 // A paused or unpaid subscription that still writes: the instance has a Free plan (CHW-329), and
 // the coach works on it until the card goes through.
 const onFreeMeanwhile = e => t('Until the payment goes through, you are on the Free plan: up to {0} active clients.', e?.cap)

@@ -3,14 +3,15 @@ import { useLocation } from 'react-router-dom'
 import { useStore, hasData } from '../store/useStore.js'
 import { useUI } from '../store/useUI.js'
 import { coachSignupStart, coachSignupVerify } from '../lib/api.js'
-import { pickPlan } from '../lib/billing.js'
+import { paidPlans, pickPlan, unofferedPlan } from '../lib/billing.js'
+import { CONTACT_EMAIL } from '../lib/contact.js'
 import { isEmail } from '../lib/email.js'
-import { t, getLang } from '../lib/i18n.js'
+import { t, tp, getLang } from '../lib/i18n.js'
 import Logo from '../components/Logo.jsx'
 import { Button, CodeField } from '../components/ui.jsx'
 import TermsConsent from '../components/TermsConsent.jsx'
 import { offerPasskey } from '../components/AddPasskeySheet.jsx'
-import { PlanPicker, startCheckout } from './coach/billing.jsx'
+import { PlanPicker, planLabel, startCheckout } from './coach/billing.jsx'
 
 /** Whether /#/start is a sign-up here: coaches may sign themselves up, to a paid plan or the Free one. */
 export const startOpen = config => !!(config?.self_serve && config?.plans?.length)
@@ -34,6 +35,7 @@ export default function Start() {
   const plans = config?.plans || []
   const [asked] = useState(() => new URLSearchParams(loc.search))
   const [choice, setChoice] = useState(() => pickPlan(plans, asked.get('plan'), asked.get('period')))
+  const [picked, setPicked] = useState(false)  // the coach chose in the picker: the link's plan is behind them
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
@@ -49,6 +51,10 @@ export default function Start() {
     if (!choice || !plans.some(p => p.plan === choice.plan)) setChoice(pickPlan(plans, choice?.plan ?? asked.get('plan'), choice?.period ?? asked.get('period')))
   }, [plans])
   if (!choice) return null
+  // A pricing card's plan that isn't sold here (CHW-371): say so, and what they start on instead.
+  // With no paid plan on sale at all (billing off), paid plans are switched on by request.
+  const notSold = !picked && unofferedPlan(plans, asked.get('plan'))
+  const byRequest = !paidPlans(plans).length
 
   const toast = msg => useUI.getState().toast(msg)
   const send = async () => {
@@ -108,7 +114,12 @@ export default function Start() {
       <div className="muted" style={{ marginBottom: 26 }}>{t('Coach your clients from one app.')}</div>
       <div className="card" style={{ textAlign: 'left' }}>
         <h2 style={{ margin: '0 0 10px' }}>{t('Your plan')}</h2>
-        <PlanPicker plans={plans} value={choice} onChange={setChoice} />
+        <PlanPicker plans={plans} value={choice} onChange={c => { setChoice(c); setPicked(true) }} />
+        {notSold && <p className="small muted" role="note" style={{ lineHeight: 1.38, margin: '10px 0 0' }}>
+          {tp(choice.cap, '{1} is not on sale online yet: you start on {2}, up to {0} active client.',
+            '{1} is not on sale online yet: you start on {2}, up to {0} active clients.', planLabel(notSold), planLabel(choice.plan))}
+          {byRequest && <>{' '}{t('During the launch, paid plans are switched on by request:')}{' '}
+            <a href={'mailto:' + CONTACT_EMAIL}>{CONTACT_EMAIL}</a></>}</p>}
       </div>
       <div style={{ textAlign: 'left', marginTop: 6 }}>
         <input className="input" placeholder={t('Your name')} maxLength={40} autoComplete="name"
