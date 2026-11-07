@@ -150,23 +150,8 @@ it('signs up without a referrer for no ref, an unknown one, a malformed one or a
 });
 
 it('records no referrer whose own address is the new coach\'s, nor a disabled one', function () {
-    // The same address can't sign up twice, so the referrer's address is given to the page owner B.
-    $this->f->b->forceFill(['email' => 'twin@example.com'])->save();
-    referralPage($this->f->b, 'coach.b');
-    $this->f->b->forceFill(['email' => 'TWIN@example.com'])->save();
-    // B's address is taken, so the new coach can't have it: compare a pending address instead.
-    expect(referredSignup('other@example.com', 'coach.b')->referred_by)->toBe($this->f->b->id);
-
-    $this->f->a->forceFill(['disabled' => true])->save();
-    expect(referredSignup('later@example.com', 'yasmine.fit')->referred_by)->toBeNull();
-});
-```
-
-The same-address case can't reach verify, because verify refuses an address already in use. Test it directly on `Referrals::referrerFor` instead, and replace the third test above with:
-
-```php
-it('records no referrer whose own address is the new coach\'s, nor a disabled one', function () {
-    expect(Referrals::referrerFor('yasmine.fit', 'yasmine@example.com'))->toBeNull()
+    // An address in use can't reach verify (it is refused there), so the address check is the lookup's.
+    expect(Referrals::referrerFor('yasmine.fit', 'YASMINE@example.com'))->toBeNull()
         ->and(Referrals::referrerFor('yasmine.fit', 'nadia@example.com')?->id)->toBe($this->f->a->id);
 
     $this->f->a->forceFill(['disabled' => true])->save();
@@ -304,10 +289,11 @@ final class Referrals
      */
     public static function referrerFor(?string $ref, string $email): ?User
     {
-        if ($ref === null || self::normaliseRef($ref) === null) {
+        $handle = self::normaliseRef($ref);
+        if ($handle === null) {
             return null;
         }
-        [, $coach] = CoachPage::findPublic(self::normaliseRef($ref));
+        [, $coach] = CoachPage::findPublic($handle);
         if ($coach === null || ($coach->email !== null && mb_strtolower($coach->email) === mb_strtolower($email))) {
             return null;
         }
@@ -412,10 +398,14 @@ git commit -m "Referrals: record who referred a coach at sign-up (CHW-350)"
 
 const REF_ACCEPTED = 1_762_473_600_000;   // 2025-11-07 00:00 UTC
 
-/** A client accepted from $coach's page at REF_ACCEPTED, with their state's workout columns as given. */
+/**
+ * A client accepted from $coach's page at REF_ACCEPTED, who asked with $email, with their state's
+ * workout columns as given. The account itself has no address: users.email is unique, and the
+ * cases test a request's address that equals a coach's.
+ */
 function acceptedClient(User $coach, string $email, ?int $firstWorkoutAt, ?string $lastWorkout, bool $onRoster = true): User
 {
-    $m = tap((new User)->forceFill(['id' => User::newId(), 'name' => 'Client', 'email' => $email, 'coach_id' => $onRoster ? $coach->id : null]))->save();
+    $m = tap((new User)->forceFill(['id' => User::newId(), 'name' => 'Client', 'coach_id' => $onRoster ? $coach->id : null]))->save();
     DB::table('join_requests')->insert(['id' => substr(md5($email), 0, 24), 'coach_id' => $coach->id, 'email' => $email, 'member_id' => $m->id,
         'name' => 'Client', 'intake' => '{}', 'status' => 'accepted', 'attempts' => 0, 'created' => REF_ACCEPTED - 60_000, 'decided' => REF_ACCEPTED]);
     // Straight to the table: UserState's saving hook would derive the workout columns from the state.
