@@ -4,6 +4,7 @@ import { t } from '../../lib/i18n.js'
 import { Button, Notice } from '../../components/ui.jsx'
 import Logo from '../../components/Logo.jsx'
 import TermsConsent from '../../components/TermsConsent.jsx'
+import { CONTACT_EMAIL } from '../../lib/contact.js'
 
 /**
  * Whether this coach has accepted the coach terms in force (CHW-357): null while asking, then
@@ -58,7 +59,7 @@ export default function TermsGate({ terms, onChange }) {
     <div style={{ height: 16 }} />
     <Button variant="primary" onClick={accept} disabled={busy}>{t('Accept and continue')}</Button>
     <p className="dim small" style={{ marginTop: 18 }}>
-      {t("If you do not accept them, write to {0}: we close your account and send you your clients' data.", 'contact@fitpal.ma')}
+      {t("If you do not accept them, write to {0}: we close your account and send you your clients' data.", CONTACT_EMAIL)}
     </p>
   </div>
 }

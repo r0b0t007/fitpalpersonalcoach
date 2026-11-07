@@ -119,6 +119,9 @@ export function pickPlan(plans, plan, period) {
   return { plan: p.plan, period: per, cap: p.cap }
 }
 
+/** The paid tiers, Plans::CAPS's keys in the backend; tests/Unit/PaidPlanIdsTest.php keeps them equal. */
+export const PAID_PLAN_IDS = ['solo', 'pro', 'studio']
+
 /**
  * The paid plan a pricing link asked for (`?plan=solo`) when this instance doesn't sell it, so
  * pickPlan() landed somewhere else: with billing off, on Free. fitpal.ma's cards link to every
@@ -126,7 +129,7 @@ export function pickPlan(plans, plan, period) {
  * Null when the plan is sold, when nothing was asked, and for an id that is no paid plan.
  */
 export function unofferedPlan(plans, plan) {
-  if (!['solo', 'pro', 'studio'].includes(plan)) return null
+  if (!PAID_PLAN_IDS.includes(plan)) return null
   return Array.isArray(plans) && plans.some(p => p.plan === plan) ? null : plan
 }
 
