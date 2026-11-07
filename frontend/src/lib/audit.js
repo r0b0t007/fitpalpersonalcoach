@@ -63,6 +63,7 @@ const LABELS = {
   'coach.program.save': () => t('Saved a program'),
   'coach.page.save': () => t('Saved their public page'),
   'coach.referral.signup': () => t('Signed up through a referral link'),
+  'coach.referral.credit': () => t('Earned a free month for a referral'),
   'coach.page.photo': () => t('Added a photo to their public page'),
   'coach.page.photo.remove': () => t('Removed the photo from their public page'),
   'join.request': () => t('Asked to join a coach'),

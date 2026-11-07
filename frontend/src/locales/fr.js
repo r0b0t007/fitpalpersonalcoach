@@ -1421,6 +1421,7 @@ export default {
   'Confirmed a join request by email': 'A confirmé une demande par e-mail',
   'Saved their public page': 'A enregistré sa page publique',
   'Signed up through a referral link': 'S’est inscrit par un lien de parrainage',
+  'Earned a free month for a referral': 'A gagné un mois offert grâce à un parrainage',
   'too many codes made on this account — ask an admin': 'trop de codes créés sur ce compte — demandez à un administrateur',
   'no such code': 'code introuvable',
   'already used — cannot revoke': 'déjà utilisé — impossible de le révoquer',

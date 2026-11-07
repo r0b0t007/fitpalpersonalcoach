@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Tenancy\OwnedByCoach;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A follower asking to join a coach (CHW-336). Scoped: OwnedByCoach — a coach sees their own
@@ -121,6 +123,24 @@ class JoinRequest extends Model
         $phone = is_string($intake) ? (json_decode($intake, false)->phone ?? '') : '';
 
         return is_string($phone) ? $phone : '';
+    }
+
+    /**
+     * The clients $coach accepted from their page who are still on their roster, with what the
+     * referral check reads (CHW-350): the address they asked with, when they were accepted, and
+     * their state's workout columns. Raw rows, across coaches by design: the hourly command runs
+     * with no coach context.
+     *
+     * @return Collection<int, \stdClass>
+     */
+    public static function acceptedClientActivity(User $coach): Collection
+    {
+        return DB::table('join_requests as j')
+            ->join('users as m', 'm.id', '=', 'j.member_id')
+            ->join('user_states as s', 's.user_id', '=', 'm.id')
+            ->where('j.coach_id', $coach->id)->where('j.status', 'accepted')->whereNotNull('j.decided')
+            ->where('m.coach_id', $coach->id)
+            ->get(['j.email', 'j.decided', 's.first_workout_at', 's.last_workout']);
     }
 
     /** Someone can no longer coach (Detach): every request they hold, waiting or answered, goes. */
