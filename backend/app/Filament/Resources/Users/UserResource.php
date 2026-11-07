@@ -8,6 +8,7 @@ use App\Domain\Entitlement;
 use App\Domain\Plans;
 use App\Filament\AdminAction;
 use App\Filament\Entitlements;
+use App\Filament\Resources\ReferralCredits\ReferralCreditResource;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\User;
 use BackedEnum;
@@ -46,7 +47,8 @@ class UserResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
-            ->modifyQueryUsing(fn (Builder $query) => $query->withSum(['referralCredits as referral_months' => fn ($q) => $q->whereNull('used_at')], 'months'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->withCount('referralCredits')
+                ->withSum(['referralCredits as referral_months' => fn ($q) => $q->whereNull('used_at')], 'months'))
             ->columns([
                 TextColumn::make('name')->searchable()->sortable(),
                 // A self-serve coach's address is pending until their first link confirms it, and the
@@ -107,6 +109,10 @@ class UserResource extends Resource
                         ->visible(fn (User $u) => $u->isCoach() && ! $u->isAdmin() && ! $u->disabled)
                         ->schema([Select::make('plan')->options(self::planOptions())->required()])
                         ->action(fn (User $u, array $data) => AdminAction::run(fn (Request $r, User $admin) => Accounts::grant($r, $admin, $u->id, $data['plan']), 'Plan granted')),
+                    // Each credit, and the referred coach behind it, before one is marked used (CHW-374).
+                    Action::make('referralCredits')->label('See referral months')->icon(Heroicon::OutlinedGiftTop)
+                        ->visible(fn (User $u) => (int) ($u->referral_credits_count ?? 0) > 0)
+                        ->url(fn (User $u) => ReferralCreditResource::getUrl('index', ['filters' => ['referrer' => ['value' => $u->id]]])),
                     Action::make('useReferralMonth')->label('Mark a referral month used')->icon(Heroicon::OutlinedCheckBadge)
                         ->visible(fn (User $u) => $u->isCoach() && (int) ($u->referral_months ?? 0) > 0)
                         ->schema([TextInput::make('note')->label('How it was applied')->required()->maxLength(120)])
