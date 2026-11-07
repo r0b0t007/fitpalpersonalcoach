@@ -88,6 +88,12 @@ final class Referrals
      */
     public static function creditDue(Request $request, int $batch = self::BATCH): int
     {
+        // The check reads the referred coach's client data (join requests, workout dates), which the
+        // coach terms do not yet cover as an instruction. Join requests are off until CHW-372
+        // publishes that, and without join requests no referral can activate anyway.
+        if (! config('fitpal.join_requests')) {
+            return 0;
+        }
         $cursor = (string) Cache::get('referrals:cursor', '');
         $referred = User::query()
             ->whereNotNull('referred_by')->where('coach', true)->where('disabled', false)

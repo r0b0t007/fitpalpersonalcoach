@@ -22,7 +22,7 @@ return new class extends Migration
         Schema::create('referral_credits', function (Blueprint $table) {
             $table->string('id', 32)->primary();
             $table->string('referrer_id', 16);
-            $table->string('referred_id', 16)->unique();
+            $table->string('referred_id', 16)->nullable()->unique();   // nulled on an objection, the month kept
             $table->unsignedTinyInteger('months')->default(1);
             $table->bigInteger('created');              // epoch ms, as the join requests keep them
             $table->bigInteger('used_at')->nullable();  // set by the owner, from the admin panel

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Support\ClientSafe;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
@@ -23,7 +24,7 @@ use Tests\Support\Coaching;
 beforeEach(function () {
     config([
         'fitpal.session_secret' => str_repeat('ab', 32),
-        'fitpal.self_serve_coach' => true, 'fitpal.invite_only' => true, 'fitpal.bootstrap_code' => '', 'fitpal.free_cap' => 3,
+        'fitpal.self_serve_coach' => true, 'fitpal.invite_only' => true, 'fitpal.bootstrap_code' => '', 'fitpal.free_cap' => 3, 'fitpal.join_requests' => true,
     ]);
     Billing::on();
     Mail::fake();
@@ -81,11 +82,11 @@ const REF_ACCEPTED = 1_762_473_600_000;   // 2025-11-07 00:00 UTC
  * workout columns as given. The account itself has no address: users.email is unique, and the
  * cases test a request's address that equals a coach's.
  */
-function acceptedClient(User $coach, string $email, ?int $firstWorkoutAt, ?string $lastWorkout, bool $onRoster = true): User
+function acceptedClient(User $coach, string $email, ?int $firstWorkoutAt, ?string $lastWorkout, bool $onRoster = true, string $status = 'accepted'): User
 {
     $m = tap((new User)->forceFill(['id' => User::newId(), 'name' => 'Client', 'coach_id' => $onRoster ? $coach->id : null]))->save();
     DB::table('join_requests')->insert(['id' => substr(md5($email), 0, 24), 'coach_id' => $coach->id, 'email' => $email, 'member_id' => $m->id,
-        'name' => 'Client', 'intake' => '{}', 'status' => 'accepted', 'attempts' => 0, 'created' => REF_ACCEPTED - 60_000, 'decided' => REF_ACCEPTED]);
+        'name' => 'Client', 'intake' => '{}', 'status' => $status, 'attempts' => 0, 'created' => REF_ACCEPTED - 60_000, 'decided' => REF_ACCEPTED]);
     // Straight to the table: UserState's saving hook would derive the workout columns from the state.
     DB::table('user_states')->insert(['user_id' => $m->id, 'state' => '{}', 'ts' => 1, 'first_workout_at' => $firstWorkoutAt, 'last_workout' => $lastWorkout]);
 
@@ -214,4 +215,40 @@ it('lets the owner mark a month used, oldest first, with a note', function () {
     // None left: refused, as the API would say it.
     expect(fn () => Referrals::markUsed(request(), $this->f->admin, $this->f->a->id, 'again'))
         ->toThrow(ClientSafe::class, 'this coach has no unused referral month');
+});
+
+it('banks nothing while join requests are off', function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 3_600_000, '2025-11-07');
+    config(['fitpal.join_requests' => false]);
+    creditRun();
+    expect(ReferralCredit::query()->count())->toBe(0);
+
+    config(['fitpal.join_requests' => true]);
+    creditRun();
+    expect(ReferralCredit::query()->count())->toBe(1);
+});
+
+it('banks nothing for a pending or declined join request whose member trained', function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'p@example.com', REF_ACCEPTED + 3_600_000, '2025-11-07', true, 'pending');
+    acceptedClient($nadia, 'd@example.com', REF_ACCEPTED + 3_600_000, '2025-11-07', true, 'declined');
+    creditRun();
+    expect(ReferralCredit::query()->count())->toBe(0);
+});
+
+it('keeps the month but names no one after an objection', function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 3_600_000, '2025-11-07');
+    creditRun();
+    expect(Referrals::monthsUnused($this->f->a))->toBe(1);
+
+    $nadia->forceFill(['referred_by' => null])->save();
+    ReferralCredit::query()->update(['referred_id' => null]);
+    $other = referredSignup('omar@example.com', 'yasmine.fit');
+    $other->forceFill(['referred_by' => null])->save();
+    creditRun();
+    expect(Referrals::monthsUnused($this->f->a))->toBe(1)
+        ->and(ReferralCredit::query()->count())->toBe(1)
+        ->and(ReferralCredit::query()->sole()->referred_id)->toBeNull();
 });

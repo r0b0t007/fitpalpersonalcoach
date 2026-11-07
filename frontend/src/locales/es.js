@@ -1755,7 +1755,7 @@ export default {
   'Payment method, invoices, change plan or cancel': 'Método de pago, facturas, cambiar de plan o cancelar',
   'Plan & billing': 'Plan y facturación',
   'Refer a coach': 'Recomienda a un entrenador',
-  'One free month for every coach who signs up through your link and whose client logs a first workout.': 'Un mes gratis por cada entrenador que se registre con tu enlace y cuyo cliente haga su primer entrenamiento.',
+  'One free month for every coach who signs up through your link, once a client who joined through their public page trains.': 'Un mes gratis por cada entrenador que se registre con tu enlace, en cuanto un cliente que llegó por su página pública entrene.',
   'Publish your page to get your referral link.': 'Publica tu página para tener tu enlace de recomendación.',
   'Copy or share your link': 'Copia o comparte tu enlace',
   'Coaches you referred': 'Entrenadores recomendados',

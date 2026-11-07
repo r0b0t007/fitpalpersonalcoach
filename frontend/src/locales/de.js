@@ -1773,7 +1773,7 @@ export default {
   'Payment method, invoices, change plan or cancel': 'Zahlungsmethode, Rechnungen, Tarif wechseln oder kündigen',
   'Plan & billing': 'Tarif & Abrechnung',
   'Refer a coach': 'Coach empfehlen',
-  'One free month for every coach who signs up through your link and whose client logs a first workout.': 'Ein Gratismonat für jeden Coach, der sich über deinen Link anmeldet und dessen Kunde sein erstes Training einträgt.',
+  'One free month for every coach who signs up through your link, once a client who joined through their public page trains.': 'Ein Gratismonat für jeden Coach, der sich über deinen Link anmeldet, sobald ein Kunde, der über seine öffentliche Seite kam, trainiert.',
   'Publish your page to get your referral link.': 'Veröffentliche deine Seite, um deinen Empfehlungslink zu bekommen.',
   'Copy or share your link': 'Link kopieren oder teilen',
   'Coaches you referred': 'Empfohlene Coaches',

@@ -144,6 +144,9 @@ decides how checkout uses it.
 - **Retention:** coach accounts are not deleted in the app today. If one ever is, its credit rows
   go with it (the foreign keys on `referral_credits`). The audit events age out with the audit
   log.
+- **Objection:** the owner nulls `users.referred_by` for that coach and `referral_credits.referred_id`
+  on its credit row, so the month stays the referrer's but no longer names who earned it. The
+  audit rows age out with the audit log.
 - The change goes through the lawve-ai/awesome-legal-skills review, labelled "not legal advice".
 
 ## 7. Errors and edge cases

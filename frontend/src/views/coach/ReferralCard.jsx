@@ -24,7 +24,7 @@ export default function ReferralCard() {
   }, [])
   if (!r) return null
 
-  const footer = t('One free month for every coach who signs up through your link and whose client logs a first workout.')
+  const footer = t('One free month for every coach who signs up through your link, once a client who joined through their public page trains.')
   if (!r.handle) return <Section title={t('Refer a coach')} footer={footer}>
     <Row icon="link" iconTint="var(--acc)" title={t('Publish your page to get your referral link.')}
       accessory="chevron" onClick={() => nav('/account/page')} />
