@@ -45,9 +45,15 @@ class ReferralCreditResource extends Resource
             ->defaultSort('created', 'desc')
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['referrer', 'referred']))
             ->columns([
-                TextColumn::make('referrer.name')->label('Earned by')->searchable()
-                    ->description(fn (ReferralCredit $c) => $c->referrer?->email),
-                TextColumn::make('referred.name')->label('Referred coach')->placeholder('Forgotten on objection')
+                // Searchable by the addresses too: a suspicious one is what the owner has in hand.
+                TextColumn::make('referrer.name')->label('Earned by')->searchable(['name', 'email', 'pending_email'])
+                    ->description(fn (ReferralCredit $c) => $c->referrer === null ? null : self::address($c->referrer)),
+                TextColumn::make('referred.name')->label('Referred coach')->searchable(['name', 'email', 'pending_email'])
+                    ->state(fn (ReferralCredit $c) => match (true) {
+                        $c->referred_id === null => 'Forgotten on objection',
+                        $c->referred === null => 'Account deleted',
+                        default => $c->referred->name ?? '(no name)',
+                    })
                     ->description(fn (ReferralCredit $c) => $c->referred === null ? null : self::signedUp($c->referred)),
                 TextColumn::make('months'),
                 TextColumn::make('created')->label('Earned')->sortable()
@@ -58,10 +64,10 @@ class ReferralCreditResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('referrer')->label('Earned by')->searchable()
+                    // With the address: one person referring themselves often keeps the same name.
                     ->options(fn () => User::query()->whereIn('id', ReferralCredit::query()->select('referrer_id'))
-                        ->orderBy('name')->pluck('name', 'id'))
-                    ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null)
-                        ? $query->where('referrer_id', $data['value']) : $query),
+                        ->orderBy('name')->orderBy('id')->get()->mapWithKeys(fn (User $u) => [$u->id => ($u->name ?? '(no name)').' ('.self::address($u).')']))
+                    ->attribute('referrer_id'),
                 TernaryFilter::make('used')->nullable()->attribute('used_at'),
             ]);
     }
@@ -69,10 +75,15 @@ class ReferralCreditResource extends Resource
     /** The referred coach's address and sign-up date: a burst of sign-ups is the tell (spec §7). */
     private static function signedUp(User $coach): string
     {
-        $email = $coach->email ?? $coach->pending_email ?? 'no address';
         $disabled = $coach->disabled ? ', disabled' : '';
 
-        return $email.', signed up '.($coach->created_at?->utc()->format('Y-m-d') ?? '?').$disabled;
+        return self::address($coach).', signed up '.($coach->created_at?->utc()->format('Y-m-d') ?? '?').$disabled;
+    }
+
+    /** A self-serve coach's address is pending until their first link confirms it. */
+    private static function address(User $coach): string
+    {
+        return $coach->email ?? $coach->pending_email ?? 'no address';
     }
 
     private static function day(int $ms): string

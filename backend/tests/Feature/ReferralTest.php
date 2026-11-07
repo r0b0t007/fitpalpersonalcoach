@@ -251,7 +251,16 @@ it('lists each credit for the owner: who earned it, for whom, when, and how it w
         ->filterTable('referrer', $this->f->a->id)
         ->assertCanSeeTableRecords([$mine])->assertCanNotSeeTableRecords([$theirs])
         ->resetTableFilters()->filterTable('used', false)
+        ->assertCanSeeTableRecords([$mine])->assertCanNotSeeTableRecords([$theirs])
+        // A suspicious address is what the owner has in hand: either coach's finds the row.
+        ->resetTableFilters()->searchTable('omar@example.com')
+        ->assertCanSeeTableRecords([$theirs])->assertCanNotSeeTableRecords([$mine])
+        ->searchTable('yasmine@example.com')
         ->assertCanSeeTableRecords([$mine])->assertCanNotSeeTableRecords([$theirs]);
+    // Two referrers with one name stay apart in the filter: each carries its address.
+    $this->f->b->forceFill(['name' => 'Coach A', 'email' => 'second@example.com'])->save();
+    expect(Livewire::test(ListReferralCredits::class)->instance()->getTable()->getFilter('referrer')->getOptions())
+        ->toBe([$this->f->a->id => 'Coach A (yasmine@example.com)', $this->f->b->id => 'Coach A (second@example.com)']);
 
     // From a coach's row, straight to their credits; a coach with none has no such link.
     Livewire::test(ListUsers::class)
