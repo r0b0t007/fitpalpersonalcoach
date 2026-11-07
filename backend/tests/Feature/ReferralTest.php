@@ -154,3 +154,20 @@ it('runs hourly in the background', function () {
     $e = collect(app(Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'fitpal:referral-credits'));
     expect($e->expression)->toBe('0 * * * *')->and($e->runInBackground)->toBeTrue()->and($e->withoutOverlapping)->toBeTrue();
 });
+
+it('checks every referred coach in turn, a batch at a time', function () {
+    $coaches = collect(['n1@example.com', 'n2@example.com', 'n3@example.com'])
+        ->map(fn ($e) => referredSignup($e, 'yasmine.fit'))->sortBy('id')->values();
+    acceptedClient($coaches[2], 'sara@example.com', REF_ACCEPTED + 1, '2025-11-08');
+
+    expect(Referrals::creditDue(Request::create('/'), 2))->toBe(0);   // looked at the first two
+    expect(Referrals::creditDue(Request::create('/'), 2))->toBe(1);   // the third, then wrapped round
+    expect(ReferralCredit::query()->sole()->referred_id)->toBe($coaches[2]->id);
+});
+
+it('banks when the first workout is at the very moment of acceptance', function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED, null);
+    creditRun();
+    expect(ReferralCredit::query()->count())->toBe(1);
+});

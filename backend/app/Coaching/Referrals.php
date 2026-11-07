@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\Js;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Coach referrals (CHW-350, docs/superpowers/specs/2026-11-07-coach-referrals-design.md). A coach
@@ -78,14 +79,20 @@ final class Referrals
     /**
      * The hourly pass (fitpal:referral-credits): one month for the referrer of each referred
      * coach who has activated and has no credit yet. The unique index on referred_id makes a
-     * second run, or two at once, insert nothing. Returns how many were banked.
+     * second run, or two at once, insert nothing. Returns how many were banked. Most referred
+     * coaches never activate, so a fixed first $batch would starve the rest: a cursor in the cache
+     * (referrals:cursor) moves each run past the last id looked at, and wraps to the start once a
+     * run finds fewer than $batch.
      */
-    public static function creditDue(Request $request): int
+    public static function creditDue(Request $request, int $batch = self::BATCH): int
     {
+        $cursor = (string) Cache::get('referrals:cursor', '');
         $referred = User::query()
             ->whereNotNull('referred_by')->where('coach', true)->where('disabled', false)
             ->whereNotExists(fn ($q) => $q->from('referral_credits')->whereColumn('referral_credits.referred_id', 'users.id'))
-            ->orderBy('id')->limit(self::BATCH)->get();
+            ->where('id', '>', $cursor)
+            ->orderBy('id')->limit($batch)->get();
+        Cache::forever('referrals:cursor', $referred->count() < $batch ? '' : $referred->last()->id);
         $banked = 0;
         foreach ($referred as $coach) {
             $referrer = User::query()->find($coach->referred_by);
