@@ -39,6 +39,6 @@ export default function ReferralCard() {
   return <Section title={t('Refer a coach')} footer={footer}>
     <Row icon="link" iconTint="var(--acc)" title={link} subtitle={t('Copy or share your link')} accessory="chevron" onClick={share} />
     <Row icon="person" iconTint="var(--blue)" title={t('Coaches you referred')}
-      value={t('{0} signed up · {1} active', r.signedUp, r.activated)} />
+      value={t('Signed up: {0} · Active: {1}', r.signedUp, r.activated)} />
   </Section>
 }

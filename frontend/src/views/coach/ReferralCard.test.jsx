@@ -24,16 +24,17 @@ const render = async () => { await act(async () => { root.render(<MemoryRouter><
 
 describe('the referral card', () => {
   it('asks a coach with no page to publish one first', async () => {
-    ANSWER = { handle: null, signedUp: 0, activated: 0, monthsUnused: 0 }
+    ANSWER = { handle: null, signedUp: 0, activated: 0 }
     await render()
     expect(text()).toContain('Publish your page to get your referral link.')
     expect(text()).not.toContain('fitpal.ma/?ref=')
   })
 
   it("shows a coach's link and their counts, with no names", async () => {
-    ANSWER = { handle: 'yasmine.fit', signedUp: 2, activated: 1, monthsUnused: 1 }
+    ANSWER = { handle: 'yasmine.fit', signedUp: 2, activated: 1 }
+    window.happyDOM.setURL('https://coach.fitpal.ma/')
     await render()
     expect(text()).toContain('https://fitpal.ma/?ref=yasmine.fit')
-    expect(text()).toContain('2 signed up · 1 active')
+    expect(text()).toContain('Signed up: 2 · Active: 1')
   })
 })

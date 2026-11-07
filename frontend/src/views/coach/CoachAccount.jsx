@@ -121,7 +121,8 @@ export default function CoachAccount() {
 
     <PlanBillingSection billing={billing} />
     {/* Coach referrals (CHW-350): only where plans apply, which is where a month means something. */}
-    {billed && <ReferralCard />}
+    {/* No join requests, no referral can activate: the card would promise a month that cannot come. */}
+    {billed && config?.join_requests && <ReferralCard />}
 
     <Section title={t('Coaching')} footer={t('Everything you do for clients lives on the other three tabs. These are the pieces that belong to you rather than to one of them.')}>
       {/* The one link for the bio (CHW-330): anyone who taps it can ask to train with you. */}

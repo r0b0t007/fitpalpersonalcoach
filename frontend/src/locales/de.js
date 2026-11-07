@@ -1777,7 +1777,7 @@ export default {
   'Publish your page to get your referral link.': 'Veröffentliche deine Seite, um deinen Empfehlungslink zu bekommen.',
   'Copy or share your link': 'Link kopieren oder teilen',
   'Coaches you referred': 'Empfohlene Coaches',
-  '{0} signed up · {1} active': '{0} angemeldet · {1} aktiv',
+  'Signed up: {0} · Active: {1}': 'Angemeldet: {0} · Aktiv: {1}',
   'Referral link copied': 'Empfehlungslink kopiert',
   'Coach your clients with FitPal': 'Coache deine Kunden mit FitPal',
   'Free months': 'Gratismonate',

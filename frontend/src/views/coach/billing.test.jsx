@@ -17,7 +17,7 @@ vi.mock('../../lib/api.js', async orig => ({
     calls.push([path, opts?.body ? JSON.parse(opts.body) : undefined])
     if (path === '/api/coach/members') return { members: [] }
     if (path === '/api/coach/programs') return { programs: [] }
-    if (path === '/api/coach/referrals') return { handle: null, signedUp: 0, activated: 0, monthsUnused: 0 }
+    if (path === '/api/coach/referrals') return { handle: null, signedUp: 0, activated: 0 }
     if (path === '/api/billing/me') return typeof ME === 'function' ? ME() : ME
     if (path === '/api/billing/checkout') return { url: 'https://checkout.creem.test/ch_1' }
     if (path === '/api/billing/portal') return { url: 'https://portal.creem.test/c_1' }
@@ -210,6 +210,17 @@ describe('a returning coach, drawn before /api/config answers', () => {
 })
 
 describe('Account › Plan & billing', () => {
+  it('draws the referral card only where join requests are on, as no referral can activate without them (CHW-350)', async () => {
+    useStore.setState({ config: { ...BILLED, join_requests: false } })
+    ME = free()
+    await render(<CoachAccount />)
+    expect(text()).not.toContain('Refer a coach')
+
+    await act(async () => { useStore.setState({ config: { ...BILLED, join_requests: true } }) })
+    await act(async () => {})
+    expect(text()).toContain('Refer a coach')
+  })
+
   it('shows the free months from referrals only when there are some (CHW-350)', async () => {
     ME = { ...free(), referralMonths: 0 }
     await render(<CoachAccount />)
