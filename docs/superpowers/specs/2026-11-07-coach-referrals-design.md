@@ -53,8 +53,9 @@ straight to `coach.fitpal.ma/#/start?plan=free&ref=<handle>` works too.
 
 **Migration:**
 - `coach_signups.ref`: string 30, nullable.
-- `users.referred_by`: string 16, nullable, the referrer's user id. A foreign key to `users.id`,
-  null on delete.
+- `users.referred_by`: string 16, nullable and indexed, the referrer's user id. No foreign key: a
+  coach's account can't be deleted in the app (`DeleteAccount` refuses coaches), and the code
+  ignores a referrer it can't find.
 
 **`CoachSignupController::start`** reads `ref` with `Input::jsString`, normalises it with
 `Handle::normalise`, and keeps it only if `Handle::valid`. Otherwise it stores null. It stores the
@@ -101,7 +102,7 @@ Otherwise `referred_by` stays null, quietly. An audit event `coach.referral.sign
    event `coach.referral.credit` (user is the referrer, target is the referred coach).
 4. A referrer who is disabled gets nothing for now. The referred coach stays without a credit
    row, so the next run checks them again, and the credit lands if the referrer is enabled again.
-   A deleted referrer nulls `referred_by` (the foreign key), which ends it.
+   A referrer who no longer exists is skipped the same way.
 
 It handles at most 500 referred coaches a run, so a run stays well under the host's 50 s.
 
@@ -140,8 +141,9 @@ decides how checkout uses it.
 - **The legal notice** (`mentions-legales.html` and `es/legal.html`, `en/legal.html`) gets one line
   under the coach's data: if you signed up through another coach's link, we record which coach
   referred you, to credit them. They see how many coaches they referred, never who.
-- **Retention:** `referred_by` and the credit rows go when either account is deleted (the foreign
-  keys above). The audit events age out with the audit log.
+- **Retention:** coach accounts are not deleted in the app today. If one ever is, its credit rows
+  go with it (the foreign keys on `referral_credits`). The audit events age out with the audit
+  log.
 - The change goes through the lawve-ai/awesome-legal-skills review, labelled "not legal advice".
 
 ## 7. Errors and edge cases
@@ -149,8 +151,8 @@ decides how checkout uses it.
 - **Unknown, malformed or reserved handle:** ignored. The sign-up succeeds without a referrer.
 - **The referrer renames their page between the click and the sign-up:** the old handle resolves
   to nothing, so there is no referrer. This is accepted.
-- **The referred coach deletes their account:** the cascade removes the credit, including a used
-  one. The audit log keeps the history.
+- **A coach account removed by hand** (outside the app): the cascade removes its credit rows,
+  used ones included. The audit log keeps the history.
 - **Two accounts, one person:** the email checks stop the plain cases (same email for both
   coaches, or a client sharing a coach's email). Anything subtler needs a real person training,
   which is the point. The owner can see every credit in Filament before using it.
