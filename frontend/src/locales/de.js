@@ -1438,6 +1438,7 @@ export default {
   'Too many join requests asked for': 'Zu viele Beitrittsanfragen',
   'Confirmed a join request by email': 'Hat eine Anfrage per E-Mail bestätigt',
   'Saved their public page': 'Hat die öffentliche Seite gespeichert',
+  'Signed up through a referral link': 'Hat sich über einen Empfehlungslink angemeldet',
   'too many codes made on this account — ask an admin': 'zu viele Codes für dieses Konto — frag einen Admin',
   'no such code': 'Code nicht gefunden',
   'already used — cannot revoke': 'schon benutzt — kann nicht widerrufen werden',

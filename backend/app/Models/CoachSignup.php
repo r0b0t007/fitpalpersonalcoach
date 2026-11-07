@@ -24,7 +24,7 @@ class CoachSignup extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['email', 'name', 'lang', 'terms', 'code_hash', 'attempts', 'code_expires', 'created'];
+    protected $fillable = ['email', 'name', 'lang', 'terms', 'ref', 'code_hash', 'attempts', 'code_expires', 'created'];
 
     protected function casts(): array
     {

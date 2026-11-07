@@ -1420,6 +1420,7 @@ export default {
   'Too many join requests asked for': 'Demasiadas solicitudes para unirse a un coach',
   'Confirmed a join request by email': 'Confirmó una solicitud por correo',
   'Saved their public page': 'Guardó su página pública',
+  'Signed up through a referral link': 'Se registró con un enlace de recomendación',
   'too many codes made on this account — ask an admin': 'se han creado demasiados códigos en esta cuenta — pídeselo a un administrador',
   'no such code': 'código no encontrado',
   'already used — cannot revoke': 'ya se ha usado — no se puede revocar',
