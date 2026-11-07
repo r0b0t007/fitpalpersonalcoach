@@ -22,10 +22,10 @@ use App\Support\Js;
  * (Part A §1: the publisher is an individual; the ICE and the auto-entrepreneur status named
  * before were never FitPal's), for the same reason, checked on production that day: one coach
  * account (the operator's), which had accepted no version at all. 2026-11-07 (Part A §4 bis, the
- * referral programme; Part B §2 and Annex 1, the referral check as the referred coach's
- * instruction, CHW-372; Referrals::TERMS_FROM) binds 30 days after it, unless the same check on
- * production finds no coach but the operator's has accepted any version: then EFFECTIVE moves
- * back to VERSION.
+ * referral programme; Part B §2, the referred coach authorises the referral check, of which
+ * FitPal is the controller, CHW-372; Referrals::TERMS_FROM) bound from the day it was published too: the same
+ * check, run on production that day, found no account with the coach flag (the operator's is a
+ * coach through ADMIN_UIDS), so no coach but the operator's had accepted any version.
  *
  * Self-serve coach sign-up is open (SELF_SERVE_COACH), so a real coach may have accepted by the
  * next change: from then, EFFECTIVE is 30 days after VERSION, unless the same check, run on
@@ -39,7 +39,7 @@ final class Terms
 {
     public const VERSION = '2026-11-07';
 
-    public const EFFECTIVE = '2026-12-07';
+    public const EFFECTIVE = '2026-11-07';
 
     public static function accepted(User $coach, ?int $nowMs = null): bool
     {
