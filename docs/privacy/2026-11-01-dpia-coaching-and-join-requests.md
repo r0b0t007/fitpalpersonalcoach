@@ -266,6 +266,10 @@ button may go live for real coaches.
    whether a client who came through a referred coach's public page has trained since being
    accepted, keeping only a yes or no), and the legal notice tells clients so. Until then
    `fitpal:referral-credits` reads nothing (it does nothing while `JOIN_REQUESTS` is off).
+   **Written in the 2026-11-07 terms** (Part A §4 bis, Part B §2, Annex 1) and the legal notice's
+   "Demander à s'entraîner avec un coach"; met once that version is live on fitpal.ma. The job also
+   never looks at a referred coach who has not accepted that version or a later one
+   (`Referrals::TERMS_FROM`).
 
 M3, M5 and M7 should follow within the next quarter; M4 and M10 are recommended. Review this DPIA in
 November 2027, **after any incident or breach**, or earlier on any change to: the intake, the data

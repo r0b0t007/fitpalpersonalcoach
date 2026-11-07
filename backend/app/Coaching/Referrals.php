@@ -67,6 +67,14 @@ final class Referrals
     public const BATCH = 500;
 
     /**
+     * The first coach terms whose Part B §2 makes the activation check the referred coach's own
+     * instruction (CHW-372). The check reads that coach's client data, so a coach who accepted no
+     * terms, or only earlier ones, is never looked at. Versions are dates, so later ones compare
+     * above it; a later version that drops the instruction must raise this.
+     */
+    public const TERMS_FROM = '2026-11-07';
+
+    /**
      * Whether $coach has activated, for the referral: a client who came through their page (a
      * join request they accepted) is still on their roster and has trained since, and asked with
      * an address that is neither coach's. Trained since goes by the last workout's date, because
@@ -105,9 +113,7 @@ final class Referrals
      */
     public static function creditDue(Request $request, int $batch = self::BATCH): int
     {
-        // The check reads the referred coach's client data (join requests, workout dates), which the
-        // coach terms do not yet cover as an instruction. Join requests are off until CHW-372
-        // publishes that, and without join requests no referral can activate anyway.
+        // Without join requests no referral can activate, and none has to be looked at.
         if (! config('fitpal.join_requests')) {
             return 0;
         }
@@ -115,6 +121,7 @@ final class Referrals
         // Only coaches with an accepted client can have activated.
         $referred = User::query()
             ->whereNotNull('referred_by')->where('coach', true)->where('disabled', false)
+            ->where('terms_version', '>=', self::TERMS_FROM)
             ->whereIn('id', JoinRequest::coachIdsWithAccepted())
             ->whereNotExists(fn ($q) => $q->from('referral_credits')->whereColumn('referral_credits.referred_id', 'users.id'))
             ->where('id', '>', $cursor)

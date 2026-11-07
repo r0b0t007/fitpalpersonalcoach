@@ -21,7 +21,7 @@ const { useStore } = await import('../store/useStore.js')
 const FREE = { plan: 'free', cap: 3, periods: [] }
 const SOLO = { plan: 'solo', cap: 10, periods: ['month', 'year'] }
 const PRO = { plan: 'pro', cap: 30, periods: ['month', 'year'] }
-const FREE_ONLY = { billing: false, plans: [FREE], free_cap: 3, self_serve: true, terms_version: '2026-11-06' }
+const FREE_ONLY = { billing: false, plans: [FREE], free_cap: 3, self_serve: true, terms_version: '2026-11-07' }
 const SELLING = { ...FREE_ONLY, billing: true, plans: [FREE, SOLO, PRO] }
 
 let container, root
@@ -84,6 +84,15 @@ describe('coach sign-up from a pricing link', () => {
     el.dispatchEvent(new Event('input', { bubbles: true }))
   }
 
+  it("links the privacy notice where it asks for the email, in the coach's language (CHW-375)", async () => {
+    await render(FREE_ONLY, '?plan=free')
+    expect(container.querySelector('a[href="https://fitpal.ma/en/legal#data"]')?.textContent).toBe('Your data and your rights')
+    act(() => root.unmount()); root = createRoot(container)
+    _setLangState('fr', fr, null, null)
+    await render(FREE_ONLY, '?plan=free')
+    expect(container.querySelector('a[href="https://fitpal.ma/mentions-legales#donnees"]')).not.toBe(null)
+  })
+
   it("sends the referral link's handle with the sign-up (CHW-350)", async () => {
     STARTED = null
     await render(FREE_ONLY, '?plan=free&ref=yasmine.fit')
@@ -93,6 +102,6 @@ describe('coach sign-up from a pricing link', () => {
       container.querySelector('#start-terms').click()
     })
     await act(async () => { [...container.querySelectorAll('button')].find(b => b.textContent.includes('Send me a code')).click() })
-    expect(STARTED).toEqual(['Nadia', 'nadia@example.com', 'en', '2026-11-06', 'yasmine.fit'])
+    expect(STARTED).toEqual(['Nadia', 'nadia@example.com', 'en', '2026-11-07', 'yasmine.fit'])
   })
 })

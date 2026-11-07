@@ -244,6 +244,23 @@ it('banks nothing while join requests are off', function () {
     expect(ReferralCredit::query()->count())->toBe(1);
 });
 
+it('reads no client data of a referred coach who has not accepted terms that instruct the check', function () {
+    // Part B §2 makes the check the referred coach's instruction from the 2026-11-07 terms (CHW-372).
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 3_600_000, '2025-11-07');
+    foreach ([null, '2026-11-06'] as $older) {
+        $nadia->forceFill(['terms_version' => $older])->save();
+        creditRun();
+        expect(ReferralCredit::query()->count())->toBe(0);
+    }
+
+    $nadia->forceFill(['terms_version' => Referrals::TERMS_FROM])->save();
+    creditRun();
+    expect(ReferralCredit::query()->count())->toBe(1);
+    // A coach who signs up today accepts terms that instruct it.
+    expect(Terms::VERSION >= Referrals::TERMS_FROM)->toBeTrue();
+});
+
 it('banks nothing for a pending or declined join request whose member trained', function () {
     $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
     acceptedClient($nadia, 'p@example.com', REF_ACCEPTED + 3_600_000, '2025-11-07', true, 'pending');

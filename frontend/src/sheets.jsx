@@ -42,7 +42,7 @@ import { notesOn } from './lib/notes.js'
 // Every sheet that changes the plan asks this itself (CHW-333), so a button anywhere that opens
 // one cannot hand a coached client an edit of their coach's program.
 const allowed = feature => can(useStore.getState().user, feature)
-import { privacyUrl } from './lib/join.js'
+import { privacyUrl } from './lib/terms.js'
 import { isWarmupRow } from './lib/workout-model.js'
 import { nextUnfinishedUnit } from './lib/supersetFlow.js'
 import { swapActiveExercise } from './lib/active-exercise-swap.js'
