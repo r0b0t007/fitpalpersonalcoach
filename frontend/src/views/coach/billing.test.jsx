@@ -17,6 +17,7 @@ vi.mock('../../lib/api.js', async orig => ({
     calls.push([path, opts?.body ? JSON.parse(opts.body) : undefined])
     if (path === '/api/coach/members') return { members: [] }
     if (path === '/api/coach/programs') return { programs: [] }
+    if (path === '/api/coach/referrals') return { handle: null, signedUp: 0, activated: 0, monthsUnused: 0 }
     if (path === '/api/billing/me') return typeof ME === 'function' ? ME() : ME
     if (path === '/api/billing/checkout') return { url: 'https://checkout.creem.test/ch_1' }
     if (path === '/api/billing/portal') return { url: 'https://portal.creem.test/c_1' }
@@ -209,6 +210,18 @@ describe('a returning coach, drawn before /api/config answers', () => {
 })
 
 describe('Account › Plan & billing', () => {
+  it('shows the free months from referrals only when there are some (CHW-350)', async () => {
+    ME = { ...free(), referralMonths: 0 }
+    await render(<CoachAccount />)
+    expect(text()).toContain('Plan & billing')
+    expect(text()).not.toContain('Free months')
+    ME = { ...free(), referralMonths: 2 }
+    act(() => root.unmount()); root = createRoot(container)
+    await render(<CoachAccount />)
+    expect(text()).toContain('Free months')
+    expect(text()).toContain('2')
+  })
+
   it('shows a trial with its end, the seats and Manage billing', async () => {
     ME = me({ status: 'trialing', trialEndsAt: inDays(3) })
     await render(<CoachAccount />)

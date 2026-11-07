@@ -14,6 +14,7 @@ import { Button } from '../../components/ui.jsx'
 import { rel } from './parts.jsx'
 import { InviteBlocked } from './billing.jsx'
 import { nav } from '../../lib/nav.js'
+import { shareLink } from '../../lib/share.js'
 import { t, tp, exerciseNameFor } from '../../lib/i18n.js'
 
 // The coach's sheets: send a program, invite a client, upload a demo. Opened from Today, Clients
@@ -231,31 +232,13 @@ export function InviteSheet() {
   // that had never existed. The admin screen keeps them for the same reason.
   const dead = invites.filter(i => i.revoked && !i.usedAt)
 
-  /* Share, then clipboard, then just show the link.
-   *
-   * Both need transient user activation, which an await can spend, and the two failures are NOT
-   * alike: navigator.share rejects (NotAllowedError) but navigator.clipboard.writeText simply
-   * never settles when the document is not focused. An unsettled promise is why this button sat on
-   * "Making…" for ever with the freshly minted link nowhere on screen — the code existed on the
-   * server, and the only thing that could show it to the coach was waiting on a promise with no
-   * outcome. So the clipboard gets a deadline, and this function never rejects: the caller is a
-   * convenience, not the feature.
-   */
+  // Share, then clipboard, then just show the link (lib/share.js): the freshly minted link must
+  // end up somewhere the coach can see it, whatever the browser allows.
   const sendLink = async code => {
     const link = inviteLink(code)
-    if (navigator.share) {
-      try { await navigator.share({ title: t('Join me on FitPal'), text: t('Here is your invite:'), url: link }); return }
-      // AbortError is the user closing the share sheet, not a failure — falling through to the
-      // clipboard there would tell them something was copied when they had just said no.
-      catch (e) { if (e && e.name === 'AbortError') return }
-    }
-    try {
-      await Promise.race([
-        navigator.clipboard.writeText(link),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('clipboard never answered')), 2000))
-      ])
-      toast(t('Invite link copied'))
-    } catch { toast(link) }   // last resort: put it on screen, where it can at least be selected
+    const how = await shareLink({ url: link, title: t('Join me on FitPal'), text: t('Here is your invite:') })
+    if (how === 'copied') toast(t('Invite link copied'))
+    else if (how === 'failed') toast(link)   // last resort: put it on screen, where it can at least be selected
   }
 
   const mint = async () => {
