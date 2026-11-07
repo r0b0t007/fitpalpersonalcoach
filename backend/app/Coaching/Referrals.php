@@ -7,10 +7,12 @@ use App\Models\CoachPage;
 use App\Models\JoinRequest;
 use App\Models\ReferralCredit;
 use App\Models\User;
+use App\Support\ClientSafe;
 use App\Support\Js;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Coach referrals (CHW-350, docs/superpowers/specs/2026-11-07-coach-referrals-design.md). A coach
@@ -133,5 +135,26 @@ final class Referrals
     public static function monthsUnused(User $coach): int
     {
         return (int) ReferralCredit::query()->where('referrer_id', $coach->id)->whereNull('used_at')->sum('months');
+    }
+
+    /**
+     * The owner used one of a coach's months (the admin panel): the oldest unused one is marked,
+     * with a note of how. Banked only, so this changes no licence; the owner has applied the
+     * month however the coach pays.
+     */
+    public static function markUsed(Request $request, User $admin, string $coachId, string $note): void
+    {
+        $note = Js::slice(Js::trim($note), 120);
+        $credit = DB::transaction(function () use ($coachId, $note): ?ReferralCredit {
+            $c = ReferralCredit::query()->where('referrer_id', $coachId)->whereNull('used_at')
+                ->orderBy('created')->lockForUpdate()->first();
+            $c?->forceFill(['used_at' => Js::nowMs(), 'used_note' => $note])->save();
+
+            return $c;
+        });
+        if ($credit === null) {
+            throw new ClientSafe(409, 'this coach has no unused referral month');
+        }
+        Audit::record($request, 'admin.referral.use', ['user' => $admin, 'target' => User::query()->find($coachId), 'msg' => $note]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users;
 
 use App\Admin\Accounts;
+use App\Coaching\Referrals;
 use App\Domain\Entitlement;
 use App\Domain\Plans;
 use App\Filament\AdminAction;
@@ -13,6 +14,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -59,6 +61,9 @@ class UserResource extends Resource
                 TextColumn::make('coachAccount.name')->label('Coach')->placeholder('—'),
                 TextColumn::make('plan')->badge()->placeholder('—')
                     ->state(fn (User $u) => $u->isCoach() && ! $u->isAdmin() ? Entitlements::for($u)->status : null),
+                // Referral months not used yet (CHW-350): the owner applies one when the coach pays.
+                TextColumn::make('referralMonths')->label('Referral months')->placeholder('—')->toggleable()
+                    ->state(fn (User $u) => $u->isCoach() ? (Referrals::monthsUnused($u) ?: null) : null),
                 IconColumn::make('disabled')->boolean(),
                 TextColumn::make('created_at')->label('Created')->dateTime()->sortable(),
             ])
@@ -101,6 +106,10 @@ class UserResource extends Resource
                         ->visible(fn (User $u) => $u->isCoach() && ! $u->isAdmin() && ! $u->disabled)
                         ->schema([Select::make('plan')->options(self::planOptions())->required()])
                         ->action(fn (User $u, array $data) => AdminAction::run(fn (Request $r, User $admin) => Accounts::grant($r, $admin, $u->id, $data['plan']), 'Plan granted')),
+                    Action::make('useReferralMonth')->label('Mark a referral month used')->icon(Heroicon::OutlinedCheckBadge)
+                        ->visible(fn (User $u) => $u->isCoach() && Referrals::monthsUnused($u) > 0)
+                        ->schema([TextInput::make('note')->label('How it was applied')->required()->maxLength(120)])
+                        ->action(fn (User $u, array $data) => AdminAction::run(fn (Request $r, User $admin) => Referrals::markUsed($r, $admin, $u->id, (string) $data['note']), 'Referral month marked used')),
                     // The done-for-you setup (CHW-348): a program built in the owner's own library,
                     // copied into the coach's (docs/growth/done-for-you.md).
                     Action::make('copyProgram')->label('Copy a program to this coach')->icon(Heroicon::OutlinedDocumentDuplicate)

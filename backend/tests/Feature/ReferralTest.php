@@ -6,13 +6,17 @@
 
 use App\Coaching\Referrals;
 use App\Coaching\Terms;
+use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Mail\SignupCodeMail;
 use App\Models\CoachPage;
 use App\Models\ReferralCredit;
 use App\Models\User;
+use App\Support\ClientSafe;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Livewire\Livewire;
 use Tests\Support\Billing;
 use Tests\Support\Coaching;
 
@@ -189,4 +193,25 @@ it("tells a coach their own link's counts and nobody else's", function () {
         ->and($this->getJson('/api/billing/me', bearer($this->f->b))->json('referralMonths'))->toBe(0);
     // A client is no coach.
     $this->getJson('/api/coach/referrals', bearer($this->f->a1))->assertStatus(403);
+});
+
+// ---------------------------------------------------------------- the owner
+
+it('lets the owner mark a month used, oldest first, with a note', function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 1, '2025-11-08');
+    creditRun();
+
+    $this->actingAs($this->f->admin, 'web');
+    Livewire::test(ListUsers::class)
+        ->callAction(TestAction::make('useReferralMonth')->table($this->f->a), ['note' => 'Applied to the first Solo invoice'])
+        ->assertNotified('Referral month marked used');
+    $credit = ReferralCredit::query()->sole();
+    expect($credit->used_at)->not->toBeNull()->and($credit->used_note)->toBe('Applied to the first Solo invoice')
+        ->and(Referrals::monthsUnused($this->f->a))->toBe(0);
+    $this->assertDatabaseHas('audit_events', ['ev' => 'admin.referral.use', 'uid' => $this->f->admin->id, 'tgt' => $this->f->a->id]);
+
+    // None left: refused, as the API would say it.
+    expect(fn () => Referrals::markUsed(request(), $this->f->admin, $this->f->a->id, 'again'))
+        ->toThrow(ClientSafe::class, 'this coach has no unused referral month');
 });
