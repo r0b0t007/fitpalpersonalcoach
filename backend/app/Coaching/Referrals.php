@@ -67,10 +67,12 @@ final class Referrals
     public const BATCH = 500;
 
     /**
-     * The first coach terms whose Part B §2 makes the activation check the referred coach's own
-     * instruction (CHW-372). The check reads that coach's client data, so a coach who accepted no
-     * terms, or only earlier ones, is never looked at. Versions are dates, so later ones compare
-     * above it; a later version that drops the instruction must raise this.
+     * The first coach terms with the referral programme (Part A §4 bis) and the referred coach's
+     * authorisation of the activation check (Part B §2, CHW-372). The check reads that coach's
+     * client data, so a referred coach who accepted no terms, or only earlier ones, is never looked
+     * at; and a referrer who has not accepted them is not credited until they do. Versions are
+     * dates, so later ones compare above it: a later version that drops either clause needs a set
+     * of versions here, not a lower bound.
      */
     public const TERMS_FROM = '2026-11-07';
 
@@ -131,7 +133,9 @@ final class Referrals
         $banked = 0;
         foreach ($referred as $coach) {
             $referrer = $referrers->get($coach->referred_by);
-            if ($referrer === null || ! $referrer->isCoach() || $referrer->disabled || ! self::activated($coach, $referrer)) {
+            if ($referrer === null || ! $referrer->isCoach() || $referrer->disabled
+                || $referrer->terms_version === null || $referrer->terms_version < self::TERMS_FROM
+                || ! self::activated($coach, $referrer)) {
                 continue;
             }
             try {

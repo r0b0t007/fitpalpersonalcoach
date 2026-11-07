@@ -29,7 +29,7 @@ beforeEach(function () {
     Billing::on();
     Mail::fake();
     $this->f = Coaching::twoCoaches();
-    $this->f->a->forceFill(['email' => 'yasmine@example.com'])->save();
+    $this->f->a->forceFill(['email' => 'yasmine@example.com', 'terms_version' => Terms::VERSION])->save();
     referralPage($this->f->a, 'yasmine.fit');
 });
 
@@ -285,4 +285,33 @@ it('keeps the month but names no one after an objection, and never credits that 
 
 it('fails the forget command for an unknown address', function () {
     $this->artisan('fitpal:referral-forget', ['email' => 'nobody@example.com'])->assertFailed();
+});
+
+it("stops the check on a client's objection, by their own address, and never credits their coach", function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    $sara = acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 3_600_000, '2025-11-07');
+    $sara->forceFill(['email' => 'sara@example.com'])->save();
+
+    $this->artisan('fitpal:referral-forget', ['email' => 'sara@example.com'])->assertSuccessful();
+    expect($nadia->fresh()->referred_by)->toBeNull();
+    creditRun();
+    expect(ReferralCredit::query()->count())->toBe(0);
+
+    // A client with no coach has nothing to stop.
+    $sara->forceFill(['coach_id' => null])->save();
+    $this->artisan('fitpal:referral-forget', ['email' => 'sara@example.com'])->assertFailed();
+});
+
+it('waits to credit a referrer until they accept the terms with the referral programme', function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 3_600_000, '2025-11-07');
+    foreach ([null, '2026-11-06'] as $older) {
+        $this->f->a->forceFill(['terms_version' => $older])->save();
+        creditRun();
+        expect(ReferralCredit::query()->count())->toBe(0);
+    }
+
+    $this->f->a->forceFill(['terms_version' => Referrals::TERMS_FROM])->save();
+    creditRun();
+    expect(ReferralCredit::query()->sole()->referrer_id)->toBe($this->f->a->id);
 });

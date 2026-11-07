@@ -23,8 +23,9 @@ use App\Support\Js;
  * before were never FitPal's), for the same reason, checked on production that day: one coach
  * account (the operator's), which had accepted no version at all. 2026-11-07 (Part A §4 bis, the
  * referral programme; Part B §2 and Annex 1, the referral check as the referred coach's
- * instruction, CHW-372; Referrals::TERMS_FROM) bound from the day it was published too, after the
- * same check on production.
+ * instruction, CHW-372; Referrals::TERMS_FROM) binds 30 days after it, unless the same check on
+ * production finds no coach but the operator's has accepted any version: then EFFECTIVE moves
+ * back to VERSION.
  *
  * Self-serve coach sign-up is open (SELF_SERVE_COACH), so a real coach may have accepted by the
  * next change: from then, EFFECTIVE is 30 days after VERSION, unless the same check, run on
@@ -38,7 +39,7 @@ final class Terms
 {
     public const VERSION = '2026-11-07';
 
-    public const EFFECTIVE = '2026-11-07';
+    public const EFFECTIVE = '2026-12-07';
 
     public static function accepted(User $coach, ?int $nowMs = null): bool
     {
