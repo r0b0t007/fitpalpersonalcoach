@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Billing\Creem;
+use App\Coaching\Referrals;
 use App\Domain\Entitlement;
 use App\Domain\Plans;
 use App\Models\Licence;
@@ -123,6 +124,8 @@ final class BillingController
             'plans' => Plans::offered(),
             // Whether "Manage billing" has somewhere to go (portal()).
             'portal' => self::customerOf($coach) !== null,
+            // Months banked from referrals (CHW-350), for the Plan & billing row.
+            'referralMonths' => Referrals::monthsUnused($coach),
         ]);
     }
 

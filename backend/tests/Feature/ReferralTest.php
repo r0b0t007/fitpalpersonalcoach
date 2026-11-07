@@ -171,3 +171,22 @@ it('banks when the first workout is at the very moment of acceptance', function 
     creditRun();
     expect(ReferralCredit::query()->count())->toBe(1);
 });
+
+// ---------------------------------------------------------------- what the coach sees
+
+it("tells a coach their own link's counts and nobody else's", function () {
+    $nadia = referredSignup('nadia@example.com', 'yasmine.fit');
+    referredSignup('omar@example.com', 'yasmine.fit');
+    acceptedClient($nadia, 'sara@example.com', REF_ACCEPTED + 1, '2025-11-08');
+    creditRun();
+
+    $this->getJson('/api/coach/referrals', bearer($this->f->a))->assertOk()
+        ->assertExactJson(['handle' => 'yasmine.fit', 'signedUp' => 2, 'activated' => 1, 'monthsUnused' => 1]);
+    // Coach B has no page and no referrals: none of A's leak into B's answer.
+    $this->getJson('/api/coach/referrals', bearer($this->f->b))->assertOk()
+        ->assertExactJson(['handle' => null, 'signedUp' => 0, 'activated' => 0, 'monthsUnused' => 0]);
+    expect($this->getJson('/api/billing/me', bearer($this->f->a))->assertOk()->json('referralMonths'))->toBe(1)
+        ->and($this->getJson('/api/billing/me', bearer($this->f->b))->json('referralMonths'))->toBe(0);
+    // A client is no coach.
+    $this->getJson('/api/coach/referrals', bearer($this->f->a1))->assertStatus(403);
+});

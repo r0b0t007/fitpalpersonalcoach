@@ -113,4 +113,25 @@ final class Referrals
 
         return $banked;
     }
+
+    /**
+     * A coach's own referral counts, for their Account (GET /api/coach/referrals): coaches signed
+     * up through their link, coaches who have activated, and months not used yet. Counts only:
+     * never who.
+     *
+     * @return array{signedUp: int, activated: int, monthsUnused: int}
+     */
+    public static function summary(User $coach): array
+    {
+        return [
+            'signedUp' => User::query()->where('referred_by', $coach->id)->count(),
+            'activated' => ReferralCredit::query()->where('referrer_id', $coach->id)->count(),
+            'monthsUnused' => self::monthsUnused($coach),
+        ];
+    }
+
+    public static function monthsUnused(User $coach): int
+    {
+        return (int) ReferralCredit::query()->where('referrer_id', $coach->id)->whereNull('used_at')->sum('months');
+    }
 }

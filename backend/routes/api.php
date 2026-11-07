@@ -12,6 +12,7 @@ use App\Http\Controllers\CoachNoteController;
 use App\Http\Controllers\CoachPageController;
 use App\Http\Controllers\CoachPhotoController;
 use App\Http\Controllers\CoachProgramController;
+use App\Http\Controllers\CoachReferralController;
 use App\Http\Controllers\CoachRequestController;
 use App\Http\Controllers\CoachRosterController;
 use App\Http\Controllers\CoachSignupController;
@@ -174,6 +175,8 @@ $routes = static function (): void {
             Route::get('/coach/page/photo', [CoachPhotoController::class, 'own']);
             // Not behind RequireWriter: a lapsed plan must not keep a coach's face up.
             Route::post('/coach/page/photo/remove', [CoachPhotoController::class, 'remove']);
+            // Coach referrals (CHW-350): the Account card's link and counts.
+            Route::get('/coach/referrals', [CoachReferralController::class, 'show']);
             Route::post('/coach/notes', [CoachNoteController::class, 'create'])->middleware(RequireWriter::class);
             // The followers who asked to join from that page (CHW-337).
             Route::get('/coach/requests', [CoachRequestController::class, 'index']);
