@@ -1,4 +1,4 @@
-/* FitPal Coach site behaviour: scroll reveal, and nothing else.
+/* FitPal Coach site behaviour: scroll reveal, and a referral link's ref.
    The `.js` and `.intro` root classes are set by an inline <head> script, not here, so the hero
    never paints before the intro arms. This file only handles what can wait for DOMContentLoaded.
 
@@ -10,7 +10,31 @@
    Reduced motion is checked once and short-circuits the observer: every reveal is shown
    immediately. */
 
+/* A referral link (CHW-350): fitpal.ma/?ref=<a coach's page handle>. The ref is carried onto the
+   sign-up links (coach.fitpal.ma/#/start…) and the language switcher, in the URLs only: nothing
+   is written to cookies or storage, so the site still sets none. A ref that is no handle (the
+   pattern of backend/app/Coaching/Handle.php) is ignored; the server checks the rest. */
 (function () {
+  'use strict'
+
+  var m = /[?&]ref=([^&#]*)/.exec(window.location.search)
+  if (!m) return
+  var ref
+  try { ref = decodeURIComponent(m[1]).trim().replace(/^@+/, '').toLowerCase() } catch (e) { return }
+  if (!/^[a-z0-9._]{3,30}$/.test(ref) || ref.charAt(0) === '.' || ref.slice(-1) === '.' || ref.indexOf('..') >= 0) return
+
+  var links = document.querySelectorAll('a[href]')
+  for (var i = 0; i < links.length; i++) {
+    var h = links[i].getAttribute('href')
+    if (h.indexOf('https://coach.fitpal.ma/#/start') === 0) {
+      links[i].setAttribute('href', h + (h.indexOf('?') >= 0 ? '&' : '?') + 'ref=' + ref)
+    } else if (links[i].hasAttribute('hreflang') && /^\/(en\/|es\/)?$/.test(h)) {
+      links[i].setAttribute('href', h + '?ref=' + ref)
+    }
+  }
+})()
+
+;(function () {
   'use strict'
 
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
