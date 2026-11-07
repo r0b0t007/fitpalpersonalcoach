@@ -104,3 +104,18 @@ it('lets a coach on a lapsed plan accept, and keeps clients out', function () {
     $this->postJson('/api/coach/terms', ['version' => Terms::VERSION], bearer($this->f->a))->assertOk();
     $this->getJson('/api/coach/terms', bearer($this->f->a1))->assertStatus(403);
 });
+
+it('lists every account holding a version of the terms, whatever its flags now (CHW-372 review)', function () {
+    // The check that decides whether a new version owes 30 days' notice counts terms_version, not
+    // the coach column: an admin through ADMIN_UIDS has no coach flag, and a demoted coach keeps
+    // the version they accepted.
+    config(['fitpal.admin_uids' => ['tU1000000000000x']]);
+    $this->f->u1->forceFill(['terms_version' => '2026-11-06', 'terms_at' => 1])->save();
+    $this->f->b->forceFill(['coach' => false, 'terms_version' => '2026-11-05', 'terms_at' => 2])->save();
+    $this->f->a->forceFill(['terms_version' => Terms::VERSION, 'terms_at' => 3])->save();
+
+    $this->artisan('fitpal:terms-holders')->assertSuccessful()
+        ->expectsOutputToContain('tCoachB000000000 admin=0 coach=0 terms=2026-11-05')
+        ->expectsOutputToContain('tU1000000000000x admin=1 coach=0 terms=2026-11-06')
+        ->expectsOutputToContain('holders=3 on_current=1 on_earlier=2');
+});
