@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Audit\Audit;
 use App\Audit\ClientIp;
 use App\Auth\SessionToken;
+use App\Coaching\Referrals;
 use App\Coaching\Terms;
 use App\Domain\Plans;
 use App\Mail\MailCopy;
@@ -96,6 +97,8 @@ final class CoachSignupController
             // The coach terms the page showed (CHW-357), kept only if they are the current ones, as
             // the passkey sign-up keeps them: the app asks for the current terms otherwise.
             'terms' => Input::jsString($request, 'terms') === Terms::VERSION ? Terms::VERSION : null,
+            // The coach whose link this came through (CHW-350), checked when the code is verified.
+            'ref' => Referrals::normaliseRef(Input::jsString($request, 'ref')),
             'code_hash' => CoachSignup::hash($email, $code), 'attempts' => 0,
             'code_expires' => $now + CoachSignup::CODE_MINUTES * 60_000, 'created' => $now,
         ]);
@@ -139,7 +142,9 @@ final class CoachSignupController
                     return [new ClientSafe(409, 'that email address is already used by another account'), null, null];
                 }
                 $user = new User(['id' => User::newId(), 'name' => $signup->name]);
-                $user->forceFill(['coach' => true, 'self_serve' => true, 'email' => $email, 'email_verified_at' => now()]
+                $user->forceFill(['coach' => true, 'self_serve' => true, 'email' => $email, 'email_verified_at' => now(),
+                    // Who referred them (CHW-350): only a coach still coaching, never their own address.
+                    'referred_by' => Referrals::referrerFor($signup->ref, $email)?->id]
                     + ($signup->terms === Terms::VERSION ? ['terms_version' => $signup->terms, 'terms_at' => Js::nowMs()] : []))->save();
 
                 return [null, $user, $signup->terms === Terms::VERSION ? $signup->terms : null];
@@ -159,6 +164,10 @@ final class CoachSignupController
         // The same evidence as accepting in the app: who, which version, when.
         if ($terms !== null) {
             Audit::record($request, 'coach.terms.accept', ['user' => $user, 'msg' => $terms]);
+        }
+
+        if ($user->referred_by !== null) {
+            Audit::record($request, 'coach.referral.signup', ['user' => $user, 'target' => User::query()->find($user->referred_by)]);
         }
 
         return Json::ok(['user' => $user->toPublic()], cookies: SessionToken::cookies($user, fresh: true));

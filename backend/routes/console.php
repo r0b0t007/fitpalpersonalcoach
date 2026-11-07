@@ -62,6 +62,11 @@ Schedule::command('fitpal:prune')->hourly()->withoutOverlapping(10)->runInBackgr
 // minute must not wait behind it.
 Schedule::command('fitpal:coach-digest')->hourly()->withoutOverlapping(30)->runInBackground();
 
+// Coach referrals (app/Console/Commands/ReferralCredits.php, CHW-350): banks a free month for each
+// coach whose referred coach has activated. Hourly is soon enough for a month; in the background,
+// so the reminders due that minute do not wait behind it.
+Schedule::command('fitpal:referral-credits')->hourly()->withoutOverlapping(10)->runInBackground();
+
 // A database dump every night (app/Console/Commands/BackupDb.php), the only copy of what was
 // written since the last deploy: deploy-backend.yml dumps before each deploy, and nothing else
 // did. Into storage/backups/nightly, so the deploy's own dumps keep their count and are never

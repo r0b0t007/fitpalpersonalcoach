@@ -185,12 +185,16 @@ export function PlanBillingSection({ billing }) {
   const title = l?.period ? planName(e.plan) + ' · ' + periodName(l.period) : planName(e.plan)
   const manage = sub => billing.portal && <Row icon="gear" iconTint="var(--grey)" title={t('Manage billing')} subtitle={sub}
     accessory="chevron" onClick={openPortal} />
+  // Months banked from referrals (CHW-350), used when the coach pays: shown only when there are some.
+  const months = billing.referralMonths > 0 && <Row icon="sparkles" iconTint="var(--acc)" title={t('Free months')}
+    subtitle={t('From coaches you referred. Used when you move to a paid plan.')} value={String(billing.referralMonths)} />
 
   if (state === 'none') return <Section title={t('Plan & billing')} footer={footer}>
     <Row icon="sparkles" iconTint="var(--acc)" title={t('No plan yet')} subtitle={t('Choose a plan to invite clients and send programs')}
       accessory="chevron" onClick={() => runBillingAction('choose')} />
     {/* An ended plan still has its invoices in the portal. */}
     {manage(t('Invoices from your earlier plan'))}
+    {months}
   </Section>
 
   if (state === 'free') return <Section title={t('Plan & billing')} footer={footer}>
@@ -199,6 +203,7 @@ export function PlanBillingSection({ billing }) {
       subtitle={t('More active clients, billed by Creem')} accessory="chevron" onClick={() => runBillingAction('choose')} />}
     {/* A plan that ended leaves its coach on Free: its invoices are still in the portal. */}
     {manage(t('Invoices from your earlier plan'))}
+    {months}
   </Section>
 
   if (state === 'paused') return <Section title={t('Plan & billing')} footer={footer}>
@@ -209,10 +214,12 @@ export function PlanBillingSection({ billing }) {
     {/* The fix is past_due's row: the same action looks the same in both states. */}
     {billing.portal && <Row icon="gear" iconTint="var(--grey)" title={t('Update payment')}
       subtitle={t('Payment method, invoices, change plan or cancel')} accessory="chevron" onClick={openPortal} />}
+    {months}
   </Section>
 
   if (state === 'granted') return <Section title={t('Plan & billing')} footer={footer}>
     <Row icon="sparkles" iconTint="var(--acc)" title={planName(e.plan)} subtitle={t('Granted by FitPal')} value={seats} />
+    {months}
   </Section>
 
   const sub = {
@@ -228,5 +235,6 @@ export function PlanBillingSection({ billing }) {
       ? billing.portal && <Row icon="gear" iconTint="var(--grey)" title={t('Update payment')}
         subtitle={t('Payment method, invoices, change plan or cancel')} accessory="chevron" onClick={openPortal} />
       : manage(state === 'cancelling' ? t('Resume, or change plan') : t('Payment method, invoices, change plan or cancel'))}
+    {months}
   </Section>
 }

@@ -25,6 +25,8 @@ export const startOpen = config => !!(config?.self_serve && config?.plans?.lengt
  * afterwards, where it can work (offerPasskey). A coach who closes the payment page has an account
  * with no plan, and Today offers "Choose a plan" from there.
  *
+ * A referral link's ?ref=<handle> (CHW-350) is passed on as it came; the server checks it.
+ *
  * Only on an instance where startOpen() holds (App.jsx); everywhere else /start is the sign-in
  * screen, as it always was.
  */
@@ -64,7 +66,7 @@ export default function Start() {
     if (!isEmail(e)) { toast(t('Enter your email address')); return }
     if (!agreed) { toast(t('Please accept the coach terms')); return }
     setBusy(true); setError(null)
-    try { await coachSignupStart(n, e, getLang(), config.terms_version); setCode(''); setSent(true) }
+    try { await coachSignupStart(n, e, getLang(), config.terms_version, asked.get('ref')); setCode(''); setSent(true) }
     catch (err) { toast(err.message || t('Could not send the code')) }
     finally { setBusy(false) }
   }

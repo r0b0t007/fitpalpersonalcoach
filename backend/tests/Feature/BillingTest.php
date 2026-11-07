@@ -222,6 +222,7 @@ it('tells the coach what their licence says, without Creem ids or the checkout U
         'licence' => null,
         'plans' => [],
         'portal' => false,
+        'referralMonths' => 0,
     ]);
     Billing::on();
     Billing::licence($f->a, [

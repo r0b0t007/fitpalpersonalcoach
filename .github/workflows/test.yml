@@ -9,6 +9,8 @@ on:
       - 'backend/**'
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
+      # frontend/src/lib/site-ref.test.js tests this file.
+      - 'site-coach/site.js'
       # The backend's mail, rendered (AccountMailTest compares them).
       - 'email/signin-link-*.html'
       - '.github/workflows/test.yml'
@@ -20,6 +22,8 @@ on:
       - 'backend/**'
       - 'mcp/**'
       - 'scripts/french-vous.mjs'
+      # frontend/src/lib/site-ref.test.js tests this file.
+      - 'site-coach/site.js'
       # The backend's mail, rendered (AccountMailTest compares them).
       - 'email/signin-link-*.html'
       - '.github/workflows/test.yml'

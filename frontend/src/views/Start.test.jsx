@@ -5,9 +5,15 @@
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { _setLangState } from '../lib/i18n-core.js'
 import fr from '../locales/fr.js'
+
+let STARTED = null
+vi.mock('../lib/api.js', async orig => ({
+  ...(await orig()),
+  coachSignupStart: async (...args) => { STARTED = args; return { ok: true } },
+}))
 
 const { default: Start } = await import('./Start.jsx')
 const { useStore } = await import('../store/useStore.js')
@@ -72,5 +78,21 @@ describe('coach sign-up from a pricing link', () => {
     await render(SELLING, '?plan=solo&period=month')
     expect(text()).toContain('Solo')
     expect(text()).not.toContain('not on sale')
+  })
+  const typeInto = (el, value) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, value)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }
+
+  it("sends the referral link's handle with the sign-up (CHW-350)", async () => {
+    STARTED = null
+    await render(FREE_ONLY, '?plan=free&ref=yasmine.fit')
+    await act(async () => {
+      typeInto(container.querySelector('input[autocomplete="name"]'), 'Nadia')
+      typeInto(container.querySelector('input[type="email"]'), 'nadia@example.com')
+      container.querySelector('#start-terms').click()
+    })
+    await act(async () => { [...container.querySelectorAll('button')].find(b => b.textContent.includes('Send me a code')).click() })
+    expect(STARTED).toEqual(['Nadia', 'nadia@example.com', 'en', '2026-11-06', 'yasmine.fit'])
   })
 })

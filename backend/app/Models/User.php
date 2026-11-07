@@ -8,6 +8,7 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
@@ -55,6 +56,12 @@ class User extends Authenticatable implements FilamentUser, WebAuthnAuthenticata
     public function coachAccount(): BelongsTo
     {
         return $this->belongsTo(self::class, 'coach_id');
+    }
+
+    /** The months banked for this coach's referrals (CHW-350). */
+    public function referralCredits(): HasMany
+    {
+        return $this->hasMany(ReferralCredit::class, 'referrer_id');
     }
 
     protected static function booted(): void

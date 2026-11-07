@@ -36,6 +36,7 @@ const LABELS = {
   'admin.user.unassign': () => t('Took a client off their coach’s list'),
   'admin.licence.grant': () => t('Granted a plan'),
   'admin.licence.revoke': () => t('Revoked a granted plan'),
+  'admin.referral.use': () => t('Marked a referral month used'),
   'admin.program.copy': () => t('Copied a program to a coach'),
   'admin.media.delete': () => t('Deleted an exercise demo'),
   'admin.panel.login': () => t('Signed in to the admin panel'),
@@ -62,6 +63,8 @@ const LABELS = {
   // A coach taking a client on, rather than an admin assigning one.
   'coach.program.save': () => t('Saved a program'),
   'coach.page.save': () => t('Saved their public page'),
+  'coach.referral.signup': () => t('Signed up through a referral link'),
+  'coach.referral.credit': () => t('Earned a free month for a referral'),
   'coach.page.photo': () => t('Added a photo to their public page'),
   'coach.page.photo.remove': () => t('Removed the photo from their public page'),
   'join.request': () => t('Asked to join a coach'),
