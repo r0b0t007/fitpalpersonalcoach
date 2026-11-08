@@ -134,10 +134,14 @@ takes:
 - **WhatsApp settings:** "Save to gallery" stays off on the phone used for setups, so files don't
   land in the camera roll or its cloud backup. Chat backups to iCloud or Google Drive can still
   hold a file that was in the chat; this is one more reason to delete it as soon as the setup is
-  done.
-- **A setup that stalls:** files from a coach who stopped answering are deleted after 14 days.
+  done. Set the chat backup to **Daily** (Settings › Chats › Chat backup), so a deleted file
+  leaves the backup the next day, as the legal notice says; never "Off" for weeks then on again.
+- **A setup that stalls:** files from a coach who stopped answering are deleted 14 days after
+  their last message.
   Tell them, and ask them to send again if they come back.
-- The chat itself, the coach's messages to us, stays as the record of what was asked and agreed.
+- The chat itself, the coach's messages to us, stays as the record of what was asked and agreed,
+  for as long as the coach's account exists. Delete it when the account closes, or sooner if the
+  coach asks.
 - The photo and bio the coach puts on their page are on their public page, by their choice. We
   keep no other copy.
 
@@ -177,9 +181,11 @@ The issue is done when this has been used on 5 coaches with a median under 24 ho
 - **Our role:** the coach's photo, bio and e-mail are the coach's own personal data. We process
   them as controller, to do the setup they asked for, under the coach terms (CHW-357). The program
   itself is their business content. Their clients' data is where we would be the coach's
-  processor; rule 3 keeps it out of the setup altogether. Check that the coach terms, or the
-  privacy page, say we do this setup by hand over WhatsApp, and how long the files are kept (§4).
+  processor; rule 3 keeps it out of the setup altogether. The legal notice says we do this setup
+  by hand over WhatsApp, and how long the files and the chat are kept (« Mise en place de votre
+  programme », since 8 November 2026). Check that the basis (the coach's request, Art. 6(1)(b))
+  and the periods are right.
 - **WhatsApp as a channel:** files pass through Meta's servers, encrypted end to end, and sit on
-  the founder's phone and computer until deleted. Check that the privacy page lists WhatsApp
-  among the ways we receive data (CHW-359).
+  the founder's phone and computer until deleted. The legal notice says so, and names WhatsApp
+  (Meta) and the chat backup's host, Google Drive or iCloud (same section).
 - **14 days for a stalled setup:** check that it is short enough.
