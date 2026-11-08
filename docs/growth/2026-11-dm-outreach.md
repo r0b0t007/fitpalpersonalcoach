@@ -27,10 +27,12 @@ Write in the coach's `language`; pick the proof in follow-up 2 by their `country
    there so they are never written to again.
 5. **By hand, never automated.** No tool sends, schedules or copies DMs in bulk: the account
    would be flagged, and it would stop being founder-led.
-6. **30 new coaches a day,** rotating countries in the list's proportions: about 15 in Morocco,
-   8 in France or Belgium and 7 in Spain, whatever language they post in. Until the consent
-   question in §4 is answered, all 30 go to France, and only French coaches go on the list.
-   Follow-ups come on top. If Instagram shows a warning or blocks sending, stop for 48 hours,
+6. **30 new coaches a day, all in France.** Cold DMs go to French coaches only, and only they go
+   on the list: Spain, Belgium and Morocco need the coach's consent first (§4; the
+   [LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4). Coaches there come in by asking
+   first (a "comment APP" reply, a DM they send, the e-mail or WhatsApp on fitpal.ma), and are
+   answered, not prospected. Nothing is sent at all before the "before the first send" list in §4
+   is done. Follow-ups come on top. If Instagram shows a warning or blocks sending, stop for 48 hours,
    then halve the pace for a week.
 7. **Only what the messaging doc allows.** No competitor named in an opener (messaging §4), no
    "en 5 minutes" (§6), no client counts and no price in MAD (§7).
@@ -80,21 +82,24 @@ the queue goes past a day.
 
 ### Follow-up 1, day 3: proof 1 (it works inside Instagram)
 
-- **FR:** [prénom], je reviens vers toi. Ce qui change pour tes abonnés : ils demandent depuis Instagram avec un code reçu par e-mail, sans app à télécharger, et dès que tu acceptes, ils sont dedans. L'offre tient toujours : ton programme sur l'app en 24 h, gratuit.
-- **ES:** [prénom], vuelvo a escribirte. Lo que cambia para tus seguidores: lo piden desde Instagram con un código que reciben por email, sin descargar ninguna app, y en cuanto aceptas, ya están dentro. La oferta sigue en pie: tu programa en la app en 24 h, gratis.
-- **EN:** [prénom], following up. What changes for your followers: they ask from Instagram with a code sent by email, no app to download, and once you accept, they're in. The offer still stands: your program in the app within 24 hours, free.
+- **FR:** [prénom], je reviens vers toi. Ce qui change pour tes abonnés : ils demandent depuis Instagram avec un code reçu par e-mail, sans app à télécharger, et dès que tu acceptes, ils sont dedans. L'offre tient toujours : ton programme sur l'app en 24 h, gratuit. (Réponds « stop » et je ne t'écris plus.)
+- **ES:** [prénom], vuelvo a escribirte. Lo que cambia para tus seguidores: lo piden desde Instagram con un código que reciben por email, sin descargar ninguna app, y en cuanto aceptas, ya están dentro. La oferta sigue en pie: tu programa en la app en 24 h, gratis. (Responde «stop» y no te escribo más.)
+- **EN:** [prénom], following up. What changes for your followers: they ask from Instagram with a code sent by email, no app to download, and once you accept, they're in. The offer still stands: your program in the app within 24 hours, free. (Reply "stop" and I won't write again.)
 
 ### Follow-up 2, day 7: proof 3 in Morocco, proof 2 elsewhere
 
-Morocco:
-- **FR:** Dernier message de ma part. Tes clients continuent de te payer comme d'habitude, virement, cash ou CashPlus : FitPal ne touche pas à ton argent. Si un jour ça t'intéresse, réponds juste « oui ».
-- **ES:** Último mensaje por mi parte. Tus clientes te siguen pagando como ahora, transferencia, efectivo o CashPlus: FitPal no toca tu dinero. Si algún día te interesa, responde solo «sí».
-- **EN:** Last message from me. Your clients keep paying you the way they do now, bank transfer, cash or CashPlus: FitPal never touches your money. If it's ever of interest, just reply "yes".
+Every message carries the "stop" line: in France a professional may be prospected without
+consent only if each message offers an easy way to object (CPCE art. L34-5, CNIL).
 
-France, Belgium and Spain:
-- **FR:** Dernier message de ma part. Un seul prix, tout est dedans, sans options payantes, et c'est gratuit jusqu'à 3 clients. Si un jour ça t'intéresse, réponds juste « oui ».
-- **ES:** Último mensaje por mi parte. Un solo precio, todo incluido, sin extras de pago, y es gratis hasta 3 clientes. Si algún día te interesa, responde solo «sí».
-- **EN:** Last message from me. One price, everything included, no paid extras, and it's free up to 3 clients. If it's ever of interest, just reply "yes".
+Morocco (not used: no cold DMs there, rule 6; kept for when that changes):
+- **FR:** Dernier message de ma part. Tes clients continuent de te payer comme d'habitude, virement, cash ou CashPlus : FitPal ne touche pas à ton argent. Si un jour ça t'intéresse, réponds juste « oui ». (Réponds « stop » et je ne t'écris plus.)
+- **ES:** Último mensaje por mi parte. Tus clientes te siguen pagando como ahora, transferencia, efectivo o CashPlus: FitPal no toca tu dinero. Si algún día te interesa, responde solo «sí». (Responde «stop» y no te escribo más.)
+- **EN:** Last message from me. Your clients keep paying you the way they do now, bank transfer, cash or CashPlus: FitPal never touches your money. If it's ever of interest, just reply "yes". (Reply "stop" and I won't write again.)
+
+France (Belgium and Spain: not used, rule 6):
+- **FR:** Dernier message de ma part. Un seul prix, tout est dedans, sans options payantes, et c'est gratuit jusqu'à 3 clients. Si un jour ça t'intéresse, réponds juste « oui ». (Réponds « stop » et je ne t'écris plus.)
+- **ES:** Último mensaje por mi parte. Un solo precio, todo incluido, sin extras de pago, y es gratis hasta 3 clientes. Si algún día te interesa, responde solo «sí». (Responde «stop» y no te escribo más.)
+- **EN:** Last message from me. One price, everything included, no paid extras, and it's free up to 3 clients. If it's ever of interest, just reply "yes". (Reply "stop" and I won't write again.)
 
 ### When they say no
 
@@ -121,8 +126,7 @@ competitor): say you'll check, and check before answering. Never guess.
   as "Personal trainer" or "Coach"), so the message goes to their business, not their private life;
 - coaching online or one to one;
 - posting in French, Spanish or English;
-- based in Morocco, France, Belgium or Spain (France only until the consent question in §4 is
-  answered: no rows for the others before then).
+- based in France (rule 6): no rows for coaches in Morocco, Belgium or Spain.
 
 **Where to look:**
 - **Searches and hashtags:** coach sportif, coaching en ligne, entrenador personal, online coach,
@@ -138,6 +142,8 @@ Search by hand and copy what the profile shows. No scraping tool.
   offer, CHW-350, starts at 10k and is for coaches already using FitPal, so it is not a reason
   to leave anyone off.)
 - accounts with no post in the last month.
+- an account that looks like it belongs to someone under 18: an age or a school in the bio or
+  the posts, a parent running it. When unsure, leave it off.
 
 A coach already using an app goes on the list: note which app, and expect the Trainerize objection.
 
@@ -228,26 +234,38 @@ lawve-ai/awesome-legal-skills; not legal advice):
     doc is built on.
 
   Whether an Instagram DM counts as an electronic message under each of these is the question
-  to answer first. Until it is, send in France only; the 30 a day and the follow-ups stay as
-  written.
+  to answer first. **Researched on 8 November 2026** ([LIA](../privacy/2026-11-08-lia-coach-prospecting.md)
+  §4): likely yes in all four. The CNDP's own factsheet covers every form of electronic
+  messaging and asks for a declaration before prospecting starts. So cold DMs go to France only,
+  for good (rule 6); in Spain, Belgium and Morocco, answer coaches who ask first. Counsel to
+  confirm (LIA §6).
 - **Full notice: published** on 8 November 2026 in the legal notice, « Prospection des coachs sur
   Instagram » (fitpal.ma/mentions-legales#prospection; /en/legal#prospecting;
   /es/legal#prospeccion). fitpal.ma's footer links to it, so the sending account's bio link must be
   fitpal.ma or that page. Before the first send: check the bio link is set, and that the two layers
   are enough for Art. 14.
-- **The balancing test:** legitimate interest needs one written down (the interest, why a DM is
-  necessary for it, why it doesn't override the coach's interests). Not written yet; it goes with
-  the CHW-359 work.
-- **Morocco:** whether this prospect list needs a CNDP declaration under law 09-08. It goes with
-  the CNDP work in CHW-359.
+- **The balancing test:** written, `docs/privacy/2026-11-08-lia-coach-prospecting.md` (8 November
+  2026). It holds with the safeguards in its §3.4. Left for the owner (LIA §6): a written use for
+  `niche`, or dropping it, and moving the funnel plan's Morocco, Spain and Belgium numbers to
+  other channels. The under-18 rule is in §3 and rule 6 is France-only.
+- **Blocking, even for France: the sender is in Morocco.** FitPal's controller is established in
+  Morocco, so law 09-08 (art. 2) may govern this list whoever is on it. Before the first send,
+  counsel to answer (LIA §4, §6): does art. 10's prior-consent rule apply to a Moroccan sender
+  writing to French professionals? Does the list need a CNDP declaration first (the CNDP's
+  factsheet says so for prospecting)? And the Sheet's transfer to Google in the US needs a basis
+  under 09-08 art. 43/44 (the F-118, CHW-367), which the transfer impact assessment doesn't cover.
 - **Records of processing:** whether FitPal keeps an Art. 30 record of processing. If it does,
   add "coach prospecting" to it: purpose, the columns above, 6 months, the founder only, Google
   as the Sheet's host.
 - **Retention:** 6 months for the full row and 3 years for the cut-down one follow the CNIL's
   guideline for prospects; check they fit Spain and Morocco too, and that keeping a
   handle-only do-not-contact line after an erasure request is allowed.
-- **Google as host:** the Sheet's data may be stored outside the EU. Check Google Workspace's
-  terms cover the transfer (with the processor agreements in CHW-359).
+- **Google as host:** the Sheet's data may be stored outside the EU. Google LLC is on the EU–US
+  Data Privacy Framework list (checked by the owner on 8 November 2026), as the notice says.
+  **Blocking:** the Sheet must be on a Google Workspace account, where Google is a processor
+  under its data processing terms. On a personal Google account it processes under its own
+  consumer terms, and the notice's "only the founder" and the LIA's "never shared" would be
+  wrong. The 09-08 transfer basis is in the bullet above.
 - **Instagram's own rules:** they apply on top of the law. The pace in §1 is there for them, too.
 
 ## 5. Monday review
