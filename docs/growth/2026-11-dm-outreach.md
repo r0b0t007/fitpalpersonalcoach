@@ -228,9 +228,11 @@ lawve-ai/awesome-legal-skills; not legal advice):
   Whether an Instagram DM counts as an electronic message under each of these is the question
   to answer first. Until it is, send in France only; the 30 a day and the follow-ups stay as
   written.
-- **To do, blocking: publish the full notice.** A "prospecting" section on the privacy page
-  (CHW-359), with the sending account's bio link pointing to it. Then check the two layers are
-  enough for Art. 14.
+- **Full notice: published** on 8 November 2026 in the legal notice, « Prospection des coachs sur
+  Instagram » (fitpal.ma/mentions-legales#prospection; /en/legal#prospecting;
+  /es/legal#prospeccion). fitpal.ma's footer links to it, so the sending account's bio link must be
+  fitpal.ma or that page. Before the first send: check the bio link is set, and that the two layers
+  are enough for Art. 14.
 - **The balancing test:** legitimate interest needs one written down (the interest, why a DM is
   necessary for it, why it doesn't override the coach's interests). Not written yet; it goes with
   the CHW-359 work.

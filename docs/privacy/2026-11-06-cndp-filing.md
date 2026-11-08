@@ -185,6 +185,16 @@ data it reads (dates of training) is not health data, so it needs no prior autho
    publique et accepté s'est entraîné depuis, pour créditer le coach qui l'a parrainé. Seul un oui
    ou un non en est retenu.
 
+**To verify (counsel):** FitPal also processes, as controller, two things this declaration leaves
+out. Both are in the legal notice since 8 November 2026:
+- **coach prospecting on Instagram**: a list of coaches' public profile details in a Google Sheet
+  (`docs/growth/2026-11-dm-outreach.md` §4);
+- **the done-for-you setup over WhatsApp**: a coach's program, photo, bio and account e-mail, kept
+  until the setup is done (`docs/growth/done-for-you.md` §4).
+
+Whether they go on this F-211 as purposes 5 and 6 (with Google and Meta as recipients, and the
+Sheet's transfer on the F-118), or on a declaration of their own.
+
 **Données, origine, destinataires, durées :**
 
 | Données | Personnes | Origine | Destinataires | Durée |
