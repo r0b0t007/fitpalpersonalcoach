@@ -99,10 +99,11 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 
 **Weeks 3–10: partnerships** (Morocco from week 3: with no cold DMs there, the schools are the
 main way in to the plan's largest market)
-- Morocco: certification schools IREPS (Salé), INSEP Maroc, Centre Atlantique (Rabat) and Sport
-  Leader Academy ([SNRT](https://snrtnews.com/fr/article/sport-leader-academy-la-plateforme-digitale-qui-revolutionne-la-formation-des-coachs)).
-  The offer: free Pro for 6 months for new graduates, plus a guest module on launching online
-  coaching.
+- Morocco: trainer schools, CSA (Coach Sportif Académie) first, then AMS and IMS Kénitra. The
+  offer: free Pro for 6 months for new graduates, plus a guest module on launching online
+  coaching. The list, the offer, the approach and the agreement are in `partnerships.md`
+  (CHW-353). Four schools first named here (IREPS, INSEP Maroc, Centre Atlantique, Sport Leader
+  Academy) couldn't be confirmed on 8 November 2026 and are off the list until they are.
 - France, Belgium and Spain: personal-trainer schools and gyms whose coaches also coach online,
   from week 7. Write to the school or gym, not to its coaches, and let it pass the offer on.
 
