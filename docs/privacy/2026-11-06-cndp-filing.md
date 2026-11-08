@@ -193,7 +193,7 @@ data it reads (dates of training) is not health data, so it needs no prior autho
 | Abonnement payant : identifiants client, abonnement et produit chez Creem, statut, période | Coachs | Creem, le coach | FitPal Coach ; Creem (vendeur officiel, qui encaisse et facture) | Durée du compte |
 | Page publique : nom affiché, photo, présentation, n° WhatsApp (facultatif) | Coachs | Le coach | Public (c'est une page publique) | Jusqu'à ce que le coach la modifie ou ferme son compte |
 | Inscription en attente : e-mail, nom, langue, version des conditions affichées, empreinte du code envoyé, nombre d'essais, et la page du coach parrain si l'inscription vient d'un lien de parrainage | Coachs | Le coach | FitPal Coach | 24 heures au plus |
-| Journal de sécurité : l'action, l'heure, le compte qui agit et le compte visé (identifiants et noms), une note brève (par exemple celle de l'exploitant quand il utilise un mois offert) ; **sans adresse IP**. Pour le parrainage, il note qu'un coach s'est inscrit par le lien d'un autre, et qu'un mois a été crédité | Coachs, clients, exploitant | Le système | FitPal Coach | 90 jours au plus ; les sauvegardes de nuit en gardent une copie 14 jours de plus |
+| Journal de sécurité : l'action, l'heure, le compte qui agit et le compte visé (identifiants et noms), une note brève (par exemple celle de l'exploitant quand il utilise un mois offert) ; **sans adresse IP**. Pour le parrainage, il note qu'un coach s'est inscrit par le lien d'un autre, et qu'un mois a été crédité | Coachs, clients, exploitant | Le système | FitPal Coach | 90 jours au plus ; les sauvegardes quotidiennes en gardent une copie 14 jours de plus (leur copie hors de l'hébergement jusqu'à un jour de plus), et chaque copie faite avant une mise à jour 90 jours au plus |
 | Coach qui a parrainé (identifiant) | Coachs parrainés | Le lien de parrainage suivi | FitPal Coach | Durée du compte du coach parrainé, ou jusqu'à son opposition |
 | Mois offerts : coach crédité, coach parrainé, date, date et mode d'utilisation | Coachs | Le système, l'exploitant | FitPal Coach ; le coach crédité voit des **nombres** seulement, jamais lesquels | Durée du compte du coach crédité. Le coach parrainé n'y est plus nommé après son opposition. Aujourd'hui la ligne disparaît aussi si le compte du coach parrainé est supprimé (voir la note en fin de section) |
 | **Lu sans être conservé** pour la vérification : l'e-mail d'un client accepté (pour écarter les adresses des deux coachs), la date de son acceptation, s'il est toujours client de ce coach, la date de sa dernière séance et l'heure de sa première sauvegarde | Clients d'un coach parrainé | Le client (son application) | Personne : seul le oui ou le non sert | Rien n'est conservé au titre de ce traitement |
@@ -222,8 +222,10 @@ s'entraîner avec un coach ») ; accès, rectification et opposition à contact@
 opposition au parrainage, d'un coach parrainé ou d'un client, l'exploitant retire l'indication du
 coach qui a parrainé (commande `fitpal:referral-forget`) : la vérification n'a plus lieu, et le mois
 déjà crédité reste acquis. Les lignes du journal de sécurité qui notaient ce parrainage ne sont pas
-retirées : elles s'effacent avec le journal, en 90 jours au plus (plus 14 jours dans les
-sauvegardes), comme pour une suppression de compte (mentions légales).
+retirées : elles s'effacent avec le journal, 90 jours au plus après avoir été écrites ; les
+sauvegardes quotidiennes en gardent une copie 14 jours de plus (leur copie hors de l'hébergement
+jusqu'à un jour de plus), et chaque copie faite avant une mise à jour 90 jours au plus. Les mentions
+légales le disent, avec ces durées, depuis le 8 novembre 2026 (« Parrainage »).
 
 **Mesures de sécurité :** celles de la section XIII ci-dessus.
 
