@@ -23,8 +23,19 @@ section 6.
 |---|---|
 | Is there a legitimate interest? | Yes: making a new tool known to the professionals it is for. Recital 47 names direct marketing as a possible legitimate interest. |
 | Is the processing necessary for it? | Yes, within limits: by hand, from the public business profile only, 30 coaches a day. A list is needed so that "stop" and the follow-up limit are honoured. |
-| Does it override the coach's interests? | No, with the safeguards in section 3.4: business data the coach publishes to find clients, one message and two follow-ups at most, an opt-out in the first message, and short retention. |
-| May the DMs go out? | **To coaches in France only** (section 4). In Spain, Belgium and Morocco, a cold DM needs the coach's prior consent, whatever the GDPR basis. A coach there who writes first, or asks for the link (a "comment APP" reply), may be answered. |
+| Does it override the coach's interests? | No, with the safeguards in section 3.4: business data the coach publishes to find clients, one message and two follow-ups at most, a "stop" line in every message, and short retention. |
+| May the DMs go out? | **Not yet.** Once the list below is done, **to coaches in France only** (section 4). In Spain, Belgium and Morocco, a cold DM needs the coach's prior consent, whatever the GDPR basis; a coach there who writes first, or asks for the link (a "comment APP" reply), may be answered. And because the sender is in Morocco, law 09-08 may require consent and a CNDP declaration even for French coaches (section 4.1). |
+
+**Before the first send** (each one blocks it):
+1. **Morocco, the sender's country** (section 4.1): counsel's answer on whether law 09-08 art. 10
+   applies to a Moroccan sender writing to French professionals; the CNDP declaration for this
+   list, if needed; and a 09-08 basis for the Sheet's transfer to Google in the US (art. 43/44,
+   the F-118 in CHW-367).
+2. **The Sheet on a Google Workspace account** (owner), so Google is a processor under its data
+   processing terms. On a personal account, "only the founder" (section 1) and "never shared"
+   (safeguard 6) would not hold.
+3. **The sending account's bio link** set to fitpal.ma (owner), so message 1's "the details are at
+   the link in my bio" leads to the full notice (safeguard 2).
 
 ---
 
@@ -33,10 +44,10 @@ section 6.
 | | |
 |---|---|
 | **Purpose** | Telling independent coaches about FitPal Coach by Instagram direct message, and stopping when they say no. |
-| **People** | Coaches with a public Instagram business presence (5k–100k followers) who sell coaching. Adults, acting for their business. |
-| **Data** | What the public profile shows of the business: handle, country, language, follower count, niche, bio link, the coaching app named, the post the opener cites. From our exchanges: message dates, a call date, the answer, a few words of notes. If the coach signs up, the date of their FitPal Coach account, taken from FitPal Coach (§1 of the notice). |
+| **People** | Coaches in France with a public Instagram business presence (5k–100k followers) who sell coaching, acting for their business. Accounts that look like they belong to someone under 18 are left off (DM doc §3). |
+| **Data** | What the public profile shows of the business: handle, country, language, follower count, niche, bio link, the coaching app named, the post the opener cites. From our exchanges: message dates, a call date, the answer, a few words of notes. If the coach signs up, the date of their FitPal Coach account, taken from FitPal Coach (notice, « Prospection des coachs sur Instagram »). |
 | **Source** | The public profile (Art. 14), our own messages, and FitPal Coach for the sign-up date. |
-| **Who sees it** | The founder only. Google LLC hosts the Sheet (EU–US Data Privacy Framework, checked on the official list by the owner on 8 November 2026). Instagram (Meta) carries the messages. |
+| **Who sees it** | The founder only. Google LLC hosts the Sheet, as processor **once the Sheet is on a Workspace account** (before the first send, item 2); it is on the EU–US Data Privacy Framework list (checked by the owner on 8 November 2026). Instagram (Meta) carries the messages. |
 | **Retention** | Full row: until a no or "stop", or 6 months after the coach's last message (or our first), cut down within 7 days. Cut-down line (handle, answer, two dates): 3 years after the later date. After an erasure request: handle and request date only, 3 years. |
 | **Volume** | Up to 30 new coaches a day, 300 in the first round. |
 
@@ -85,16 +96,19 @@ section 6.
   the niche records what the coach sells, not anything about their body.
 - **Intrusion:** one message, landing in Instagram's message requests, and at most two follow-ups,
   which Instagram allows only once the request is accepted (rule 3). Nothing after a no.
-- **Vulnerability:** adults acting as businesses. **To add (owner):** a rule to skip an account
-  that looks like it belongs to someone under 18. The audience is small but not empty.
+- **Vulnerability:** adults acting as businesses. A coach under 18 is possible at 5k followers, so
+  the list leaves off any account that looks like it belongs to one (DM doc §3, added with this
+  assessment). When unsure, it is left off.
 - **Power:** none. The coach can ignore the message, block the account, or say "stop".
 - **Consequences:** none beyond the messages. No profiling, no automated decision, no sharing, no
   newsletter.
 
 ### 3.4 Safeguards that make the balance tip
 
-1. The short notice in message 1: what is kept, why, where the full notice is, how to say no.
-2. The full notice on fitpal.ma, published on 8 November 2026, linked from the sending account's bio.
+1. The short notice in message 1: what is kept, why, where the full notice is, how to say no;
+   and a "stop" line in each follow-up.
+2. The full notice on fitpal.ma, published on 8 November 2026, linked from the sending account's
+   bio (to set before the first send).
 3. "Stop" is honoured at once, and the row is cut down within 7 days.
 4. At most two follow-ups, then the row is closed.
 5. By hand, at 30 a day, with no automation (rule 5), so the volume stays human.
@@ -102,6 +116,10 @@ section 6.
 7. Retention as in section 1, reviewed at each Monday review.
 8. Erasure on request the same day, keeping a handle-only do-not-contact line that can also be
    deleted.
+9. Accounts that look like they belong to someone under 18 are left off.
+
+The notice publishes 2, 3, 4, 6, 7 and 8; the messages carry 1; 5 and 9 are the DM doc's own
+rules.
 
 **Result:** the coach's interests do not override FitPal's, as long as every safeguard above holds.
 If one is dropped (automation, more follow-ups, a list shared with a partner), this assessment no
@@ -120,10 +138,20 @@ basis. Read on 8 November 2026:
 | **Belgium** | Code de droit économique art. XII.13 and the royal decree of 4 April 2003 | Likely yes | Only impersonal company addresses, not an individual coach's own account | **Consent first.** No cold DMs |
 | **Morocco** | Law 09-08 art. 10. The CNDP's factsheet: prior consent, **and a CNDP declaration before starting**; it covers "les différentes formes de messagerie électronique" ([CNDP](https://www.cndp.ma/wp-content/uploads/2025/07/fiche_CNDP_Prospection_RT_fr.pdf)) | Yes, on the factsheet's wording | **No.** The only exception is a prior sale of similar products | **Consent first, and declare first.** No cold DMs |
 
+### 4.1 The sender is in Morocco
+
+The table reads each rule from the recipient's side. FitPal's controller is established in Morocco
+(the legal notice's « Éditeur »), and law 09-08 applies to processing by a controller established
+there (art. 2), whoever the people on the list are. So art. 10's prior-consent rule, and the CNDP's
+"declare before prospecting starts", may apply to DMs to French coaches too. If they do, the French
+professional exception does not help, and cold DMs are out everywhere. **Counsel to answer before
+the first send** (section 6). The Sheet's transfer to Google in the US needs a 09-08 basis too
+(art. 43/44), which the transfer impact assessment of 6 November 2026 does not cover.
+
 **What this means for the outreach:**
-- Cold DMs go to coaches in France only, as the DM doc's rule 6 already says, and the list holds
-  only French coaches. This is no longer temporary: rule 6's Morocco and Spain shares can't be
-  reached by cold DM.
+- Cold DMs go to coaches in France only (the DM doc's rule 6, rewritten with this assessment),
+  and the list holds only French coaches, subject to section 4.1. Belgium, Spain and Morocco
+  can't be reached by cold DM.
 - In Spain, Belgium and Morocco, the way in is a coach who asks first: a "comment APP" reply, a DM
   they send, a message to the e-mail or WhatsApp number on fitpal.ma. Answering someone who asked is not unsolicited.
 - Morocco is the largest market in the plan (`2026-11-funnel-and-promotion.md`). Reaching it is now
@@ -141,10 +169,10 @@ Record each review here, with its date.
 ## 6. To verify
 
 **Owner:**
-1. Add the rule to skip an account that looks like it belongs to someone under 18 (section 3.3).
+1. Before the first send: the Sheet on a Workspace account, and the bio link (section 0).
 2. Give the `niche` column a written use, or drop it (section 3.1).
-3. Rule 6 of the DM doc and the funnel plan: move the Morocco and Spain shares to the channels in
-   section 4.
+3. The funnel plan (`2026-11-funnel-and-promotion.md`): move its Morocco, Spain and Belgium numbers
+   to the channels in section 4. Rule 6 of the DM doc is already France-only.
 4. Keep an Art. 30 record of processing, with this processing in it, if FitPal keeps one (DM doc
    §4).
 
@@ -155,7 +183,9 @@ Record each review here, with its date.
 2. That the CNIL's professional exception reaches a sole trader's Instagram business account, as
    it reaches a professional e-mail address.
 3. Belgium: the scope of the exception for legal persons under the royal decree of 4 April 2003.
-4. Morocco: whether art. 4 of law 09-08 admits a legitimate-interest basis at all (as in the CNDP
-   filing, section 3 bis), and whether prospecting needs its own declaration even with no
-   Moroccan coach on the list.
+4. **Blocking.** Morocco as the sender's country (section 4.1): whether 09-08 art. 10 applies to
+   a Moroccan controller prospecting French professionals; whether this list needs a CNDP
+   declaration before the first send; the 09-08 basis for the Sheet's transfer to the US
+   (art. 43/44); and whether art. 4 admits a legitimate-interest basis at all (as in the CNDP
+   filing, section 3 bis).
 5. That 6 months and 3 years fit Spain and Morocco, not only the CNIL's guideline.
