@@ -189,10 +189,13 @@ data it reads (dates of training) is not health data, so it needs no prior autho
 out. Both are in the legal notice since 8 November 2026:
 - **coach prospecting on Instagram**: a list of coaches' public profile details in a Google Sheet
   (`docs/growth/2026-11-dm-outreach.md` §4);
-- **the done-for-you setup over WhatsApp**: a coach's program, photo, bio and account e-mail, kept
-  until the setup is done (`docs/growth/done-for-you.md` §4).
+- **the done-for-you setup over WhatsApp**: a coach's program, photo, bio and account e-mail,
+  and their WhatsApp number and profile name. The files are kept until the setup is done (14 days
+  if it stalls); the chat while the coach's account exists; the Setups tab of the same Google
+  Sheet keeps their handle and notes 30 days, then times only (`docs/growth/done-for-you.md` §4
+  and §5).
 
-Whether they go on this F-211 as purposes 5 and 6 (with Google and Meta as recipients, and the
+Whether they go on this F-211 as purposes 5 and 6 (with Google, Meta and Apple as recipients, and the
 Sheet's transfer on the F-118), or on a declaration of their own.
 
 **Données, origine, destinataires, durées :**

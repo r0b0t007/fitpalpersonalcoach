@@ -186,7 +186,6 @@ The issue is done when this has been used on 5 coaches with a median under 24 ho
   programme », since 8 November 2026). Check that the basis (the coach's request, Art. 6(1)(b))
   and the periods are right.
 - **WhatsApp as a channel:** files pass through Meta's servers, encrypted end to end, and sit on
-  the founder's phone and computer until deleted. The legal notice says so (same section). Check
-  that the privacy page lists WhatsApp
-  among the ways we receive data (CHW-359).
+  the founder's phone and computer until deleted. The legal notice says so, and names WhatsApp
+  (Meta) and the chat backup's host, Google Drive or iCloud (same section).
 - **14 days for a stalled setup:** check that it is short enough.

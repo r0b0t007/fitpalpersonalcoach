@@ -175,14 +175,15 @@ the coach's account (§5).
   outside their profile.
 - **The clock:** a row's age runs from `last_contact`, or from `sent` if they never answered.
   Our own follow-ups don't restart it.
-- **Cutting a row down:** at the Monday review, after the week's totals are counted (§5), a row
-  closed with `no` or `stop`, and any row 6 months old, keeps only `handle`, `outcome`, `sent` and
+- **Cutting a row down:** at the Monday review, after the week's totals are counted (§5), so
+  within 7 days as the notice says, a row closed with `no` or `stop`, and any row 6 months old, keeps only `handle`, `outcome`, `sent` and
   `last_contact`; everything else is cleared. That is a do-not-contact line and the dates its
   deletion runs from, nothing more.
 - **Deleting old rows:** a cut-down row is deleted 3 years after the clock above (the CNIL's
   guideline for prospect data and objection lists; to verify, below).
 - **Erasure:** a coach who asks to be erased has everything deleted the same day except their
-  handle on a do-not-contact line, and is told so: without it, the next search by hand could
+  handle and the date of the request on a do-not-contact line, deleted 3 years after that date,
+  and is told so: without it, the next search by hand could
   find them and write to them again. If they want that gone too, delete it.
 - **Totals:** a second tab in the Sheet holds the weekly numbers (§5), with no names or handles.
 - **Other uses:** the list is for these DMs only. It is never added to a newsletter or shared.
@@ -194,15 +195,16 @@ links out of message 1, so it comes in two layers, and both must reach every coa
 including the many who never answer:
 - **Short notice:** the bracketed line at the end of message 1 (what is kept, what for, where
   the details are, how to say no).
-- **Full notice:** the text below, published where message 1 points: the link in the sending
-  account's Instagram bio leads to it. **Nothing is sent before it is up** (to do, below). It is
-  also sent as is to any coach who asks what we hold or for their row, and after the reply to a
-  yes.
+- **Full notice:** the legal notice's « Prospection des coachs sur Instagram » section,
+  published on 8 November 2026. The sending account's bio link leads to it (fitpal.ma's footer
+  links to the notice). It is also sent, as a link in the coach's language, to any coach who asks
+  what we hold or for their row, and after the reply to a yes:
+  - FR: https://fitpal.ma/mentions-legales#prospection
+  - ES: https://fitpal.ma/es/legal#prospeccion
+  - EN: https://fitpal.ma/en/legal#prospecting
 
-The full notice:
-- **FR:** C'est moi, [nom], fondateur de FitPal Coach ([e-mail]), qui tiens cette liste. J'y ai noté ce que ton profil Instagram public montre (ton @, ton pays, ta langue, tes abonnés, ton domaine, le lien de ta bio, l'app de coaching que tu cites, le post que je cite), les dates de nos messages et d'un appel, ta réponse, quelques mots de notes, et la date où tu crées un compte FitPal Coach si tu le fais. C'est seulement pour te présenter FitPal Coach : c'est mon intérêt légitime à faire connaître mon outil aux coachs. Chaque semaine, je compte aussi combien de messages ont eu une réponse, en chiffres sans noms. Personne d'autre que moi n'y a accès ; la liste est un Google Sheet, hébergé par Google, qui peut la stocker hors de l'Union européenne. Au bout de 6 mois sans message de ta part, ou dès que tu dis non ou stop, je ne garde que ton @, ta réponse et deux dates, pour ne plus t'écrire, et je les efface 3 ans après ton dernier message. Tu peux t'opposer à tout moment : réponds « stop ». Tu peux aussi voir ta ligne, la corriger, en limiter l'usage ou la faire effacer en me le demandant ici, et te plaindre auprès de la CNIL (France), de l'APD (Belgique), de l'AEPD (Espagne) ou de la CNDP (Maroc).
-- **ES:** Soy yo, [nom], fundador de FitPal Coach ([e-mail]), quien lleva esta lista. He apuntado lo que muestra tu perfil público de Instagram (tu @, tu país, tu idioma, tus seguidores, tu especialidad, el enlace de tu bio, la app de coaching que mencionas, el post que cito), las fechas de nuestros mensajes y de una llamada, tu respuesta, unas notas breves, y la fecha en que creas una cuenta de FitPal Coach si lo haces. Es solo para presentarte FitPal Coach: es mi interés legítimo en dar a conocer mi herramienta a los entrenadores. Cada semana cuento también cuántos mensajes tuvieron respuesta, en cifras sin nombres. Nadie más que yo tiene acceso; la lista es un Google Sheet, alojado por Google, que puede guardarla fuera de la Unión Europea. Tras 6 meses sin mensajes tuyos, o en cuanto dices que no o stop, solo guardo tu @, tu respuesta y dos fechas, para no volver a escribirte, y los borro 3 años después de tu último mensaje. Puedes oponerte en cualquier momento: responde «stop». También puedes ver tu fila, corregirla, limitar su uso o pedir que la borre aquí mismo, y reclamar ante la AEPD (España), la CNIL (Francia), la APD (Bélgica) o la CNDP (Marruecos).
-- **EN:** I'm [nom], founder of FitPal Coach ([e-mail]), and I keep this list. I've noted what your public Instagram profile shows (your handle, country, language, followers, niche, bio link, the coaching app you mention, the post I mentioned), the dates of our messages and of a call, your answer, a few words of notes, and the date you make a FitPal Coach account if you do. It's only to tell you about FitPal Coach: my legitimate interest in showing my tool to coaches. Each week I also count how many messages got an answer, as numbers with no names. No one but me has access; the list is a Google Sheet, hosted by Google, which may store it outside the European Union. After 6 months without a message from you, or as soon as you say no or stop, I keep only your handle, your answer and two dates, so I never write again, and I delete them 3 years after your last message. You can object at any time: reply "stop". You can also see your row, correct it, restrict its use or have it erased by asking here, and complain to the CNIL (France), the APD (Belgium), the AEPD (Spain) or the CNDP (Morocco).
+  The published text is the only version: don't paste an older copy. When a rule in this
+  section changes, change the notice the same day.
 
 **The legal basis.** This is professional prospecting under legitimate interest: a message about
 the coach's own work, sent to their business account, with a way to say no in the first message
