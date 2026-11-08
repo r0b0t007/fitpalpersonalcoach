@@ -229,15 +229,19 @@ lawve-ai/awesome-legal-skills; not legal advice):
 
   Whether an Instagram DM counts as an electronic message under each of these is the question
   to answer first. Until it is, send in France only; the 30 a day and the follow-ups stay as
-  written.
+  written. **Researched on 8 November 2026** ([LIA](../privacy/2026-11-08-lia-coach-prospecting.md)
+  §4): likely yes in all four. The CNDP's own factsheet covers every form of electronic
+  messaging and asks for a declaration before prospecting starts. So cold DMs stay France-only;
+  in Spain, Belgium and Morocco, answer coaches who ask first. Counsel to confirm (LIA §6).
 - **Full notice: published** on 8 November 2026 in the legal notice, « Prospection des coachs sur
   Instagram » (fitpal.ma/mentions-legales#prospection; /en/legal#prospecting;
   /es/legal#prospeccion). fitpal.ma's footer links to it, so the sending account's bio link must be
   fitpal.ma or that page. Before the first send: check the bio link is set, and that the two layers
   are enough for Art. 14.
-- **The balancing test:** legitimate interest needs one written down (the interest, why a DM is
-  necessary for it, why it doesn't override the coach's interests). Not written yet; it goes with
-  the CHW-359 work.
+- **The balancing test:** written, `docs/privacy/2026-11-08-lia-coach-prospecting.md` (8 November
+  2026). It holds with the safeguards in its §3.4, and lists what is left for the owner (§6):
+  a rule to skip accounts that look under 18, a written use for `niche` or dropping it, and moving
+  rule 6's Morocco and Spain shares to other channels.
 - **Morocco:** whether this prospect list needs a CNDP declaration under law 09-08. It goes with
   the CNDP work in CHW-359.
 - **Records of processing:** whether FitPal keeps an Art. 30 record of processing. If it does,
@@ -246,8 +250,10 @@ lawve-ai/awesome-legal-skills; not legal advice):
 - **Retention:** 6 months for the full row and 3 years for the cut-down one follow the CNIL's
   guideline for prospects; check they fit Spain and Morocco too, and that keeping a
   handle-only do-not-contact line after an erasure request is allowed.
-- **Google as host:** the Sheet's data may be stored outside the EU. Check Google Workspace's
-  terms cover the transfer (with the processor agreements in CHW-359).
+- **Google as host:** the Sheet's data may be stored outside the EU. Google LLC is on the EU–US
+  Data Privacy Framework list (checked by the owner on 8 November 2026), as the notice says.
+  Still to check: whether the Sheet is on a Workspace account, which makes Google a processor
+  under its data processing terms.
 - **Instagram's own rules:** they apply on top of the law. The pace in §1 is there for them, too.
 
 ## 5. Monday review
