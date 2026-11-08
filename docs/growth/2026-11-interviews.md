@@ -42,14 +42,17 @@ coaching online or one to one. Ten in Morocco, five in France or Belgium, five i
    « On cherche 20 coachs en ligne pour 20 minutes de discussion sur leur façon de travailler.
    Pas de vente. En remerciement : 3 mois de Pro offerts et le résumé anonyme de ce que facturent
    les autres. Écris-moi en DM. »
-4. **Trainer schools and coach groups** (growth plan §4, weeks 7–10), asking the school to pass
+4. **Trainer schools and coach groups** (growth plan §4, weeks 3–10), asking the school to pass
    the message on.
 
-**Cold DMs to recruit go to France only.** The question that blocks cold outreach in Morocco,
-Spain and Belgium (outreach doc §4: does an Instagram DM need prior consent there?) applies to an
-interview request too: it comes from a business that wants to sell to them. Until it is
-answered, coaches there come through channels 2–4, where they write first, know us or are
-introduced. Channel 1 is French only, like the outreach itself.
+**Cold DMs to recruit go to France only, and not yet.** An interview request comes from a
+business that wants to sell to them, so the outreach rules apply to it too. In Morocco, Spain and
+Belgium a cold DM needs the coach's consent first
+([LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4), so coaches there come through
+channels 2–4, where they write first, know us or are introduced. Channel 1 is French only, like the
+outreach itself, and waits for the outreach doc's "before the first send" list (§4): because the
+sender is in Morocco, law 09-08 may require consent even for French coaches. Until then, recruit
+through channels 2–4 everywhere.
 
 **What they get for it:**
 - **3 months of Pro free:** granted from the admin panel once they have an account, whenever

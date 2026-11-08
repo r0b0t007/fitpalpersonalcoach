@@ -171,8 +171,9 @@ Record each review here, with its date.
 **Owner:**
 1. Before the first send: the Sheet on a Workspace account, and the bio link (section 0).
 2. Give the `niche` column a written use, or drop it (section 3.1).
-3. The funnel plan (`2026-11-funnel-and-promotion.md`): move its Morocco, Spain and Belgium numbers
-   to the channels in section 4. Rule 6 of the DM doc is already France-only.
+3. ~~The funnel plan: move its Morocco, Spain and Belgium numbers to the channels in section 4.~~
+   Done on 8 November 2026: `2026-11-funnel-and-promotion.md` §4 sends cold DMs to France only,
+   starts the Moroccan school partnerships in week 3, and flags the day-90 targets for review.
 4. Keep an Art. 30 record of processing, with this processing in it, if FitPal keeps one (DM doc
    §4).
 

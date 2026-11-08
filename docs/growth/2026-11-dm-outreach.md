@@ -246,8 +246,8 @@ lawve-ai/awesome-legal-skills; not legal advice):
   are enough for Art. 14.
 - **The balancing test:** written, `docs/privacy/2026-11-08-lia-coach-prospecting.md` (8 November
   2026). It holds with the safeguards in its §3.4. Left for the owner (LIA §6): a written use for
-  `niche`, or dropping it, and moving the funnel plan's Morocco, Spain and Belgium numbers to
-  other channels. The under-18 rule is in §3 and rule 6 is France-only.
+  `niche`, or dropping it. The under-18 rule is in §3, rule 6 is France-only, and the funnel plan
+  now sends Morocco, Spain and Belgium to Reels, partnerships and SEO.
 - **Blocking, even for France: the sender is in Morocco.** FitPal's controller is established in
   Morocco, so law 09-08 (art. 2) may govern this list whoever is on it. Before the first send,
   counsel to answer (LIA §4, §6): does art. 10's prior-consent rule apply to a Moroccan sender

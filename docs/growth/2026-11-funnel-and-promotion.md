@@ -76,10 +76,17 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 - Build the five template programs and shoot a 60-second demo video of the link, the request,
   the accept and workout 1.
 - Write the DM scripts in French, Spanish and English. Build a tracker sheet of 300 coaches
-  (country, followers, niche, tool used today).
+  in France (followers, niche, tool used today): only French coaches go on it (DM doc rule 6).
 
 **Weeks 3–6: founder-led sales**
-- Send 30 personal DMs a day, rotating countries, offering the free setup.
+- Send 30 personal DMs a day to coaches in France, offering the free setup. **Not before** the
+  DM doc's "before the first send" list is done (`2026-11-dm-outreach.md` §4): counsel's answer
+  on Morocco's law 09-08 for a sender based in Morocco, the Sheet on a Google Workspace account,
+  and the bio link.
+- **No cold DMs to Morocco, Belgium or Spain.** A DM there needs the coach's consent first
+  ([LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4). Coaches there come in by writing
+  first: a "comment APP" reply, a DM they send, the e-mail or WhatsApp on fitpal.ma. Answer them
+  the same day. Reaching them is the job of the Reels, the partnerships and SEO below.
 - Hold 10 onboarding calls a week.
 - Post 3 Reels a week on @fitpal. Ideas: "du PDF à l'app en 24 h", "un lien dans ta bio",
   "tes clients ne perdent plus leurs séances", and, once a Founding Coach agrees to be shown,
@@ -90,28 +97,37 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 - Recruit the 10 Founding Coaches and launch referrals.
 - Co-host 2 Instagram Lives on the business of online coaching with Founding Coaches.
 
-**Weeks 7–10: partnerships**
+**Weeks 3–10: partnerships** (Morocco from week 3: with no cold DMs there, the schools are the
+main way in to the plan's largest market)
 - Morocco: certification schools IREPS (Salé), INSEP Maroc, Centre Atlantique (Rabat) and Sport
   Leader Academy ([SNRT](https://snrtnews.com/fr/article/sport-leader-academy-la-plateforme-digitale-qui-revolutionne-la-formation-des-coachs)).
   The offer: free Pro for 6 months for new graduates, plus a guest module on launching online
   coaching.
-- France and Spain: personal-trainer schools and gyms whose coaches also coach online.
+- France, Belgium and Spain: personal-trainer schools and gyms whose coaches also coach online,
+  from week 7. Write to the school or gym, not to its coaches, and let it pass the offer on.
 
 **Weeks 9–12: amplify**
 - Run Meta retargeting of video viewers and site visitors only, at 50–100 MAD or €10 a day.
   Morocco CPC is about $0.23 (from a single vendor,
   [eGrow](https://www.egrow.com/en/blog/facebook-meta-ads-cod-ecommerce-morocco-2026)).
-- SEO in French: "logiciel coach sportif", "application coaching sportif", "suivi clients coach",
-  "alternative Trainerize". In Spanish: "software entrenador personal", "alternativa a Harbiz".
-  Add comparison pages against Trainerize, Everfit and Harbiz.
+- SEO: done early (CHW-352). Six pages went live on fitpal.ma on 6 November 2026:
+  "logiciel coach sportif", "app entrenadores personales", and comparisons with Trainerize (FR and
+  EN), Everfit and Harbiz. "Application coaching sportif" and "suivi clients coach" were dropped:
+  the first is searched by people who want a coach, the second isn't searched. From here, read
+  Search Console every week and write more where impressions show up.
 - Start a "comment APP" DM automation on @fitpal once there is enough reach. Manual replies are
   fine before that.
 
 **Every week:**
-- 150 DMs, 3 Reels, 1 Live or case study, onboarding calls.
-- Monday review: DM reply rate, sign-up → activation, activation → day-30 habit, paid.
+- 150 DMs to French coaches (once allowed, see weeks 3–6), 3 Reels, 1 Live or case study,
+  onboarding calls.
+- Monday review: DM reply rate, coaches who wrote first (by country), sign-up → activation,
+  activation → day-30 habit, paid.
 
 **Day-90 targets:** 100 sign-ups, 50 activated, 15 paying (30% of activated, matching §2), 10 video testimonials.
+*To review:* these were set when cold DMs were to go to all four countries from week 3. They now
+go to France only, and not before the list above. Revisit the targets at the first Monday review
+after the first send, with the reply rate and the inbound count in hand.
 
 ## 5. Open tests
 
