@@ -33,7 +33,10 @@ section 6.
 1. **The tracker set up as a local file** (owner): a spreadsheet saved outside the repo on the
    owner's computer, with BitLocker on, and a weekly copy to a BitLocker-encrypted USB drive (DM
    doc §4). No online service hosts it, so no processor or transfer is involved. (Chosen on 14
-   November 2026 instead of a Sheet on a paid Google Workspace account.)
+   November 2026 instead of a Sheet on a paid Google Workspace account.) **The file was created
+   on 14 November 2026, with its four tabs; BitLocker and the backup drive are still to do.** No
+   coach goes into the file before BitLocker is on, because the notice says the computer is
+   encrypted.
 2. ~~**The sending account's bio link** set to fitpal.ma (owner), so message 1's "the details are at
    the link in my bio" leads to the full notice (safeguard 2).~~ **Done on 14 November 2026** on
    @fitpal.ma: the owner added https://fitpal.ma and checked it opens. If DMs are sent from another

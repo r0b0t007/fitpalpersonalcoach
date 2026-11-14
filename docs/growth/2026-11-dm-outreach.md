@@ -167,6 +167,9 @@ Workspace account to keep Google a processor):
   do-not-contact lines.
 - **Only on that computer.** Update it there; DMs can be sent from instagram.com on the same
   computer.
+- **Status, 14 November 2026:** the file exists, with the Tracker, Totals, Setups and Content
+  tabs. BitLocker and the backup drive are not done yet, so no coach goes into it until they
+  are (LIA §0, item 1).
 
 | Column | What goes in it |
 |---|---|
