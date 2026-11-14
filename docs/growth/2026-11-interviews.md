@@ -33,26 +33,22 @@ evidence. "Would you use an app that…" isn't.
 coaching online or one to one. Ten in Morocco, five in France or Belgium, five in Spain.
 
 **Where from, in this order:**
-1. **Coaches who answered a French outreach DM,** whatever they said, "no" excepted.
+1. **Coaches who answered an outreach DM,** whatever they said, "no" excepted.
 2. **People who already know the founder:** coaches in their own network, and coaches those
-   coaches name. End every interview with « Qui d'autre je devrais appeler ? ». Outside France,
-   a coach who is named is contacted only through the person who named them: they pass on the
-   message, or start a group with both of you. Nobody gets a DM out of the blue.
+   coaches name. End every interview with « Qui d'autre je devrais appeler ? ». A coach who is
+   named is best reached through the person who named them: they pass on the message, or start a
+   group with both of you. A direct DM to them follows the outreach rules, like any other.
 3. **A post on @fitpal.ma** and on the founder's own account, which coaches answer themselves:
    « On cherche 20 coachs en ligne pour 20 minutes de discussion sur leur façon de travailler.
    Pas de vente. En remerciement : 3 mois de Pro offerts et le résumé anonyme de ce que facturent
    les autres. Écris-moi en DM. »
-4. **Trainer schools and coach groups** (growth plan §4, weeks 3–10), asking the school to pass
-   the message on.
 
-**Cold DMs to recruit go to France only, and not yet.** An interview request comes from a
-business that wants to sell to them, so the outreach rules apply to it too. In Morocco, Spain and
-Belgium a cold DM needs the coach's consent first
-([LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4), so coaches there come through
-channels 2–4, where they write first, know us or are introduced. Channel 1 is French only, like the
-outreach itself, and waits for the outreach doc's "before the first send" list (§4): because the
-sender is in Morocco, law 09-08 may require consent even for French coaches. Until then, recruit
-through channels 2–4 everywhere.
+**Cold DMs to recruit: in all four countries, but not yet.** An interview request comes from a
+business that wants to sell to them, so the outreach rules apply to it too: the same safeguards,
+and nothing before the outreach doc's "before the first send" list (§4) is done. Counsel's
+answers of 14 November 2026 opened DMs to Morocco, Belgium and Spain as well as France
+([LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4). Until the list is done, recruit
+through channels 2 and 3.
 
 **What they get for it:**
 - **3 months of Pro free:** granted from the admin panel once they have an account, whenever
@@ -179,7 +175,7 @@ Not legal advice. Checked against the GDPR basics in lawve-ai/awesome-legal-skil
   account's e-mail sits in the founder's calendar until the licence is revoked (§2), then goes.
 - **Nothing moves to the outreach tracker.** An interviewee who wants to try FitPal gets the
   sign-up link at the end of the call. If they want to hear more later, they write to @fitpal.ma
-  themselves. The tracker is for cold outreach, with its own notice and France-only rule, and an
+  themselves. The tracker is for cold outreach, with its own notice and rules, and an
   interview is neither.
 - **The notice,** read at step 0 or sent before the call:
   - FR: « C'est moi, [nom], fondateur de FitPal Coach ([e-mail]), qui prends les notes, pour comprendre comment travaillent les coachs. Je note ton prénom, ton @ et tes réponses, sans enregistrer. Seul un résumé anonyme est gardé ; mes notes sont effacées dans les deux mois. Si tu prends les 3 mois de Pro, je garde l'e-mail de ton compte jusqu'à leur fin. Tu peux arrêter quand tu veux, et me demander de voir ou d'effacer mes notes. »

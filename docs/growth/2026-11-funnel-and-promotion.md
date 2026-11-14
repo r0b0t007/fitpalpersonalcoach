@@ -76,17 +76,17 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 - Build the five template programs and shoot a 60-second demo video of the link, the request,
   the accept and workout 1.
 - Write the DM scripts in French, Spanish and English. Build a tracker sheet of 300 coaches
-  in France (followers, niche, tool used today): only French coaches go on it (DM doc rule 6).
+  in Morocco, France, Belgium and Spain (followers, niche, tool used today; DM doc §3).
 
 **Weeks 3–6: founder-led sales**
-- Send 30 personal DMs a day to coaches in France, offering the free setup. **Not before** the
-  DM doc's "before the first send" list is done (`2026-11-dm-outreach.md` §4): counsel's answer
-  on Morocco's law 09-08 for a sender based in Morocco, the Sheet on a Google Workspace account,
-  and the bio link.
-- **No cold DMs to Morocco, Belgium or Spain.** A DM there needs the coach's consent first
-  ([LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4). Coaches there come in by writing
-  first: a "comment APP" reply, a DM they send, the e-mail or WhatsApp on fitpal.ma. Answer them
-  the same day. Reaching them is the job of the Reels, the partnerships and SEO below.
+- Send 30 personal DMs a day, offering the free setup, a different country each day: Morocco,
+  then France or Belgium, then Spain (DM doc rule 6). Counsel answered on 14 November 2026 that
+  a DM isn't an electronic message under the consent rules and that law 09-08 doesn't apply to
+  FitPal ([LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4). **Not before** the DM doc's
+  "before the first send" list is done (`2026-11-dm-outreach.md` §4): the Sheet on a Google
+  Workspace account, and the bio link.
+- Coaches who write first (a "comment APP" reply, a DM they send, the e-mail or WhatsApp on
+  fitpal.ma) are answered the same day.
 - Hold 10 onboarding calls a week.
 - Post 3 Reels a week on @fitpal. Ideas: "du PDF à l'app en 24 h", "un lien dans ta bio",
   "tes clients ne perdent plus leurs séances", and, once a Founding Coach agrees to be shown,
@@ -97,14 +97,8 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 - Recruit the 10 Founding Coaches and launch referrals.
 - Co-host 2 Instagram Lives on the business of online coaching with Founding Coaches.
 
-**Weeks 3–10: partnerships** (Morocco from week 3: with no cold DMs there, the schools are the
-main way in to the plan's largest market)
-- Morocco: certification schools IREPS (Salé), INSEP Maroc, Centre Atlantique (Rabat) and Sport
-  Leader Academy ([SNRT](https://snrtnews.com/fr/article/sport-leader-academy-la-plateforme-digitale-qui-revolutionne-la-formation-des-coachs)).
-  The offer: free Pro for 6 months for new graduates, plus a guest module on launching online
-  coaching.
-- France, Belgium and Spain: personal-trainer schools and gyms whose coaches also coach online,
-  from week 7. Write to the school or gym, not to its coaches, and let it pass the offer on.
+**Partnerships with schools and gyms: dropped for now** (owner, 14 November 2026). Coaches are
+reached directly. The research and draft plan are kept on the closed PR #215 (CHW-353, Backlog).
 
 **Weeks 9–12: amplify**
 - Run Meta retargeting of video viewers and site visitors only, at 50–100 MAD or €10 a day.
@@ -119,15 +113,15 @@ main way in to the plan's largest market)
   fine before that.
 
 **Every week:**
-- 150 DMs to French coaches (once allowed, see weeks 3–6), 3 Reels, 1 Live or case study,
-  onboarding calls.
-- Monday review: DM reply rate, coaches who wrote first (by country), sign-up → activation,
+- 150 DMs across the four countries (once allowed, see weeks 3–6), 3 Reels, 1 Live or case
+  study, onboarding calls.
+- Monday review: DM reply rate (by country), coaches who wrote first (by country), sign-up → activation,
   activation → day-30 habit, paid.
 
 **Day-90 targets:** 100 sign-ups, 50 activated, 15 paying (30% of activated, matching §2), 10 video testimonials.
-*To review:* these were set when cold DMs were to go to all four countries from week 3. They now
-go to France only, and not before the list above. Revisit the targets at the first Monday review
-after the first send, with the reply rate and the inbound count in hand.
+They assume cold DMs in all four countries from week 3, which is the plan again since 14
+November 2026. The first send still waits on the two owner items above: if it slips past week 3,
+revisit the targets at the first Monday review after it.
 
 ## 5. Open tests
 
