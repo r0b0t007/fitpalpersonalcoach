@@ -149,7 +149,8 @@ takes:
 
 The issue is done when this has been used on 5 coaches with a median under 24 hours.
 
-**The Setups tab** goes in the same Google Sheet as the DM tracker. Its columns:
+**The Setups tab** goes in the same file as the DM tracker: a local, encrypted spreadsheet
+(outreach doc §4, "Where it lives"). Its columns:
 
 | Column | What goes in it |
 |---|---|
