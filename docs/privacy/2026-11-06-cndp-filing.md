@@ -187,16 +187,18 @@ data it reads (dates of training) is not health data, so it needs no prior autho
 
 **To verify (counsel):** FitPal also processes, as controller, two things this declaration leaves
 out. Both are in the legal notice since 8 November 2026:
-- **coach prospecting on Instagram**: a list of coaches' public profile details in a Google Sheet
+- **coach prospecting on Instagram**: a list of coaches' public profile details in a local,
+  encrypted spreadsheet on the owner's computer, not a Google Sheet since 14 November 2026
   (`docs/growth/2026-11-dm-outreach.md` §4);
 - **the done-for-you setup over WhatsApp**: a coach's program, photo, bio and account e-mail,
   and their WhatsApp number and profile name. The files are kept until the setup is done (14 days
-  if it stalls); the chat while the coach's account exists; the Setups tab of the same Google
-  Sheet keeps their handle and notes 30 days, then times only (`docs/growth/done-for-you.md` §4
+  if it stalls); the chat while the coach's account exists; the Setups tab of the same local
+  file keeps their handle and notes 30 days, then times only (`docs/growth/done-for-you.md` §4
   and §5).
 
-Whether they go on this F-211 as purposes 5 and 6 (with Google, Meta and Apple as recipients, and the
-Sheet's transfer on the F-118), or on a declaration of their own.
+Whether they go on this F-211 as purposes 5 and 6 (with Meta and, for chat backups, Google or Apple as recipients; the list itself is no longer
+transferred to the US), or on a declaration of their own. Counsel's answer of 14 November 2026
+that law 09-08 does not apply to FitPal may make this moot (LIA §4.1).
 
 **Données, origine, destinataires, durées :**
 

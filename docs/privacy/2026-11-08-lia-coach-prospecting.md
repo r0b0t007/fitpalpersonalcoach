@@ -30,9 +30,10 @@ section 6.
 | May the DMs go out? | **Not yet.** To coaches in **France** once items 1 and 2 below are done; to coaches in **Morocco, Spain and Belgium** once item 3 is done too. Counsel's answers, and why they open the four countries, are in section 4. Every safeguard in section 3.4 applies in all four. |
 
 **Before the first send** (each one blocks it):
-1. **The Sheet on a Google Workspace account** (owner), so Google is a processor under its data
-   processing terms. On a personal account, "only the founder" (section 1) and "never shared"
-   (safeguard 6) would not hold.
+1. **The tracker set up as a local file** (owner): a spreadsheet saved outside the repo on the
+   owner's computer, with BitLocker on, and a weekly copy to a BitLocker-encrypted USB drive (DM
+   doc §4). No online service hosts it, so no processor or transfer is involved. (Chosen on 14
+   November 2026 instead of a Sheet on a paid Google Workspace account.)
 2. ~~**The sending account's bio link** set to fitpal.ma (owner), so message 1's "the details are at
    the link in my bio" leads to the full notice (safeguard 2).~~ **Done on 14 November 2026** on
    @fitpal.ma: the owner added https://fitpal.ma and checked it opens. If DMs are sent from another
@@ -67,7 +68,7 @@ interview guide) point here instead of keeping their own list.
 | **People** | Coaches in France, Belgium, Spain and Morocco with a public Instagram business presence (5k–100k followers) who sell coaching, acting for their business. Accounts that look like they belong to someone under 18 are left off (DM doc §3). |
 | **Data** | What the public profile shows of the business: handle, country, language, follower count, niche, bio link, the coaching app named, the post the opener cites. From our exchanges: message dates, a call date, the answer, a few words of notes. If the coach signs up, the date of their FitPal Coach account, taken from FitPal Coach (notice, « Prospection des coachs sur Instagram »). |
 | **Source** | The public profile (Art. 14), our own messages, and FitPal Coach for the sign-up date. |
-| **Who sees it** | The founder only. Google LLC hosts the Sheet, as processor **once the Sheet is on a Workspace account** (before the first send, item 1); it is on the EU–US Data Privacy Framework list (checked by the owner on 8 November 2026). Instagram (Meta) carries the messages. |
+| **Who sees it** | The founder only. The list is a spreadsheet file kept offline, on the owner's encrypted computer and an encrypted backup drive (before the first send, item 1); no online service hosts it, so there is no processor and no transfer for the list. Instagram (Meta) carries the messages. |
 | **Retention** | Full row: until a no or "stop", or 6 months after the coach's last message (or our first), cut down within 7 days. Cut-down line (handle, answer, two dates): 3 years after the later date. After an erasure request: handle and request date only, 3 years. |
 | **Volume** | Up to 30 new coaches a day, 300 in the first round. |
 
@@ -168,7 +169,8 @@ question, with the result after counsel's answer:
 
 Version 1 asked whether law 09-08 governs this list because FitPal's controller is in Morocco
 (the legal notice's « Éditeur »). If it did, that would have meant art. 10's prior consent, a CNDP
-declaration before prospecting, and an art. 43/44 basis for the Sheet's transfer to the US.
+declaration before prospecting, and an art. 43/44 basis for the list's transfer to the US (moot
+since 14 November 2026: the list is a local file, not a Google Sheet).
 **Counsel's answer (reported by the owner on 14 November 2026): law 09-08 does not apply to
 FitPal.** So none of those three is needed for this list.
 
@@ -202,6 +204,11 @@ Record each review here, with its date.
 - **14 November 2026:** counsel's answers to section 6's questions 1 and 4 (reported by the
   owner). Outreach widened from France to four countries; the safeguards in section 3.4 are
   unchanged. The partnerships with trainer schools (CHW-353) are dropped for now.
+- **14 November 2026, the list's host:** the tracker is a local file on the owner's encrypted
+  computer instead of a Google Sheet. Google is no longer a recipient of the list, and the notice
+  (« Prospection des coachs sur Instagram » and « Mise en place de votre programme ») says so
+  from the same day. Safeguard 6 ("only the founder") is easier to keep, not harder. New risk:
+  losing the file would lose the do-not-contact lines, hence the weekly encrypted backup.
 - **14 November 2026, after review of #214:** the oral answers open France only. Morocco, Spain
   and Belgium wait for the written answer (section 0, item 3). The EU representative question is
   recorded as not blocking, with the reason (section 0).
@@ -209,8 +216,8 @@ Record each review here, with its date.
 ## 6. To verify
 
 **Owner:**
-1. Before the first send: the Sheet on a Workspace account (all countries), and counsel's answers
-   in writing (Morocco, Spain and Belgium). The bio link was done on 14 November 2026. Section 0.
+1. Before the first send: the tracker as a local encrypted file (all countries), and counsel's
+   answers in writing (Morocco, Spain and Belgium). The bio link was done on 14 November 2026. Section 0.
 2. Give the `niche` column a written use, or drop it (section 3.1).
 3. ~~The funnel plan: move its Morocco, Spain and Belgium numbers to the channels in section 4.~~
    Done on 8 November 2026, then reversed on 14 November 2026 after counsel's answers:

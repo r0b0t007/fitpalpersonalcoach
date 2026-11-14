@@ -151,9 +151,22 @@ A coach already using an app goes on the list: note which app, and expect the Tr
 
 ## 4. The tracker
 
-`dm-outreach-tracker.csv` is the header row to import into a Google Sheet (File › Import). The
-filled sheet lives in that Sheet, **never in this repo**: it holds people's details, and the repo
-is not the place for them.
+`dm-outreach-tracker.csv` is the header row. Open it in Excel or LibreOffice Calc and save it as
+a spreadsheet **outside this repo**, on the owner's computer (for example
+`Documents\FitPal\outreach.xlsx`). The filled file is **never in this repo**: it holds people's
+details, and the repo is not the place for them. "The Sheet" below means that file.
+
+**Where it lives** (chosen on 14 November 2026 instead of a Google Sheet, which would need a paid
+Workspace account to keep Google a processor):
+- **One file, offline,** on a computer with BitLocker turned on (Windows: Settings › Privacy &
+  security › Device encryption, or "Manage BitLocker"). No cloud folder: not OneDrive, Google
+  Drive or Dropbox, which would make their company a host of the list again.
+- **A weekly backup** at the Monday review, after the rows are cut down (§5), to a USB drive
+  encrypted with BitLocker To Go. Keep only the latest copy on it, so a cut-down or deleted row
+  is gone from the backup within a week too. Without a backup, losing the file loses the
+  do-not-contact lines.
+- **Only on that computer.** Update it there; DMs can be sent from instagram.com on the same
+  computer.
 
 | Column | What goes in it |
 |---|---|
@@ -256,17 +269,16 @@ first send; the rest below are marked "not blocking":
   The legal notice and the CNDP filing (CHW-367) still assume 09-08 applies; the written answer
   is to say what it means for them.
 - **Records of processing (not blocking):** whether FitPal keeps an Art. 30 record of processing. If it does,
-  add "coach prospecting" to it: purpose, the columns above, 6 months, the founder only, Google
-  as the Sheet's host.
+  add "coach prospecting" to it: purpose, the columns above, 6 months, the founder only, a local
+  encrypted file with no host.
 - **Retention (not blocking; LIA §6, counsel question 5):** 6 months for the full row and 3 years for the cut-down one follow the CNIL's
   guideline for prospects; check they fit Spain and Belgium too, and that keeping a
   handle-only do-not-contact line after an erasure request is allowed.
-- **Google as host:** the Sheet's data may be stored outside the EU. Google LLC is on the EU–US
-  Data Privacy Framework list (checked by the owner on 8 November 2026), as the notice says.
-  **Blocking:** the Sheet must be on a Google Workspace account, where Google is a processor
-  under its data processing terms. On a personal Google account it processes under its own
-  consumer terms, and the notice's "only the founder" and the LIA's "never shared" would be
-  wrong.
+- **Where the list is kept (blocking, LIA §0 item 1):** a local file, encrypted, with an
+  encrypted weekly backup (§4 "Where it lives"). It replaced a Google Sheet on 14 November 2026:
+  on a personal Google account Google processes under its own consumer terms, so the notice's
+  "only the founder" and the LIA's "never shared" would have been wrong, and a Workspace account
+  costs money. The notice changed the same day.
 - **Instagram's own rules:** they apply on top of the law. The pace in §1 is there for them, too.
 
 ## 5. Monday review

@@ -180,8 +180,10 @@ Not legal advice. Checked against the GDPR basics in lawve-ai/awesome-legal-skil
   - FR: « C'est moi, [nom], fondateur de FitPal Coach ([e-mail]), qui prends les notes, pour comprendre comment travaillent les coachs. Je note ton prénom, ton @ et tes réponses, sans enregistrer. Seul un résumé anonyme est gardé ; mes notes sont effacées dans les deux mois. Si tu prends les 3 mois de Pro, je garde l'e-mail de ton compte jusqu'à leur fin. Tu peux arrêter quand tu veux, et me demander de voir ou d'effacer mes notes. »
   - ES: «Soy yo, [nom], fundador de FitPal Coach ([e-mail]), quien toma las notas, para entender cómo trabajan los entrenadores. Apunto tu nombre, tu @ y tus respuestas, sin grabar. Solo se guarda un resumen anónimo; mis notas se borran en dos meses. Si aceptas los 3 meses de Pro, guardo el email de tu cuenta hasta que terminen. Puedes parar cuando quieras y pedirme ver o borrar mis notas.»
 - **To verify:**
-  - **Google as host:** the Doc may be stored outside the EU. This goes with the Google Sheet
-    question in the outreach doc §4.
+  - **Google as host:** the Doc may be stored outside the EU, and on a personal Google account
+    Google holds it under its consumer terms. The outreach list had the same problem and moved to
+    a local encrypted file on 14 November 2026 (outreach doc §4); keeping the notes in a local
+    document on the same computer would solve it the same way.
   - **Morocco:** counsel answered that law 09-08 does not apply to FitPal (LIA §4.1). Whether
     that covers interview notes too is for the written answer the LIA asks for (§0, item 3), with
     CHW-367.

@@ -335,7 +335,8 @@ the switch date in §7.
   - « Prix »: R12;
   - « Coachs »: the first Founding Coach Reel. Create it then, not empty before.
 
-**Counted each week.** Add a "Content" tab to the outreach Sheet. Like the Totals tab it holds no
+**Counted each week.** Add a "Content" tab to the outreach file (a local spreadsheet, outreach
+doc §4). Like the Totals tab it holds no
 names, only counts, and it has two kinds of row, because the platforms report some numbers per
 Reel and others only for the whole account:
 - **One row per Reel:** `reel`, `lang`, `platform`, `posted`, `reach`, `plays`, `shares`,
