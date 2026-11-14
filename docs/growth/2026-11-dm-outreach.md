@@ -245,8 +245,8 @@ first send; the rest below are marked "not blocking":
 - **Full notice: published** on 8 November 2026 in the legal notice, « Prospection des coachs sur
   Instagram » (fitpal.ma/mentions-legales#prospection; /en/legal#prospecting;
   /es/legal#prospeccion). fitpal.ma's footer links to it, so the sending account's bio link must be
-  fitpal.ma or that page. Before the first send (LIA §0, item 2): check the bio link is set and
-  leads to the notice.
+  fitpal.ma or that page. Done on @fitpal.ma on 14 November 2026 (LIA §0, item 2); an account
+  other than @fitpal.ma that sends DMs needs the same link first.
 - **The balancing test:** written, `docs/privacy/2026-11-08-lia-coach-prospecting.md` (version 2,
   14 November 2026). It holds with the safeguards in its §3.4. Left for the owner (LIA §6): a written use for
   `niche`, or dropping it. The under-18 rule is in §3, and rule 6 covers the four countries since

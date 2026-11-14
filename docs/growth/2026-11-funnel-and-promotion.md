@@ -82,7 +82,7 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 - Send 30 personal DMs a day, offering the free setup, a different country each day: Morocco,
   then France or Belgium, then Spain (DM doc rule 6). **Not before** each country is allowed by
   the [LIA](../privacy/2026-11-08-lia-coach-prospecting.md)'s "before the first send" list (§0): France once the Sheet is on a Google Workspace
-  account and the bio link is set; Morocco, Spain and Belgium once counsel's answers are in
+  account (the bio link was set on 14 November 2026); Morocco, Spain and Belgium once counsel's answers are in
   writing too. Until then, all 30 go to France.
 - Coaches who write first (a "comment APP" reply, a DM they send, the e-mail or WhatsApp on
   fitpal.ma) are answered the same day.

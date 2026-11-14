@@ -33,8 +33,10 @@ section 6.
 1. **The Sheet on a Google Workspace account** (owner), so Google is a processor under its data
    processing terms. On a personal account, "only the founder" (section 1) and "never shared"
    (safeguard 6) would not hold.
-2. **The sending account's bio link** set to fitpal.ma (owner), so message 1's "the details are at
-   the link in my bio" leads to the full notice (safeguard 2).
+2. ~~**The sending account's bio link** set to fitpal.ma (owner), so message 1's "the details are at
+   the link in my bio" leads to the full notice (safeguard 2).~~ **Done on 14 November 2026** on
+   @fitpal.ma: the owner added https://fitpal.ma and checked it opens. If DMs are sent from another
+   account, that account needs the same link first.
 3. **Counsel's two answers in writing** (owner). **Blocks Morocco, Spain and Belgium only.** The
    answers in section 4 were reported orally. The written answer must be dated, cover Moroccan,
    Spanish and Belgian law, and say whether "law 09-08 does not apply" covers FitPal as a whole or
@@ -207,8 +209,8 @@ Record each review here, with its date.
 ## 6. To verify
 
 **Owner:**
-1. Before the first send: the Sheet on a Workspace account and the bio link (all countries), and
-   counsel's answers in writing (Morocco, Spain and Belgium). Section 0.
+1. Before the first send: the Sheet on a Workspace account (all countries), and counsel's answers
+   in writing (Morocco, Spain and Belgium). The bio link was done on 14 November 2026. Section 0.
 2. Give the `niche` column a written use, or drop it (section 3.1).
 3. ~~The funnel plan: move its Morocco, Spain and Belgium numbers to the channels in section 4.~~
    Done on 8 November 2026, then reversed on 14 November 2026 after counsel's answers:
