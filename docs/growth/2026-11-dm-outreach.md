@@ -28,11 +28,11 @@ Write in the coach's `language`; pick the proof in follow-up 2 by their `country
 5. **By hand, never automated.** No tool sends, schedules or copies DMs in bulk: the account
    would be flagged, and it would stop being founder-led.
 6. **30 new coaches a day, in France, Belgium, Spain and Morocco,** a different country each day
-   (Morocco, then France or Belgium, then Spain). Counsel answered on 14 November 2026 that a DM
-   isn't an electronic message under the consent rules and that law 09-08 doesn't apply to FitPal
-   ([LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4). The safeguards are the same in all
-   four. Nothing is sent at all before the "before the first send" list in §4 is done. Follow-ups
-   come on top. If Instagram shows a warning or blocks sending, stop for 48 hours,
+   (Morocco, then France or Belgium, then Spain), once each country is allowed. What blocks the
+   first send is the [LIA](../privacy/2026-11-08-lia-coach-prospecting.md)'s "before the first send" list (§0) and nothing else: France needs its
+   items 1 and 2, Morocco, Spain and Belgium need item 3 as well (counsel's answers in writing).
+   Until then, all 30 go to France. The safeguards are the same in all four. Follow-ups come on
+   top. If Instagram shows a warning or blocks sending, stop for 48 hours,
    then halve the pace for a week.
 7. **Only what the messaging doc allows.** No competitor named in an opener (messaging §4), no
    "en 5 minutes" (§6), no client counts and no price in MAD (§7).
@@ -88,8 +88,10 @@ the queue goes past a day.
 
 ### Follow-up 2, day 7: proof 3 in Morocco, proof 2 elsewhere
 
-Every message carries the "stop" line, in every country: it is safeguard 1 of the
-[LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §3.4, which the GDPR balance rests on.
+Every message carries the "stop" line, in every country: it is safeguard 1 of the [LIA](../privacy/2026-11-08-lia-coach-prospecting.md)
+§3.4, which the GDPR balance rests on. In France it is also the legal condition for prospecting a
+professional without consent (CPCE art. L34-5, CNIL), if counsel's answer on DMs turns out not to
+cover French law. Never trim it.
 
 Morocco:
 - **FR:** Dernier message de ma part. Tes clients continuent de te payer comme d'habitude, virement, cash ou CashPlus : FitPal ne touche pas à ton argent. Si un jour ça t'intéresse, réponds juste « oui ». (Réponds « stop » et je ne t'écris plus.)
@@ -216,12 +218,12 @@ including the many who never answer:
 the coach's own work, sent to their business account, with a way to say no in the first message
 and nothing after a no.
 
-**To verify before the first send** (checked against the GDPR and Morocco 09-08 checklists in
-lawve-ai/awesome-legal-skills; not legal advice):
-- ~~**Blocking for Spain, Belgium and Morocco: does a DM need prior consent?**~~ **Answered by
-  counsel (reported by the owner, 14 November 2026): no.** An Instagram DM is not an electronic
-  message under these rules, so only the GDPR applies (LIA §4, §6). Kept below is the reading
-  that led to the question. Legitimate interest
+**Legal checks** (checked against the GDPR and Morocco 09-08 checklists in
+lawve-ai/awesome-legal-skills; not legal advice). Only the items in the [LIA](../privacy/2026-11-08-lia-coach-prospecting.md)'s §0 block the
+first send; the rest below are marked "not blocking":
+- ~~**Does a DM need prior consent in Spain, Belgium and Morocco?**~~ **Answered by counsel**
+  (LIA §4, where the answer is recorded). Blocks Morocco, Spain and Belgium until it is in writing
+  (LIA §0, item 3). Kept below is the reading that led to the question. Legitimate interest
   covers the GDPR side only. The electronic-marketing rules sit on top of it, and they treat an
   unsolicited commercial message to a person differently by country:
   - **Spain:** LSSI art. 21 bans commercial messages by e-mail "u otro medio de comunicación
@@ -233,32 +235,30 @@ lawve-ai/awesome-legal-skills; not legal advice):
     advertising; its business exception covers impersonal company addresses, not an
     individual coach's own account.
   - **France:** a professional may be prospected without consent about their own profession,
-    with a way to object in every message (CPCE art. L34-5, CNIL guidance). That is what this
-    doc is built on.
+    with a way to object in every message (CPCE art. L34-5, CNIL guidance). That was this doc's
+    basis for France before counsel's answer, and is the fallback if the written answer doesn't
+    cover French law.
 
   Whether an Instagram DM counts as an electronic message under each of these is the question
   to answer first. **Researched on 8 November 2026** ([LIA](../privacy/2026-11-08-lia-coach-prospecting.md)
-  §4): likely yes in all four, which kept cold DMs to France only until counsel answered. Since
-  14 November 2026 they go to all four countries (rule 6). Owner to get counsel's answer in
-  writing, and confirm it covers French, Spanish and Belgian law (LIA §6, owner item 5).
+  §4): likely yes in all four, which kept cold DMs to France only until counsel answered.
 - **Full notice: published** on 8 November 2026 in the legal notice, « Prospection des coachs sur
   Instagram » (fitpal.ma/mentions-legales#prospection; /en/legal#prospecting;
   /es/legal#prospeccion). fitpal.ma's footer links to it, so the sending account's bio link must be
-  fitpal.ma or that page. Before the first send: check the bio link is set, and that the two layers
-  are enough for Art. 14.
-- **The balancing test:** written, `docs/privacy/2026-11-08-lia-coach-prospecting.md` (8 November
-  2026). It holds with the safeguards in its §3.4. Left for the owner (LIA §6): a written use for
+  fitpal.ma or that page. Before the first send (LIA §0, item 2): check the bio link is set and
+  leads to the notice.
+- **The balancing test:** written, `docs/privacy/2026-11-08-lia-coach-prospecting.md` (version 2,
+  14 November 2026). It holds with the safeguards in its §3.4. Left for the owner (LIA §6): a written use for
   `niche`, or dropping it. The under-18 rule is in §3, and rule 6 covers the four countries since
   counsel's answers (14 November 2026).
-- ~~**Blocking, even for France: the sender is in Morocco.**~~ **Answered by counsel (reported by
-  the owner, 14 November 2026): law 09-08 does not apply to FitPal.** So no art. 10 consent, CNDP
-  declaration or art. 43/44 transfer basis for this list. The legal notice and the CNDP filing
-  (CHW-367) still assume 09-08 applies: owner to ask counsel what the answer means for them (LIA
-  §4.1).
-- **Records of processing:** whether FitPal keeps an Art. 30 record of processing. If it does,
+- ~~**The sender is in Morocco: does law 09-08 govern this list?**~~ **Answered by counsel** (LIA
+  §4.1, where the answer is recorded). Blocks Morocco until it is in writing (LIA §0, item 3).
+  The legal notice and the CNDP filing (CHW-367) still assume 09-08 applies; the written answer
+  is to say what it means for them.
+- **Records of processing (not blocking):** whether FitPal keeps an Art. 30 record of processing. If it does,
   add "coach prospecting" to it: purpose, the columns above, 6 months, the founder only, Google
   as the Sheet's host.
-- **Retention:** 6 months for the full row and 3 years for the cut-down one follow the CNIL's
+- **Retention (not blocking; LIA §6, counsel question 5):** 6 months for the full row and 3 years for the cut-down one follow the CNIL's
   guideline for prospects; check they fit Spain and Belgium too, and that keeping a
   handle-only do-not-contact line after an erasure request is allowed.
 - **Google as host:** the Sheet's data may be stored outside the EU. Google LLC is on the EU–US
@@ -273,7 +273,11 @@ lawve-ai/awesome-legal-skills; not legal advice):
 
 First, before cutting any row down, add the week's numbers to the Totals tab, per language and
 per country: message 1s sent, first replies, yeses and sign-ups that week (from `sent`,
-`replied`, `outcome` and `signed_up`). Then cut rows down (§4). The rates come from the running
+`replied`, `outcome` and `signed_up`). Then cut rows down (§4).
+
+Add one more number per country: **coaches who wrote first** that week (a "comment APP" reply, a
+DM they sent, the e-mail or WhatsApp on fitpal.ma). Count them from the inbox; it is a number
+only. They are answered, not prospected, so they never get a row in the tracker. The rates come from the running
 totals, which hold no names:
 
 | Number | From the totals |

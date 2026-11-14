@@ -36,19 +36,18 @@ coaching online or one to one. Ten in Morocco, five in France or Belgium, five i
 1. **Coaches who answered an outreach DM,** whatever they said, "no" excepted.
 2. **People who already know the founder:** coaches in their own network, and coaches those
    coaches name. End every interview with « Qui d'autre je devrais appeler ? ». A coach who is
-   named is best reached through the person who named them: they pass on the message, or start a
-   group with both of you. A direct DM to them follows the outreach rules, like any other.
+   named is contacted only through the person who named them: they pass on the message, or start
+   a group with both of you. Nobody gets a DM out of the blue. Their details come from the person
+   who named them, not from a public profile, so the outreach notice and tracker don't cover them.
 3. **A post on @fitpal.ma** and on the founder's own account, which coaches answer themselves:
    « On cherche 20 coachs en ligne pour 20 minutes de discussion sur leur façon de travailler.
    Pas de vente. En remerciement : 3 mois de Pro offerts et le résumé anonyme de ce que facturent
    les autres. Écris-moi en DM. »
 
-**Cold DMs to recruit: in all four countries, but not yet.** An interview request comes from a
-business that wants to sell to them, so the outreach rules apply to it too: the same safeguards,
-and nothing before the outreach doc's "before the first send" list (§4) is done. Counsel's
-answers of 14 November 2026 opened DMs to Morocco, Belgium and Spain as well as France
-([LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4). Until the list is done, recruit
-through channels 2 and 3.
+**Cold DMs to recruit follow the outreach rules.** An interview request comes from a business
+that wants to sell to them, so the same safeguards and the same blockers apply: the [LIA](../privacy/2026-11-08-lia-coach-prospecting.md)'s
+"before the first send" list (§0) decides when DMs may go to each country. Until a country is
+allowed, recruit there through channels 2 and 3.
 
 **What they get for it:**
 - **3 months of Pro free:** granted from the admin panel once they have an account, whenever
@@ -183,8 +182,9 @@ Not legal advice. Checked against the GDPR basics in lawve-ai/awesome-legal-skil
 - **To verify:**
   - **Google as host:** the Doc may be stored outside the EU. This goes with the Google Sheet
     question in the outreach doc §4.
-  - **Morocco:** whether interview notes about coaches there need anything under law 09-08
-    beyond their consent. This goes with CHW-367.
+  - **Morocco:** counsel answered that law 09-08 does not apply to FitPal (LIA §4.1). Whether
+    that covers interview notes too is for the written answer the LIA asks for (§0, item 3), with
+    CHW-367.
 
 ## 6. Results
 

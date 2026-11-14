@@ -80,11 +80,10 @@ the coach accepts by hand, under 10 minutes with auto-accept.
 
 **Weeks 3–6: founder-led sales**
 - Send 30 personal DMs a day, offering the free setup, a different country each day: Morocco,
-  then France or Belgium, then Spain (DM doc rule 6). Counsel answered on 14 November 2026 that
-  a DM isn't an electronic message under the consent rules and that law 09-08 doesn't apply to
-  FitPal ([LIA](../privacy/2026-11-08-lia-coach-prospecting.md) §4). **Not before** the DM doc's
-  "before the first send" list is done (`2026-11-dm-outreach.md` §4): the Sheet on a Google
-  Workspace account, and the bio link.
+  then France or Belgium, then Spain (DM doc rule 6). **Not before** each country is allowed by
+  the [LIA](../privacy/2026-11-08-lia-coach-prospecting.md)'s "before the first send" list (§0): France once the Sheet is on a Google Workspace
+  account and the bio link is set; Morocco, Spain and Belgium once counsel's answers are in
+  writing too. Until then, all 30 go to France.
 - Coaches who write first (a "comment APP" reply, a DM they send, the e-mail or WhatsApp on
   fitpal.ma) are answered the same day.
 - Hold 10 onboarding calls a week.
@@ -120,8 +119,9 @@ reached directly. The research and draft plan are kept on the closed PR #215 (CH
 
 **Day-90 targets:** 100 sign-ups, 50 activated, 15 paying (30% of activated, matching §2), 10 video testimonials.
 They assume cold DMs in all four countries from week 3, which is the plan again since 14
-November 2026. The first send still waits on the two owner items above: if it slips past week 3,
-revisit the targets at the first Monday review after it.
+November 2026. The first send still waits on the items above, and Morocco, the largest market, on
+counsel's written answer: if either slips past week 3, revisit the targets at the first Monday
+review after it.
 
 ## 5. Open tests
 
